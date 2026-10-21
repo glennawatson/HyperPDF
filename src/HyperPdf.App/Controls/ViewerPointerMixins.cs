@@ -53,6 +53,7 @@ internal static class ViewerPointerMixins
             ViewerCursor.Hand => PageCanvas.HandCursor,
             ViewerCursor.Cross => PageCanvas.CrossCursor,
             ViewerCursor.Text => PageCanvas.TextCursor,
+            ViewerCursor.Move => PageCanvas.MoveCursor,
             _ => null,
         };
     }

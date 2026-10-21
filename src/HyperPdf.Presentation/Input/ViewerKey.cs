@@ -60,4 +60,10 @@ public enum ViewerKey
 
     /// <summary>The minus key, on the main keys or the number pad.</summary>
     Minus = 17,
+
+    /// <summary>The A key.</summary>
+    A = 18,
+
+    /// <summary>The C key.</summary>
+    C = 19,
 }

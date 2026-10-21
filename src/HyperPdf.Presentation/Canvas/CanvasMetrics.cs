@@ -36,6 +36,9 @@ public static class CanvasMetrics
     /// <summary>The side of a resize handle.</summary>
     public static readonly double HandleSize = 8;
 
+    /// <summary>The hit tolerance for text, in points.</summary>
+    public static readonly float TextTolerance = 4F;
+
     /// <summary>Gets whether a press and release stayed close enough to count as a click rather than a drag.</summary>
     /// <param name="pressed">Where the pointer went down.</param>
     /// <param name="released">Where the pointer came up.</param>

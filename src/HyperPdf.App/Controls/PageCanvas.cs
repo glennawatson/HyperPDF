@@ -71,6 +71,9 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     /// <summary>The pointer while measuring or drawing.</summary>
     internal static readonly Cursor CrossCursor = new(StandardCursorType.Cross);
 
+    /// <summary>The pointer while the pages are being moved.</summary>
+    internal static readonly Cursor MoveCursor = new(StandardCursorType.SizeAll);
+
     /// <summary>The distance kept to the left of a navigation target.</summary>
     private const double TargetPadding = 24;
 
@@ -139,21 +142,11 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
             disposables.Add(this.WhenChanged(static x => x.CurrentHitOutline)
                 .SubscribeSafe(outline => _currentHitPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), CurrentHitOutlineWidth) : null, ErrorTrace.Write));
 
-            // Input routing: page tools and context menus first, then select-tool editing, then drawing/fields, then text/links.
-            var selectPresses = this.SelectToolPresses(tabs).Publish().RefCount();
-            disposables.Add(this.PageToolPresses(tabs).SubscribeSafe(static step => step.Begin(), ErrorTrace.Write));
-            disposables.Add(this.RightClicks(tabs).SubscribeSafe(static step => step.OpenMenu(), ErrorTrace.Write));
-            disposables.Add(selectPresses.TextBoxDoubleClicks.SubscribeSafe(static step => step.EditText(), ErrorTrace.Write));
-            disposables.Add(selectPresses.ResizeHandleStarts.SubscribeSafe(static step => step.Begin(), ErrorTrace.Write));
-            disposables.Add(selectPresses.CommentBadgeClicks.SubscribeSafe(static step => step.OpenBubble(), ErrorTrace.Write));
-            disposables.Add(selectPresses.BubbleDoubleClicks.SubscribeSafe(static step => step.SelectAndOpenBubble(), ErrorTrace.Write));
-            disposables.Add(selectPresses.AnnotationMoveStarts.SubscribeSafe(static step => step.Begin(), ErrorTrace.Write));
-            disposables.Add(this.DrawingAndFieldPresses(tabs).SubscribeSafe(static step => step.Begin(), ErrorTrace.Write));
-            disposables.Add(this.SelectionAndLinkPresses(tabs).SubscribeSafe(static step => step.Begin(), ErrorTrace.Write));
-            disposables.Add(this.EditMoves(tabs).SubscribeSafe(static step => step.UpdatePreview(), ErrorTrace.Write));
-            disposables.Add(this.PointerMoveSteps(tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
-            disposables.Add(this.EditReleases(tabs).SubscribeSafe(static step => step.CommitOrOpenBubble(), ErrorTrace.Write));
-            disposables.Add(this.PointerReleaseSteps(tabs).SubscribeSafe(static step => step.Apply(), ErrorTrace.Write));
+            // Input routing: the presentation layer decides, in this order: page tools and context menus, select-tool editing,
+            // drawing and fields, then text and links. Each route turns the Avalonia event into the neutral one and does what is asked.
+            disposables.Add(this.PointerPressRoutes(tabs).SubscribeSafe(static route => route.Apply(), ErrorTrace.Write));
+            disposables.Add(this.PointerMoveRoutes(tabs).SubscribeSafe(static route => route.Apply(), ErrorTrace.Write));
+            disposables.Add(this.PointerReleaseRoutes(tabs).SubscribeSafe(static route => route.Apply(), ErrorTrace.Write));
             disposables.Add(this.DocumentKeys.SubscribeSafe(static e => e.Handled = true, ErrorTrace.Write));
             disposables.Add(this.PageByPageWheels.SubscribeSafe(static e => e.Handled = true, ErrorTrace.Write));
             disposables.Add(this.HorizontalWheels.SubscribeSafe(static e => e.Handled = true, ErrorTrace.Write));
@@ -211,9 +204,6 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     /// <summary>Gets the command that copies the selected text from the context menu.</summary>
     internal ICommand CopyCommand { get; }
 
-    /// <summary>Gets the links by page, loaded lazily.</summary>
-    internal Dictionary<int, IReadOnlyList<PageLink>> Links { get; } = [];
-
     /// <summary>Gets the text the reader has selected.</summary>
     internal TextSelection Selection => State.Selection;
 
@@ -259,15 +249,6 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
         get => State.PendingScroll;
         set => State.PendingScroll = value;
     }
-
-    /// <summary>Gets or sets the pointer position where a press started.</summary>
-    internal Point PressPoint { get; set; }
-
-    /// <summary>Gets or sets the link under the pointer when it was pressed.</summary>
-    internal PageLink? PressedLink { get; set; }
-
-    /// <summary>Gets or sets a value indicating whether a text selection drag is active.</summary>
-    internal bool Selecting { get; set; }
 
     /// <summary>Gets or sets the selection anchor.</summary>
     internal CharacterPosition SelectionAnchor
@@ -656,7 +637,7 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
 
         State.Render.ForgetRequest();
         _shownTab = tab;
-        Links.Clear();
+        State.Links.Clear();
         ClearSelection();
         if (tab is null)
         {
@@ -672,7 +653,7 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     /// <summary>Lays the pages out again after the document loads, reloads or its pages change, keeping the reader's place.</summary>
     private void ReadPagesAgain()
     {
-        Links.Clear();
+        State.Links.Clear();
         ClearSelection();
         State.RelayoutAfterPagesChange();
     }

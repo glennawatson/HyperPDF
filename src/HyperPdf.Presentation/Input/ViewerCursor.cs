@@ -21,4 +21,7 @@ public enum ViewerCursor
 
     /// <summary>The text beam, over text that can be selected.</summary>
     Text = 4,
+
+    /// <summary>The arrows of all four directions, while the pages are being moved.</summary>
+    Move = 5,
 }

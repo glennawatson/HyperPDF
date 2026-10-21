@@ -42,6 +42,8 @@ internal static class ViewerKeyMixins
         Key.F2 => ViewerKey.F2,
         Key.OemPlus or Key.Add => ViewerKey.Plus,
         Key.OemMinus or Key.Subtract => ViewerKey.Minus,
+        Key.A => ViewerKey.A,
+        Key.C => ViewerKey.C,
         _ => ViewerKey.Other,
     };
 

@@ -15,9 +15,6 @@ public static class CanvasCaretMixins
     /// <summary>How far the caret reaches above and below the glyph, as a fraction of its height, to span the line.</summary>
     private const double CaretOverhang = 0.3;
 
-    /// <summary>The hit tolerance for text, in points.</summary>
-    private const float TextTolerance = 4F;
-
     /// <summary>Half, for centring the caret line on its character.</summary>
     private const double Half = 0.5;
 
@@ -167,7 +164,7 @@ public static class CanvasCaretMixins
             }
 
             var transform = new PageTransform(state.Layout.GetPageBounds(page), state.Sizes[page], tab.Rotation, state.Layout.Options.Scale);
-            character = document.GetCharacterIndexAt(page, transform.MapToPage(position.X, position.Y), TextTolerance);
+            character = document.GetCharacterIndexAt(page, transform.MapToPage(position.X, position.Y), CanvasMetrics.TextTolerance);
             return character >= 0;
         }
     }

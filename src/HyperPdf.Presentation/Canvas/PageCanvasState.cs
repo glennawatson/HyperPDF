@@ -38,6 +38,12 @@ public sealed class PageCanvasState
     /// <summary>Gets the character bounds list reused for caret lookups.</summary>
     public List<PageRect> CaretBounds { get; } = [];
 
+    /// <summary>Gets the links of each page, loaded when first asked for.</summary>
+    public Dictionary<int, IReadOnlyList<PageLink>> Links { get; } = [];
+
+    /// <summary>Gets what the toolkit must do after the canvas has dealt with a pointer event; one instance, reused by every event.</summary>
+    public InputEffects Effects { get; } = new();
+
     /// <summary>Gets the annotations list reused while planning comment indicator badges.</summary>
     public List<PageAnnotation> BadgeAnnotations { get; } = [];
 

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Core.Documents;
 using HyperPdf.Core.Layout;
 
 namespace HyperPdf.Presentation.Canvas;
@@ -11,6 +12,15 @@ namespace HyperPdf.Presentation.Canvas;
 [DebuggerDisplay("PageToolState: panning={Panning}, space={SpaceHeld}, area={AreaDragging}")]
 public sealed class PageToolState
 {
+    /// <summary>Gets or sets a value indicating whether a text selection drag is active.</summary>
+    public bool Selecting { get; set; }
+
+    /// <summary>Gets or sets where the pointer last went down on the canvas.</summary>
+    public CanvasPoint PressPoint { get; set; }
+
+    /// <summary>Gets or sets the link under the pointer when it went down.</summary>
+    public PageLink? PressedLink { get; set; }
+
     /// <summary>Gets or sets the annotation being moved or resized, or <see langword="null"/>.</summary>
     public AnnotationEditSession? ActiveEdit { get; set; }
 
