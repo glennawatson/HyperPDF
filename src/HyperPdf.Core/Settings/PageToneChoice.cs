@@ -24,4 +24,16 @@ public enum PageToneChoice
 
     /// <summary>White or dark pages following the desktop appearance.</summary>
     FollowDesktop = 5,
+
+    /// <summary>Yellow ink on black paper.</summary>
+    YellowOnBlack = 6,
+
+    /// <summary>Green ink on black paper.</summary>
+    GreenOnBlack = 7,
+
+    /// <summary>White ink on black paper.</summary>
+    WhiteOnBlack = 8,
+
+    /// <summary>The paper and ink colours the user chose.</summary>
+    Custom = 9,
 }

@@ -417,19 +417,19 @@ public static class Descriptions
     public static readonly string StopRecognition = "Stop finding the words in scanned pages.";
 
     /// <summary>The button that closes Read Aloud.</summary>
-    public static readonly string CloseReadAloud = $"Stop reading and close the Read Aloud bar.{Shortcut}Ctrl+Shift+Y";
+    public static readonly string CloseReadAloud = $"Stop reading and close the Read Aloud bar.{Shortcut}Ctrl+Shift+E";
 
     /// <summary>The previous sentence button.</summary>
-    public static readonly string PreviousSentence = "Go back one sentence and read it again.";
+    public static readonly string PreviousSentence = $"Go back one sentence and read it again.{Shortcut}Ctrl+Shift+Comma";
 
     /// <summary>The Play button.</summary>
-    public static readonly string Play = "Carry on reading from where it stopped.";
+    public static readonly string Play = $"Carry on reading from where it stopped.{Shortcut}Ctrl+Shift+C";
 
     /// <summary>The Pause button.</summary>
-    public static readonly string Pause = "Pause reading. Your place is kept.";
+    public static readonly string Pause = $"Pause reading. Your place is kept.{Shortcut}Ctrl+Shift+C";
 
     /// <summary>The next sentence button.</summary>
-    public static readonly string NextSentence = "Skip to the next sentence.";
+    public static readonly string NextSentence = $"Skip to the next sentence.{Shortcut}Ctrl+Shift+Period";
 
     /// <summary>The voice list.</summary>
     public static readonly string Voice = "Choose the voice that reads aloud.";
@@ -729,7 +729,13 @@ public static class Descriptions
     public static readonly string ColourScheme = "Choose the colours of the app, such as Calm, Dark or High contrast.";
 
     /// <summary>The PDF page colour list.</summary>
-    public static readonly string PageColour = "Choose the colour of the pages on screen. Printed pages keep their own colours.";
+    public static readonly string PageColour = "Choose the colour of the pages on screen, including high-contrast pairs or your own colours. Printed pages keep their own colours.";
+
+    /// <summary>Describes the custom paper colour box.</summary>
+    public static readonly string CustomPaperColour = "The colour of the page background, as six hex digits such as 000000 for black.";
+
+    /// <summary>Describes the custom ink colour box.</summary>
+    public static readonly string CustomInkColour = "The colour of the text and lines, as six hex digits such as FFFF00 for yellow.";
 
     /// <summary>The tool bar style list.</summary>
     public static readonly string ToolbarStyle = "Choose whether tool bar buttons show their names beside their icons.";
@@ -827,6 +833,11 @@ public static class Descriptions
     public static readonly string FollowPageTimings =
         "When ticked, presenting moves to the next page after the time the page asks for. Off by default, so pages change only when you ask. "
         + "Reduced motion turns it off. Keys and clicks still move pages.";
+
+    /// <summary>The help for keeping the keyboard cursor on pages.</summary>
+    public static readonly string KeepKeyboardCursor =
+        "When ticked, documents open with a text cursor on the page, so the arrow keys move through the words and a screen reader can follow. "
+        + "It works like Caret browsing (F7), which you can still switch off for a tab.";
 
     /// <summary>The help for the spelling check choice.</summary>
     public static readonly string CheckSpelling = "When ticked, misspelled words in form fields are underlined. Right-click one for corrections, from this computer's own dictionary.";

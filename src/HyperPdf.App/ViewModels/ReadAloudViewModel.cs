@@ -84,6 +84,12 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     /// <summary>The character reading should start from once the page is loaded; <see cref="int.MaxValue"/> means the last sentence.</summary>
     private int _startChar;
 
+    /// <summary>Whether the next read, once it begins, stops at the end of its first page.</summary>
+    private bool _pageOnlyNext;
+
+    /// <summary>Whether the read in progress stops at the end of the page it began on.</summary>
+    private bool _pageOnly;
+
     /// <summary>
     /// Stops the reading or download in progress, or <see langword="null"/> when none runs. The work owns and disposes its
     /// cancellation source; this is the source's Cancel, so <see cref="IsCurrentWork"/> can tell which work it stops.
@@ -399,6 +405,8 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     {
         CancelWork();
         RefreshVoices();
+        _pageOnly = _pageOnlyNext;
+        _pageOnlyNext = false;
         SpokenPage = _startPage >= 0 ? _startPage : Math.Max(0, _owner.CurrentPageIndex);
         if (_startPage < 0)
         {
@@ -432,10 +440,28 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ReadFromCharacter(PageCharacter start) => StartAt(start.Page, start.Char);
 
-    /// <summary>Plays or pauses.</summary>
+    /// <summary>Reads the page in view, from its top, and stops at its end.</summary>
+    [ReactiveCommand]
+    private void ReadThisPage()
+    {
+        _pageOnlyNext = true;
+        StartAt(Math.Max(0, _owner.CurrentPageIndex), 0);
+    }
+
+    /// <summary>Reads from the page in view to the end of the document.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ReadToEnd() => StartAt(Math.Max(0, _owner.CurrentPageIndex), 0);
+
+    /// <summary>Plays or pauses; with the bar closed there is nothing to play or pause.</summary>
     [ReactiveCommand]
     private void PlayPause()
     {
+        if (!IsOpen)
+        {
+            return;
+        }
+
         if (IsPlaying)
         {
             Pause();
@@ -778,6 +804,11 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
             if (_loadedPage == SpokenPage)
             {
                 // Finished this page.
+                if (_pageOnly)
+                {
+                    return false;
+                }
+
                 SpokenPage++;
                 _startChar = 0;
             }

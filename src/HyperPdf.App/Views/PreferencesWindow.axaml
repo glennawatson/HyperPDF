@@ -14,7 +14,17 @@
       <TextBlock x:Name="SchemeLabel" Grid.Row="0" VerticalAlignment="Center" Text="Colour scheme" />
       <ComboBox AutomationProperties.Name="Colour scheme" x:Name="SchemeBox" views:ControlHelp.Text="{x:Static views:Descriptions.ColourScheme}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="PageToneLabel" Grid.Row="1" VerticalAlignment="Center" Text="PDF page colour" />
-      <ComboBox AutomationProperties.Name="PDF page colour" x:Name="PageToneBox" views:ControlHelp.Text="{x:Static views:Descriptions.PageColour}" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
+        <ComboBox AutomationProperties.Name="PDF page colour" x:Name="PageToneBox" views:ControlHelp.Text="{x:Static views:Descriptions.PageColour}" HorizontalAlignment="Stretch" />
+        <!-- Shown only for Custom colours. -->
+        <Grid x:Name="CustomToneRow" ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="8">
+          <TextBlock x:Name="CustomPaperLabel" VerticalAlignment="Center" Text="Paper" />
+          <TextBox AutomationProperties.Name="Custom paper colour, six hex digits" x:Name="CustomPaperBox" views:ControlHelp.Text="{x:Static views:Descriptions.CustomPaperColour}" Grid.Column="1" MaxLength="7" PlaceholderText="RRGGBB" />
+          <TextBlock x:Name="CustomInkLabel" Grid.Column="2" VerticalAlignment="Center" Text="Ink" />
+          <TextBox AutomationProperties.Name="Custom ink colour, six hex digits" x:Name="CustomInkBox" views:ControlHelp.Text="{x:Static views:Descriptions.CustomInkColour}" Grid.Column="3" MaxLength="7" PlaceholderText="RRGGBB" />
+        </Grid>
+        <TextBlock x:Name="CustomToneContrastText" Classes="secondary" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+      </StackPanel>
       <TextBlock x:Name="ToolbarLabel" Grid.Row="2" VerticalAlignment="Center" Text="Tool bar" />
       <ComboBox AutomationProperties.Name="Tool bar" x:Name="ToolbarBox" views:ControlHelp.Text="{x:Static views:Descriptions.ToolbarStyle}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="FileChangeLabel" Grid.Row="3" VerticalAlignment="Center" Text="When a file changes on disk" />
@@ -44,6 +54,7 @@
       <CheckBox AutomationProperties.Name="Ignore bookmark colours" x:Name="IgnoreOutlineColoursBox" views:ControlHelp.Text="{x:Static views:Descriptions.IgnoreOutlineColours}" Content="Ignore bookmark colours" />
       <CheckBox AutomationProperties.Name="Show page transitions when presenting" x:Name="FollowPageTransitionsBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPageTransitions}" Content="Show page transitions when presenting" />
       <CheckBox AutomationProperties.Name="Move on by itself when presenting" x:Name="FollowPageTimingsBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPageTimings}" Content="Move on by itself when presenting" />
+      <CheckBox AutomationProperties.Name="Keep the keyboard cursor on pages" x:Name="KeepKeyboardCursorBox" views:ControlHelp.Text="{x:Static views:Descriptions.KeepKeyboardCursor}" Content="Keep the keyboard cursor on pages" />
       <CheckBox AutomationProperties.Name="Check spelling in form fields" x:Name="CheckSpellingBox" views:ControlHelp.Text="{x:Static views:Descriptions.CheckSpelling}" Content="Check spelling in form fields" />
       <CheckBox AutomationProperties.Name="Offer fonts that cannot be saved in PDFs" x:Name="PreviewOnlyFontsBox" views:ControlHelp.Text="{x:Static views:Descriptions.PreviewOnlyFonts}" Content="Offer fonts that cannot be saved in PDFs (shown on screen, saved as Helvetica, Times or Courier)" />
     </StackPanel>
