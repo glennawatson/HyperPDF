@@ -321,8 +321,8 @@ public sealed class PageCanvas : Control, IActivatableView
     /// <summary>Gets the page points of the ink stroke being drawn.</summary>
     internal List<PagePoint> Stroke { get; } = [];
 
-    /// <summary>Gets the corners placed so far in a polygon, cloud or polyline, in page space.</summary>
-    internal List<PagePoint> Corners { get; } = [];
+    /// <summary>Gets the corners placed so far in a polygon, cloud or polyline.</summary>
+    internal PolygonDraft Polygon { get; } = new();
 
     /// <summary>Gets the annotations list reused while drawing comment indicator badges.</summary>
     internal List<PageAnnotation> BadgeAnnotations { get; } = [];
@@ -445,12 +445,6 @@ public sealed class PageCanvas : Control, IActivatableView
 
     /// <summary>Gets or sets the shape currently being dragged on a page, or <see langword="null"/>.</summary>
     internal PageCanvasAnnotationMixins.ShapePreview? ActiveShape { get; set; }
-
-    /// <summary>Gets or sets the page the polygon is being drawn on, or -1 when not drawing one.</summary>
-    internal int CornerPage { get; set; } = -1;
-
-    /// <summary>Gets or sets the current pointer position in page space while drawing a polygon.</summary>
-    internal PagePoint CornerHover { get; set; }
 
     /// <summary>Gets or sets the page clicked by a click-based annotation tool, or -1 when none.</summary>
     internal int ClickPage { get; set; } = -1;

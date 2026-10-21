@@ -33,29 +33,37 @@ public readonly record struct FocusColours(uint Page, uint Text)
     /// <summary>The mask of one colour channel.</summary>
     private const uint ChannelMask = 0xFF;
 
+    /// <summary>The warm paper choice.</summary>
+    private const int WarmChoice = 1;
+
+    /// <summary>The green choice.</summary>
+    private const int GreenChoice = 2;
+
+    /// <summary>The dark choice.</summary>
+    private const int DarkChoice = 3;
+
+    /// <summary>The white choice.</summary>
+    private const int WhiteChoice = 4;
+
     /// <summary>The dark text read on a light page.</summary>
     private const uint DarkText = 0x222222;
 
     /// <summary>The light text read on a dark page.</summary>
     private const uint LightText = 0xE4E0D8;
 
-    /// <summary>The colour choices after the first, which follows the pages: warm paper, green, dark and white.</summary>
-    private static readonly FocusColours[] Choices =
-    [
-        new(0xF4ECD8, 0x3B3A36),
-        new(0xE3EBDD, 0x2F3A2F),
-        new(0x2A2826, 0xD8D2C8),
-        new(0xFFFFFF, 0x1A1A1A),
-    ];
-
     /// <summary>Gets the page and text colours of a choice; the first follows the app's page colour.</summary>
     /// <param name="choice">The choice, 0 for the app's page colour.</param>
     /// <param name="paper">The app's page colour as 0xRRGGBB, used when the choice follows the pages.</param>
     /// <returns>The colours.</returns>
     public static FocusColours Resolve(int choice, uint paper) =>
-        choice > 0 && choice <= Choices.Length
-            ? Choices[choice - 1]
-            : new(paper, Luminance(paper) > LightPage ? DarkText : LightText);
+        choice switch
+        {
+            WarmChoice => new(0xF4ECD8, 0x3B3A36),
+            GreenChoice => new(0xE3EBDD, 0x2F3A2F),
+            DarkChoice => new(0x2A2826, 0xD8D2C8),
+            WhiteChoice => new(0xFFFFFF, 0x1A1A1A),
+            _ => new(paper, Luminance(paper) > LightPage ? DarkText : LightText),
+        };
 
     /// <summary>Gets a colour's relative brightness.</summary>
     /// <param name="rgb">The colour as 0xRRGGBB.</param>

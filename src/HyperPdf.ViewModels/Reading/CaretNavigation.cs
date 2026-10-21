@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
+using HyperPdf.ViewModels.Viewing;
 
 namespace HyperPdf.ViewModels.Reading;
 
@@ -20,7 +21,28 @@ public static class CaretNavigation
     private const float Half = 0.5F;
 
     /// <summary>Gets the position that means there is no character.</summary>
-    public static CharacterPosition None { get; } = new(-1, -1);
+    /// <returns>The position, on page -1.</returns>
+    public static CharacterPosition None() => new(-1, -1);
+
+    /// <summary>Determines whether a key moves the caret.</summary>
+    /// <param name="key">The key.</param>
+    /// <returns><see langword="true"/> for the four arrow keys.</returns>
+    public static bool IsCaretKey(ViewerKey key) => key is ViewerKey.Left or ViewerKey.Right or ViewerKey.Up or ViewerKey.Down;
+
+    /// <summary>Works out where an arrow key moves the caret.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="from">The current position.</param>
+    /// <param name="key">The key.</param>
+    /// <param name="scratch">A list the caller owns, which receives character bounds while this works.</param>
+    /// <returns>The new position, or <see cref="None"/> at either end of the document or for any other key.</returns>
+    public static CharacterPosition GetNext(IDocument document, CharacterPosition from, ViewerKey key, List<PageRect> scratch) => key switch
+    {
+        ViewerKey.Right => Step(document, from, 1),
+        ViewerKey.Left => Step(document, from, -1),
+        ViewerKey.Down => StepLine(document, from, 1, scratch),
+        ViewerKey.Up => StepLine(document, from, -1, scratch),
+        _ => None(),
+    };
 
     /// <summary>Steps one character, crossing to the next or previous page with text.</summary>
     /// <param name="document">The document.</param>
@@ -45,7 +67,7 @@ public static class CaretNavigation
             }
         }
 
-        return None;
+        return None();
     }
 
     /// <summary>Steps one line down or up, keeping the caret's horizontal position, crossing pages at the edges.</summary>

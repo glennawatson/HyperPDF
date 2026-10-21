@@ -31,7 +31,7 @@ internal static class PageCanvasCaretMixins
     private const float TextTolerance = 4F;
 
     /// <summary>Represents the absence of a character position.</summary>
-    private static readonly CharacterPosition NoCharacter = CaretNavigation.None;
+    private static readonly CharacterPosition NoCharacter = new(-1, -1);
 
     /// <summary>Adds the caret, text selection, link click, pointer move/release and document key streams and helpers to a page canvas.</summary>
     /// <param name="canvas">The page canvas.</param>
@@ -111,7 +111,7 @@ internal static class PageCanvasCaretMixins
                 return false;
             }
 
-            if (PageCanvasToolMixins.HandleAutoScrollKey(tab, e))
+            if (DocumentKeys.HandleAutoScroll(tab, e.ViewerKey, e.ViewerModifiers))
             {
                 return true;
             }
@@ -141,17 +141,10 @@ internal static class PageCanvasCaretMixins
                 return false;
             }
 
-            var next = e.Key switch
-            {
-                Key.Right => CaretNavigation.Step(document, canvas.Caret, 1),
-                Key.Left => CaretNavigation.Step(document, canvas.Caret, -1),
-                Key.Down => CaretNavigation.StepLine(document, canvas.Caret, 1, canvas.CaretBounds),
-                Key.Up => CaretNavigation.StepLine(document, canvas.Caret, -1, canvas.CaretBounds),
-                _ => NoCharacter,
-            };
+            var next = CaretNavigation.GetNext(document, canvas.Caret, e.ViewerKey, canvas.CaretBounds);
             if (next.Page < 0)
             {
-                return e.Key is Key.Right or Key.Left or Key.Down or Key.Up;
+                return CaretNavigation.IsCaretKey(e.ViewerKey);
             }
 
             canvas.MoveCaret(next, (e.KeyModifiers & KeyModifiers.Shift) != 0);
@@ -374,7 +367,7 @@ internal static class PageCanvasCaretMixins
             }
 
             return canvas.HandlePlacementKey(e)
-                || canvas.HandleMeasureKey(e.Key)
+                || canvas.HandleMeasureKey(e)
                 || canvas.HandleAnnotationKey(e)
                 || canvas.HandleCaretKey(e)
                 || canvas.HandlePageByPageKey(e);
@@ -423,26 +416,21 @@ internal static class PageCanvasCaretMixins
         /// <param name="tab">The tab.</param>
         /// <param name="e">The key press.</param>
         /// <returns><see langword="true"/> when the key was used.</returns>
-        private bool HandlePlainNavigationKey(DocumentTabViewModel tab, KeyEventArgs e) =>
-            e.Key switch
+        private bool HandlePlainNavigationKey(DocumentTabViewModel tab, KeyEventArgs e)
+        {
+            // In caret mode Home and End stay with the text cursor.
+            if (DocumentKeys.HandleEdgePage(tab, e.ViewerKey))
             {
-                // In caret mode Home and End stay with the text cursor.
-                Key.Home when !tab.IsCaretMode && tab.PageCount > 0 => canvas.GoToEdgePage(tab, 0),
-                Key.End when !tab.IsCaretMode && tab.PageCount > 0 => canvas.GoToEdgePage(tab, tab.PageCount - 1),
+                canvas.InvalidateVisual();
+                return true;
+            }
+
+            return e.Key switch
+            {
                 Key.Escape => canvas.EscapePageTool(tab),
                 Key.Space => !tab.IsCaretMode && canvas.PressSpace(e),
                 _ => false,
             };
-
-        /// <summary>Goes to the first or last page.</summary>
-        /// <param name="tab">The tab.</param>
-        /// <param name="page">The page.</param>
-        /// <returns>Always <see langword="true"/>.</returns>
-        private bool GoToEdgePage(DocumentTabViewModel tab, int page)
-        {
-            tab.GoToPage(page);
-            canvas.InvalidateVisual();
-            return true;
         }
 
         /// <summary>Moves the caret, extending the selection when asked, and keeps it in view.</summary>

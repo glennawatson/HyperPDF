@@ -129,20 +129,12 @@ internal static class PageCanvasEditMixins
         /// <returns><see langword="true"/> when the annotation moved.</returns>
         internal bool NudgeSelected(KeyEventArgs e)
         {
-            if ((e.KeyModifiers & ~KeyModifiers.Shift) != 0 || canvas.Tab is not { Annotations.Selected: { IsMovable: true } picked } tab || (uint)picked.PageIndex >= (uint)canvas.Sizes.Length)
+            if (canvas.Tab is not { Annotations.Selected: { IsMovable: true } picked } tab || (uint)picked.PageIndex >= (uint)canvas.Sizes.Length)
             {
                 return false;
             }
 
-            var step = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? SignatureMarkLayout.FineMoveStep : SignatureMarkLayout.MoveStep;
-            var (dx, dy) = e.Key switch
-            {
-                Key.Left => new ScreenStep(-step, 0F),
-                Key.Right => new ScreenStep(step, 0F),
-                Key.Up => new ScreenStep(0F, -step),
-                Key.Down => new ScreenStep(0F, step),
-                _ => default,
-            };
+            var (dx, dy) = ScreenStep.FromArrow(e.ViewerKey, e.ViewerModifiers);
             if (dx == 0 && dy == 0)
             {
                 return false;
@@ -169,7 +161,7 @@ internal static class PageCanvasEditMixins
                 return;
             }
 
-            if (tab.Annotations.Selected is not { } picked || !CanResize(picked) || (uint)picked.PageIndex >= (uint)canvas.Sizes.Length)
+            if (tab.Annotations.Selected is not { } picked || !AnnotationRules.CanResize(picked) || (uint)picked.PageIndex >= (uint)canvas.Sizes.Length)
             {
                 return;
             }
@@ -254,18 +246,6 @@ internal static class PageCanvasEditMixins
     private static CanvasCorners Corners(in Rect area) =>
         new(area.TopLeft, area.TopRight, area.BottomRight, area.BottomLeft);
 
-    /// <summary>Determines whether an annotation shows resize handles: movable kinds other than notes, which keep their icon size.</summary>
-    /// <param name="annotation">The annotation.</param>
-    /// <returns><see langword="true"/> when it can be resized.</returns>
-    private static bool CanResize(PageAnnotation annotation) => annotation.IsMovable && annotation.Kind != AnnotationKind.Note;
-
-    /// <summary>Determines whether a kind is drawn as lines only, so the page shows through it.</summary>
-    /// <param name="kind">The kind.</param>
-    /// <returns><see langword="true"/> for drawings, lines and unfilled shapes.</returns>
-    private static bool IsOutline(AnnotationKind kind) =>
-        kind is AnnotationKind.Ink or AnnotationKind.Rectangle or AnnotationKind.Ellipse or AnnotationKind.Arrow or AnnotationKind.Line
-            or AnnotationKind.Polygon or AnnotationKind.Cloud or AnnotationKind.PolyLine;
-
     /// <summary>Matches a double-click on a free-text annotation.</summary>
     /// <param name="press">The select-tool press.</param>
     /// <returns>The hit when a text box was double-clicked.</returns>
@@ -280,7 +260,7 @@ internal static class PageCanvasEditMixins
     private static AnnotationEditStart? TryMatchResizeHandle(SelectToolPress press) =>
         press.Tab.Annotations.Selected is { } picked
         && picked.PageIndex == press.Page
-        && CanResize(picked)
+        && AnnotationRules.CanResize(picked)
         && press.Canvas.TryGrabHandle(press.Tab, picked, press.Position, out var anchor)
             ? new(press.Canvas, press.Args, new(picked, anchor, press.Position, picked.Bounds, true))
             : null;
@@ -323,7 +303,7 @@ internal static class PageCanvasEditMixins
         var overText = press.Canvas.TryHitTestCharacter(press.Position, out _, out _);
 
         // An outline drawn around text leaves the text selectable; its handles and the arrow keys still move it.
-        if (!hit.IsMovable || (IsOutline(hit.Kind) && overText))
+        if (!hit.IsMovable || (AnnotationRules.IsOutline(hit.Kind) && overText))
         {
             if (!overText)
             {
@@ -478,9 +458,4 @@ internal static class PageCanvasEditMixins
     /// <param name="Handle">The handle corner in canvas coordinates.</param>
     /// <param name="Opposite">The opposite corner in canvas coordinates.</param>
     private readonly record struct HandleCorner(Point Handle, Point Opposite);
-
-    /// <summary>An arrow-key nudge step in screen coordinates.</summary>
-    /// <param name="X">The horizontal step.</param>
-    /// <param name="Y">The vertical step.</param>
-    private readonly record struct ScreenStep(float X, float Y);
 }

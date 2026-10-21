@@ -11,11 +11,8 @@ namespace HyperPdf.App.Tests;
 internal static class TestTiles
 {
     /// <summary>Makes the Avalonia software tile a prepared tile falls back to.</summary>
-    internal static readonly Func<int, int, IRenderSurface> Software = CreateSoftware;
-
-    /// <summary>Makes an Avalonia software tile.</summary>
     /// <param name="width">The tile width.</param>
     /// <param name="height">The tile height.</param>
     /// <returns>The tile.</returns>
-    private static AvaloniaRenderSurface CreateSoftware(int width, int height) => new(width, height);
+    internal static IRenderSurface Software(int width, int height) => new AvaloniaRenderSurface(width, height);
 }

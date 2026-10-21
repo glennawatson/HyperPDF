@@ -138,20 +138,31 @@ internal static class PageCanvasAnnotationMixins
         /// <returns><see langword="true"/> when a field took the key.</returns>
         internal bool HandleFormKey(KeyEventArgs e)
         {
-            if (canvas.Tab is not { Forms: { HasForm: true } forms } tab)
+            if (canvas.Tab is not { } tab)
             {
                 return false;
             }
 
-            var focused = forms.Focused;
-            return e.Key switch
+            var result = DocumentKeys.HandleForm(tab, e.ViewerKey, e.ViewerModifiers);
+            switch (result.Outcome)
             {
-                Key.Tab when focused is not null || tab.FillAndSign.IsActive => canvas.MoveField(forms, (e.KeyModifiers & KeyModifiers.Shift) != 0),
-                Key.Space when focused is not null => forms.PressFocused() && canvas.Redraw(),
-                Key.Enter when focused is { Kind: FormFieldKind.ComboBox or FormFieldKind.ListBox } => canvas.OpenChoices(forms, focused),
-                Key.Escape when focused is not null => forms.ClearFocus() && canvas.Redraw(),
-                _ => false,
-            };
+                case FormKeyOutcome.Redraw:
+                {
+                    canvas.InvalidateVisual();
+                    return true;
+                }
+
+                case FormKeyOutcome.OpenChoices:
+                {
+                    canvas.ShowChoices(tab.Forms, result.Field!);
+                    return true;
+                }
+
+                default:
+                {
+                    return false;
+                }
+            }
         }
 
         /// <summary>Handles the placing keys while a signature or initials mark is being placed.</summary>
@@ -159,26 +170,17 @@ internal static class PageCanvasAnnotationMixins
         /// <returns><see langword="true"/> when the key was used.</returns>
         internal bool HandlePlacementKey(KeyEventArgs e)
         {
-            if (canvas.Tab is not { FillAndSign: { Placement: not null } placing } tab || (e.KeyModifiers & ~KeyModifiers.Shift) != 0)
+            if (canvas.Tab is not { } tab)
             {
                 return false;
             }
 
-            var step = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? SignatureMarkLayout.FineMoveStep : SignatureMarkLayout.MoveStep;
-            var used = e.Key switch
-            {
-                Key.Left => canvas.MovePlacement(tab, -step, 0),
-                Key.Right => canvas.MovePlacement(tab, step, 0),
-                Key.Up => canvas.MovePlacement(tab, 0, -step),
-                Key.Down => canvas.MovePlacement(tab, 0, step),
-                Key.OemPlus or Key.Add => placing.Resize(SignatureMarkLayout.ResizeStep),
-                Key.OemMinus or Key.Subtract => placing.Resize(1 / SignatureMarkLayout.ResizeStep),
-                Key.PageDown => placing.MoveToPage(1),
-                Key.PageUp => placing.MoveToPage(-1),
-                Key.Enter => CommitPlacement(placing),
-                Key.Escape => placing.Cancel(),
-                _ => false,
-            };
+            var used = DocumentKeys.HandlePlacement(
+                tab.FillAndSign,
+                e.ViewerKey,
+                e.ViewerModifiers,
+                new PlacementMove(canvas, tab),
+                static (move, dx, dy) => move.Canvas.MovePlacement(move.Tab, dx, dy));
             if (used)
             {
                 canvas.InvalidateVisual();
@@ -192,13 +194,13 @@ internal static class PageCanvasAnnotationMixins
         /// <returns><see langword="true"/> when the key was used.</returns>
         internal bool HandleAnnotationKey(KeyEventArgs e)
         {
-            var key = e.Key;
+            var key = e.ViewerKey;
             if (canvas.HandlePolygonKey(key) || canvas.NudgeSelected(e))
             {
                 return true;
             }
 
-            if (key == Key.Escape)
+            if (key == ViewerKey.Escape)
             {
                 canvas.ClearSelection();
                 canvas.Tab?.Annotations.CloseBubble();
@@ -206,18 +208,8 @@ internal static class PageCanvasAnnotationMixins
                 return false;
             }
 
-            if (canvas.EditPickedText(e))
-            {
-                return true;
-            }
-
-            if (key != Key.Delete || canvas.Tab?.Annotations is not { Selected: { } selected } annotations)
-            {
-                return false;
-            }
-
-            annotations.Delete(selected);
-            return true;
+            return canvas.Tab?.Annotations is { } annotations
+                && (DocumentKeys.EditPickedText(annotations, key, e.ViewerModifiers) || DocumentKeys.DeleteSelected(annotations, key));
         }
 
         /// <summary>Adds a point to the stroke or shape being drawn.</summary>
@@ -283,7 +275,7 @@ internal static class PageCanvasAnnotationMixins
 
             var clicked = canvas.ClickPage;
             canvas.ClickPage = -1;
-            RunClickTool(tab, clicked, canvas.ToPage(tab, clicked, position), canvas.ClickSnaps);
+            ClickTools.Run(tab.Annotations, clicked, canvas.ToPage(tab, clicked, position), canvas.ClickSnaps);
             return true;
         }
 
@@ -340,26 +332,19 @@ internal static class PageCanvasAnnotationMixins
         /// <param name="position">The canvas point.</param>
         internal void HoverPolygon(Point position)
         {
-            if (canvas.CornerPage < 0 || canvas.Tab is not { } tab)
+            if (canvas.Polygon.IsActive && canvas.Tab is { } tab && canvas.Polygon.MoveHover(canvas.ToPage(tab, canvas.Polygon.Page, position)))
             {
-                return;
+                canvas.InvalidateVisual();
             }
-
-            canvas.CornerHover = canvas.ToPage(tab, canvas.CornerPage, position);
-            canvas.InvalidateVisual();
         }
 
         /// <summary>Forgets the placed polygon corners.</summary>
         internal void CancelPolygon()
         {
-            if (canvas.CornerPage < 0)
+            if (canvas.Polygon.Cancel())
             {
-                return;
+                canvas.InvalidateVisual();
             }
-
-            canvas.Corners.Clear();
-            canvas.CornerPage = -1;
-            canvas.InvalidateVisual();
         }
 
         /// <summary>
@@ -449,21 +434,10 @@ internal static class PageCanvasAnnotationMixins
         /// <param name="clickCount">The pointer click count.</param>
         internal void PressPolygonCorner(DocumentTabViewModel tab, int page, Point position, int clickCount)
         {
-            if (page < 0 || (canvas.CornerPage >= 0 && page != canvas.CornerPage))
+            if (page >= 0 && canvas.Polygon.Press(tab.Annotations, page, canvas.ToPage(tab, page, position), clickCount >= PageCanvasToolMixins.DoubleClick))
             {
-                return;
+                canvas.InvalidateVisual();
             }
-
-            if (clickCount >= PageCanvasToolMixins.DoubleClick)
-            {
-                _ = canvas.FinishPolygon(tab);
-                return;
-            }
-
-            canvas.CornerPage = page;
-            canvas.CornerHover = canvas.ToPage(tab, page, position);
-            canvas.Corners.Add(canvas.CornerHover);
-            canvas.InvalidateVisual();
         }
 
         /// <summary>Matches a left pointer press to signature placement, shape/polygon/ink drawing, form field activation or click tools.</summary>
@@ -562,65 +536,18 @@ internal static class PageCanvasAnnotationMixins
             return true;
         }
 
-        /// <summary>Adds the polygon shape from the placed corners and starts again.</summary>
-        /// <param name="tab">The tab.</param>
-        /// <returns><see langword="true"/> when there were corners to finish.</returns>
-        private bool FinishPolygon(DocumentTabViewModel tab)
-        {
-            if (canvas.CornerPage < 0)
-            {
-                return false;
-            }
-
-            if (AnnotationsViewModel.GetPolygonKind(tab.Annotations.Tool) is { } kind)
-            {
-                _ = tab.Annotations.AddPolygon(canvas.CornerPage, kind, CollectionsMarshal.AsSpan(canvas.Corners));
-            }
-
-            canvas.CancelPolygon();
-            return true;
-        }
-
         /// <summary>Handles Enter (finish), Backspace (take back a corner) and Escape (start again) while placing corners.</summary>
         /// <param name="key">The key.</param>
         /// <returns><see langword="true"/> when the key was used.</returns>
-        private bool HandlePolygonKey(Key key)
+        private bool HandlePolygonKey(ViewerKey key)
         {
-            if (canvas.CornerPage < 0 || canvas.Tab is not { } tab)
+            if (canvas.Tab is not { } tab || !canvas.Polygon.HandleKey(tab.Annotations, key))
             {
                 return false;
             }
 
-            switch (key)
-            {
-                case Key.Enter:
-                {
-                    return canvas.FinishPolygon(tab);
-                }
-
-                case Key.Escape:
-                {
-                    canvas.CancelPolygon();
-                    return true;
-                }
-
-                case Key.Back:
-                {
-                    canvas.Corners.RemoveAt(canvas.Corners.Count - 1);
-                    if (canvas.Corners.Count == 0)
-                    {
-                        canvas.CornerPage = -1;
-                    }
-
-                    canvas.InvalidateVisual();
-                    return true;
-                }
-
-                default:
-                {
-                    return false;
-                }
-            }
+            canvas.InvalidateVisual();
+            return true;
         }
 
         /// <summary>Moves the mark being placed by a distance on screen, so arrows follow the screen on a rotated page.</summary>
@@ -641,46 +568,6 @@ internal static class PageCanvasAnnotationMixins
             var end = transform.ToPage(origin + new Vector(dx * transform.Scale, dy * transform.Scale));
             return tab.FillAndSign.Move(end.X - start.X, end.Y - start.Y);
         }
-
-        /// <summary>Moves the field focus, scrolling the field into view.</summary>
-        /// <param name="forms">The form state.</param>
-        /// <param name="backwards">Whether to move to the previous field.</param>
-        /// <returns><see langword="true"/> when a field took the focus.</returns>
-        private bool MoveField(FormsViewModel forms, bool backwards)
-        {
-            if (forms.CommitAndMove(backwards) is not { } field)
-            {
-                return false;
-            }
-
-            canvas.Tab?.NavigateTo(field.PageIndex, field.Bounds, 0);
-            return canvas.Redraw();
-        }
-
-        /// <summary>Opens the choices of a focused list.</summary>
-        /// <param name="forms">The form state.</param>
-        /// <param name="field">The field.</param>
-        /// <returns>Always <see langword="true"/>.</returns>
-        private bool OpenChoices(FormsViewModel forms, FormField field)
-        {
-            canvas.ShowChoices(forms, field);
-            return true;
-        }
-
-        /// <summary>Redraws the canvas after a key changed what it shows.</summary>
-        /// <returns>Always <see langword="true"/>.</returns>
-        private bool Redraw()
-        {
-            canvas.InvalidateVisual();
-            return true;
-        }
-
-        /// <summary>Edits the picked text box on Enter or F2, as a spreadsheet edits its cell.</summary>
-        /// <param name="e">The key press.</param>
-        /// <returns><see langword="true"/> when editing started.</returns>
-        private bool EditPickedText(KeyEventArgs e) =>
-            e.Key is Key.Enter or Key.F2 && e.KeyModifiers == KeyModifiers.None && canvas.Tab?.Annotations is { Selected.Kind: AnnotationKind.TextBox } annotations
-            && annotations.EditText(annotations.Selected);
 
         /// <summary>Marks the selected text and clears the selection.</summary>
         /// <param name="tab">The tab.</param>
@@ -804,14 +691,15 @@ internal static class PageCanvasAnnotationMixins
         /// <param name="tab">The tab.</param>
         private void DrawPolygonPreview(DrawingContext context, DocumentTabViewModel tab)
         {
-            if (canvas.CornerPage < 0 || canvas.CornerPage >= canvas.Sizes.Length || canvas.Corners.Count == 0)
+            var polygon = canvas.Polygon;
+            if (!polygon.IsActive || polygon.Page >= canvas.Sizes.Length || polygon.Corners.Count == 0)
             {
                 return;
             }
 
-            var transform = new PageTransform(canvas.Layout.GetPageBounds(canvas.CornerPage), canvas.Sizes[canvas.CornerPage], tab.Rotation, canvas.Layout.Options.Scale);
-            var previous = transform.ToCanvas(canvas.Corners[0]);
-            foreach (var corner in canvas.Corners)
+            var transform = new PageTransform(canvas.Layout.GetPageBounds(polygon.Page), canvas.Sizes[polygon.Page], tab.Rotation, canvas.Layout.Options.Scale);
+            var previous = transform.ToCanvas(polygon.Corners[0]);
+            foreach (var corner in polygon.Corners)
             {
                 var next = transform.ToCanvas(corner);
                 context.DrawLine(StrokePen, previous, next);
@@ -819,7 +707,7 @@ internal static class PageCanvasAnnotationMixins
                 previous = next;
             }
 
-            context.DrawLine(StrokePen, previous, transform.ToCanvas(canvas.CornerHover));
+            context.DrawLine(StrokePen, previous, transform.ToCanvas(polygon.Hover));
         }
 
         /// <summary>Draws the signature mark being placed and its outline.</summary>
@@ -859,71 +747,6 @@ internal static class PageCanvasAnnotationMixins
             }
 
             context.DrawRectangle(null, new Pen((canvas.CurrentHitPen ?? StrokePen).Brush, FocusRingWidth), canvas.GetCanvasRect(field.PageIndex, field.Bounds).Inflate(FocusRingGap));
-        }
-    }
-
-    /// <summary>Places the signature mark; Enter is used even when placing fails, as the failure is shown as a notice.</summary>
-    /// <param name="placing">The tab's Fill &amp; Sign state.</param>
-    /// <returns>Always <see langword="true"/>.</returns>
-    private static bool CommitPlacement(FillAndSignViewModel placing)
-    {
-        _ = placing.Commit();
-        return true;
-    }
-
-    /// <summary>Runs a click tool: adds a note, text or a stamp where the page was clicked.</summary>
-    /// <param name="tab">The tab.</param>
-    /// <param name="clicked">The page.</param>
-    /// <param name="point">The point, in page space.</param>
-    /// <param name="snaps">Whether text clicked into a place to write fits it; Alt turns this off.</param>
-    private static void RunClickTool(DocumentTabViewModel tab, int clicked, PagePoint point, bool snaps)
-    {
-        switch (tab.Annotations.Tool)
-        {
-            case AnnotationTool.Note:
-            {
-                if (tab.Annotations.HitTest(clicked, point) is { Kind: AnnotationKind.Note } existing)
-                {
-                    _ = tab.Annotations.OpenBubble(existing);
-                }
-                else
-                {
-                    _ = tab.Annotations.BeginNoteBubble(clicked, point);
-                }
-
-                break;
-            }
-
-            case AnnotationTool.Text:
-            {
-                if (tab.Annotations.HitTest(clicked, point) is { Kind: AnnotationKind.TextBox } box)
-                {
-                    _ = tab.Annotations.EditText(box);
-                    return;
-                }
-
-                _ = snaps && tab.Annotations.RegionAt(clicked, point) is { } region
-                    ? tab.Annotations.BeginInRegion(clicked, region)
-                    : tab.Annotations.BeginText(clicked, point, 0);
-                break;
-            }
-
-            case AnnotationTool.Stamp:
-            {
-                _ = tab.Annotations.AddStamp(clicked, point);
-                break;
-            }
-
-            case AnnotationTool.Caret:
-            {
-                _ = tab.Annotations.AddCaret(clicked, point);
-                break;
-            }
-
-            default:
-            {
-                break;
-            }
         }
     }
 
@@ -1068,4 +891,9 @@ internal static class PageCanvasAnnotationMixins
             Args.Handled = true;
         }
     }
+
+    /// <summary>The canvas and tab a keyboard move of the mark being placed is made on.</summary>
+    /// <param name="Canvas">The page canvas.</param>
+    /// <param name="Tab">The tab.</param>
+    private readonly record struct PlacementMove(PageCanvas Canvas, DocumentTabViewModel Tab);
 }

@@ -24,14 +24,17 @@ public sealed class WheelZoomCurveTests
     /// <summary>The progress at the halfway point.</summary>
     private const double Half = 0.5;
 
+    /// <summary>How long one wheel zoom takes.</summary>
+    private static readonly TimeSpan Duration = TimeSpan.FromMilliseconds(140);
+
     /// <summary>Progress runs from nothing to done over the duration, and stays done after it.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task ProgressRunsOverTheDuration()
     {
         await Assert.That(WheelZoomCurve.GetProgress(TimeSpan.Zero)).IsEqualTo(0);
-        await Assert.That(WheelZoomCurve.GetProgress(WheelZoomCurve.Duration)).IsEqualTo(1);
-        await Assert.That(WheelZoomCurve.GetProgress(WheelZoomCurve.Duration * Overrun)).IsEqualTo(1);
+        await Assert.That(WheelZoomCurve.GetProgress(Duration)).IsEqualTo(1);
+        await Assert.That(WheelZoomCurve.GetProgress(Duration * Overrun)).IsEqualTo(1);
     }
 
     /// <summary>The ease starts at the start zoom and ends at the target.</summary>

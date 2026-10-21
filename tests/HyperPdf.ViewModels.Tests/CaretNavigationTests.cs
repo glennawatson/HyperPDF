@@ -62,8 +62,8 @@ public sealed class CaretNavigationTests
     {
         using var document = Create();
 
-        await Assert.That(CaretNavigation.Step(document, At(LastPage, LastCharacter), 1)).IsEqualTo(CaretNavigation.None);
-        await Assert.That(CaretNavigation.Step(document, At(FirstPage, 0), -1)).IsEqualTo(CaretNavigation.None);
+        await Assert.That(CaretNavigation.Step(document, At(LastPage, LastCharacter), 1)).IsEqualTo(CaretNavigation.None());
+        await Assert.That(CaretNavigation.Step(document, At(FirstPage, 0), -1)).IsEqualTo(CaretNavigation.None());
     }
 
     /// <summary>A step inside a page moves one character.</summary>
@@ -129,14 +129,38 @@ public sealed class CaretNavigationTests
 
         var down = CaretNavigation.StepLine(document, At(LastPage, SecondLine), 1, scratch);
 
-        await Assert.That(down).IsEqualTo(CaretNavigation.None);
+        await Assert.That(down).IsEqualTo(CaretNavigation.None());
+    }
+
+    /// <summary>Each arrow key moves the caret the way it points, and other keys do not move it.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ArrowKeysMoveTheCaret()
+    {
+        using var document = Create();
+        List<PageRect> scratch = [];
+        var from = At(FirstPage, 1);
+
+        await Assert.That(CaretNavigation.GetNext(document, from, ViewerKey.Right, scratch)).IsEqualTo(At(FirstPage, SecondLine));
+        await Assert.That(CaretNavigation.GetNext(document, from, ViewerKey.Left, scratch)).IsEqualTo(At(FirstPage, 0));
+        await Assert.That(CaretNavigation.GetNext(document, from, ViewerKey.Down, scratch)).IsEqualTo(At(FirstPage, LastCharacter));
+        await Assert.That(CaretNavigation.GetNext(document, from, ViewerKey.Enter, scratch)).IsEqualTo(CaretNavigation.None());
+    }
+
+    /// <summary>Only the four arrows are caret keys.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task OnlyArrowsAreCaretKeys()
+    {
+        await Assert.That(CaretNavigation.IsCaretKey(ViewerKey.Up)).IsTrue();
+        await Assert.That(CaretNavigation.IsCaretKey(ViewerKey.Home)).IsFalse();
     }
 
     /// <summary>A missing document is refused.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task MissingDocumentIsRefused() =>
-        await Assert.That(static () => CaretNavigation.Step(null!, CaretNavigation.None, 1)).Throws<ArgumentNullException>();
+        await Assert.That(static () => CaretNavigation.Step(null!, CaretNavigation.None(), 1)).Throws<ArgumentNullException>();
 
     /// <summary>A missing scratch list is refused.</summary>
     /// <returns>A task.</returns>
@@ -145,7 +169,7 @@ public sealed class CaretNavigationTests
     {
         using var document = Create();
 
-        await Assert.That(() => CaretNavigation.StepLine(document, CaretNavigation.None, 1, null!)).Throws<ArgumentNullException>();
+        await Assert.That(() => CaretNavigation.StepLine(document, CaretNavigation.None(), 1, null!)).Throws<ArgumentNullException>();
     }
 
     /// <summary>Names a position in the test document.</summary>

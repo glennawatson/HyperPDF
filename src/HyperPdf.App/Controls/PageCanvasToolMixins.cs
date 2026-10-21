@@ -359,33 +359,13 @@ internal static class PageCanvasToolMixins
         }
 
         /// <summary>Handles Enter (finish) and Escape (clear) while measuring.</summary>
-        /// <param name="key">The key.</param>
+        /// <param name="e">The key press.</param>
         /// <returns><see langword="true"/> when the key was used.</returns>
-        internal bool HandleMeasureKey(Key key)
+        internal bool HandleMeasureKey(KeyEventArgs e)
         {
-            if (canvas.Tab is not { Measure: { IsOn: true } measure })
+            if (canvas.Tab is not { } tab || !DocumentKeys.HandleMeasure(tab.Measure, e.ViewerKey))
             {
                 return false;
-            }
-
-            switch (key)
-            {
-                case Key.Enter:
-                {
-                    measure.Finish();
-                    break;
-                }
-
-                case Key.Escape:
-                {
-                    measure.Clear();
-                    break;
-                }
-
-                default:
-                {
-                    return false;
-                }
             }
 
             canvas.InvalidateVisual();
@@ -451,44 +431,6 @@ internal static class PageCanvasToolMixins
         private bool IsPanPress(PointerPoint point, DocumentTabViewModel tab) =>
             canvas.Scroller is not null
             && (point.Properties.IsMiddleButtonPressed || (point.Properties.IsLeftButtonPressed && (canvas.SpaceHeld || tab.PageTools.PageTool == PageTool.Hand)));
-    }
-
-    /// <summary>Handles the keys that change the speed or stop while auto-scrolling.</summary>
-    /// <param name="tab">The tab.</param>
-    /// <param name="e">The key press.</param>
-    /// <returns><see langword="true"/> when the key was used.</returns>
-    internal static bool HandleAutoScrollKey(DocumentTabViewModel tab, KeyEventArgs e)
-    {
-        if (!tab.PageTools.IsAutoScrolling || (e.KeyModifiers & ~KeyModifiers.Shift) != 0)
-        {
-            return false;
-        }
-
-        switch (e.Key)
-        {
-            case Key.Up or Key.OemPlus or Key.Add:
-            {
-                _ = tab.PageTools.ChangeAutoScrollSpeed(1);
-                return true;
-            }
-
-            case Key.Down or Key.OemMinus or Key.Subtract:
-            {
-                _ = tab.PageTools.ChangeAutoScrollSpeed(-1);
-                return true;
-            }
-
-            case Key.Escape:
-            {
-                tab.PageTools.IsAutoScrolling = false;
-                return true;
-            }
-
-            default:
-            {
-                return false;
-            }
-        }
     }
 
     /// <summary>Gets the rectangle between two corners, whichever way it was dragged.</summary>
