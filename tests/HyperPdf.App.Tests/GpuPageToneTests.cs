@@ -38,6 +38,9 @@ public sealed class GpuPageToneTests
     /// <summary>The tone variants that exceed the bounded reusable filter cache.</summary>
     private const int ToneVariants = 12;
 
+    /// <summary>The number of tiles toned at the same time.</summary>
+    private const int ConcurrentTiles = 16;
+
     /// <summary>Common light, dark and contrast tones match CPU pixels across a colour grid.</summary>
     /// <param name="paper">The packed paper colour.</param>
     /// <param name="ink">The packed ink colour.</param>
@@ -88,6 +91,33 @@ public sealed class GpuPageToneTests
         }
 
         await Assert.That(allSupported).IsTrue();
+    }
+
+    /// <summary>Tiles toned from many threads at once all match the CPU tone.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ConcurrentTilesMatchCpuTone()
+    {
+        var tone = new PageTone(0x2A2826U, 0xD2CDC5U);
+        using var tones = new GpuPageTone();
+        var source = CreateSource();
+        var expected = (byte[])source.Clone();
+        tone.Apply(expected);
+        using var srgb = SKColorSpace.CreateSrgb();
+        var info = new SKImageInfo(Side, Side, SKColorType.Bgra8888, SKAlphaType.Premul, srgb);
+        using var image = SKImage.FromPixelCopy(info, source, Side * BytesPerPixel);
+        var matches = 0;
+        _ = Parallel.For(0, ConcurrentTiles, _ =>
+        {
+            using var toned = tones.TryApply(image, info, tone, null);
+            var actual = new byte[source.Length];
+            if (ReadPixels(toned, info, actual) && actual.AsSpan().SequenceEqual(expected))
+            {
+                _ = Interlocked.Increment(ref matches);
+            }
+        });
+
+        await Assert.That(matches).IsEqualTo(ConcurrentTiles);
     }
 
     /// <summary>Closing one hub leaves another hub's tone resources usable.</summary>
