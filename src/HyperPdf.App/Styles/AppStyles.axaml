@@ -238,6 +238,57 @@
     <Setter Property="Background" Value="{TemplateBinding Background}" />
   </Style>
 
+  <!--
+    Menus and flyouts: an opaque panel with a clear border and a shadow, so a menu never blends into the page behind it,
+    roomy rows for larger text and low vision, and a non-colour cue (an accent bar) on the highlighted row.
+  -->
+  <Style Selector="MenuFlyoutPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppHeaderBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="0,4" />
+  </Style>
+  <Style Selector="ContextMenu">
+    <Setter Property="Background" Value="{DynamicResource AppHeaderBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="0,4" />
+  </Style>
+  <Style Selector="FlyoutPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppHeaderBackground}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="MenuItem">
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="Padding" Value="10,6" />
+    <Setter Property="Foreground" Value="{DynamicResource AppForeground}" />
+  </Style>
+  <!-- Disabled buttons keep the inactive text colour (4.5:1) rather than the theme's fainter one, so low vision can still read what is unavailable. -->
+  <Style Selector=":is(Button):disabled /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{DynamicResource AppSecondaryForeground}" />
+  </Style>
+  <Style Selector="MenuItem:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource AppSecondaryForeground}" />
+  </Style>
+  <Style Selector="MenuItem:selected /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="BorderThickness" Value="3,0,0,0" />
+  </Style>
+  <Style Selector="MenuItem:pointerover /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource AppSelectionBrush}" />
+  </Style>
+  <Style Selector="MenuItem Path.icon">
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+  </Style>
+  <Style Selector="MenuFlyoutPresenter Separator, ContextMenu Separator">
+    <Setter Property="Background" Value="{DynamicResource AppBorderBrush}" />
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Margin" Value="0,4" />
+  </Style>
+
   <Style Selector="TextBlock.secondary">
     <Setter Property="Foreground" Value="{DynamicResource AppSecondaryForeground}" />
   </Style>

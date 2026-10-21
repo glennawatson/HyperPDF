@@ -42,7 +42,13 @@
         <views:ThumbnailPanelView />
         <views:OutlinePanelView x:Name="OutlinePanel" />
         <views:AnnotationListView />
-        <ListBox x:Name="SearchResultList" AutomationProperties.Name="Search results" Background="Transparent" />
+        <DockPanel x:Name="SearchPanel">
+          <StackPanel DockPanel.Dock="Top" Margin="8,4,8,4" Spacing="4">
+            <TextBox x:Name="SidebarSearchBox" views:ControlHelp.Text="{x:Static views:Descriptions.SearchBox}" AutomationProperties.Name="Find in document" MinHeight="28" Padding="8,3" HorizontalAlignment="Stretch" PlaceholderText="Find in document" />
+            <TextBlock x:Name="SidebarSearchStatus" AutomationProperties.LiveSetting="Polite" Classes="secondary" TextWrapping="Wrap" />
+          </StackPanel>
+          <ListBox x:Name="SearchResultList" AutomationProperties.Name="Search results" Background="Transparent" />
+        </DockPanel>
         <views:LayersPanelView />
         <views:PartsPanelView />
         <views:AttachmentsPanelView />

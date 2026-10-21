@@ -6,11 +6,26 @@
   <Button x:Name="DocumentMenuButton" views:ControlHelp.Text="{x:Static views:Descriptions.DocumentMenu}" AutomationProperties.Name="Document" Classes="tool" Content="Document ▾">
     <Button.Flyout>
       <MenuFlyout Placement="BottomEdgeAlignedRight">
-        <MenuItem x:Name="SaveItem" views:ControlHelp.Text="{x:Static views:Descriptions.Save}" Header="_Save" InputGesture="Ctrl+S" />
-        <MenuItem x:Name="SaveAsItem" views:ControlHelp.Text="{x:Static views:Descriptions.SaveAs}" Header="Save _As…" InputGesture="Ctrl+Shift+S" />
-        <MenuItem x:Name="SaveCopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.SaveCopy}" Header="Save a _Copy…" />
+        <MenuItem x:Name="SaveItem" views:ControlHelp.Text="{x:Static views:Descriptions.Save}" Header="_Save" InputGesture="Ctrl+S">
+          <MenuItem.Icon>
+            <Path Classes="icon add" Data="{StaticResource IconSave}" />
+          </MenuItem.Icon>
+        </MenuItem>
+        <MenuItem x:Name="SaveAsItem" views:ControlHelp.Text="{x:Static views:Descriptions.SaveAs}" Header="Save _As…" InputGesture="Ctrl+Shift+S">
+          <MenuItem.Icon>
+            <Path Classes="icon add" Data="{StaticResource IconSave}" />
+          </MenuItem.Icon>
+        </MenuItem>
+        <MenuItem x:Name="SaveCopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.SaveCopy}" Header="Save a _Copy…">
+          <MenuItem.Icon>
+            <Path Classes="icon add" Data="{StaticResource IconDocument}" />
+          </MenuItem.Icon>
+        </MenuItem>
         <Separator />
         <MenuItem x:Name="ProtectSignMenu" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectSignMenu}" Header="_Protect &amp; Sign">
+          <MenuItem.Icon>
+            <Path Classes="icon edit" Data="{StaticResource IconCertificate}" />
+          </MenuItem.Icon>
           <MenuItem x:Name="ProtectItem" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectCopy}" Header="Protect with _Password…" />
           <MenuItem x:Name="RemoveProtectionItem" views:ControlHelp.Text="{x:Static views:Descriptions.RemoveProtectionCopy}" Header="Remove Pro_tection…" />
           <Separator />
@@ -20,11 +35,27 @@
           <MenuItem x:Name="ExternalSignItem" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalSign}" Header="Sign with E_xternal Signer…" />
         </MenuItem>
         <Separator />
-        <MenuItem x:Name="SelectAllItem" views:ControlHelp.Text="{x:Static views:Descriptions.SelectAll}" Header="Select A_ll Text on Page" InputGesture="Ctrl+A" />
+        <MenuItem x:Name="SelectAllItem" views:ControlHelp.Text="{x:Static views:Descriptions.SelectAll}" Header="Select A_ll Text on Page" InputGesture="Ctrl+A">
+          <MenuItem.Icon>
+            <Path Classes="icon nav" Data="{StaticResource IconCursor}" />
+          </MenuItem.Icon>
+        </MenuItem>
         <Separator />
-        <MenuItem x:Name="ReloadItem" views:ControlHelp.Text="{x:Static views:Descriptions.Reload}" Header="Re_load" InputGesture="F5" />
-        <MenuItem x:Name="ShowInFolderItem" views:ControlHelp.Text="{x:Static views:Descriptions.ShowInFolder}" Header="Show in _Folder" />
-        <MenuItem x:Name="PropertiesItem" views:ControlHelp.Text="{x:Static views:Descriptions.Properties}" Header="_Properties" InputGesture="Alt+Enter" />
+        <MenuItem x:Name="ReloadItem" views:ControlHelp.Text="{x:Static views:Descriptions.Reload}" Header="Re_load" InputGesture="F5">
+          <MenuItem.Icon>
+            <Path Classes="icon nav" Data="{StaticResource IconRotateRight}" />
+          </MenuItem.Icon>
+        </MenuItem>
+        <MenuItem x:Name="ShowInFolderItem" views:ControlHelp.Text="{x:Static views:Descriptions.ShowInFolder}" Header="Show in _Folder">
+          <MenuItem.Icon>
+            <Path Classes="icon nav" Data="{StaticResource IconOpen}" />
+          </MenuItem.Icon>
+        </MenuItem>
+        <MenuItem x:Name="PropertiesItem" views:ControlHelp.Text="{x:Static views:Descriptions.Properties}" Header="_Properties" InputGesture="Alt+Enter">
+          <MenuItem.Icon>
+            <Path Classes="icon nav" Data="{StaticResource IconOutline}" />
+          </MenuItem.Icon>
+        </MenuItem>
       </MenuFlyout>
     </Button.Flyout>
   </Button>
