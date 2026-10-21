@@ -78,7 +78,7 @@ internal static class PageCanvasContextMenuMixins
         {
             var (e, tab) = item;
             var point = e.GetCurrentPoint(canvas);
-            return point.Properties.IsRightButtonPressed ? new(canvas, tab, e, point.Position) : null;
+            return PointerRouting.IsContextPress(point.ViewerButtons) ? new(canvas, tab, e, point.Position) : null;
         }
 
     }

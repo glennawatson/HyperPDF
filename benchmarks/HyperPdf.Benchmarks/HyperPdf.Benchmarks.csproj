@@ -61,6 +61,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(ViewModelsProject)' != 'true'">
+    <Compile Remove="CanvasMathBenchmarks.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
     <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
     <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationNames.cs" Link="AnnotationNames.cs" />

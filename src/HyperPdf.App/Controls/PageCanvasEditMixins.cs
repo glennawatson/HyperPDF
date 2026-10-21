@@ -107,16 +107,10 @@ internal static class PageCanvasEditMixins
         internal bool TryGrabHandle(DocumentTabViewModel tab, PageAnnotation picked, Point position, out PagePoint anchor)
         {
             var transform = new PageTransform(canvas.Layout.GetPageBounds(picked.PageIndex), canvas.Sizes[picked.PageIndex], tab.Rotation, canvas.Layout.Options.Scale);
-            var (topLeft, topRight, bottomRight, bottomLeft) = Corners(transform.ToCanvas(picked.Bounds).Inflate(PageCanvasAnnotationMixins.OutlineInset));
-            ReadOnlySpan<HandleCorner> corners = [new(topLeft, bottomRight), new(topRight, bottomLeft), new(bottomRight, topLeft), new(bottomLeft, topRight)];
-            foreach (var (handle, opposite) in corners)
+            var area = transform.ToCanvas(picked.Bounds).Inflate(PageCanvasAnnotationMixins.OutlineInset);
+            if (ResizeHandles.TryGrab(new(area.X, area.Y, area.Width, area.Height), position.X, position.Y, (HandleSize * PageCanvas.Half) + HandleReach, out var opposite))
             {
-                if (Math.Abs(position.X - handle.X) > (HandleSize * PageCanvas.Half) + HandleReach || Math.Abs(position.Y - handle.Y) > (HandleSize * PageCanvas.Half) + HandleReach)
-                {
-                    continue;
-                }
-
-                anchor = transform.ToPage(opposite);
+                anchor = transform.MapToPage(opposite.X, opposite.Y);
                 return true;
             }
 
@@ -180,13 +174,8 @@ internal static class PageCanvasEditMixins
         private SelectToolPress? TryCreateSelectToolPress(Injected<PointerPressedEventArgs, DocumentTabViewModel> item)
         {
             var (e, tab) = item;
-            if (e.Handled || tab.Annotations.Tool != AnnotationTool.Select || tab.Measure.IsOn || tab.FillAndSign.Placement is not null)
-            {
-                return null;
-            }
-
             var point = e.GetCurrentPoint(canvas);
-            if (!point.Properties.IsLeftButtonPressed || point.Properties.IsRightButtonPressed)
+            if (e.Handled || !PointerRouting.IsSelectToolPress(tab, point.ViewerButtons))
             {
                 return null;
             }
@@ -207,20 +196,7 @@ internal static class PageCanvasEditMixins
 
             var (e, tab) = item;
             var point = canvas.ToPage(tab, edit.Annotation.PageIndex, e.GetPosition(canvas));
-            PageRect nextBounds;
-            if (edit.Resizing)
-            {
-                nextBounds = PageRect.FromEdges(
-                    Math.Min(edit.Anchor.X, point.X),
-                    Math.Min(edit.Anchor.Y, point.Y),
-                    Math.Max(edit.Anchor.X, point.X),
-                    Math.Max(edit.Anchor.Y, point.Y));
-            }
-            else
-            {
-                var bounds = edit.Annotation.Bounds;
-                nextBounds = bounds with { Left = bounds.Left + (point.X - edit.Anchor.X), Top = bounds.Top + (point.Y - edit.Anchor.Y) };
-            }
+            var nextBounds = AnnotationEdit.GetNextBounds(edit.Annotation.Bounds, edit.Resizing, edit.Anchor, point);
 
             return new(canvas, edit with { Bounds = nextBounds }, nextBounds != edit.Bounds);
         }
@@ -453,9 +429,4 @@ internal static class PageCanvasEditMixins
     /// <param name="BottomRight">The bottom-right corner.</param>
     /// <param name="BottomLeft">The bottom-left corner.</param>
     private readonly record struct CanvasCorners(Point TopLeft, Point TopRight, Point BottomRight, Point BottomLeft);
-
-    /// <summary>A resize handle corner and the opposite corner that stays anchored.</summary>
-    /// <param name="Handle">The handle corner in canvas coordinates.</param>
-    /// <param name="Opposite">The opposite corner in canvas coordinates.</param>
-    private readonly record struct HandleCorner(Point Handle, Point Opposite);
 }

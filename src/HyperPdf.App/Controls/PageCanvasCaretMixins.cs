@@ -385,7 +385,7 @@ internal static class PageCanvasCaretMixins
             }
 
             var point = e.GetCurrentPoint(canvas);
-            return point.Properties.IsLeftButtonPressed && !point.Properties.IsRightButtonPressed
+            return PointerRouting.IsPlainLeft(point.ViewerButtons)
                 ? new(canvas, e, point.Position)
                 : null;
         }
@@ -546,13 +546,8 @@ internal static class PageCanvasCaretMixins
                 return;
             }
 
-            var cursor = Canvas.IsOverText(hover) ? PageCanvas.TextCursor : Cursor.Default;
-            if (Canvas.HitTestLink(hover) is not null || Canvas.IsOverField(hover) || Canvas.IsOverCommentTrigger(hover))
-            {
-                cursor = PageCanvas.HandCursor;
-            }
-
-            Canvas.Cursor = cursor;
+            var clickable = Canvas.HitTestLink(hover) is not null || Canvas.IsOverField(hover) || Canvas.IsOverCommentTrigger(hover);
+            Canvas.Cursor = PointerRouting.GetHoverCursor(Canvas.IsOverText(hover), clickable).ToCursor();
         }
     }
 

@@ -159,6 +159,37 @@ public sealed class PageScrollingTests
         await Assert.That(offset).IsEqualTo(far - ViewportHeight + ContentMargin);
     }
 
+    /// <summary>A point on a page keeps that page fixed when zooming.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PointOnAPageIsTheAnchorPage()
+    {
+        var layout = Create(ScrollMode.Vertical, false);
+        var bounds = layout.GetPageBounds(ThirdPage);
+
+        var zoom = PageScrolling.FindZoomAnchorPage(layout, bounds.X + 1, bounds.Y + 1);
+        var area = PageScrolling.FindAreaAnchorPage(layout, bounds.X + 1, bounds.Y + 1);
+
+        await Assert.That(zoom).IsEqualTo(ThirdPage);
+        await Assert.That(area).IsEqualTo(ThirdPage);
+    }
+
+    /// <summary>A point between pages keeps the nearest page fixed.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PointBetweenPagesUsesTheNearestPage()
+    {
+        var layout = Create(ScrollMode.Vertical, false);
+        var bounds = layout.GetPageBounds(ThirdPage);
+        var gap = bounds.Y + bounds.Height + Quarter;
+
+        var zoom = PageScrolling.FindZoomAnchorPage(layout, bounds.X + 1, gap);
+        var area = PageScrolling.FindAreaAnchorPage(layout, bounds.X + 1, gap);
+
+        await Assert.That(zoom).IsGreaterThanOrEqualTo(ThirdPage);
+        await Assert.That(area).IsGreaterThanOrEqualTo(ThirdPage);
+    }
+
     /// <summary>A missing layout is refused.</summary>
     /// <returns>A task.</returns>
     [Test]

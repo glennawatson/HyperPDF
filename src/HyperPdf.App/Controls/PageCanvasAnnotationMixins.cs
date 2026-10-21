@@ -447,47 +447,30 @@ internal static class PageCanvasAnnotationMixins
         {
             var (e, tab) = item;
             var point = e.GetCurrentPoint(canvas);
-            if (!point.Properties.IsLeftButtonPressed || point.Properties.IsRightButtonPressed)
+            var buttons = point.ViewerButtons;
+            if (!PointerRouting.IsPlainLeft(buttons))
             {
                 return null;
             }
 
             var page = canvas.Layout.HitTest(point.Position.X, point.Position.Y);
-            if (tab.FillAndSign.Placement is not null)
+            var kind = PointerRouting.GetDrawingPress(tab, buttons, page, page >= 0 ? canvas.ToPage(tab, page, point.Position) : default);
+            if (kind is not (DrawingPressKind.Placement or DrawingPressKind.Shape or DrawingPressKind.Polygon))
             {
-                return new(canvas, tab, e, page, point.Position, DrawingToolPress.Placement);
+                canvas.CancelPolygon();
             }
 
-            if (page >= 0 && AnnotationsViewModel.GetShapeKind(tab.Annotations.Tool) is not null)
+            return kind switch
             {
-                return new(canvas, tab, e, page, point.Position, DrawingToolPress.Shape);
-            }
-
-            if (AnnotationsViewModel.GetPolygonKind(tab.Annotations.Tool) is not null)
-            {
-                return new(canvas, tab, e, page, point.Position, DrawingToolPress.Polygon);
-            }
-
-            canvas.CancelPolygon();
-            return page >= 0 ? canvas.TryMatchPageToolOrField(tab, e, page, point.Position) : null;
-        }
-
-        /// <summary>Matches a left press on a laid-out page to Draw, Form Field activation, or Note/Text/Stamp click tools.</summary>
-        /// <param name="tab">The active tab.</param>
-        /// <param name="e">The pointer press arguments.</param>
-        /// <param name="page">The page index.</param>
-        /// <param name="position">The canvas position.</param>
-        /// <returns>The matched press action, or <see langword="null"/> when none matched.</returns>
-        private DrawingToolPress? TryMatchPageToolOrField(DocumentTabViewModel tab, PointerPressedEventArgs e, int page, Point position) =>
-            tab.Annotations.Tool switch
-            {
-                AnnotationTool.Draw or AnnotationTool.FreehandHighlight => new(canvas, tab, e, page, position, DrawingToolPress.Ink),
-                AnnotationTool.Text or AnnotationTool.Select when tab.Forms.HitTest(page, canvas.ToPage(tab, page, position)) is not null =>
-                    new(canvas, tab, e, page, position, DrawingToolPress.Field),
-                AnnotationTool.Note or AnnotationTool.Text or AnnotationTool.Stamp or AnnotationTool.Caret =>
-                    new(canvas, tab, e, page, position, DrawingToolPress.ClickTool),
+                DrawingPressKind.Placement => new(canvas, tab, e, page, point.Position, DrawingToolPress.Placement),
+                DrawingPressKind.Shape => new(canvas, tab, e, page, point.Position, DrawingToolPress.Shape),
+                DrawingPressKind.Polygon => new(canvas, tab, e, page, point.Position, DrawingToolPress.Polygon),
+                DrawingPressKind.Ink => new(canvas, tab, e, page, point.Position, DrawingToolPress.Ink),
+                DrawingPressKind.Field => new(canvas, tab, e, page, point.Position, DrawingToolPress.Field),
+                DrawingPressKind.ClickTool => new(canvas, tab, e, page, point.Position, DrawingToolPress.ClickTool),
                 _ => null,
             };
+        }
 
         /// <summary>Follows the pointer with the shape's free end.</summary>
         /// <param name="position">The canvas point.</param>

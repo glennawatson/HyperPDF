@@ -9,6 +9,30 @@ namespace HyperPdf.Core.Layout;
 /// <summary>Works out where a view scrolls to so a place on a page is shown, whichever toolkit draws the view.</summary>
 public static class PageScrolling
 {
+    /// <summary>Finds the page a zoom keeps fixed: the page at a point, or failing that the page whose row is nearest the point's height.</summary>
+    /// <param name="layout">The document layout.</param>
+    /// <param name="x">The canvas x.</param>
+    /// <param name="y">The canvas y.</param>
+    /// <returns>The page, or -1 for a layout with no pages.</returns>
+    public static int FindZoomAnchorPage(DocumentLayout layout, double x, double y)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        var page = layout.HitTest(x, y);
+        return page < 0 ? layout.GetPageNearest(y) : page;
+    }
+
+    /// <summary>Finds the page an area zoom keeps fixed: the page at a point, or failing that the page nearest the point.</summary>
+    /// <param name="layout">The document layout.</param>
+    /// <param name="x">The canvas x.</param>
+    /// <param name="y">The canvas y.</param>
+    /// <returns>The page, or -1 for a layout with no pages.</returns>
+    public static int FindAreaAnchorPage(DocumentLayout layout, double x, double y)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        var page = layout.HitTest(x, y);
+        return page < 0 ? layout.GetPageNearest(x, y) : page;
+    }
+
     /// <summary>Keeps a vertical offset inside a page's slot when scrolling page by page.</summary>
     /// <param name="layout">The document layout.</param>
     /// <param name="pageIndex">The page.</param>

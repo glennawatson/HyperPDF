@@ -230,13 +230,8 @@ internal static class PageCanvasToolMixins
 
         /// <summary>Gets the pointer for the chosen tool when it is not over anything special.</summary>
         /// <returns>The cursor, or <see langword="null"/> for select text, whose pointer follows what is under it.</returns>
-        internal Cursor? ToolCursor() =>
-            canvas.SpaceHeld ? PageCanvas.HandCursor : canvas.Tab?.PageTools.PageTool switch
-            {
-                PageTool.Hand => PageCanvas.HandCursor,
-                PageTool.ZoomArea or PageTool.Snapshot => PageCanvas.CrossCursor,
-                _ => null,
-            };
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal Cursor? ToolCursor() => PointerRouting.GetToolCursor(canvas.SpaceHeld, canvas.Tab?.PageTools.PageTool).ToCursor();
 
         /// <summary>Moves the pages or the area with the pointer, or shows the chosen tool's pointer while hovering.</summary>
         /// <param name="e">The pointer movement.</param>
@@ -399,38 +394,43 @@ internal static class PageCanvasToolMixins
         {
             var (e, tab) = item;
             var point = e.GetCurrentPoint(canvas);
-            if (tab.PageTools.IsAutoScrolling)
+            switch (PointerRouting.GetPageToolPress(tab, point.ViewerButtons, canvas.Scroller is not null, canvas.SpaceHeld))
             {
-                return new(canvas, tab, e, point, PageToolPress.StopAutoScroll);
-            }
+                case PageToolPressKind.StopAutoScroll:
+                {
+                    return new(canvas, tab, e, point, PageToolPress.StopAutoScroll);
+                }
 
-            if (canvas.IsPanPress(point, tab))
-            {
-                return new(canvas, tab, e, point, PageToolPress.Pan);
-            }
+                case PageToolPressKind.Pan:
+                {
+                    return new(canvas, tab, e, point, PageToolPress.Pan);
+                }
 
-            if (!point.Properties.IsLeftButtonPressed || point.Properties.IsRightButtonPressed)
-            {
-                return null;
-            }
+                case PageToolPressKind.Area:
+                {
+                    return new(canvas, tab, e, point, PageToolPress.Area);
+                }
 
-            if (tab.PageTools.PageTool is PageTool.ZoomArea or PageTool.Snapshot)
-            {
-                return new(canvas, tab, e, point, PageToolPress.Area);
-            }
+                case PageToolPressKind.Measure:
+                {
+                    _ = canvas.Focus();
+                    canvas.PressPoint = point.Position;
+                    return new(canvas, tab, e, point, PageToolPress.Measure);
+                }
 
-            _ = canvas.Focus();
-            canvas.PressPoint = point.Position;
-            return tab.Measure.IsOn ? new(canvas, tab, e, point, PageToolPress.Measure) : null;
+                case PageToolPressKind.Focus:
+                {
+                    _ = canvas.Focus();
+                    canvas.PressPoint = point.Position;
+                    return null;
+                }
+
+                default:
+                {
+                    return null;
+                }
+            }
         }
-
-        /// <summary>Determines whether a pointer press starts panning the pages.</summary>
-        /// <param name="point">The pointer point.</param>
-        /// <param name="tab">The active tab.</param>
-        /// <returns><see langword="true"/> when the press starts panning.</returns>
-        private bool IsPanPress(PointerPoint point, DocumentTabViewModel tab) =>
-            canvas.Scroller is not null
-            && (point.Properties.IsMiddleButtonPressed || (point.Properties.IsLeftButtonPressed && (canvas.SpaceHeld || tab.PageTools.PageTool == PageTool.Hand)));
     }
 
     /// <summary>Gets the rectangle between two corners, whichever way it was dragged.</summary>

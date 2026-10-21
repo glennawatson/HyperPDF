@@ -136,11 +136,7 @@ internal static class PageCanvasZoomMixins
                 return;
             }
 
-            var page = canvas.Layout.HitTest(anchor.X, anchor.Y);
-            if (page < 0)
-            {
-                page = canvas.Layout.GetPageNearest(anchor.Y);
-            }
+            var page = PageScrolling.FindZoomAnchorPage(canvas.Layout, anchor.X, anchor.Y);
 
             if (page < 0)
             {
@@ -182,11 +178,7 @@ internal static class PageCanvasZoomMixins
             var viewport = scroller.Viewport;
             var centre = area.Center;
             var zoom = AreaZoom.GetZoom(tab.Zoom, area.Width, area.Height, viewport.Width, viewport.Height);
-            var page = canvas.Layout.HitTest(centre.X, centre.Y);
-            if (page < 0)
-            {
-                page = canvas.Layout.GetPageNearest(centre.X, centre.Y);
-            }
+            var page = PageScrolling.FindAreaAnchorPage(canvas.Layout, centre.X, centre.Y);
 
             if (page < 0)
             {
