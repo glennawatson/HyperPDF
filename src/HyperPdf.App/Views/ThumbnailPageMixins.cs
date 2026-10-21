@@ -11,8 +11,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Signals;
 

@@ -2,11 +2,11 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
+using HyperPdf.App.Rendering;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Settings;
 using HyperPdf.Engine;
+using HyperPdf.ViewModels;
 using HyperPdfLibrary.Rendering;
 
 namespace HyperPdf.App.Tests;
@@ -43,7 +43,7 @@ public sealed class SmallTextPreferencesTests
         }
 
         var saved = new SettingsStore(path).Load().Sharpness;
-        using var nextRun = new AppServices(new SettingsStore(path), new HyperPdfEngine(), new FallbackPlatform());
+        using var nextRun = new AppServices(new SettingsStore(path), new HyperPdfEngine(), new FallbackPlatform(), new AvaloniaRenderHead());
         using var reloaded = new PreferencesViewModel(nextRun);
 
         await Assert.That(saved.SmallTextMasks).IsTrue();

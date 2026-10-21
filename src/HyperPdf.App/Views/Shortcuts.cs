@@ -4,7 +4,7 @@
 
 using System.Windows.Input;
 using Avalonia.Input;
-using HyperPdf.App.ViewModels;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Views;
 

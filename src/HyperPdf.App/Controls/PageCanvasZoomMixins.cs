@@ -7,7 +7,6 @@ using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Layout;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -231,26 +230,17 @@ internal static class PageCanvasZoomMixins
         /// <param name="pageIndex">The page.</param>
         /// <param name="offsetFraction">How far down the page, from 0 to 1.</param>
         /// <returns>The offset.</returns>
-        internal double GetPageScrollTop(int pageIndex, double offsetFraction)
-        {
-            var bounds = canvas.Layout.GetPageBounds(pageIndex);
-            return canvas.ClampToSlot(pageIndex, bounds.Y + (bounds.Height * offsetFraction) - PageCanvas.ContentMargin);
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal double GetPageScrollTop(int pageIndex, double offsetFraction) =>
+            PageScrolling.GetTop(canvas.Layout, pageIndex, offsetFraction, PageCanvas.ContentMargin, canvas.Scroller?.Viewport.Height);
 
         /// <summary>Keeps an offset inside a page's slot when page by page.</summary>
         /// <param name="pageIndex">The page.</param>
         /// <param name="offset">The offset.</param>
         /// <returns>The offset, clamped when page by page.</returns>
-        internal double ClampToSlot(int pageIndex, double offset)
-        {
-            if (!canvas.Layout.Options.PageByPage || canvas.Scroller is not { } scroller)
-            {
-                return offset;
-            }
-
-            canvas.Layout.GetRowExtent(pageIndex, out var top, out var bottom);
-            return Math.Clamp(offset, top, Math.Max(top, bottom - scroller.Viewport.Height));
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal double ClampToSlot(int pageIndex, double offset) =>
+            PageScrolling.ClampToSlot(canvas.Layout, pageIndex, offset, canvas.Scroller?.Viewport.Height);
 
         /// <summary>Scrolls page by page: within the current slot, or to the neighbouring slot from its edge.</summary>
         /// <param name="delta">How far to move; positive is down.</param>
@@ -336,8 +326,9 @@ internal static class PageCanvasZoomMixins
         /// <param name="pageIndex">The page.</param>
         /// <param name="current">The current horizontal offset.</param>
         /// <returns>The offset.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal double GetPageScrollLeft(int pageIndex, double current) =>
-            canvas.Layout.Options.Scroll == ScrollMode.Horizontal ? Math.Max(0, canvas.Layout.GetPageBounds(pageIndex).X - PageCanvas.ContentMargin) : current;
+            PageScrolling.GetLeft(canvas.Layout, pageIndex, current, PageCanvas.ContentMargin);
 
         /// <summary>Gets the offset that shows a position on a page.</summary>
         /// <param name="pageIndex">The page.</param>
@@ -345,7 +336,9 @@ internal static class PageCanvasZoomMixins
         /// <param name="current">The current offset.</param>
         /// <returns>The offset.</returns>
         internal Vector GetPageScrollOffset(int pageIndex, double offsetFraction, Vector current) =>
-            new(canvas.GetPageScrollLeft(pageIndex, current.X), canvas.Layout.Options.Scroll == ScrollMode.Horizontal ? current.Y : canvas.GetPageScrollTop(pageIndex, offsetFraction));
+            new(
+                canvas.GetPageScrollLeft(pageIndex, current.X),
+                PageScrolling.GetScrollTop(canvas.Layout, pageIndex, offsetFraction, current.Y, PageCanvas.ContentMargin, canvas.Scroller?.Viewport.Height));
 
         /// <summary>Moves a horizontal layout sideways.</summary>
         /// <param name="delta">How far to move; positive is to the right.</param>

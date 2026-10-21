@@ -8,8 +8,8 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 

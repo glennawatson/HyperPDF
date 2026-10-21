@@ -1,32 +1,32 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.FindBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (FindBarView.axaml.cs). -->
   <Border x:Name="FindBar" Classes="toolbar" AutomationProperties.Name="Find" AutomationProperties.LandmarkType="Search">
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
-      <TextBox x:Name="SearchBox" views:ControlHelp.Text="{x:Static views:Descriptions.SearchBox}" AutomationProperties.Name="Find in document" MinWidth="200" MinHeight="28" Padding="8,3" VerticalAlignment="Center" PlaceholderText="Find in document" />
+      <TextBox x:Name="SearchBox" views:ControlHelp.Text="{x:Static help:Descriptions.SearchBox}" AutomationProperties.Name="Find in document" MinWidth="200" MinHeight="28" Padding="8,3" VerticalAlignment="Center" PlaceholderText="Find in document" />
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
-      <ToggleButton AutomationProperties.Name="Match case" x:Name="MatchCaseToggle" views:ControlHelp.Text="{x:Static views:Descriptions.MatchCase}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="Match case" x:Name="MatchCaseToggle" views:ControlHelp.Text="{x:Static help:Descriptions.MatchCase}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconCase}" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Whole words" x:Name="WholeWordToggle" views:ControlHelp.Text="{x:Static views:Descriptions.WholeWords}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="Whole words" x:Name="WholeWordToggle" views:ControlHelp.Text="{x:Static help:Descriptions.WholeWords}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconWholeWord}" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Ignore accents" x:Name="IgnoreAccentsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.IgnoreAccents}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="Ignore accents" x:Name="IgnoreAccentsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.IgnoreAccents}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconAccent}" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Similar characters" x:Name="SimilarCharactersToggle" views:ControlHelp.Text="{x:Static views:Descriptions.SimilarCharacters}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="Similar characters" x:Name="SimilarCharactersToggle" views:ControlHelp.Text="{x:Static help:Descriptions.SimilarCharacters}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconSimilar}" />
       </ToggleButton>
-      <Button AutomationProperties.Name="Previous result" x:Name="PreviousResultButton" views:ControlHelp.Text="{x:Static views:Descriptions.PreviousResult}" Classes="tool">
+      <Button AutomationProperties.Name="Previous result" x:Name="PreviousResultButton" views:ControlHelp.Text="{x:Static help:Descriptions.PreviousResult}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconPageUp}" />
       </Button>
-      <Button AutomationProperties.Name="Next result" x:Name="NextResultButton" views:ControlHelp.Text="{x:Static views:Descriptions.NextResult}" Classes="tool">
+      <Button AutomationProperties.Name="Next result" x:Name="NextResultButton" views:ControlHelp.Text="{x:Static help:Descriptions.NextResult}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconPageDown}" />
       </Button>
       <TextBlock x:Name="SearchStatusText" AutomationProperties.LiveSetting="Polite" Classes="secondary" VerticalAlignment="Center" Margin="8,0" />
-      <Button AutomationProperties.Name="Close find" x:Name="CloseFindButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseFind}" Classes="tool">
+      <Button AutomationProperties.Name="Close find" x:Name="CloseFindButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseFind}" Classes="tool">
         <Path Classes="icon remove" Data="{StaticResource IconClose}" />
       </Button>
       </StackPanel>

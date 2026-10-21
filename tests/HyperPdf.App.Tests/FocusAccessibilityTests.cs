@@ -6,11 +6,11 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Reading;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Optimizing;
 

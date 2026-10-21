@@ -6,7 +6,6 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using HyperPdf.App.ViewModels;
 
 namespace HyperPdf.App.Views;
 

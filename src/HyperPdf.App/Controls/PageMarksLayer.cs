@@ -8,8 +8,6 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;

@@ -1,40 +1,40 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.SidebarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (SidebarView.axaml.cs). -->
   <Border x:Name="Sidebar" Width="220" Classes="sidebar" AutomationProperties.Name="Sidebar" AutomationProperties.LandmarkType="Navigation">
     <DockPanel>
       <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Center" Margin="4">
-        <ToggleButton AutomationProperties.Name="Thumbnails" x:Name="ThumbnailsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Thumbnails}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="Thumbnails" x:Name="ThumbnailsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Thumbnails}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconThumbnails}" />
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Outline" x:Name="OutlineToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Outline}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="Outline" x:Name="OutlineToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Outline}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconOutline}" />
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Search results" x:Name="SearchResultsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.SearchResults}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="Search results" x:Name="SearchResultsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.SearchResults}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconSearch}" />
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Annotations" x:Name="AnnotationsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Annotations}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="Annotations" x:Name="AnnotationsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Annotations}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconAnnotations}" />
         </ToggleButton>
         <!-- Only shown when the document has embedded files. -->
-        <ToggleButton AutomationProperties.Name="Attachments" x:Name="AttachmentsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Attachments}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="Attachments" x:Name="AttachmentsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Attachments}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconAttachment}" />
         </ToggleButton>
         <!-- Only shown when the document has layers. -->
-        <ToggleButton AutomationProperties.Name="Layers" x:Name="LayersToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Layers}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="Layers" x:Name="LayersToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Layers}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconLayers}" />
         </ToggleButton>
         <!-- Only shown when the document has parts or article threads. -->
-        <ToggleButton AutomationProperties.Name="Parts and articles" x:Name="PartsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Parts}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="Parts and articles" x:Name="PartsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Parts}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconParts}" />
         </ToggleButton>
         <!-- Only shown when the document has sound or video. -->
-        <ToggleButton AutomationProperties.Name="Media" x:Name="MediaToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Media}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="Media" x:Name="MediaToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Media}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconMedia}" />
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Tags" x:Name="TagsToggle" views:ControlHelp.Text="{x:Static views:Descriptions.Tags}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="Tags" x:Name="TagsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Tags}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconTags}" />
         </ToggleButton>
       </StackPanel>
@@ -44,7 +44,7 @@
         <views:AnnotationListView />
         <DockPanel x:Name="SearchPanel">
           <StackPanel DockPanel.Dock="Top" Margin="8,4,8,4" Spacing="4">
-            <TextBox x:Name="SidebarSearchBox" views:ControlHelp.Text="{x:Static views:Descriptions.SearchBox}" AutomationProperties.Name="Find in document" MinHeight="28" Padding="8,3" HorizontalAlignment="Stretch" PlaceholderText="Find in document" />
+            <TextBox x:Name="SidebarSearchBox" views:ControlHelp.Text="{x:Static help:Descriptions.SearchBox}" AutomationProperties.Name="Find in document" MinHeight="28" Padding="8,3" HorizontalAlignment="Stretch" PlaceholderText="Find in document" />
             <TextBlock x:Name="SidebarSearchStatus" AutomationProperties.LiveSetting="Polite" Classes="secondary" TextWrapping="Wrap" />
           </StackPanel>
           <ListBox x:Name="SearchResultList" AutomationProperties.Name="Search results" Background="Transparent" />

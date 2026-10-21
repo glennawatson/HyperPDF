@@ -12,8 +12,6 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Text;
 using ReactiveUI;

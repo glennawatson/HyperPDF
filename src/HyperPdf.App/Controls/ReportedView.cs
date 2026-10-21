@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using Avalonia;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Layout;
 
 namespace HyperPdf.App.Controls;

@@ -2,8 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdf.App.ViewModels;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;
@@ -85,7 +85,7 @@ public sealed class ReadAloudViewModelTests
     public async Task MarksPausesAndCloses()
     {
         var speech = new FakeSpeech(true, true);
-        using var test = new TestServices(new Services.FallbackPlatform(), speech);
+        using var test = new TestServices(new FallbackPlatform(), speech);
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("mark.pdf", Pages)]);
         var reader = main.SelectedTab!.ReadAloud;
@@ -134,7 +134,7 @@ public sealed class ReadAloudViewModelTests
     public async Task AsksBeforeDownloadingTheVoice()
     {
         var speech = new FakeSpeech(false, false);
-        using var test = new TestServices(new Services.FallbackPlatform(), speech);
+        using var test = new TestServices(new FallbackPlatform(), speech);
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("voice.pdf", 1)]);
         var reader = main.SelectedTab!.ReadAloud;
@@ -161,7 +161,7 @@ public sealed class ReadAloudViewModelTests
     public async Task OneTabReadsAtATime()
     {
         var speech = new FakeSpeech(true, true);
-        using var test = new TestServices(new Services.FallbackPlatform(), speech);
+        using var test = new TestServices(new FallbackPlatform(), speech);
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("first.pdf", 1), test.CreateDocument("second.pdf", 1)]);
         await main.Tabs[0].EnsureLoadedAsync(CancellationToken.None);
@@ -213,7 +213,7 @@ public sealed class ReadAloudViewModelTests
     public async Task ResumesWhereItStopped()
     {
         var speech = new FakeSpeech(true, true);
-        using var test = new TestServices(new Services.FallbackPlatform(), speech);
+        using var test = new TestServices(new FallbackPlatform(), speech);
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("resume.pdf", Pages)]);
         var reader = main.SelectedTab!.ReadAloud;
@@ -238,7 +238,7 @@ public sealed class ReadAloudViewModelTests
     public async Task ChangingSpeedKeepsTheSentence()
     {
         var speech = new FakeSpeech(true, true);
-        using var test = new TestServices(new Services.FallbackPlatform(), speech);
+        using var test = new TestServices(new FallbackPlatform(), speech);
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("speed-change.pdf", Pages)]);
         var reader = main.SelectedTab!.ReadAloud;
@@ -262,7 +262,7 @@ public sealed class ReadAloudViewModelTests
     public async Task MarksTheWord()
     {
         var speech = new FakeSpeech(true, true);
-        using var test = new TestServices(new Services.FallbackPlatform(), speech);
+        using var test = new TestServices(new FallbackPlatform(), speech);
         test.Services.Settings.ReadAloudHighlight = Core.Settings.ReadAloudHighlight.SentenceAndWord;
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("words.pdf", 1)]);

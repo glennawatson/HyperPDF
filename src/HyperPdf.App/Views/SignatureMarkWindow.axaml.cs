@@ -4,8 +4,6 @@
 
 using System.Diagnostics;
 using Avalonia.Platform.Storage;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Annotations;
 using ReactiveUI;
 using ReactiveUI.Binding;

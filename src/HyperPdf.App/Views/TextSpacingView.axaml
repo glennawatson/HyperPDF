@@ -1,26 +1,26 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.TextSpacingView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (TextSpacingView.axaml.cs). -->
-  <Button AutomationProperties.Name="Spacing" x:Name="SpacingButton" views:ControlHelp.Text="{x:Static views:Descriptions.TextSpacing}" Classes="tool">
+  <Button AutomationProperties.Name="Spacing" x:Name="SpacingButton" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" Classes="tool">
     <StackPanel Orientation="Horizontal">
       <Path Classes="icon edit" Data="{StaticResource IconLineWidth}" />
       <TextBlock x:Name="SpacingText" Classes="label" Text="Spacing" />
     </StackPanel>
     <Button.Flyout>
       <MenuFlyout>
-        <MenuItem Header="Line spacing" IsEnabled="False" views:ControlHelp.Text="{x:Static views:Descriptions.TextSpacing}" />
-        <MenuItem x:Name="SingleSpacingItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextSpacing}" Header="_Single" />
-        <MenuItem x:Name="NormalSpacingItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextSpacing}" Header="_Normal" />
-        <MenuItem x:Name="OneHalfSpacingItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextSpacing}" Header="One and a _Half" />
-        <MenuItem x:Name="DoubleSpacingItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextSpacing}" Header="_Double" />
+        <MenuItem Header="Line spacing" IsEnabled="False" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" />
+        <MenuItem x:Name="SingleSpacingItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" Header="_Single" />
+        <MenuItem x:Name="NormalSpacingItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" Header="_Normal" />
+        <MenuItem x:Name="OneHalfSpacingItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" Header="One and a _Half" />
+        <MenuItem x:Name="DoubleSpacingItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" Header="_Double" />
         <Separator />
-        <MenuItem Header="Letter spacing" IsEnabled="False" views:ControlHelp.Text="{x:Static views:Descriptions.TextSpacing}" />
-        <MenuItem x:Name="TightLettersItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextSpacing}" Header="_Tight" />
-        <MenuItem x:Name="NormalLettersItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextSpacing}" Header="N_ormal Letters" />
-        <MenuItem x:Name="WideLettersItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextSpacing}" Header="_Wide" />
-        <MenuItem x:Name="WiderLettersItem" views:ControlHelp.Text="{x:Static views:Descriptions.TextSpacing}" Header="Wi_der" />
+        <MenuItem Header="Letter spacing" IsEnabled="False" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" />
+        <MenuItem x:Name="TightLettersItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" Header="_Tight" />
+        <MenuItem x:Name="NormalLettersItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" Header="N_ormal Letters" />
+        <MenuItem x:Name="WideLettersItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" Header="_Wide" />
+        <MenuItem x:Name="WiderLettersItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" Header="Wi_der" />
       </MenuFlyout>
     </Button.Flyout>
   </Button>

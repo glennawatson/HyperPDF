@@ -6,11 +6,11 @@ using System.Globalization;
 using System.Text;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 
@@ -132,7 +132,7 @@ public sealed class SelectionDragRectsTests
     /// <param name="to">The selection end.</param>
     /// <param name="bounds">Receives the bounds.</param>
     /// <param name="text">Receives the text.</param>
-    private static void AppendExpected(IDocument document, int page, PageCharacter from, PageCharacter to, List<PageRect> bounds, StringBuilder text)
+    private static void AppendExpected(IDocument document, int page, CharacterPosition from, CharacterPosition to, List<PageRect> bounds, StringBuilder text)
     {
         var first = page == from.Page ? from.Char : 0;
         var last = page == to.Page ? to.Char : document.GetCharacterCount(page) - 1;
@@ -168,7 +168,7 @@ public sealed class SelectionDragRectsTests
         /// <summary>Turns the step into a character position.</summary>
         /// <param name="document">The document.</param>
         /// <returns>The character.</returns>
-        internal PageCharacter ToCharacter(IDocument document)
+        internal CharacterPosition ToCharacter(IDocument document)
         {
             var count = document.GetCharacterCount(Page);
             return new(Page, Math.Min(count - 1, count * Tenth / Tenths));

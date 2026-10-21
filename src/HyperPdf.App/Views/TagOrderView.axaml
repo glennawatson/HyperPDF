@@ -1,20 +1,20 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.TagOrderView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (TagOrderView.axaml.cs). -->
   <StackPanel Spacing="4">
     <TextBlock Text="Reading order and nesting" FontWeight="SemiBold" Margin="0,6,0,0" />
     <WrapPanel>
-      <Button x:Name="MoveUpButton" Margin="0,0,4,4" Content="Read Earlier" AutomationProperties.Name="Read this tag earlier" views:ControlHelp.Text="{x:Static views:Descriptions.MoveTagUp}" />
-      <Button x:Name="MoveDownButton" Margin="0,0,4,4" Content="Read Later" AutomationProperties.Name="Read this tag later" views:ControlHelp.Text="{x:Static views:Descriptions.MoveTagDown}" />
-      <Button x:Name="NestButton" Margin="0,0,4,4" Content="Nest" AutomationProperties.Name="Put this tag inside the tag above" views:ControlHelp.Text="{x:Static views:Descriptions.NestTag}" />
-      <Button x:Name="UnnestButton" Margin="0,0,4,4" Content="Un-nest" AutomationProperties.Name="Move this tag out of its parent" views:ControlHelp.Text="{x:Static views:Descriptions.UnnestTag}" />
-      <Button x:Name="RemoveButton" Margin="0,0,4,4" Content="Remove" AutomationProperties.Name="Remove tag" views:ControlHelp.Text="{x:Static views:Descriptions.RemoveTag}" />
-      <Button x:Name="UndoButton" Margin="0,0,4,4" Content="Undo" AutomationProperties.Name="Undo document edit" views:ControlHelp.Text="{x:Static views:Descriptions.UndoTag}" />
+      <Button x:Name="MoveUpButton" Margin="0,0,4,4" Content="Read Earlier" AutomationProperties.Name="Read this tag earlier" views:ControlHelp.Text="{x:Static help:Descriptions.MoveTagUp}" />
+      <Button x:Name="MoveDownButton" Margin="0,0,4,4" Content="Read Later" AutomationProperties.Name="Read this tag later" views:ControlHelp.Text="{x:Static help:Descriptions.MoveTagDown}" />
+      <Button x:Name="NestButton" Margin="0,0,4,4" Content="Nest" AutomationProperties.Name="Put this tag inside the tag above" views:ControlHelp.Text="{x:Static help:Descriptions.NestTag}" />
+      <Button x:Name="UnnestButton" Margin="0,0,4,4" Content="Un-nest" AutomationProperties.Name="Move this tag out of its parent" views:ControlHelp.Text="{x:Static help:Descriptions.UnnestTag}" />
+      <Button x:Name="RemoveButton" Margin="0,0,4,4" Content="Remove" AutomationProperties.Name="Remove tag" views:ControlHelp.Text="{x:Static help:Descriptions.RemoveTag}" />
+      <Button x:Name="UndoButton" Margin="0,0,4,4" Content="Undo" AutomationProperties.Name="Undo document edit" views:ControlHelp.Text="{x:Static help:Descriptions.UndoTag}" />
     </WrapPanel>
     <TextBlock x:Name="MoveIntoLabel" Text="Move this tag inside another tag" FontWeight="SemiBold" Margin="0,6,0,0" />
-    <ComboBox x:Name="MoveIntoBox" AutomationProperties.Name="Tag to move this tag inside" AutomationProperties.LabeledBy="{Binding #MoveIntoLabel}" views:ControlHelp.Text="{x:Static views:Descriptions.MoveTagInto}" HorizontalAlignment="Stretch" />
-    <Button x:Name="MoveIntoButton" Margin="0,0,4,4" Content="Move Inside" AutomationProperties.Name="Move this tag inside the chosen tag" views:ControlHelp.Text="{x:Static views:Descriptions.MoveTagInto}" />
+    <ComboBox x:Name="MoveIntoBox" AutomationProperties.Name="Tag to move this tag inside" AutomationProperties.LabeledBy="{Binding #MoveIntoLabel}" views:ControlHelp.Text="{x:Static help:Descriptions.MoveTagInto}" HorizontalAlignment="Stretch" />
+    <Button x:Name="MoveIntoButton" Margin="0,0,4,4" Content="Move Inside" AutomationProperties.Name="Move this tag inside the chosen tag" views:ControlHelp.Text="{x:Static help:Descriptions.MoveTagInto}" />
   </StackPanel>
 </UserControl>

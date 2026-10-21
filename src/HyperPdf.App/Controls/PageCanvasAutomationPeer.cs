@@ -8,8 +8,6 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;

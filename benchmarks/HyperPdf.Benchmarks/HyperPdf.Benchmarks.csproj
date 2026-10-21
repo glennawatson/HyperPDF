@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\HyperPdf.Core\HyperPdf.Core.csproj" />
     <ProjectReference Include="..\..\src\HyperPdf.Skia\HyperPdf.Skia.csproj" />
+    <ProjectReference Include="..\..\src\HyperPdf.Rendering.Skia\HyperPdf.Rendering.Skia.csproj" />
     <ProjectReference Include="..\..\src\HyperPdf.Platform.Cups\HyperPdf.Platform.Cups.csproj" />
     <ProjectReference Include="..\..\src\HyperPdf.Platform.Linux\HyperPdf.Platform.Linux.csproj" />
     <ProjectReference Include="..\..\src\HyperPdf.Engine\HyperPdf.Engine.csproj" />
@@ -35,10 +36,7 @@
   <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\TileDraw.cs')">
     <Compile Include="..\..\src\HyperPdf.App\Rendering\TileDraw.cs" Link="TileBatch\TileDraw.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuTileBatchOperation.cs" Link="TileBatch\GpuTileBatchOperation.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuPreparedRenderSurface.cs" Link="TileBatch\GpuPreparedRenderSurface.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuAvailability.cs" Link="TileBatch\GpuAvailability.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Rendering\AvaloniaRenderSurface.cs" Link="TileBatch\AvaloniaRenderSurface.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\TileRenderingEventSource.cs" Link="TileBatch\TileRenderingEventSource.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\TileDraw.cs')">
@@ -49,11 +47,11 @@
     <Compile Remove="SelectionRectsBenchmarks.cs" />
   </ItemGroup>
 
-  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs')">
-    <Compile Include="..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs" Link="ZoomLabel.cs" />
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.ViewModels\Viewing\ZoomLabel.cs')">
+    <Compile Include="..\..\src\HyperPdf.ViewModels\Viewing\ZoomLabel.cs" Link="ZoomLabel.cs" />
   </ItemGroup>
 
-  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs')">
+  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.ViewModels\Viewing\ZoomLabel.cs')">
     <Compile Remove="ZoomLabelEaseBenchmarks.cs" />
   </ItemGroup>
 
@@ -68,14 +66,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Using Include="HyperPdf.ViewModels.Services" />
+    <Using Include="HyperPdf.Rendering.Skia" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="..\..\src\HyperPdf.App\Services\DesktopBackend.cs" Link="DesktopBackend.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Views\FocusAnnouncementRepair.cs" Link="FocusAnnouncementRepair.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Controls\FocusArrival.cs" Link="FocusArrival.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Controls\FocusArrivalMixins.cs" Link="FocusArrivalMixins.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuPageTone.cs" Link="GpuPageTone.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
-    <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationNames.cs" Link="AnnotationNames.cs" />
+    <Compile Include="..\..\src\HyperPdf.ViewModels\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
+    <Compile Include="..\..\src\HyperPdf.ViewModels\Markup\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
+    <Compile Include="..\..\src\HyperPdf.ViewModels\Markup\AnnotationNames.cs" Link="AnnotationNames.cs" />
     <!-- The JPEG 2000 test encoder, which re-encodes a corpus page as HTJ2K for the high-throughput benchmarks. -->
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\Jpx\JpxTest*.cs" Link="Jpx\%(Filename)%(Extension)" />
     <Compile Include="..\..\scripts\JpxHtTableBuilder.cs" Link="Jpx\JpxHtTableBuilder.cs" />

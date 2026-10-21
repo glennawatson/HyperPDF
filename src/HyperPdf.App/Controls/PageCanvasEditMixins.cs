@@ -6,7 +6,6 @@ using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Media;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
 using ReactiveUI.Primitives;

@@ -33,7 +33,7 @@ public sealed class GpuPreparedRenderSurfaceTests
     {
         using var test = new TestServices();
         using var document = new HyperPdfEngine().Open(test.CreateDocument("gpu-lifetime.pdf", 1), null);
-        var marker = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability());
+        var marker = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
         var request = Request(document);
         var prepared = marker.Prepare(request, CancellationToken.None);
         var operation = TileBatchPresentationTests.Create(new TileDraw(marker, new(0, 0, TileSide, TileSide), false));
@@ -71,12 +71,12 @@ public sealed class GpuPreparedRenderSurfaceTests
         using var document = new HyperPdfEngine().Open(test.CreateDocument("gpu-fallback.pdf", 1), null);
         var availability = new GpuAvailability();
         var recoveryRequests = 0;
-        using var first = new GpuPreparedRenderSurface(TileSide, TileSide, availability, () => recoveryRequests++);
+        using var first = new GpuPreparedRenderSurface(TileSide, TileSide, availability, TestTiles.Software, () => recoveryRequests++);
         var firstPrepared = first.Prepare(Request(document), CancellationToken.None);
         var firstHadNoCpuBitmap = first.SoftwareBitmap is null;
         first.MarkGpuUnavailable();
         var firstHadNoSynchronousFallback = first.SoftwareBitmap is null;
-        using var second = new GpuPreparedRenderSurface(TileSide, TileSide, availability);
+        using var second = new GpuPreparedRenderSurface(TileSide, TileSide, availability, TestTiles.Software);
         var secondPrepared = second.Prepare(Request(document), CancellationToken.None);
 
         using (Assert.Multiple())
@@ -100,7 +100,7 @@ public sealed class GpuPreparedRenderSurfaceTests
         using var document = new HyperPdfEngine().Open(test.CreateDocument("gpu-retained.pdf", 1), null);
         var hub = test.Services.RenderHub;
         var availability = new GpuAvailability();
-        var tile = new GpuPreparedRenderSurface(TileSide, TileSide, availability, hub.RequestSoftwareRecovery);
+        var tile = new GpuPreparedRenderSurface(TileSide, TileSide, availability, TestTiles.Software, hub.RequestSoftwareRecovery);
         var request = Request(document);
         var prepared = tile.Prepare(request, CancellationToken.None);
         hub.Cache.Add(request.Key, tile);
@@ -130,7 +130,7 @@ public sealed class GpuPreparedRenderSurfaceTests
     {
         using var test = new TestServices();
         using var document = new HyperPdfEngine().Open(test.CreateDocument("gpu-tone.pdf", 1), null);
-        using var surface = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability());
+        using var surface = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
         var request = Request(document) with { Tone = ColorSchemes.SoftPaperTone };
 
         var prepared = surface.Prepare(request, CancellationToken.None);
@@ -149,7 +149,7 @@ public sealed class GpuPreparedRenderSurfaceTests
         using var document = new HyperPdfEngine().Open(test.CreateDocument("gpu-events.pdf", 1), null);
         var availability = new GpuAvailability();
         _ = availability.MarkUnavailable();
-        using var surface = new GpuPreparedRenderSurface(TileSide, TileSide, availability);
+        using var surface = new GpuPreparedRenderSurface(TileSide, TileSide, availability, TestTiles.Software);
 
         var prepared = surface.Prepare(Request(document), CancellationToken.None);
 
@@ -164,7 +164,7 @@ public sealed class GpuPreparedRenderSurfaceTests
     {
         using var test = new TestServices();
         var hub = test.Services.RenderHub;
-        var marker = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability());
+        var marker = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
         var key = TileKey.Preview(1, 0, PageRotation.None, PageTone.None.Id);
         hub.Cache.Add(key, marker);
         var notified = false;

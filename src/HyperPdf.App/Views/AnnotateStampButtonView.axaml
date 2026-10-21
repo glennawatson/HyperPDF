@@ -1,24 +1,24 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.AnnotateStampButtonView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AnnotateStampButtonView.axaml.cs). -->
-  <Button AutomationProperties.Name="Stamp" x:Name="StampButton" views:ControlHelp.Text="{x:Static views:Descriptions.Stamp}" Classes="tool">
+  <Button AutomationProperties.Name="Stamp" x:Name="StampButton" views:ControlHelp.Text="{x:Static help:Descriptions.Stamp}" Classes="tool">
     <StackPanel Orientation="Horizontal">
       <Path Classes="icon add" Data="{StaticResource IconStamp}" />
       <TextBlock x:Name="StampText" Classes="label" Text="Stamp" />
     </StackPanel>
     <Button.Flyout>
       <MenuFlyout>
-        <MenuItem x:Name="ApprovedItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampApproved}" Header="_Approved" />
-        <MenuItem x:Name="ReviewedItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampReviewed}" Header="_Reviewed" />
-        <MenuItem x:Name="DraftItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampDraft}" Header="_Draft" />
-        <MenuItem x:Name="ConfidentialItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampConfidential}" Header="_Confidential" />
-        <MenuItem x:Name="FinalItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampFinal}" Header="_Final" />
-        <MenuItem x:Name="NotApprovedItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampNotApproved}" Header="_Not Approved" />
+        <MenuItem x:Name="ApprovedItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampApproved}" Header="_Approved" />
+        <MenuItem x:Name="ReviewedItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampReviewed}" Header="_Reviewed" />
+        <MenuItem x:Name="DraftItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampDraft}" Header="_Draft" />
+        <MenuItem x:Name="ConfidentialItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampConfidential}" Header="_Confidential" />
+        <MenuItem x:Name="FinalItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampFinal}" Header="_Final" />
+        <MenuItem x:Name="NotApprovedItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampNotApproved}" Header="_Not Approved" />
         <Separator />
-        <MenuItem x:Name="CustomStampItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampCustom}" Header="_Your Own Words…" />
-        <MenuItem x:Name="PictureStampItem" views:ControlHelp.Text="{x:Static views:Descriptions.StampPicture}" Header="_Picture…" />
+        <MenuItem x:Name="CustomStampItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampCustom}" Header="_Your Own Words…" />
+        <MenuItem x:Name="PictureStampItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampPicture}" Header="_Picture…" />
       </MenuFlyout>
     </Button.Flyout>
   </Button>

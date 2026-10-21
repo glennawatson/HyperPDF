@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.PartsPanelView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (PartsPanelView.axaml.cs). -->
@@ -12,8 +12,8 @@
       <ListBox x:Name="ThreadList" AutomationProperties.Name="Articles" MaxHeight="180" Background="Transparent" />
       <TextBlock x:Name="PlaceText" Classes="secondary" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
       <StackPanel Orientation="Horizontal" Spacing="6">
-        <Button x:Name="PreviousPlaceButton" views:ControlHelp.Text="{x:Static views:Descriptions.PreviousPlace}" Content="Previous place" />
-        <Button x:Name="NextPlaceButton" views:ControlHelp.Text="{x:Static views:Descriptions.NextPlace}" Content="Next place" />
+        <Button x:Name="PreviousPlaceButton" views:ControlHelp.Text="{x:Static help:Descriptions.PreviousPlace}" Content="Previous place" />
+        <Button x:Name="NextPlaceButton" views:ControlHelp.Text="{x:Static help:Descriptions.NextPlace}" Content="Next place" />
       </StackPanel>
     </StackPanel>
     <!-- Parts: shown only when the file has some. -->

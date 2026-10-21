@@ -2,8 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdf.App.ViewModels;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 
@@ -22,7 +22,7 @@ public sealed class FocusModeViewModelTests
     public async Task MarksTheSentenceBeingRead()
     {
         var speech = new FakeSpeech(true, true);
-        using var test = new TestServices(new Services.FallbackPlatform(), speech);
+        using var test = new TestServices(new FallbackPlatform(), speech);
         var path = Path.Combine(test.Directory, ArticleName);
         await File.WriteAllBytesAsync(path, TestPdf.CreateArticle(Pages));
         using var main = new MainViewModel(test.Services);

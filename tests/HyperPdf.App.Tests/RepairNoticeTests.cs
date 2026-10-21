@@ -3,9 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Documents;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;

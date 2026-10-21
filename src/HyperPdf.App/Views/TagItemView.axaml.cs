@@ -3,8 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -30,6 +28,6 @@ public sealed partial class TagItemView : ReactiveUI.Avalonia.ReactiveUserContro
     private void Show(TagItemViewModel? tag)
     {
         RowText.Text = tag?.Row;
-        RowText.Margin = tag?.Indent ?? default;
+        RowText.Margin = new(tag?.IndentWidth ?? 0, 0, 0, 0);
     }
 }

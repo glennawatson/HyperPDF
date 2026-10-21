@@ -1,5 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.PreferencesWindow"
         Title="Preferences"
@@ -12,51 +12,51 @@
                Text="Changes apply straight away and are kept for next time." />
     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
       <TextBlock x:Name="SchemeLabel" Grid.Row="0" VerticalAlignment="Center" Text="Colour scheme" />
-      <ComboBox AutomationProperties.Name="Colour scheme" x:Name="SchemeBox" views:ControlHelp.Text="{x:Static views:Descriptions.ColourScheme}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox AutomationProperties.Name="Colour scheme" x:Name="SchemeBox" views:ControlHelp.Text="{x:Static help:Descriptions.ColourScheme}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="PageToneLabel" Grid.Row="1" VerticalAlignment="Center" Text="PDF page colour" />
       <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
-        <ComboBox AutomationProperties.Name="PDF page colour" x:Name="PageToneBox" views:ControlHelp.Text="{x:Static views:Descriptions.PageColour}" HorizontalAlignment="Stretch" />
+        <ComboBox AutomationProperties.Name="PDF page colour" x:Name="PageToneBox" views:ControlHelp.Text="{x:Static help:Descriptions.PageColour}" HorizontalAlignment="Stretch" />
         <!-- Shown only for Custom colours. -->
         <Grid x:Name="CustomToneRow" ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="8">
           <TextBlock x:Name="CustomPaperLabel" VerticalAlignment="Center" Text="Paper" />
-          <TextBox AutomationProperties.Name="Custom paper colour, six hex digits" x:Name="CustomPaperBox" views:ControlHelp.Text="{x:Static views:Descriptions.CustomPaperColour}" Grid.Column="1" MaxLength="7" PlaceholderText="RRGGBB" />
+          <TextBox AutomationProperties.Name="Custom paper colour, six hex digits" x:Name="CustomPaperBox" views:ControlHelp.Text="{x:Static help:Descriptions.CustomPaperColour}" Grid.Column="1" MaxLength="7" PlaceholderText="RRGGBB" />
           <TextBlock x:Name="CustomInkLabel" Grid.Column="2" VerticalAlignment="Center" Text="Ink" />
-          <TextBox AutomationProperties.Name="Custom ink colour, six hex digits" x:Name="CustomInkBox" views:ControlHelp.Text="{x:Static views:Descriptions.CustomInkColour}" Grid.Column="3" MaxLength="7" PlaceholderText="RRGGBB" />
+          <TextBox AutomationProperties.Name="Custom ink colour, six hex digits" x:Name="CustomInkBox" views:ControlHelp.Text="{x:Static help:Descriptions.CustomInkColour}" Grid.Column="3" MaxLength="7" PlaceholderText="RRGGBB" />
         </Grid>
         <TextBlock x:Name="CustomToneContrastText" Classes="secondary" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
       </StackPanel>
       <TextBlock x:Name="ToolbarLabel" Grid.Row="2" VerticalAlignment="Center" Text="Tool bar" />
-      <ComboBox AutomationProperties.Name="Tool bar" x:Name="ToolbarBox" views:ControlHelp.Text="{x:Static views:Descriptions.ToolbarStyle}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox AutomationProperties.Name="Tool bar" x:Name="ToolbarBox" views:ControlHelp.Text="{x:Static help:Descriptions.ToolbarStyle}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="FileChangeLabel" Grid.Row="3" VerticalAlignment="Center" Text="When a file changes on disk" />
-      <ComboBox AutomationProperties.Name="When a file changes on disk" x:Name="FileChangeBox" views:ControlHelp.Text="{x:Static views:Descriptions.FileChange}" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox AutomationProperties.Name="When a file changes on disk" x:Name="FileChangeBox" views:ControlHelp.Text="{x:Static help:Descriptions.FileChange}" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="MotionLabel" Grid.Row="4" VerticalAlignment="Center" Text="Motion" />
-      <ComboBox AutomationProperties.Name="Motion" x:Name="MotionBox" views:ControlHelp.Text="{x:Static views:Descriptions.Motion}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox AutomationProperties.Name="Motion" x:Name="MotionBox" views:ControlHelp.Text="{x:Static help:Descriptions.Motion}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="CaretLabel" Grid.Row="5" VerticalAlignment="Center" Text="Text cursor" />
-      <ComboBox AutomationProperties.Name="Text cursor" x:Name="CaretBox" views:ControlHelp.Text="{x:Static views:Descriptions.TextCursor}" Grid.Row="5" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox AutomationProperties.Name="Text cursor" x:Name="CaretBox" views:ControlHelp.Text="{x:Static help:Descriptions.TextCursor}" Grid.Row="5" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="FontSizeLabel" Grid.Row="6" VerticalAlignment="Center" Text="Interface text size" />
-      <ComboBox AutomationProperties.Name="Interface text size" x:Name="FontSizeBox" views:ControlHelp.Text="{x:Static views:Descriptions.InterfaceTextSize}" Grid.Row="6" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox AutomationProperties.Name="Interface text size" x:Name="FontSizeBox" views:ControlHelp.Text="{x:Static help:Descriptions.InterfaceTextSize}" Grid.Row="6" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="OpeningZoomLabel" Grid.Row="7" VerticalAlignment="Center" Text="Opening zoom" />
-      <ComboBox AutomationProperties.Name="Opening zoom" x:Name="OpeningZoomBox" views:ControlHelp.Text="{x:Static views:Descriptions.OpeningZoom}" Grid.Row="7" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox AutomationProperties.Name="Opening zoom" x:Name="OpeningZoomBox" views:ControlHelp.Text="{x:Static help:Descriptions.OpeningZoom}" Grid.Row="7" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="CommentAuthorLabel" Grid.Row="8" VerticalAlignment="Center" Text="Author name for comments" />
-      <TextBox AutomationProperties.Name="Author name for comments" x:Name="CommentAuthorBox" views:ControlHelp.Text="{x:Static views:Descriptions.CommentAuthor}" Grid.Row="8" Grid.Column="1" PlaceholderText="Leave empty to use your user name" />
+      <TextBox AutomationProperties.Name="Author name for comments" x:Name="CommentAuthorBox" views:ControlHelp.Text="{x:Static help:Descriptions.CommentAuthor}" Grid.Row="8" Grid.Column="1" PlaceholderText="Leave empty to use your user name" />
       <TextBlock x:Name="FormHighlightColorLabel" Grid.Row="9" VerticalAlignment="Center" Text="Form field colour" />
-      <ComboBox AutomationProperties.Name="Form field colour" x:Name="FormHighlightColorBox" views:ControlHelp.Text="{x:Static views:Descriptions.FormHighlightColor}" Grid.Row="9" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox AutomationProperties.Name="Form field colour" x:Name="FormHighlightColorBox" views:ControlHelp.Text="{x:Static help:Descriptions.FormHighlightColor}" Grid.Row="9" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="FormHighlightOpacityLabel" Grid.Row="10" VerticalAlignment="Center" Text="Form field colour strength" />
-      <ComboBox AutomationProperties.Name="Form field colour strength" x:Name="FormHighlightOpacityBox" views:ControlHelp.Text="{x:Static views:Descriptions.FormHighlightOpacity}" Grid.Row="10" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox AutomationProperties.Name="Form field colour strength" x:Name="FormHighlightOpacityBox" views:ControlHelp.Text="{x:Static help:Descriptions.FormHighlightOpacity}" Grid.Row="10" Grid.Column="1" HorizontalAlignment="Stretch" />
     </Grid>
     <StackPanel Spacing="6">
-      <CheckBox AutomationProperties.Name="Open documents at the last page read" x:Name="ReopenAtLastPageBox" views:ControlHelp.Text="{x:Static views:Descriptions.ReopenAtLastPage}" Content="Open documents at the last page read" />
-      <CheckBox AutomationProperties.Name="Follow the page a document opens at" x:Name="FollowOpenActionBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowOpenAction}" Content="Follow the page a document opens at" />
-      <CheckBox AutomationProperties.Name="Show the panel a document asks for" x:Name="FollowPageModeBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPageMode}" Content="Show the panel a document asks for" />
-      <CheckBox AutomationProperties.Name="Use the page layout and direction a document asks for" x:Name="FollowPageLayoutBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPageLayout}" Content="Use the page layout and direction a document asks for" />
-      <CheckBox AutomationProperties.Name="Show a document's own title when it asks" x:Name="FollowDisplayDocTitleBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowDisplayDocTitle}" Content="Show a document's own title when it asks" />
-      <CheckBox AutomationProperties.Name="Use the print choices a document asks for" x:Name="FollowPrintDefaultsBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPrintDefaults}" Content="Use the print choices a document asks for" />
-      <CheckBox AutomationProperties.Name="Ignore bookmark colours" x:Name="IgnoreOutlineColoursBox" views:ControlHelp.Text="{x:Static views:Descriptions.IgnoreOutlineColours}" Content="Ignore bookmark colours" />
-      <CheckBox AutomationProperties.Name="Show page transitions when presenting" x:Name="FollowPageTransitionsBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPageTransitions}" Content="Show page transitions when presenting" />
-      <CheckBox AutomationProperties.Name="Move on by itself when presenting" x:Name="FollowPageTimingsBox" views:ControlHelp.Text="{x:Static views:Descriptions.FollowPageTimings}" Content="Move on by itself when presenting" />
-      <CheckBox AutomationProperties.Name="Keep the keyboard cursor on pages" x:Name="KeepKeyboardCursorBox" views:ControlHelp.Text="{x:Static views:Descriptions.KeepKeyboardCursor}" Content="Keep the keyboard cursor on pages" />
-      <CheckBox AutomationProperties.Name="Check spelling in form fields" x:Name="CheckSpellingBox" views:ControlHelp.Text="{x:Static views:Descriptions.CheckSpelling}" Content="Check spelling in form fields" />
-      <CheckBox AutomationProperties.Name="Offer fonts that cannot be saved in PDFs" x:Name="PreviewOnlyFontsBox" views:ControlHelp.Text="{x:Static views:Descriptions.PreviewOnlyFonts}" Content="Offer fonts that cannot be saved in PDFs (shown on screen, saved as Helvetica, Times or Courier)" />
+      <CheckBox AutomationProperties.Name="Open documents at the last page read" x:Name="ReopenAtLastPageBox" views:ControlHelp.Text="{x:Static help:Descriptions.ReopenAtLastPage}" Content="Open documents at the last page read" />
+      <CheckBox AutomationProperties.Name="Follow the page a document opens at" x:Name="FollowOpenActionBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowOpenAction}" Content="Follow the page a document opens at" />
+      <CheckBox AutomationProperties.Name="Show the panel a document asks for" x:Name="FollowPageModeBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowPageMode}" Content="Show the panel a document asks for" />
+      <CheckBox AutomationProperties.Name="Use the page layout and direction a document asks for" x:Name="FollowPageLayoutBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowPageLayout}" Content="Use the page layout and direction a document asks for" />
+      <CheckBox AutomationProperties.Name="Show a document's own title when it asks" x:Name="FollowDisplayDocTitleBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowDisplayDocTitle}" Content="Show a document's own title when it asks" />
+      <CheckBox AutomationProperties.Name="Use the print choices a document asks for" x:Name="FollowPrintDefaultsBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowPrintDefaults}" Content="Use the print choices a document asks for" />
+      <CheckBox AutomationProperties.Name="Ignore bookmark colours" x:Name="IgnoreOutlineColoursBox" views:ControlHelp.Text="{x:Static help:Descriptions.IgnoreOutlineColours}" Content="Ignore bookmark colours" />
+      <CheckBox AutomationProperties.Name="Show page transitions when presenting" x:Name="FollowPageTransitionsBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowPageTransitions}" Content="Show page transitions when presenting" />
+      <CheckBox AutomationProperties.Name="Move on by itself when presenting" x:Name="FollowPageTimingsBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowPageTimings}" Content="Move on by itself when presenting" />
+      <CheckBox AutomationProperties.Name="Keep the keyboard cursor on pages" x:Name="KeepKeyboardCursorBox" views:ControlHelp.Text="{x:Static help:Descriptions.KeepKeyboardCursor}" Content="Keep the keyboard cursor on pages" />
+      <CheckBox AutomationProperties.Name="Check spelling in form fields" x:Name="CheckSpellingBox" views:ControlHelp.Text="{x:Static help:Descriptions.CheckSpelling}" Content="Check spelling in form fields" />
+      <CheckBox AutomationProperties.Name="Offer fonts that cannot be saved in PDFs" x:Name="PreviewOnlyFontsBox" views:ControlHelp.Text="{x:Static help:Descriptions.PreviewOnlyFonts}" Content="Offer fonts that cannot be saved in PDFs (shown on screen, saved as Helvetica, Times or Courier)" />
     </StackPanel>
     <!-- Text and image sharpness: how crisp pages look on screen. Each choice applies at once. -->
     <StackPanel Spacing="6">
@@ -65,38 +65,38 @@
                  Text="Choose how text, lines and pictures are drawn. Pages draw again when you change one." />
       <Grid ColumnDefinitions="Auto,*" RowSpacing="10" ColumnSpacing="16">
         <TextBlock x:Name="SharpnessPresetLabel" VerticalAlignment="Center" Text="Edges" />
-        <ComboBox AutomationProperties.Name="Edges" x:Name="SharpnessPresetBox" views:ControlHelp.Text="{x:Static views:Descriptions.SharpnessPreset}" Grid.Column="1" HorizontalAlignment="Stretch" />
+        <ComboBox AutomationProperties.Name="Edges" x:Name="SharpnessPresetBox" views:ControlHelp.Text="{x:Static help:Descriptions.SharpnessPreset}" Grid.Column="1" HorizontalAlignment="Stretch" />
       </Grid>
       <TextBlock x:Name="SharpnessPresetText" Classes="secondary" TextWrapping="Wrap" />
       <!-- The individual choices behind the named sets. Closed until opened, so the list stays short. -->
-      <Expander x:Name="SharpnessAdvanced" AutomationProperties.Name="Advanced sharpness choices" views:ControlHelp.Text="{x:Static views:Descriptions.AdvancedSharpness}" Header="Advanced sharpness choices" HorizontalAlignment="Stretch">
+      <Expander x:Name="SharpnessAdvanced" AutomationProperties.Name="Advanced sharpness choices" views:ControlHelp.Text="{x:Static help:Descriptions.AdvancedSharpness}" Header="Advanced sharpness choices" HorizontalAlignment="Stretch">
         <StackPanel Spacing="6" Margin="0,6,0,0">
           <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
             <TextBlock x:Name="TextHintingLabel" Grid.Row="3" VerticalAlignment="Center" Text="Fit small text to pixels" />
-            <ComboBox AutomationProperties.Name="Fit small text to pixels" x:Name="TextHintingBox" views:ControlHelp.Text="{x:Static views:Descriptions.TextHinting}" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <ComboBox AutomationProperties.Name="Fit small text to pixels" x:Name="TextHintingBox" views:ControlHelp.Text="{x:Static help:Descriptions.TextHinting}" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" />
             <TextBlock x:Name="TextContrastLabel" Grid.Row="4" VerticalAlignment="Center" Text="Small text contrast" />
-            <ComboBox AutomationProperties.Name="Small text contrast" x:Name="TextContrastBox" views:ControlHelp.Text="{x:Static views:Descriptions.TextContrast}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <ComboBox AutomationProperties.Name="Small text contrast" x:Name="TextContrastBox" views:ControlHelp.Text="{x:Static help:Descriptions.TextContrast}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" />
             <TextBlock x:Name="TextEdgesLabel" Grid.Row="0" VerticalAlignment="Center" Text="Text edges" />
-            <ComboBox AutomationProperties.Name="Text edges" x:Name="TextEdgesBox" views:ControlHelp.Text="{x:Static views:Descriptions.TextEdges}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <ComboBox AutomationProperties.Name="Text edges" x:Name="TextEdgesBox" views:ControlHelp.Text="{x:Static help:Descriptions.TextEdges}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
             <TextBlock x:Name="StrokeAdjustmentLabel" Grid.Row="1" VerticalAlignment="Center" Text="Fit lines to pixels" />
-            <ComboBox AutomationProperties.Name="Fit lines to pixels" x:Name="StrokeAdjustmentBox" views:ControlHelp.Text="{x:Static views:Descriptions.StrokeAdjustment}" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <ComboBox AutomationProperties.Name="Fit lines to pixels" x:Name="StrokeAdjustmentBox" views:ControlHelp.Text="{x:Static help:Descriptions.StrokeAdjustment}" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" />
             <TextBlock x:Name="MinimumLineLabel" Grid.Row="2" VerticalAlignment="Center" Text="Thinnest line" />
-            <ComboBox AutomationProperties.Name="Thinnest line" x:Name="MinimumLineBox" views:ControlHelp.Text="{x:Static views:Descriptions.MinimumLineThickness}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <ComboBox AutomationProperties.Name="Thinnest line" x:Name="MinimumLineBox" views:ControlHelp.Text="{x:Static help:Descriptions.MinimumLineThickness}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" />
           </Grid>
-          <CheckBox AutomationProperties.Name="Smooth the edges of lines and shapes" x:Name="SmoothGraphicsBox" views:ControlHelp.Text="{x:Static views:Descriptions.SmoothGraphics}" Content="Smooth the edges of lines and shapes" />
-          <CheckBox AutomationProperties.Name="Smooth pictures" x:Name="SmoothImagesBox" views:ControlHelp.Text="{x:Static views:Descriptions.SmoothImages}" Content="Smooth pictures (turn off to show the nearest source pixel)" />
-          <CheckBox AutomationProperties.Name="Remember the shapes of small letters" x:Name="SmallTextMasksBox" views:ControlHelp.Text="{x:Static views:Descriptions.SmallTextMasks}" Content="Remember the shapes of small letters, so pages of text draw faster" />
-          <CheckBox AutomationProperties.Name="Average pixels when shrinking big pictures" x:Name="AreaImageReductionBox" views:ControlHelp.Text="{x:Static views:Descriptions.AreaImageReduction}" Content="Average pixels when shrinking big pictures" />
+          <CheckBox AutomationProperties.Name="Smooth the edges of lines and shapes" x:Name="SmoothGraphicsBox" views:ControlHelp.Text="{x:Static help:Descriptions.SmoothGraphics}" Content="Smooth the edges of lines and shapes" />
+          <CheckBox AutomationProperties.Name="Smooth pictures" x:Name="SmoothImagesBox" views:ControlHelp.Text="{x:Static help:Descriptions.SmoothImages}" Content="Smooth pictures (turn off to show the nearest source pixel)" />
+          <CheckBox AutomationProperties.Name="Remember the shapes of small letters" x:Name="SmallTextMasksBox" views:ControlHelp.Text="{x:Static help:Descriptions.SmallTextMasks}" Content="Remember the shapes of small letters, so pages of text draw faster" />
+          <CheckBox AutomationProperties.Name="Average pixels when shrinking big pictures" x:Name="AreaImageReductionBox" views:ControlHelp.Text="{x:Static help:Descriptions.AreaImageReduction}" Content="Average pixels when shrinking big pictures" />
         </StackPanel>
       </Expander>
     </StackPanel>
     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
       <TextBlock x:Name="SpeechEngineLabel" Grid.Row="0" VerticalAlignment="Center" Text="Read Aloud voice" />
-      <ComboBox AutomationProperties.Name="Read Aloud voice" x:Name="SpeechEngineBox" views:ControlHelp.Text="{x:Static views:Descriptions.SpeechEngine}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox AutomationProperties.Name="Read Aloud voice" x:Name="SpeechEngineBox" views:ControlHelp.Text="{x:Static help:Descriptions.SpeechEngine}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="AzureKeyLabel" Grid.Row="1" VerticalAlignment="Center" Text="Azure Speech key" />
-      <TextBox AutomationProperties.Name="Azure Speech key" x:Name="AzureKeyBox" views:ControlHelp.Text="{x:Static views:Descriptions.AzureKey}" Grid.Row="1" Grid.Column="1" PasswordChar="•" PlaceholderText="Key 1 or Key 2 from your Speech resource" />
+      <TextBox AutomationProperties.Name="Azure Speech key" x:Name="AzureKeyBox" views:ControlHelp.Text="{x:Static help:Descriptions.AzureKey}" Grid.Row="1" Grid.Column="1" PasswordChar="•" PlaceholderText="Key 1 or Key 2 from your Speech resource" />
       <TextBlock x:Name="AzureRegionLabel" Grid.Row="2" VerticalAlignment="Center" Text="Azure region" />
-      <TextBox AutomationProperties.Name="Azure region" x:Name="AzureRegionBox" views:ControlHelp.Text="{x:Static views:Descriptions.AzureRegion}" Grid.Row="2" Grid.Column="1" PlaceholderText="For example uksouth or eastus" />
+      <TextBox AutomationProperties.Name="Azure region" x:Name="AzureRegionBox" views:ControlHelp.Text="{x:Static help:Descriptions.AzureRegion}" Grid.Row="2" Grid.Column="1" PlaceholderText="For example uksouth or eastus" />
       <!-- Says where the chosen voice runs, and is read out when the voice changes. -->
       <TextBlock x:Name="SpeechNote" AutomationProperties.LiveSetting="Polite" Grid.Row="3" Grid.ColumnSpan="2" Classes="secondary" TextWrapping="Wrap" />
     </Grid>
@@ -113,15 +113,15 @@
                      AutomationProperties.Name="Language pack download progress" />
         <Button Grid.Column="2" x:Name="StopLanguageDownloadButton" Content="Stop Download"
                 AutomationProperties.Name="Stop download"
-                views:ControlHelp.Text="{x:Static views:Descriptions.StopLanguageDownload}" />
+                views:ControlHelp.Text="{x:Static help:Descriptions.StopLanguageDownload}" />
       </Grid>
     </StackPanel>
     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="10" ColumnSpacing="16">
       <TextBlock x:Name="TimestampServerLabel" Grid.Row="0" VerticalAlignment="Center" Text="Timestamp server" />
-      <TextBox AutomationProperties.Name="Timestamp server" x:Name="TimestampServerBox" views:ControlHelp.Text="{x:Static views:Descriptions.TimestampServer}" Grid.Row="0" Grid.Column="1" PlaceholderText="Optional, for example http://timestamp.digicert.com" />
+      <TextBox AutomationProperties.Name="Timestamp server" x:Name="TimestampServerBox" views:ControlHelp.Text="{x:Static help:Descriptions.TimestampServer}" Grid.Row="0" Grid.Column="1" PlaceholderText="Optional, for example http://timestamp.digicert.com" />
       <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="secondary" TextWrapping="Wrap" Text="When signing with a certificate, a timestamp server records a trusted signing time, so the signature stays valid after the certificate expires. Only a fingerprint of the signature is sent." />
     </Grid>
-    <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.ClosePreferences}" HorizontalAlignment="Right" Content="Close" IsDefault="True" IsCancel="True" />
+    <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.ClosePreferences}" HorizontalAlignment="Right" Content="Close" IsDefault="True" IsCancel="True" />
   </StackPanel>
   </ScrollViewer>
 </Window>

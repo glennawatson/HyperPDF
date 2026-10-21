@@ -1,12 +1,12 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:controls="using:HyperPdf.App.Controls"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.FieldEditorView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (FieldEditorView.axaml.cs). -->
   <!-- The text field editor sits exactly over the field being filled in. -->
   <Grid>
-    <TextBox x:Name="FieldEditor" views:ControlHelp.Text="{x:Static views:Descriptions.FormField}" AutomationProperties.Name="Form field" Classes="field" IsVisible="False" />
+    <TextBox x:Name="FieldEditor" views:ControlHelp.Text="{x:Static help:Descriptions.FormField}" AutomationProperties.Name="Form field" Classes="field" IsVisible="False" />
     <!-- Marks misspelled words under the editor's text; the pointer passes through it to the editor. -->
     <controls:SpellingUnderlines x:Name="FieldSpelling" IsHitTestVisible="False" IsVisible="False" Stroke="{DynamicResource AppIconRemove}" />
   </Grid>

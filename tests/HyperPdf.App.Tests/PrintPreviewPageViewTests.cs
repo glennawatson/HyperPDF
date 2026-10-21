@@ -4,9 +4,9 @@
 
 using Avalonia.Controls;
 using Avalonia.VisualTree;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Tests.Fakes;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives.Disposables;
 
 namespace HyperPdf.App.Tests;

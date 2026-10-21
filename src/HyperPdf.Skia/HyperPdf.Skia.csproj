@@ -7,6 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Rendering.Skia\HyperPdf.Rendering.Skia.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="HyperPdf.Rendering.Skia" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
@@ -23,7 +31,7 @@
   <!-- The renderer implements platform contracts omitted from Avalonia's public reference assemblies. -->
   <Target Name="UseAvaloniaImplementationAssemblies" AfterTargets="FindReferenceAssembliesForReferences" BeforeTargets="CoreCompile">
     <ItemGroup>
-      <AvaloniaRendererReference Include="@(ReferencePathWithRefAssemblies)" Condition="'%(NuGetPackageId)' == 'Avalonia'" />
+      <AvaloniaRendererReference Include="@(ReferencePathWithRefAssemblies->WithMetadataValue('NuGetPackageId', 'Avalonia'))" />
       <ReferencePathWithRefAssemblies Remove="@(AvaloniaRendererReference)" />
       <ReferencePathWithRefAssemblies Include="@(AvaloniaRendererReference->Replace('\', '/')->Replace('/ref/', '/lib/'))" />
     </ItemGroup>

@@ -15,7 +15,54 @@
     <Compile Include="..\HyperPdfLibrary.Tests\Robustness\LinearizedDocuments.cs" Link="LinearizedDocuments.cs" />
   </ItemGroup>
 
+  <!-- View model fakes and the services builder are shared with the toolkit-free view model tests. -->
+  <ItemGroup>
+    <Compile Include="..\HyperPdf.ViewModels.Tests\PausingEngine.cs" Link="Shared\PausingEngine.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\HoldingLayout.cs" Link="Shared\HoldingLayout.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\PageInk.cs" Link="Shared\PageInk.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\PrintingPlatform.cs" Link="Shared\PrintingPlatform.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\FakeAnnotationEditor.cs" Link="Shared\FakeAnnotationEditor.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\FakeArchiveCopyWriter.cs" Link="Shared\FakeArchiveCopyWriter.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\FakeDocumentProtector.cs" Link="Shared\FakeDocumentProtector.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\FakeDocumentSigner.cs" Link="Shared\FakeDocumentSigner.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\FakeFlattenCopyWriter.cs" Link="Shared\FakeFlattenCopyWriter.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\FakeOcr.cs" Link="Shared\FakeOcr.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\FakeOptimizer.cs" Link="Shared\FakeOptimizer.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\FakePdf20CopyWriter.cs" Link="Shared\FakePdf20CopyWriter.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\FakePendingSignature.cs" Link="Shared\FakePendingSignature.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\FakeRedactor.cs" Link="Shared\FakeRedactor.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\FakeSpeech.cs" Link="Shared\FakeSpeech.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\NoRevocationSource.cs" Link="Shared\NoRevocationSource.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\PageOperation.cs" Link="Shared\PageOperation.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\RecordedPageAction.cs" Link="Shared\RecordedPageAction.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\RecordingAttachments.cs" Link="Shared\RecordingAttachments.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\RecordingExporter.cs" Link="Shared\RecordingExporter.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\RecordingFormActions.cs" Link="Shared\RecordingFormActions.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\RecordingPageManagement.cs" Link="Shared\RecordingPageManagement.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\RecordingPrinter.cs" Link="Shared\RecordingPrinter.cs" />
+    <Compile Include="..\HyperPdf.ViewModels.Tests\TestServices.cs" Link="Shared\TestServices.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia.Headless" />
+  </ItemGroup>
+
+  <ItemGroup Label="View model namespaces">
+    <Using Include="HyperPdf.Rendering.Skia" />
+    <Using Include="HyperPdf.ViewModels.Tests" />
+    <Using Include="HyperPdf.ViewModels.Dialogs" />
+    <Using Include="HyperPdf.ViewModels.Finding" />
+    <Using Include="HyperPdf.ViewModels.FormFilling" />
+    <Using Include="HyperPdf.ViewModels.Help" />
+    <Using Include="HyperPdf.ViewModels.Markup" />
+    <Using Include="HyperPdf.ViewModels.Output" />
+    <Using Include="HyperPdf.ViewModels.Preferences" />
+    <Using Include="HyperPdf.ViewModels.Reading" />
+    <Using Include="HyperPdf.ViewModels.Rendering" />
+    <Using Include="HyperPdf.ViewModels.Security" />
+    <Using Include="HyperPdf.ViewModels.Services" />
+    <Using Include="HyperPdf.ViewModels.Sidebar" />
+    <Using Include="HyperPdf.ViewModels.Signing" />
+    <Using Include="HyperPdf.ViewModels.Viewing" />
   </ItemGroup>
 </Project>

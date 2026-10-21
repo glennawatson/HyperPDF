@@ -9,7 +9,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Media;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using ReactiveUI.Primitives;
@@ -38,7 +37,7 @@ internal static class PageCanvasCaretMixins
     private const float TextTolerance = 4F;
 
     /// <summary>Represents the absence of a character position.</summary>
-    private static readonly PageCharacter NoCharacter = new(-1, -1);
+    private static readonly CharacterPosition NoCharacter = new(-1, -1);
 
     /// <summary>Adds the caret, text selection, link click, pointer move/release and document key streams and helpers to a page canvas.</summary>
     /// <param name="canvas">The page canvas.</param>
@@ -182,7 +181,7 @@ internal static class PageCanvasCaretMixins
         /// <param name="start">The start.</param>
         /// <param name="end">The end.</param>
         /// <returns><see langword="true"/> when there is a selection.</returns>
-        internal bool TryGetSelection(out PageCharacter start, out PageCharacter end)
+        internal bool TryGetSelection(out CharacterPosition start, out CharacterPosition end)
         {
             start = canvas.SelectionAnchor;
             end = canvas.SelectionFocus;
@@ -231,7 +230,7 @@ internal static class PageCanvasCaretMixins
         /// </summary>
         /// <param name="next">The new focus.</param>
         /// <returns><see langword="true"/> when the focus moved.</returns>
-        internal bool MoveSelectionFocus(PageCharacter next)
+        internal bool MoveSelectionFocus(CharacterPosition next)
         {
             var previous = canvas.SelectionFocus;
             if (previous == next)
@@ -455,7 +454,7 @@ internal static class PageCanvasCaretMixins
         /// <summary>Moves the caret, extending the selection when asked, and keeps it in view.</summary>
         /// <param name="next">The new position.</param>
         /// <param name="extend">Whether to extend the selection.</param>
-        private void MoveCaret(PageCharacter next, bool extend)
+        private void MoveCaret(CharacterPosition next, bool extend)
         {
             if (extend)
             {
@@ -483,7 +482,7 @@ internal static class PageCanvasCaretMixins
         /// <param name="from">The current position.</param>
         /// <param name="direction">1 for down, -1 for up.</param>
         /// <returns>The new position, or page -1 at either end of the document.</returns>
-        private PageCharacter StepLine(IDocument document, PageCharacter from, int direction)
+        private CharacterPosition StepLine(IDocument document, CharacterPosition from, int direction)
         {
             canvas.CaretBounds.Clear();
             document.GetTextBounds(from.Page, from.Char, 1, canvas.CaretBounds);
@@ -503,7 +502,7 @@ internal static class PageCanvasCaretMixins
             }
 
             // No further line on this page: go to the first or last character of the next page with text.
-            var edge = direction > 0 ? new PageCharacter(from.Page, document.GetCharacterCount(from.Page) - 1) : new PageCharacter(from.Page, 0);
+            var edge = direction > 0 ? new CharacterPosition(from.Page, document.GetCharacterCount(from.Page) - 1) : new CharacterPosition(from.Page, 0);
             return Step(document, edge, direction);
         }
 
@@ -589,7 +588,7 @@ internal static class PageCanvasCaretMixins
     /// <param name="from">The current position.</param>
     /// <param name="direction">1 for forward, -1 for back.</param>
     /// <returns>The new position, or page -1 at either end of the document.</returns>
-    private static PageCharacter Step(IDocument document, PageCharacter from, int direction)
+    private static CharacterPosition Step(IDocument document, CharacterPosition from, int direction)
     {
         var target = from.Char + direction;
         if (target >= 0 && target < document.GetCharacterCount(from.Page))
@@ -625,7 +624,7 @@ internal static class PageCanvasCaretMixins
                 return;
             }
 
-            var picked = new PageCharacter(page, character);
+            var picked = new CharacterPosition(page, character);
             Canvas.SelectionAnchor = picked;
             Canvas.SelectionFocus = picked;
             Canvas.Caret = picked;

@@ -10,11 +10,11 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Layout;
 using HyperPdf.Core.Navigation;
 using HyperPdf.Core.Settings;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;

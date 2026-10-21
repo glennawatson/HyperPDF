@@ -1,9 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.TabFinderView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (TabFinderView.axaml.cs). -->
-  <Button AutomationProperties.Name="Find an open tab" x:Name="TabFinderButton" views:ControlHelp.Text="{x:Static views:Descriptions.TabFinder}" Classes="tool">
+  <Button AutomationProperties.Name="Find an open tab" x:Name="TabFinderButton" views:ControlHelp.Text="{x:Static help:Descriptions.TabFinder}" Classes="tool">
     <StackPanel Orientation="Horizontal">
       <Path Classes="icon nav" Data="{StaticResource IconSearch}" />
       <TextBlock x:Name="TabCountText" Classes="label" />
@@ -11,7 +11,7 @@
     <Button.Flyout>
       <Flyout Placement="BottomEdgeAlignedRight">
         <DockPanel Width="380" Height="420">
-          <TextBox x:Name="TabFinderBox" views:ControlHelp.Text="{x:Static views:Descriptions.TabFinderBox}" AutomationProperties.Name="Find an open tab" DockPanel.Dock="Top" Margin="0,0,0,6" PlaceholderText="Type part of a name, title or folder" />
+          <TextBox x:Name="TabFinderBox" views:ControlHelp.Text="{x:Static help:Descriptions.TabFinderBox}" AutomationProperties.Name="Find an open tab" DockPanel.Dock="Top" Margin="0,0,0,6" PlaceholderText="Type part of a name, title or folder" />
           <ListBox x:Name="TabFinderList" AutomationProperties.Name="Matching tabs" Background="Transparent" />
         </DockPanel>
       </Flyout>

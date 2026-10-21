@@ -4,7 +4,6 @@
 
 using Avalonia.Automation;
 using Avalonia.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.TestAssets;
 

@@ -4,11 +4,10 @@
 
 using Avalonia.Controls;
 using Avalonia.VisualTree;
-using HyperPdf.App.Rendering;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Rendering;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;
@@ -87,8 +86,8 @@ public sealed class SplitViewTests
         var cache = test.Services.RenderHub.Cache;
         var first = TileKey.Preview(tab.TileId, 0, PageRotation.None, PageTone.None.Id);
         var second = TileKey.Preview(split.TileId, 0, PageRotation.None, PageTone.None.Id);
-        cache.Add(first, new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability()));
-        cache.Add(second, new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability()));
+        cache.Add(first, new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software));
+        cache.Add(second, new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software));
 
         _ = await split.SplitViewCommand.Execute().ToTask();
         var firstKeptWhenSecondClosed = cache.Contains(first);
@@ -96,7 +95,7 @@ public sealed class SplitViewTests
         _ = await tab.SplitViewCommand.Execute().ToTask();
         var splitAgain = main.SplitTab!;
         var secondAgain = TileKey.Preview(splitAgain.TileId, 0, PageRotation.None, PageTone.None.Id);
-        cache.Add(secondAgain, new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability()));
+        cache.Add(secondAgain, new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software));
         var marked = tab.Annotations.AddShape(0, HyperPdf.Core.Annotations.AnnotationKind.Rectangle, new(ShapeStart, ShapeStart), new(ShapeEnd, ShapeEnd));
 
         using (Assert.Multiple())

@@ -8,7 +8,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Forms;
 using ReactiveUI.Primitives;

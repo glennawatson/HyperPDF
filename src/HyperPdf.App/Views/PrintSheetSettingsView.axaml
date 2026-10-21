@@ -1,20 +1,20 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.PrintSheetSettingsView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (PrintSheetSettingsView.axaml.cs). -->
   <StackPanel Spacing="14">
     <Grid ColumnDefinitions="136,*">
       <TextBlock x:Name="LayoutLabel" Text="Layout" VerticalAlignment="Center" />
-      <ComboBox x:Name="LayoutBox" views:ControlHelp.Text="{x:Static views:Descriptions.PrintLayout}" AutomationProperties.Name="Layout" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox x:Name="LayoutBox" views:ControlHelp.Text="{x:Static help:Descriptions.PrintLayout}" AutomationProperties.Name="Layout" Grid.Column="1" HorizontalAlignment="Stretch" />
     </Grid>
     <Grid x:Name="PagesPerSheetRow" ColumnDefinitions="136,*">
       <TextBlock x:Name="PagesPerSheetLabel" Text="Pages per sheet" VerticalAlignment="Center" />
-      <ComboBox x:Name="PagesPerSheetBox" views:ControlHelp.Text="{x:Static views:Descriptions.PagesPerSheet}" AutomationProperties.Name="Pages per sheet" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <ComboBox x:Name="PagesPerSheetBox" views:ControlHelp.Text="{x:Static help:Descriptions.PagesPerSheet}" AutomationProperties.Name="Pages per sheet" Grid.Column="1" HorizontalAlignment="Stretch" />
     </Grid>
     <Grid x:Name="PaperRow" ColumnDefinitions="136,*">
       <TextBlock x:Name="PaperLabel" Text="Paper size" VerticalAlignment="Center" />
-      <ComboBox x:Name="PaperBox" views:ControlHelp.Text="{x:Static views:Descriptions.PaperSize}" AutomationProperties.Name="Paper size" Grid.Column="1" HorizontalAlignment="Stretch">
+      <ComboBox x:Name="PaperBox" views:ControlHelp.Text="{x:Static help:Descriptions.PaperSize}" AutomationProperties.Name="Paper size" Grid.Column="1" HorizontalAlignment="Stretch">
         <ComboBoxItem Content="A4" />
         <ComboBoxItem Content="Letter" />
         <ComboBoxItem Content="A3" />
@@ -25,7 +25,7 @@
     </Grid>
     <Grid x:Name="ScalingRow" ColumnDefinitions="136,*">
       <TextBlock x:Name="ScalingLabel" Text="Page size" VerticalAlignment="Center" />
-      <ComboBox x:Name="ScalingBox" views:ControlHelp.Text="{x:Static views:Descriptions.PrintScaling}" AutomationProperties.Name="Page size" Grid.Column="1" HorizontalAlignment="Stretch">
+      <ComboBox x:Name="ScalingBox" views:ControlHelp.Text="{x:Static help:Descriptions.PrintScaling}" AutomationProperties.Name="Page size" Grid.Column="1" HorizontalAlignment="Stretch">
         <ComboBoxItem Content="Fit to paper" />
         <ComboBoxItem Content="Actual size" />
         <ComboBoxItem Content="Shrink oversized pages" />
@@ -34,12 +34,12 @@
     </Grid>
     <Grid x:Name="ScalePercentRow" ColumnDefinitions="136,*">
       <TextBlock x:Name="ScalePercentLabel" Text="Scale (%)" VerticalAlignment="Center" />
-      <NumericUpDown x:Name="ScalePercentBox" views:ControlHelp.Text="{x:Static views:Descriptions.PrintScalePercent}" AutomationProperties.Name="Scale percent" Grid.Column="1"
+      <NumericUpDown x:Name="ScalePercentBox" views:ControlHelp.Text="{x:Static help:Descriptions.PrintScalePercent}" AutomationProperties.Name="Scale percent" Grid.Column="1"
                      Minimum="10" Maximum="400" Increment="5" FormatString="0" HorizontalAlignment="Stretch" />
     </Grid>
     <Grid ColumnDefinitions="136,*">
       <TextBlock Text="Options" VerticalAlignment="Center" />
-      <CheckBox x:Name="AnnotationsBox" views:ControlHelp.Text="{x:Static views:Descriptions.PrintAnnotations}" Grid.Column="1" Content="Annotations" />
+      <CheckBox x:Name="AnnotationsBox" views:ControlHelp.Text="{x:Static help:Descriptions.PrintAnnotations}" Grid.Column="1" Content="Annotations" />
     </Grid>
   </StackPanel>
 </UserControl>

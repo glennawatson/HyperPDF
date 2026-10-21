@@ -6,11 +6,11 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Presentation;
 using HyperPdf.Core.Settings;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 
 namespace HyperPdf.App.Tests;
 

@@ -8,12 +8,12 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.VisualTree;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
+using HyperPdf.App.Rendering;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Settings;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Tests;
@@ -190,7 +190,7 @@ public sealed class CertificateSignTests
 
         RememberedCertificate[] remembered;
         string? signature;
-        using (var reopened = new AppServices(new SettingsStore(test.Services.SettingsStore.FilePath), new HyperPdfEngine(), new FallbackPlatform()))
+        using (var reopened = new AppServices(new SettingsStore(test.Services.SettingsStore.FilePath), new HyperPdfEngine(), new FallbackPlatform(), new AvaloniaRenderHead()))
         {
             remembered = [.. reopened.Settings.RememberedCertificates];
             signature = reopened.SignatureMarks.Signature?.Text;

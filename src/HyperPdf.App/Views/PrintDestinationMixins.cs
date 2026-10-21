@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdf.App.ViewModels;
-
 namespace HyperPdf.App.Views;
 
 /// <summary>Words for print destinations.</summary>

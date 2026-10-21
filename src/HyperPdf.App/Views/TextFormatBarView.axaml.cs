@@ -8,8 +8,6 @@ using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using HyperPdf.App.Controls;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Text;
 using ReactiveUI;
 using ReactiveUI.Binding;

@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.RecognitionBarsView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (RecognitionBarsView.axaml.cs). -->
@@ -9,7 +9,7 @@
       <Grid ColumnDefinitions="*,Auto,Auto">
         <TextBlock x:Name="RecognitionText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" />
         <ProgressBar Grid.Column="1" x:Name="RecognitionProgress" AutomationProperties.Name="Text recognition progress" Width="160" Minimum="0" Maximum="1" VerticalAlignment="Center" Margin="8,0" />
-        <Button Grid.Column="2" x:Name="StopRecognitionButton" views:ControlHelp.Text="{x:Static views:Descriptions.StopRecognition}" Content="Stop" />
+        <Button Grid.Column="2" x:Name="StopRecognitionButton" views:ControlHelp.Text="{x:Static help:Descriptions.StopRecognition}" Content="Stop" />
       </Grid>
     </Border>
 
@@ -19,14 +19,14 @@
         <TextBlock x:Name="LanguageBarText" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
         <ComboBox Grid.Column="1" x:Name="LanguageBox" Width="200" VerticalAlignment="Center" Margin="8,0"
                   AutomationProperties.Name="Document language"
-                  views:ControlHelp.Text="{x:Static views:Descriptions.DocumentLanguage}" />
+                  views:ControlHelp.Text="{x:Static help:Descriptions.DocumentLanguage}" />
         <Button Grid.Column="2" x:Name="LanguageActionButton" MinWidth="220"
-                views:ControlHelp.Text="{x:Static views:Descriptions.RecognizeInLanguage}" />
+                views:ControlHelp.Text="{x:Static help:Descriptions.RecognizeInLanguage}" />
         <ProgressBar Grid.Column="3" x:Name="LanguageDownloadProgress" Width="140" Minimum="0" Maximum="1" VerticalAlignment="Center" Margin="8,0"
                      AutomationProperties.Name="Language download progress" />
         <Button Grid.Column="4" x:Name="CloseLanguageBarButton" Content="Not Now"
                 AutomationProperties.Name="Not now"
-                views:ControlHelp.Text="{x:Static views:Descriptions.CloseLanguageBar}" />
+                views:ControlHelp.Text="{x:Static help:Descriptions.CloseLanguageBar}" />
       </Grid>
     </Border>
   </StackPanel>

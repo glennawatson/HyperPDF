@@ -4,8 +4,6 @@
 
 using System.Diagnostics;
 using HyperPdf.App.Controls;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;

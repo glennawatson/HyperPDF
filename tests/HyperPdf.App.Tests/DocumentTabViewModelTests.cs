@@ -8,7 +8,6 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
@@ -16,6 +15,7 @@ using HyperPdf.Core.Layout;
 using HyperPdf.Core.Settings;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 using HyperPdfLibrary.Tests.Robustness;
 using ReactiveUI.Primitives;
 

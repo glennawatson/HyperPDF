@@ -7,8 +7,6 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Attachments;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Settings;

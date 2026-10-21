@@ -12,12 +12,13 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using HyperPdf.App.Controls;
+using HyperPdf.App.Rendering;
 using HyperPdf.App.Services;
 using HyperPdf.App.Theming;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Theming;
+using HyperPdf.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
@@ -151,7 +152,7 @@ public sealed class App : Application
     /// <param name="desktop">The desktop lifetime.</param>
     private void Open(IClassicDesktopStyleApplicationLifetime desktop)
     {
-        var services = AppServices.CreateDefault(Program.Platform);
+        var services = AppServices.CreateDefault(Program.Platform, new AvaloniaRenderHead(), SpellCheckers.Create);
         var viewModel = new MainViewModel(services);
         var window = new MainWindow { DataContext = viewModel, Width = services.Settings.WindowWidth, Height = services.Settings.WindowHeight };
         if (services.Settings.WindowMaximized)

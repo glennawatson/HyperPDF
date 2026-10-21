@@ -9,7 +9,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Measuring;
 using ReactiveUI.Primitives;

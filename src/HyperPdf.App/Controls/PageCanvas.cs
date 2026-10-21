@@ -15,8 +15,6 @@ using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
 using HyperPdf.App.Rendering;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
@@ -373,13 +371,13 @@ public sealed class PageCanvas : Control, IActivatableView
     internal bool Selecting { get; set; }
 
     /// <summary>Gets or sets the selection anchor.</summary>
-    internal PageCharacter SelectionAnchor { get; set; } = new(-1, -1);
+    internal CharacterPosition SelectionAnchor { get; set; } = new(-1, -1);
 
     /// <summary>Gets or sets the selection focus.</summary>
-    internal PageCharacter SelectionFocus { get; set; } = new(-1, -1);
+    internal CharacterPosition SelectionFocus { get; set; } = new(-1, -1);
 
     /// <summary>Gets or sets the caret position.</summary>
-    internal PageCharacter Caret { get; set; } = new(-1, -1);
+    internal CharacterPosition Caret { get; set; } = new(-1, -1);
 
     /// <summary>Gets or sets the wheel zoom easing now, or the last one once it has settled.</summary>
     internal PageCanvasZoomMixins.WheelZoomEase WheelZoom

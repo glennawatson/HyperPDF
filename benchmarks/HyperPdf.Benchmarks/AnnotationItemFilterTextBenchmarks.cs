@@ -3,8 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Annotations;
+using HyperPdf.ViewModels.Markup;
 
 namespace HyperPdf.Benchmarks;
 

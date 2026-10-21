@@ -3,14 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.App.Controls;
-using HyperPdf.App.Services;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Settings;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
+using HyperPdf.ViewModels;
 using HyperPdfLibrary.IO;
 using ReactiveUI.Primitives;
 

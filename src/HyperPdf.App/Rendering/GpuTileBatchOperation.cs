@@ -9,7 +9,6 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
 using HyperPdf.Skia;
-using HyperPdf.Skia.Gpu;
 using SkiaSharp;
 
 namespace HyperPdf.App.Rendering;
@@ -236,10 +235,10 @@ internal sealed class GpuTileBatchOperation : ICustomDrawOperation
             }
 
             var (tile, bounds, _) = _tiles[i];
-            var bitmap = tile.SoftwareBitmap;
+            var bitmap = (tile.SoftwareSurface as AvaloniaRenderSurface)?.Bitmap;
             if (bitmap is null && tile.IsGpuUnavailable && tile.EnsureSoftwareBitmap())
             {
-                bitmap = tile.SoftwareBitmap;
+                bitmap = (tile.SoftwareSurface as AvaloniaRenderSurface)?.Bitmap;
             }
 
             if (bitmap is not null)

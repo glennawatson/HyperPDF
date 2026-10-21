@@ -1,5 +1,5 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.PropertiesWindow"
         Width="560" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner"
@@ -8,6 +8,6 @@
     <ScrollViewer MaxHeight="520" HorizontalScrollBarVisibility="Disabled">
       <ItemsControl x:Name="EntryList" AutomationProperties.Name="Document properties" />
     </ScrollViewer>
-    <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static views:Descriptions.CloseWindow}" HorizontalAlignment="Right" Content="Close" IsDefault="True" IsCancel="True" />
+    <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseWindow}" HorizontalAlignment="Right" Content="Close" IsDefault="True" IsCancel="True" />
   </StackPanel>
 </Window>

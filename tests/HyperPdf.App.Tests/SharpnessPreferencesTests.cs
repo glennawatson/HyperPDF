@@ -10,9 +10,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.VisualTree;
-using HyperPdf.App.Services;
+using HyperPdf.App.Rendering;
 using HyperPdf.App.Theming;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
@@ -20,6 +19,7 @@ using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Settings;
 using HyperPdf.Core.Theming;
 using HyperPdf.Engine;
+using HyperPdf.ViewModels;
 using HyperPdfLibrary.Rendering;
 
 namespace HyperPdf.App.Tests;
@@ -97,7 +97,7 @@ public sealed class SharpnessPreferencesTests
         }
 
         var saved = new SettingsStore(path).Load().Sharpness;
-        using var nextRun = new AppServices(new SettingsStore(path), new HyperPdfEngine(), new FallbackPlatform());
+        using var nextRun = new AppServices(new SettingsStore(path), new HyperPdfEngine(), new FallbackPlatform(), new AvaloniaRenderHead());
         using var reloaded = new PreferencesViewModel(nextRun);
 
         await Assert.That(saved.TextEdges).IsEqualTo(TextEdgeChoice.Sharp);

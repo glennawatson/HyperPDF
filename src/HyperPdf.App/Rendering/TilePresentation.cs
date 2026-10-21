@@ -30,7 +30,7 @@ internal static class TilePresentation
     internal static void DrawBitmap(DrawingContext context, IRenderSurface surface, in Rect destination)
     {
         var source = new Rect(0, 0, surface.Width, surface.Height);
-        if (surface is GpuPreparedRenderSurface { SoftwareBitmap: { } bitmap })
+        if (surface is GpuPreparedRenderSurface { SoftwareSurface: AvaloniaRenderSurface { Bitmap: var bitmap } })
         {
             context.DrawImage(bitmap, source, destination);
         }

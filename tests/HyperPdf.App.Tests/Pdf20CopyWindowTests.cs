@@ -7,7 +7,6 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.TestAssets;
 

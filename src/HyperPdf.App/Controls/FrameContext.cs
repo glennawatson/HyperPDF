@@ -4,8 +4,6 @@
 
 using System.Runtime.CompilerServices;
 using Avalonia;
-using HyperPdf.App.Rendering;
-using HyperPdf.App.ViewModels;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Rendering;
 

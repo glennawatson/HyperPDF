@@ -33,7 +33,7 @@ internal sealed class TileDrawBatch
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(surface);
-        if (surface is GpuPreparedRenderSurface { SoftwareBitmap: null } gpu)
+        if (surface is GpuPreparedRenderSurface { SoftwareSurface: null } gpu)
         {
             if (gpu.TryRetain())
             {

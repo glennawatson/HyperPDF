@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.DocumentLockView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (DocumentLockView.axaml.cs). -->
@@ -15,8 +15,8 @@
     <Border x:Name="PasswordPanel" Background="{DynamicResource AppCanvasBackground}">
       <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" Width="320">
         <TextBlock FontSize="16" HorizontalAlignment="Center" AutomationProperties.HeadingLevel="1" Text="This document is password protected" />
-        <TextBox x:Name="PasswordBox" views:ControlHelp.Text="{x:Static views:Descriptions.DocumentPassword}" AutomationProperties.Name="Password" PasswordChar="●" PlaceholderText="Password" />
-        <Button x:Name="UnlockButton" views:ControlHelp.Text="{x:Static views:Descriptions.Unlock}" HorizontalAlignment="Right" Content="Unlock" />
+        <TextBox x:Name="PasswordBox" views:ControlHelp.Text="{x:Static help:Descriptions.DocumentPassword}" AutomationProperties.Name="Password" PasswordChar="●" PlaceholderText="Password" />
+        <Button x:Name="UnlockButton" views:ControlHelp.Text="{x:Static help:Descriptions.Unlock}" HorizontalAlignment="Right" Content="Unlock" />
       </StackPanel>
     </Border>
 
@@ -25,13 +25,13 @@
         <TextBlock FontSize="16" HorizontalAlignment="Center" AutomationProperties.HeadingLevel="1" Text="This document needs a certificate" />
         <TextBlock x:Name="OpenCertificateLabel" Text="Certificate file" />
         <Grid ColumnDefinitions="*,Auto">
-          <TextBox x:Name="OpenCertificatePathBox" Grid.Column="0" views:ControlHelp.Text="{x:Static views:Descriptions.CertificateFile}" AutomationProperties.Name="Certificate file" PlaceholderText=".p12 or .pfx file" />
-          <Button x:Name="BrowseOpenCertificateButton" Grid.Column="1" Margin="8,0,0,0" views:ControlHelp.Text="{x:Static views:Descriptions.ChooseCertificate}" AutomationProperties.Name="Choose certificate file" Content="Choose…" />
+          <TextBox x:Name="OpenCertificatePathBox" Grid.Column="0" views:ControlHelp.Text="{x:Static help:Descriptions.CertificateFile}" AutomationProperties.Name="Certificate file" PlaceholderText=".p12 or .pfx file" />
+          <Button x:Name="BrowseOpenCertificateButton" Grid.Column="1" Margin="8,0,0,0" views:ControlHelp.Text="{x:Static help:Descriptions.ChooseCertificate}" AutomationProperties.Name="Choose certificate file" Content="Choose…" />
         </Grid>
         <TextBlock x:Name="OpenCertificatePasswordLabel" Text="Certificate password" />
-        <TextBox x:Name="OpenCertificatePasswordBox" views:ControlHelp.Text="{x:Static views:Descriptions.CertificatePassword}" AutomationProperties.Name="Certificate password" PasswordChar="●" />
+        <TextBox x:Name="OpenCertificatePasswordBox" views:ControlHelp.Text="{x:Static help:Descriptions.CertificatePassword}" AutomationProperties.Name="Certificate password" PasswordChar="●" />
         <TextBlock x:Name="OpenCertificateErrorText" AutomationProperties.LiveSetting="Assertive" TextWrapping="Wrap" />
-        <Button x:Name="UnlockCertificateButton" views:ControlHelp.Text="{x:Static views:Descriptions.OpenCertificateDocument}" HorizontalAlignment="Right" Content="Open document" />
+        <Button x:Name="UnlockCertificateButton" views:ControlHelp.Text="{x:Static help:Descriptions.OpenCertificateDocument}" HorizontalAlignment="Right" Content="Open document" />
       </StackPanel>
     </Border>
   </Panel>

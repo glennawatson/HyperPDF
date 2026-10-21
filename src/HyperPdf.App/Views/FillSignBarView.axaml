@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.FillSignBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (FillSignBarView.axaml.cs). -->
@@ -11,50 +11,50 @@
     <Grid ColumnDefinitions="*,Auto">
       <StackPanel>
         <WrapPanel>
-          <ToggleButton AutomationProperties.Name="Add Text" x:Name="AddTextTool" views:ControlHelp.Text="{x:Static views:Descriptions.AddText}" Classes="tool">
+          <ToggleButton AutomationProperties.Name="Add Text" x:Name="AddTextTool" views:ControlHelp.Text="{x:Static help:Descriptions.AddText}" Classes="tool">
             <StackPanel Orientation="Horizontal">
               <Path Classes="icon add" Data="{StaticResource IconText}" />
               <TextBlock Classes="label" Text="Add Text" />
             </StackPanel>
           </ToggleButton>
-          <Button AutomationProperties.Name="Signature…" x:Name="SignatureButton" views:ControlHelp.Text="{x:Static views:Descriptions.SignatureMark}" Classes="tool">
+          <Button AutomationProperties.Name="Signature…" x:Name="SignatureButton" views:ControlHelp.Text="{x:Static help:Descriptions.SignatureMark}" Classes="tool">
             <StackPanel Orientation="Horizontal">
               <Path Classes="icon edit" Data="{StaticResource IconSignature}" />
               <TextBlock Classes="label" Text="Signature…" />
             </StackPanel>
           </Button>
-          <Button AutomationProperties.Name="Initials…" x:Name="InitialsButton" views:ControlHelp.Text="{x:Static views:Descriptions.InitialsMark}" Classes="tool">
+          <Button AutomationProperties.Name="Initials…" x:Name="InitialsButton" views:ControlHelp.Text="{x:Static help:Descriptions.InitialsMark}" Classes="tool">
             <StackPanel Orientation="Horizontal">
               <Path Classes="icon edit" Data="{StaticResource IconText}" />
               <TextBlock Classes="label" Text="Initials…" />
             </StackPanel>
           </Button>
-          <Button AutomationProperties.Name="Sign with Certificate…" x:Name="CertificateSignButton" views:ControlHelp.Text="{x:Static views:Descriptions.CertificateSign}" Classes="tool">
+          <Button AutomationProperties.Name="Sign with Certificate…" x:Name="CertificateSignButton" views:ControlHelp.Text="{x:Static help:Descriptions.CertificateSign}" Classes="tool">
             <StackPanel Orientation="Horizontal">
               <Path Classes="icon edit" Data="{StaticResource IconCertificate}" />
               <TextBlock Classes="label" Text="Sign with Certificate…" />
             </StackPanel>
           </Button>
           <StackPanel x:Name="PlacingTools" Orientation="Horizontal">
-            <Button AutomationProperties.Name="Place" x:Name="PlaceMarkButton" views:ControlHelp.Text="{x:Static views:Descriptions.PlaceMark}" Classes="tool">
+            <Button AutomationProperties.Name="Place" x:Name="PlaceMarkButton" views:ControlHelp.Text="{x:Static help:Descriptions.PlaceMark}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon add" Data="{StaticResource IconDone}" />
                 <TextBlock Classes="label" Text="Place" />
               </StackPanel>
             </Button>
-            <Button AutomationProperties.Name="Bigger" x:Name="BiggerMarkButton" views:ControlHelp.Text="{x:Static views:Descriptions.BiggerMark}" Classes="tool">
+            <Button AutomationProperties.Name="Bigger" x:Name="BiggerMarkButton" views:ControlHelp.Text="{x:Static help:Descriptions.BiggerMark}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon edit" Data="{StaticResource IconZoomIn}" />
                 <TextBlock Classes="label" Text="Bigger" />
               </StackPanel>
             </Button>
-            <Button AutomationProperties.Name="Smaller" x:Name="SmallerMarkButton" views:ControlHelp.Text="{x:Static views:Descriptions.SmallerMark}" Classes="tool">
+            <Button AutomationProperties.Name="Smaller" x:Name="SmallerMarkButton" views:ControlHelp.Text="{x:Static help:Descriptions.SmallerMark}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon edit" Data="{StaticResource IconZoomOut}" />
                 <TextBlock Classes="label" Text="Smaller" />
               </StackPanel>
             </Button>
-            <Button AutomationProperties.Name="Cancel Placing" x:Name="CancelPlacementButton" views:ControlHelp.Text="{x:Static views:Descriptions.CancelPlacement}" Classes="tool">
+            <Button AutomationProperties.Name="Cancel Placing" x:Name="CancelPlacementButton" views:ControlHelp.Text="{x:Static help:Descriptions.CancelPlacement}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon remove" Data="{StaticResource IconClose}" />
                 <TextBlock Classes="label" Text="Cancel" />
@@ -62,13 +62,13 @@
             </Button>
           </StackPanel>
           <StackPanel x:Name="PlacedTools" Orientation="Horizontal">
-            <Button AutomationProperties.Name="Adjust Mark" x:Name="AdjustMarkButton" views:ControlHelp.Text="{x:Static views:Descriptions.AdjustMark}" Classes="tool">
+            <Button AutomationProperties.Name="Adjust Mark" x:Name="AdjustMarkButton" views:ControlHelp.Text="{x:Static help:Descriptions.AdjustMark}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon edit" Data="{StaticResource IconCursor}" />
                 <TextBlock Classes="label" Text="Adjust" />
               </StackPanel>
             </Button>
-            <Button AutomationProperties.Name="Remove Mark" x:Name="RemoveMarkButton" views:ControlHelp.Text="{x:Static views:Descriptions.RemoveMark}" Classes="tool">
+            <Button AutomationProperties.Name="Remove Mark" x:Name="RemoveMarkButton" views:ControlHelp.Text="{x:Static help:Descriptions.RemoveMark}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon remove" Data="{StaticResource IconClose}" />
                 <TextBlock Classes="label" Text="Remove" />
@@ -78,7 +78,7 @@
         </WrapPanel>
         <TextBlock x:Name="FillSignHint" Classes="secondary" TextWrapping="Wrap" Margin="8,0,8,4" />
       </StackPanel>
-      <Button Grid.Column="1" AutomationProperties.Name="Done" x:Name="FillSignDoneButton" views:ControlHelp.Text="{x:Static views:Descriptions.FillSignDone}" Classes="tool">
+      <Button Grid.Column="1" AutomationProperties.Name="Done" x:Name="FillSignDoneButton" views:ControlHelp.Text="{x:Static help:Descriptions.FillSignDone}" Classes="tool">
         <StackPanel Orientation="Horizontal">
           <Path Classes="icon nav" Data="{StaticResource IconDone}" />
           <TextBlock Classes="label" Text="Done" />

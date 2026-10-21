@@ -9,7 +9,6 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
-using HyperPdf.App.Services;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
 using ReactiveUI;

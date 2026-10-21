@@ -1,5 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.AutoScrollBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AutoScrollBarView.axaml.cs). -->
@@ -7,19 +7,19 @@
   <Border x:Name="AutoScrollBar" Classes="toolbar subbar" AutomationProperties.Name="Auto-scroll" AutomationProperties.ControlTypeOverride="ToolBar">
     <DockPanel>
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-        <Button AutomationProperties.Name="Slower" x:Name="AutoScrollSlowerButton" views:ControlHelp.Text="{x:Static views:Descriptions.AutoScrollSlower}" Classes="tool">
+        <Button AutomationProperties.Name="Slower" x:Name="AutoScrollSlowerButton" views:ControlHelp.Text="{x:Static help:Descriptions.AutoScrollSlower}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconZoomOut}" />
             <TextBlock Classes="label" Text="Slower" />
           </StackPanel>
         </Button>
-        <Button AutomationProperties.Name="Faster" x:Name="AutoScrollFasterButton" views:ControlHelp.Text="{x:Static views:Descriptions.AutoScrollFaster}" Classes="tool">
+        <Button AutomationProperties.Name="Faster" x:Name="AutoScrollFasterButton" views:ControlHelp.Text="{x:Static help:Descriptions.AutoScrollFaster}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconZoomIn}" />
             <TextBlock Classes="label" Text="Faster" />
           </StackPanel>
         </Button>
-        <Button AutomationProperties.Name="Stop auto-scroll" x:Name="AutoScrollStopButton" views:ControlHelp.Text="{x:Static views:Descriptions.AutoScrollStop}" Classes="tool">
+        <Button AutomationProperties.Name="Stop auto-scroll" x:Name="AutoScrollStopButton" views:ControlHelp.Text="{x:Static help:Descriptions.AutoScrollStop}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconPause}" />
             <TextBlock Classes="label" Text="Stop" />

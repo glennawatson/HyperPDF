@@ -8,7 +8,6 @@ using Avalonia;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
-using HyperPdf.App.ViewModels;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Forms;

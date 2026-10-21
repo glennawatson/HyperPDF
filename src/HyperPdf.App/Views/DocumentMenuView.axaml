@@ -1,57 +1,57 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.DocumentMenuView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (DocumentMenuView.axaml.cs). -->
-  <Button x:Name="DocumentMenuButton" views:ControlHelp.Text="{x:Static views:Descriptions.DocumentMenu}" AutomationProperties.Name="Document" Classes="tool" Content="Document ▾">
+  <Button x:Name="DocumentMenuButton" views:ControlHelp.Text="{x:Static help:Descriptions.DocumentMenu}" AutomationProperties.Name="Document" Classes="tool" Content="Document ▾">
     <Button.Flyout>
       <MenuFlyout Placement="BottomEdgeAlignedRight">
-        <MenuItem x:Name="SaveItem" views:ControlHelp.Text="{x:Static views:Descriptions.Save}" Header="_Save" InputGesture="Ctrl+S">
+        <MenuItem x:Name="SaveItem" views:ControlHelp.Text="{x:Static help:Descriptions.Save}" Header="_Save" InputGesture="Ctrl+S">
           <MenuItem.Icon>
             <Path Classes="icon add" Data="{StaticResource IconSave}" />
           </MenuItem.Icon>
         </MenuItem>
-        <MenuItem x:Name="SaveAsItem" views:ControlHelp.Text="{x:Static views:Descriptions.SaveAs}" Header="Save _As…" InputGesture="Ctrl+Shift+S">
+        <MenuItem x:Name="SaveAsItem" views:ControlHelp.Text="{x:Static help:Descriptions.SaveAs}" Header="Save _As…" InputGesture="Ctrl+Shift+S">
           <MenuItem.Icon>
             <Path Classes="icon add" Data="{StaticResource IconSave}" />
           </MenuItem.Icon>
         </MenuItem>
-        <MenuItem x:Name="SaveCopyItem" views:ControlHelp.Text="{x:Static views:Descriptions.SaveCopy}" Header="Save a _Copy…">
+        <MenuItem x:Name="SaveCopyItem" views:ControlHelp.Text="{x:Static help:Descriptions.SaveCopy}" Header="Save a _Copy…">
           <MenuItem.Icon>
             <Path Classes="icon add" Data="{StaticResource IconDocument}" />
           </MenuItem.Icon>
         </MenuItem>
         <Separator />
-        <MenuItem x:Name="ProtectSignMenu" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectSignMenu}" Header="_Protect &amp; Sign">
+        <MenuItem x:Name="ProtectSignMenu" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectSignMenu}" Header="_Protect &amp; Sign">
           <MenuItem.Icon>
             <Path Classes="icon edit" Data="{StaticResource IconCertificate}" />
           </MenuItem.Icon>
-          <MenuItem x:Name="ProtectItem" views:ControlHelp.Text="{x:Static views:Descriptions.ProtectCopy}" Header="Protect with _Password…" />
-          <MenuItem x:Name="RemoveProtectionItem" views:ControlHelp.Text="{x:Static views:Descriptions.RemoveProtectionCopy}" Header="Remove Pro_tection…" />
+          <MenuItem x:Name="ProtectItem" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectCopy}" Header="Protect with _Password…" />
+          <MenuItem x:Name="RemoveProtectionItem" views:ControlHelp.Text="{x:Static help:Descriptions.RemoveProtectionCopy}" Header="Remove Pro_tection…" />
           <Separator />
-          <MenuItem x:Name="ApplyRedactionsItem" views:ControlHelp.Text="{x:Static views:Descriptions.ApplyRedactions}" Header="Apply _Redactions…" />
+          <MenuItem x:Name="ApplyRedactionsItem" views:ControlHelp.Text="{x:Static help:Descriptions.ApplyRedactions}" Header="Apply _Redactions…" />
           <Separator />
-          <MenuItem x:Name="ValidationDataItem" views:ControlHelp.Text="{x:Static views:Descriptions.ValidationData}" Header="Add _Validation Data or Timestamp…" />
-          <MenuItem x:Name="ExternalSignItem" views:ControlHelp.Text="{x:Static views:Descriptions.ExternalSign}" Header="Sign with E_xternal Signer…" />
+          <MenuItem x:Name="ValidationDataItem" views:ControlHelp.Text="{x:Static help:Descriptions.ValidationData}" Header="Add _Validation Data or Timestamp…" />
+          <MenuItem x:Name="ExternalSignItem" views:ControlHelp.Text="{x:Static help:Descriptions.ExternalSign}" Header="Sign with E_xternal Signer…" />
         </MenuItem>
         <Separator />
-        <MenuItem x:Name="SelectAllItem" views:ControlHelp.Text="{x:Static views:Descriptions.SelectAll}" Header="Select A_ll Text on Page" InputGesture="Ctrl+A">
+        <MenuItem x:Name="SelectAllItem" views:ControlHelp.Text="{x:Static help:Descriptions.SelectAll}" Header="Select A_ll Text on Page" InputGesture="Ctrl+A">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconCursor}" />
           </MenuItem.Icon>
         </MenuItem>
         <Separator />
-        <MenuItem x:Name="ReloadItem" views:ControlHelp.Text="{x:Static views:Descriptions.Reload}" Header="Re_load" InputGesture="F5">
+        <MenuItem x:Name="ReloadItem" views:ControlHelp.Text="{x:Static help:Descriptions.Reload}" Header="Re_load" InputGesture="F5">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconRotateRight}" />
           </MenuItem.Icon>
         </MenuItem>
-        <MenuItem x:Name="ShowInFolderItem" views:ControlHelp.Text="{x:Static views:Descriptions.ShowInFolder}" Header="Show in _Folder">
+        <MenuItem x:Name="ShowInFolderItem" views:ControlHelp.Text="{x:Static help:Descriptions.ShowInFolder}" Header="Show in _Folder">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconOpen}" />
           </MenuItem.Icon>
         </MenuItem>
-        <MenuItem x:Name="PropertiesItem" views:ControlHelp.Text="{x:Static views:Descriptions.Properties}" Header="_Properties" InputGesture="Alt+Enter">
+        <MenuItem x:Name="PropertiesItem" views:ControlHelp.Text="{x:Static help:Descriptions.Properties}" Header="_Properties" InputGesture="Alt+Enter">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconOutline}" />
           </MenuItem.Icon>
