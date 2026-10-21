@@ -144,19 +144,19 @@ public sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
     /// <returns>Whether it was retained before the cache released it.</returns>
     public bool TryRetain()
     {
-        while (true)
+        var references = Volatile.Read(ref _references);
+        while (references != 0 && Volatile.Read(ref _disposed) == 0)
         {
-            var references = Volatile.Read(ref _references);
-            if (references == 0 || Volatile.Read(ref _disposed) != 0)
-            {
-                return false;
-            }
-
-            if (Interlocked.CompareExchange(ref _references, references + 1, references) == references)
+            var seen = Interlocked.CompareExchange(ref _references, references + 1, references);
+            if (seen == references)
             {
                 return true;
             }
+
+            references = seen;
         }
+
+        return false;
     }
 
     /// <summary>Draws the retained image, creating it from the recording on this context's thread when needed.</summary>
@@ -271,19 +271,19 @@ public sealed class GpuPreparedRenderSurface : IRenderPreparationSurface
     /// <returns>Whether the tile still has a live owner.</returns>
     internal bool TryRetainForRender()
     {
-        while (true)
+        var references = Volatile.Read(ref _references);
+        while (references != 0)
         {
-            var references = Volatile.Read(ref _references);
-            if (references == 0)
-            {
-                return false;
-            }
-
-            if (Interlocked.CompareExchange(ref _references, references + 1, references) == references)
+            var seen = Interlocked.CompareExchange(ref _references, references + 1, references);
+            if (seen == references)
             {
                 return true;
             }
+
+            references = seen;
         }
+
+        return false;
     }
 
     /// <summary>Renders with the same tone rule as the CPU scheduler path.</summary>

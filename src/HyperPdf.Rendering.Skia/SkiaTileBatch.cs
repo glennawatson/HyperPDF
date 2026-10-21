@@ -129,36 +129,22 @@ public sealed class SkiaTileBatch : IDisposable, IEquatable<SkiaTileBatch>
     /// <inheritdoc/>
     public void Dispose()
     {
-        while (true)
+        // A live batch releases its tiles now; one that is rendering leaves that to the end of the render.
+        var state = Volatile.Read(ref _state);
+        while (state is Live or Rendering)
         {
-            switch (Volatile.Read(ref _state))
+            var seen = Interlocked.CompareExchange(ref _state, state == Live ? Disposed : DisposedWhileRendering, state);
+            if (seen == state)
             {
-                case Live:
+                if (state == Live)
                 {
-                    if (Interlocked.CompareExchange(ref _state, Disposed, Live) == Live)
-                    {
-                        ReleaseTiles();
-                        return;
-                    }
-
-                    break;
+                    ReleaseTiles();
                 }
 
-                case Rendering:
-                {
-                    if (Interlocked.CompareExchange(ref _state, DisposedWhileRendering, Rendering) == Rendering)
-                    {
-                        return;
-                    }
-
-                    break;
-                }
-
-                default:
-                {
-                    return;
-                }
+                return;
             }
+
+            state = seen;
         }
     }
 
