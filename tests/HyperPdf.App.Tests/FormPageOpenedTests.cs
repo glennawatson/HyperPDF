@@ -18,6 +18,28 @@ public sealed class FormPageOpenedTests
     /// <summary>The page shown next.</summary>
     private const int SecondPage = 2;
 
+    /// <summary>Pages that report no actions queue no open or close run, and a page turn that follows still runs once they have some.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PagesWithoutActionsRunNothing()
+    {
+        var engine = new PausingEngine { ExposesFeatures = true, PagesHaveActions = false };
+        using var test = new TestServices(engine);
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("pages-quiet.pdf", Pages)]);
+        var tab = main.SelectedTab!;
+
+        tab.ReportPosition(new(FirstPage, 0), FirstPage);
+        tab.ReportPosition(new(SecondPage, 0), SecondPage);
+        await UiWait.PumpAsync(1);
+        await Assert.That(engine.PageActions.IsEmpty).IsTrue();
+
+        engine.PagesHaveActions = true;
+        tab.ReportPosition(new(FirstPage, 0), FirstPage);
+        _ = await UiWait.UntilAsync(() => engine.OpenedPages.Count == 1, static () => "The page's open actions did not run.");
+        await Assert.That(engine.PageActions.ToArray().Select(static action => action.Page).ToArray()).IsEquivalentTo([SecondPage, FirstPage]);
+    }
+
     /// <summary>The page that opens while the first page's actions still run waits its turn and then runs.</summary>
     /// <returns>A task.</returns>
     [Test]

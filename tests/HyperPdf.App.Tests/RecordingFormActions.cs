@@ -21,6 +21,9 @@ internal sealed class RecordingFormActions(IFormActions inner, IDocument documen
         inner.RunWidgetActionAsync(pageIndex, index, host, cancellationToken);
 
     /// <inheritdoc/>
+    public bool HasPageActions(int pageIndex) => engine.PagesHaveActions;
+
+    /// <inheritdoc/>
     public async ValueTask<FormActionResult> RunPageOpenedAsync(int pageIndex, IFormActionHost host, CancellationToken cancellationToken)
     {
         engine.OpenedPages.Enqueue(pageIndex);

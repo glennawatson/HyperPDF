@@ -74,6 +74,9 @@ internal sealed class PausingEngine : IDocumentEngine
     /// <summary>Gets or sets the gate each page's open actions wait at, or <see langword="null"/> to run at once.</summary>
     internal TaskCompletionSource? FormGate { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether the pages report that they have actions to run.</summary>
+    internal bool PagesHaveActions { get; set; } = true;
+
     /// <inheritdoc/>
     public bool CanOpen(string path) => _inner.CanOpen(path);
 

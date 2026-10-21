@@ -32,6 +32,10 @@ internal sealed class HyperPdfFormActionsService : IFormActions
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool HasPageActions(int pageIndex) => HyperPdfDocumentFormActions.HasPageActions(_owner, pageIndex);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<FormActionResult> RunPageOpenedAsync(int pageIndex, IFormActionHost host, CancellationToken cancellationToken) => HyperPdfDocumentFormActions.RunPageOpenedAsync(
             _owner,
             pageIndex,

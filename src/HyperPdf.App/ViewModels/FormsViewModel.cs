@@ -62,8 +62,7 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
         // of being skipped: it is queued first, and the running command drains the queue.
         _pageTurns = owner.WhenChanged(static tab => tab.CurrentPageIndex)
             .Skip(1)
-            .WhereWith(this, static (forms, _) => forms.Actions is not null)
-            .DoWith(this, static (forms, page) => forms.QueueTurn(page))
+            .WhereWith(this, static (forms, page) => forms.QueueTurn(page))
             .InvokeCommand(this, static forms => forms.PageTurnedCommand);
     }
 
@@ -727,11 +726,30 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
 
     /// <summary>Queues the close actions of the page that was shown and the open actions of the page that is shown now.</summary>
     /// <param name="page">The page that became the current page.</param>
-    private void QueueTurn(int page)
+    /// <returns><see langword="true"/> when a turn was queued; a page without actions queues nothing, so no command run starts.</returns>
+    private bool QueueTurn(int page)
     {
-        _pendingTurns.Enqueue(new(_shownPage, false));
-        _pendingTurns.Enqueue(new(page, true));
+        // One lookup of the actions per turn. A page the document says has no actions queues nothing, which keeps the order of the rest.
+        if (Actions is not { } actions)
+        {
+            return false;
+        }
+
+        var queued = false;
+        if (actions.HasPageActions(_shownPage))
+        {
+            _pendingTurns.Enqueue(new(_shownPage, false));
+            queued = true;
+        }
+
+        if (actions.HasPageActions(page))
+        {
+            _pendingTurns.Enqueue(new(page, true));
+            queued = true;
+        }
+
         _shownPage = page;
+        return queued;
     }
 
     /// <summary>Runs the actions of the pages that turned, in the order they turned, until none wait.</summary>
