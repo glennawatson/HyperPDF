@@ -45,6 +45,10 @@
     <Compile Remove="TileBatchOperationBenchmarks.cs" />
   </ItemGroup>
 
+  <ItemGroup Condition="!$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\tests\HyperPdf.TestAssets\TestPdf.cs').Contains('CreateTextFilled'))">
+    <Compile Remove="SelectionRectsBenchmarks.cs" />
+  </ItemGroup>
+
   <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs')">
     <Compile Include="..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs" Link="ZoomLabel.cs" />
   </ItemGroup>
