@@ -61,6 +61,9 @@ internal sealed class FakeDocument : IDocument
     /// <summary>Gets or sets the text of every page.</summary>
     internal string PageText { get; set; } = "alpha beta alpha";
 
+    /// <summary>Gets or sets a function giving each page its own text; when null every page uses <see cref="PageText"/>.</summary>
+    internal Func<int, string>? PageTextFor { get; set; }
+
     /// <inheritdoc/>
     public PageSize[] GetPageSizes() => (PageSize[])_sizes.Clone();
 
@@ -111,13 +114,13 @@ internal sealed class FakeDocument : IDocument
     }
 
     /// <inheritdoc/>
-    public int GetCharacterCount(int pageIndex) => PageText.Length;
+    public int GetCharacterCount(int pageIndex) => TextOf(pageIndex).Length;
 
     /// <inheritdoc/>
     public int GetCharacterIndexAt(int pageIndex, PagePoint point, float tolerance) => -1;
 
     /// <inheritdoc/>
-    public string GetText(int pageIndex, int start, int count) => PageText.Substring(start, count);
+    public string GetText(int pageIndex, int start, int count) => TextOf(pageIndex).Substring(start, count);
 
     /// <inheritdoc/>
     public void GetTextBounds(int pageIndex, int start, int count, List<PageRect> output) => output.Add(new(start, 0, count, 1));
@@ -129,11 +132,12 @@ internal sealed class FakeDocument : IDocument
     public void Find(int pageIndex, string query, SearchOptions options, List<TextMatch> output)
     {
         var comparison = (options & SearchOptions.MatchCase) != 0 ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
-        var index = PageText.IndexOf(query, comparison);
+        var text = TextOf(pageIndex);
+        var index = text.IndexOf(query, comparison);
         while (index >= 0)
         {
             output.Add(new(pageIndex, index, query.Length));
-            index = PageText.IndexOf(query, index + query.Length, comparison);
+            index = text.IndexOf(query, index + query.Length, comparison);
         }
     }
 
@@ -143,4 +147,9 @@ internal sealed class FakeDocument : IDocument
         IsDisposed = true;
         Started.Dispose();
     }
+
+    /// <summary>Gets the text of a page.</summary>
+    /// <param name="pageIndex">The page.</param>
+    /// <returns>The page text.</returns>
+    private string TextOf(int pageIndex) => PageTextFor?.Invoke(pageIndex) ?? PageText;
 }
