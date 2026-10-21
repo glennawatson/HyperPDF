@@ -729,10 +729,14 @@ internal static class PageCanvasAnnotationMixins
                 return;
             }
 
-            canvas.GetPagesBetween(scroller.Offset.X, scroller.Offset.X + scroller.Viewport.Width, scroller.Offset.Y, scroller.Offset.Y + scroller.Viewport.Height, out var first, out var last);
-            for (var page = first; page <= last && page >= 0 && page < canvas.Sizes.Length; page++)
+            // Without an annotation editor no page has a badge, so the per-page list copies are skipped.
+            if (tab.Annotations.CanAnnotate)
             {
-                canvas.DrawPageCommentBadges(context, tab, page);
+                canvas.GetPagesBetween(scroller.Offset.X, scroller.Offset.X + scroller.Viewport.Width, scroller.Offset.Y, scroller.Offset.Y + scroller.Viewport.Height, out var first, out var last);
+                for (var page = first; page <= last && page >= 0 && page < canvas.Sizes.Length; page++)
+                {
+                    canvas.DrawPageCommentBadges(context, tab, page);
+                }
             }
 
             if (tab.Annotations.ActiveBubble is not { NewNoteLocation: not null } bubble || (uint)bubble.PageIndex >= (uint)canvas.Sizes.Length)

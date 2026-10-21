@@ -116,6 +116,9 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     /// <summary>Gets the current hit, if any.</summary>
     public SearchHit? CurrentHit => CurrentIndex >= 0 && CurrentIndex < Results.Count ? Results[CurrentIndex].Hit : null;
 
+    /// <summary>Gets a value indicating whether any page has a search hit to mark.</summary>
+    public bool HasHits => _hitsByPage.Count > 0;
+
     /// <summary>Gets the hits on a page.</summary>
     /// <param name="pageIndex">The page.</param>
     /// <returns>The hits, or <see langword="null"/>.</returns>
