@@ -4,7 +4,6 @@
 
 using System.Buffers;
 using System.Runtime.InteropServices;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Media;
@@ -14,6 +13,8 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Engine;
+using HyperPdf.Rendering.Skia;
+using SkiaSharp;
 
 namespace HyperPdf.App.Tests;
 
@@ -39,11 +40,11 @@ public sealed class TileBatchPresentationTests
     {
         var first = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
         var second = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
-        var origin = new Rect(0, 0, TileSide, TileSide);
-        var beside = new Rect(TileStep, 0, TileSide, TileSide);
+        var origin = new SKRect(0, 0, TileSide, TileSide);
+        var beside = new SKRect(TileStep, 0, TileStep + TileSide, TileSide);
         using var one = Create(new TileDraw(first, origin, false), new TileDraw(second, beside, false));
         using var same = Create(new TileDraw(first, origin, false), new TileDraw(second, beside, false));
-        using var moved = Create(new TileDraw(first, origin, false), new TileDraw(second, beside.Translate(new(0, 1)), false));
+        using var moved = Create(new TileDraw(first, origin, false), new TileDraw(second, SKRect.Create(beside.Left, 1, beside.Width, beside.Height), false));
         using var smooth = Create(new TileDraw(first, origin, true), new TileDraw(second, beside, false));
         using var swapped = Create(new TileDraw(second, origin, false), new TileDraw(first, beside, false));
         using var shorter = Create(new TileDraw(first, origin, false));
@@ -68,7 +69,7 @@ public sealed class TileBatchPresentationTests
     public async Task DisposedBatchIsNotEqual()
     {
         var tile = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
-        var bounds = new Rect(0, 0, TileSide, TileSide);
+        var bounds = new SKRect(0, 0, TileSide, TileSide);
         var disposed = Create(new TileDraw(tile, bounds, false));
         using var live = Create(new TileDraw(tile, bounds, false));
         disposed.Dispose();
@@ -89,7 +90,7 @@ public sealed class TileBatchPresentationTests
     {
         var kept = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
         var evicted = new GpuPreparedRenderSurface(TileSide, TileSide, new GpuAvailability(), TestTiles.Software);
-        var operation = Create(new TileDraw(kept, new(0, 0, TileSide, TileSide), false), new TileDraw(evicted, new(TileStep, 0, TileSide, TileSide), false));
+        var operation = Create(new TileDraw(kept, new(0, 0, TileSide, TileSide), false), new TileDraw(evicted, new(TileStep, 0, TileStep + TileSide, TileSide), false));
 
         evicted.Dispose();
         var evictedStillHeld = evicted.TryRetainForRender();
@@ -157,7 +158,7 @@ public sealed class TileBatchPresentationTests
             array[i] = tiles[i];
         }
 
-        return new(array, tiles.Length);
+        return new(new(array, tiles.Length));
     }
 
     /// <summary>Prepares one tile of the generated page.</summary>

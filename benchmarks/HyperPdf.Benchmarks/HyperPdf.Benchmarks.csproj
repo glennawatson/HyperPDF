@@ -39,12 +39,12 @@
     <DefineConstants>$(DefineConstants);HYPERPDF_REMOVE_PAGE_PAIR</DefineConstants>
   </PropertyGroup>
 
-  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\TileDraw.cs')">
+  <ItemGroup Condition="'$(ViewModelsProject)' != 'true' and Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\TileDraw.cs')">
     <Compile Include="..\..\src\HyperPdf.App\Rendering\TileDraw.cs" Link="TileBatch\TileDraw.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuTileBatchOperation.cs" Link="TileBatch\GpuTileBatchOperation.cs" />
   </ItemGroup>
 
-  <ItemGroup Condition="!Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\TileDraw.cs')">
+  <ItemGroup Condition="'$(ViewModelsProject)' != 'true' and !Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.App\Rendering\TileDraw.cs')">
     <Compile Remove="TileBatchOperationBenchmarks.cs" />
   </ItemGroup>
 

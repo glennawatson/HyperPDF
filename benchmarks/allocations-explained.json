@@ -4178,5 +4178,15 @@
     "type": "System.Collections.Generic.List`1[System.String]",
     "frame": "HyperPdf.ViewModels.Reading.TextSelection.GetText",
     "reason": "The list holds one string for each selected page until they are joined, once per copy action."
+  },
+  {
+    "type": "HyperPdf.Rendering.Skia.SkiaTileBatch",
+    "frame": "HyperPdf.Benchmarks.TileBatchOperationBenchmarks.Build(int32,int32)",
+    "reason": "A frame hands the compositor one batch object for the whole page, and the compositor keeps it until the scene is gone, so it cannot be pooled or reused. The tile and flag arrays inside it are rented from the shared pool. The one-batch-per-tile baseline allocates one such object for each tile, which is why the page batch exists."
+  },
+  {
+    "type": "HyperPdf.Rendering.Skia.SkiaTileBatch",
+    "frame": "HyperPdf.Benchmarks.TileBatchOperationBenchmarks.CompareUnchangedPageOperation",
+    "reason": "The comparison builds the current frame's batch the same way a frame does; the compositor retains it, so it cannot be reused. The comparison itself allocates nothing."
   }
 ]

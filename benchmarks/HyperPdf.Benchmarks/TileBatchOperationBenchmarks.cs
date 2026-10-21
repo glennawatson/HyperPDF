@@ -3,9 +3,17 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
-using Avalonia;
 using BenchmarkDotNet.Attributes;
+#if HYPERPDF_VIEWMODELS_PROJECT
+using SkiaSharp;
+using Batch = HyperPdf.Rendering.Skia.SkiaTileBatch;
+using Destination = SkiaSharp.SKRect;
+#else
+using Avalonia;
 using HyperPdf.App.Rendering;
+using Batch = HyperPdf.App.Rendering.GpuTileBatchOperation;
+using Destination = Avalonia.Rect;
+#endif
 
 namespace HyperPdf.Benchmarks;
 
@@ -25,10 +33,10 @@ public class TileBatchOperationBenchmarks
     private GpuPreparedRenderSurface[] _tiles = null!;
 
     /// <summary>The destination of each tile.</summary>
-    private Rect[] _bounds = null!;
+    private Destination[] _bounds = null!;
 
     /// <summary>A page-sized operation to compare against.</summary>
-    private GpuTileBatchOperation _previous = null!;
+    private Batch _previous = null!;
 
     /// <summary>Gets or sets the number of visible tiles.</summary>
     [Params(12, 48)]
@@ -39,15 +47,16 @@ public class TileBatchOperationBenchmarks
     public void Setup()
     {
         _tiles = new GpuPreparedRenderSurface[VisibleTiles];
-        _bounds = new Rect[VisibleTiles];
+        _bounds = new Destination[VisibleTiles];
         for (var i = 0; i < VisibleTiles; i++)
         {
 #if HYPERPDF_VIEWMODELS_PROJECT
             _tiles[i] = new(TileSide, TileSide, new(), SoftwareTile);
+            _bounds[i] = SKRect.Create((i % Columns) * TileSide, (i / Columns) * TileSide, TileSide, TileSide);
 #else
             _tiles[i] = new(TileSide, TileSide, new());
-#endif
             _bounds[i] = new((i % Columns) * TileSide, (i / Columns) * TileSide, TileSide, TileSide);
+#endif
         }
 
         _previous = BuildPageOperation();
@@ -107,7 +116,7 @@ public class TileBatchOperationBenchmarks
     /// <param name="start">The first tile.</param>
     /// <param name="count">The number of tiles.</param>
     /// <returns>The operation.</returns>
-    private GpuTileBatchOperation Build(int start, int count)
+    private Batch Build(int start, int count)
     {
         var array = ArrayPool<TileDraw>.Shared.Rent(count);
         for (var i = 0; i < count; i++)
@@ -121,5 +130,5 @@ public class TileBatchOperationBenchmarks
 
     /// <summary>Builds the operation for every visible tile.</summary>
     /// <returns>The operation.</returns>
-    private GpuTileBatchOperation BuildPageOperation() => Build(0, VisibleTiles);
+    private Batch BuildPageOperation() => Build(0, VisibleTiles);
 }

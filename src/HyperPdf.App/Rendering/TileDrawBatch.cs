@@ -6,6 +6,7 @@ using System.Buffers;
 using Avalonia;
 using Avalonia.Media;
 using HyperPdf.Core.Rendering;
+using HyperPdf.Rendering.Skia;
 
 namespace HyperPdf.App.Rendering;
 
@@ -35,7 +36,7 @@ internal sealed class TileDrawBatch
         ArgumentNullException.ThrowIfNull(surface);
         if (surface is GpuPreparedRenderSurface gpu && gpu.TryRetain())
         {
-            Append(new(gpu, destination, smooth));
+            Append(new(gpu, new((float)destination.Left, (float)destination.Top, (float)destination.Right, (float)destination.Bottom), smooth));
         }
     }
 
@@ -49,7 +50,7 @@ internal sealed class TileDrawBatch
             return;
         }
 
-        var operation = new GpuTileBatchOperation(tiles, _count);
+        var operation = new GpuTileBatchOperation(new(tiles, _count));
         _pending = null;
         _count = 0;
         try
