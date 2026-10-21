@@ -50,6 +50,7 @@
     <Compile Include="..\..\src\HyperPdf.App\Rendering\GpuPageTone.cs" Link="TileBatch\GpuPageTone.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Rendering\AvaloniaRenderSurface.cs" Link="TileBatch\AvaloniaRenderSurface.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Rendering\TileRenderingEventSource.cs" Link="TileBatch\TileRenderingEventSource.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\ViewModels\ZoomLabel.cs" Link="ZoomLabel.cs" />
     <!-- The JPEG 2000 test encoder, which re-encodes a corpus page as HTJ2K for the high-throughput benchmarks. -->
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\Jpx\JpxTest*.cs" Link="Jpx\%(Filename)%(Extension)" />
     <Compile Include="..\..\scripts\JpxHtTableBuilder.cs" Link="Jpx\JpxHtTableBuilder.cs" />

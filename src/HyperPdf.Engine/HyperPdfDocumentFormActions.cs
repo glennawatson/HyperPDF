@@ -27,6 +27,15 @@ internal static class HyperPdfDocumentFormActions
             : FormActionResult.None;
     }
 
+    /// <summary>Gets a value indicating whether a page has any additional actions.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <returns><see langword="true"/> when the page has additional actions.</returns>
+    internal static bool HasPageActions(HyperPdfDocument self, int pageIndex) =>
+        !self.IsDisposed
+        && (uint)pageIndex < (uint)self.Document.PageCount
+        && PdfDocumentActions.GetTriggers(self.Document, PdfDocumentPages.GetPage(self.Document, pageIndex)).Length > 0;
+
     /// <summary>Runs the actions a page does when it opens.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="pageIndex">The zero based page index.</param>

@@ -52,6 +52,9 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     /// <summary>The tab whose cancellable work currently owns selection.</summary>
     private DocumentTabViewModel? _activeTab;
 
+    /// <summary>The tint and sharpness last given to the tabs, or <see langword="null"/> before the first change.</summary>
+    private TabSettings? _appliedTabSettings;
+
     /// <summary>Initializes a new instance of the <see cref="MainViewModel"/> class.</summary>
     /// <param name="services">The application services.</param>
     public MainViewModel(AppServices services)
@@ -946,12 +949,27 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     private void TakeSettings()
     {
         PageToneEnabled = _services.Settings.PageToneEnabled;
-        var highlight = _services.FormHighlight;
-        var sharpness = _services.Sharpness;
+        var settings = new TabSettings(_services.FormHighlight, _services.Sharpness);
+
+        // An unrelated setting change leaves the tint and sharpness as they were, so no tab is asked about them.
+        if (_appliedTabSettings == settings)
+        {
+            return;
+        }
+
+        _appliedTabSettings = settings;
         foreach (var tab in Tabs)
         {
-            tab.ApplyFormHighlight(highlight);
-            tab.ApplyRenderSharpness(sharpness);
+            // Only the selected tab draws; the others keep the settings and take them when selected, before they draw.
+            if (ReferenceEquals(tab, SelectedTab))
+            {
+                tab.ApplyFormHighlight(settings.Highlight);
+                tab.ApplyRenderSharpness(settings.Sharpness);
+            }
+            else
+            {
+                tab.PendingSettings.Defer(settings);
+            }
         }
     }
 
