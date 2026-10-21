@@ -7,7 +7,7 @@ using HyperPdf.Core.Geometry;
 
 namespace HyperPdf.Core.Layout;
 
-/// <summary>Inputs to <see cref="DocumentLayout.Create"/>.</summary>
+/// <summary>Inputs to <see cref="DocumentLayout"/>.</summary>
 /// <param name="Rotation">The page rotation.</param>
 /// <param name="Mode">The page arrangement.</param>
 /// <param name="Scale">Device independent pixels per point.</param>

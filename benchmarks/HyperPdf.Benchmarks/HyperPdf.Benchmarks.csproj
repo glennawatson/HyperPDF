@@ -7,6 +7,11 @@
     <UsesTesseractNative>true</UsesTesseractNative>
   </PropertyGroup>
 
+  <!-- The layout benchmarks use the page measurement cache and the layout reuse when Core has them, so one definition measures the baseline too. -->
+  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\src\HyperPdf.Core\Layout\PageFitExtentsCache.cs')">
+    <DefineConstants>$(DefineConstants);HYPERPDF_FIT_EXTENTS_CACHE</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\HyperPdf.Core\HyperPdf.Core.csproj" />
     <ProjectReference Include="..\..\src\HyperPdf.Skia\HyperPdf.Skia.csproj" />

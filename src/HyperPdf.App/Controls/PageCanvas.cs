@@ -123,11 +123,17 @@ public sealed class PageCanvas : Control, IActivatableView
     /// </summary>
     private static readonly RenderOptions PageRenderOptions = new() { BitmapInterpolationMode = BitmapInterpolationMode.MediumQuality, EdgeMode = EdgeMode.Aliased };
 
+    /// <summary>The page measurements the fit zoom comes from, kept so a resize does not walk every page.</summary>
+    private readonly PageFitExtentsCache _fitExtents = new();
+
     /// <summary>The current layout.</summary>
     private DocumentLayout _layout = DocumentLayout.Empty;
 
     /// <summary>The page sizes the layout was built from.</summary>
     private PageSize[] _sizes = [];
+
+    /// <summary>The page sizes <see cref="_layout"/> was computed from, or <see langword="null"/> when it must be computed again.</summary>
+    private PageSize[]? _layoutSizes;
 
     /// <summary>The hosting scroll viewer.</summary>
     private ScrollViewer? _scroller;
@@ -1062,19 +1068,29 @@ public sealed class PageCanvas : Control, IActivatableView
         var zoom = tab.Zoom;
         if (tab.ZoomMode != ZoomMode.Free)
         {
-            zoom = ZoomCalculator.GetFitZoom(_sizes, new(tab.Rotation, tab.LayoutMode, tab.ZoomMode, viewport.Width, viewport.Height, PageSpacing, ContentMargin));
+            zoom = ZoomCalculator.GetFitZoom(
+                _fitExtents.Get(_sizes, tab.Rotation, tab.LayoutMode),
+                new(tab.Rotation, tab.LayoutMode, tab.ZoomMode, viewport.Width, viewport.Height, PageSpacing, ContentMargin));
             tab.ReportZoom(zoom);
         }
 
-        _layout = DocumentLayout.Create(
-            _sizes,
-            new(tab.Rotation, tab.LayoutMode, zoom * ZoomCalculator.PixelsPerPoint, PageSpacing, ContentMargin, viewport.Width)
-            {
-                PageByPage = tab.IsPageByPage,
-                ViewportHeight = viewport.Height,
-                RightToLeft = tab.RightToLeft,
-                Scroll = tab.ScrollMode,
-            });
+        var options = new LayoutOptions(tab.Rotation, tab.LayoutMode, zoom * ZoomCalculator.PixelsPerPoint, PageSpacing, ContentMargin, viewport.Width)
+        {
+            PageByPage = tab.IsPageByPage,
+            ViewportHeight = viewport.Height,
+            RightToLeft = tab.RightToLeft,
+            Scroll = tab.ScrollMode,
+        };
+
+        // A resize that changes nothing the layout depends on (a height change outside page by page) keeps the layout as it is.
+        if (ReferenceEquals(_layoutSizes, _sizes) && _layout.Matches(options))
+        {
+            InvalidateVisual();
+            return;
+        }
+
+        _layout = DocumentLayout.Create(_sizes, options, _layout);
+        _layoutSizes = _sizes;
         InvalidateMeasure();
         InvalidateVisual();
         RaisePropertyChanged(PageScaleProperty, scaleBefore, PageScale);
@@ -1172,6 +1188,8 @@ public sealed class PageCanvas : Control, IActivatableView
         Links.Clear();
         ClearSelection();
         var position = Tab?.Position ?? default;
+        _layoutSizes = null;
+        _fitExtents.Invalidate();
         RebuildLayout();
         ScrollToPosition(position);
     }

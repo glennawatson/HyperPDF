@@ -7,7 +7,7 @@ using HyperPdf.Core.Geometry;
 
 namespace HyperPdf.Core.Layout;
 
-/// <summary>Inputs to <see cref="ZoomCalculator.GetFitZoom"/>.</summary>
+/// <summary>Inputs to <see cref="ZoomCalculator"/>.</summary>
 /// <param name="Rotation">The page rotation.</param>
 /// <param name="Mode">The page arrangement.</param>
 /// <param name="ZoomMode">The fit mode.</param>
