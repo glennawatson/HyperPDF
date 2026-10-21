@@ -1603,50 +1603,6 @@ private static SKColor WhiteWithAlpha(float alpha) =>
         }
     }
 
-    /// <summary>Identifies an outline in one page recording.</summary>
-    /// <param name="Font">The owning font.</param>
-    /// <param name="Code">The font's character code.</param>
-    private readonly record struct GlyphOutlineKey(PdfFont Font, int Code);
-
-    /// <summary>Releases only a path that exceeded the recording cache.</summary>
-    /// <param name="Path">The native glyph outline.</param>
-    /// <param name="Owns">Whether this draw must dispose it.</param>
-    private readonly record struct GlyphPathLease(SKPath Path, bool Owns) : IDisposable
-    {
-        /// <inheritdoc/>
-        public void Dispose()
-        {
-            if (Owns)
-            {
-                Path.Dispose();
-            }
-        }
-    }
-
-    /// <summary>The lattice positions of a tiling period that reach an area.</summary>
-    /// <param name="FirstColumn">The first column.</param>
-    /// <param name="LastColumn">The last column.</param>
-    /// <param name="FirstRow">The first row.</param>
-    /// <param name="LastRow">The last row.</param>
-    private readonly record struct TileRange(int FirstColumn, int LastColumn, int FirstRow, int LastRow)
-    {
-        /// <summary>Gets the number of positions.</summary>
-        internal long Count => (long)(LastColumn - FirstColumn + 1) * (LastRow - FirstRow + 1);
-
-        /// <summary>Finds the positions of a period that reach an area.</summary>
-        /// <param name="reach">The area in pattern space.</param>
-        /// <param name="tile">One period in pattern space.</param>
-        /// <returns>The positions, or null when the area is not finite.</returns>
-        internal static TileRange? Create(SKRect reach, SKRect tile) =>
-            !float.IsFinite(reach.Width) || !float.IsFinite(reach.Height)
-                ? null
-                : new(
-                    (int)MathF.Floor((reach.Left - tile.Left) / tile.Width),
-                    (int)MathF.Floor((reach.Right - tile.Left) / tile.Width),
-                    (int)MathF.Floor((reach.Top - tile.Top) / tile.Height),
-                    (int)MathF.Floor((reach.Bottom - tile.Top) / tile.Height));
-    }
-
     /// <summary>A knockout child group's own recording.</summary>
     /// <param name="Recorder">The recorder the group's content goes to.</param>
     /// <param name="Parent">The canvas to draw on when the group ends.</param>
