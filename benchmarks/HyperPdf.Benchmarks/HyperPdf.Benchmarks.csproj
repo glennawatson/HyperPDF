@@ -38,6 +38,8 @@
     <Compile Include="..\..\src\HyperPdf.App\Controls\FocusArrival.cs" Link="FocusArrival.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Controls\FocusArrivalMixins.cs" Link="FocusArrivalMixins.cs" />
     <Compile Include="..\..\src\HyperPdf.App\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
+    <Compile Include="..\..\src\HyperPdf.App\ViewModels\AnnotationNames.cs" Link="AnnotationNames.cs" />
     <!-- The JPEG 2000 test encoder, which re-encodes a corpus page as HTJ2K for the high-throughput benchmarks. -->
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\Jpx\JpxTest*.cs" Link="Jpx\%(Filename)%(Extension)" />
     <Compile Include="..\..\scripts\JpxHtTableBuilder.cs" Link="Jpx\JpxHtTableBuilder.cs" />
