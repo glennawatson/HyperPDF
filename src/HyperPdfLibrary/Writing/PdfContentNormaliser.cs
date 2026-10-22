@@ -130,7 +130,9 @@ internal static class PdfContentNormaliser
         {
             ContentExecution.DecodeContents(contents, ref content, cancellationToken);
             var resources = new PageResourceEdit(store, InheritedResources(page));
-            var moved = (plan & PdfContentNormalisation.ExternaliseInlineImages) == 0
+
+            // An inline image starts with the BI operator, so content with no BI in it needs no token by token search.
+            var moved = (plan & PdfContentNormalisation.ExternaliseInlineImages) == 0 || content.WrittenSpan.IndexOf("BI"u8) < 0
                 ? 0
                 : InlineImageExternaliser.Externalise(store, content.WrittenSpan, resources, threshold, edit.Transaction, ref rewritten, cancellationToken);
             if ((plan & PdfContentNormalisation.CoalesceContents) == 0 && moved == 0)
