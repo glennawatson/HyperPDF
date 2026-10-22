@@ -65,6 +65,9 @@ internal static class PdfPngWriter
     /// <summary>The entries of the CRC table.</summary>
     private const int TableSize = 256;
 
+    /// <summary>The bytes the CRC is advanced over at a time.</summary>
+    private const int SliceBytes = 8;
+
     /// <summary>The divisor that halves a number, to round a division to the nearest.</summary>
     private const int Halve = 2;
 
@@ -73,6 +76,9 @@ internal static class PdfPngWriter
 
     /// <summary>The table the CRC-32 of each chunk is computed from, built once.</summary>
     private static readonly uint[] CrcTable = BuildCrcTable();
+
+    /// <summary>The tables the CRC-32 of long chunks is computed from, eight bytes at a time, built once.</summary>
+    private static readonly uint[] Slices = BuildSliceTable();
 
     /// <summary>Encodes an image as a PNG file.</summary>
     /// <param name="image">The decoded image.</param>
@@ -103,23 +109,7 @@ internal static class PdfPngWriter
             return new(GreyType, 1);
         }
 
-        return IsOpaque(image.Pixels) ? new(RgbType, RgbBytes) : new(RgbaType, BgraBytes);
-    }
-
-    /// <summary>Determines whether every pixel of a BGRA image is fully opaque.</summary>
-    /// <param name="pixels">The BGRA pixels.</param>
-    /// <returns><see langword="true"/> when no pixel has transparency.</returns>
-    private static bool IsOpaque(byte[] pixels)
-    {
-        for (var i = BgraBytes - 1; i < pixels.Length; i += BgraBytes)
-        {
-            if (pixels[i] != ChannelMax)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return PngPixels.IsOpaque(image.Pixels) ? new(RgbType, RgbBytes) : new(RgbaType, BgraBytes);
     }
 
     /// <summary>Builds the filtered scan lines: a filter byte of 0 and then the row's samples.</summary>
@@ -160,10 +150,29 @@ internal static class PdfPngWriter
 
         var step = type == RgbType ? RgbBytes : BgraBytes;
         var bgra = image.Pixels.AsSpan(y * width * BgraBytes, width * BgraBytes);
-        for (var x = 0; x < width; x++)
+
+        // An opaque pixel keeps its colour as it is, so an opaque row is only reordered, four pixels at a time.
+        var done = ReorderOpaque(bgra, samples, width, type);
+        for (var x = done; x < width; x++)
         {
             WritePixel(bgra.Slice(x * BgraBytes, BgraBytes), type, samples[(x * step)..]);
         }
+    }
+
+    /// <summary>Reorders the pixels of a row that has no transparency, as far as whole vector steps go.</summary>
+    /// <param name="bgra">The pixels of the row.</param>
+    /// <param name="samples">Receives the samples of the row.</param>
+    /// <param name="width">The pixels in the row.</param>
+    /// <param name="type">The PNG colour type.</param>
+    /// <returns>The pixels converted; 0 for a row with transparency, whose colours need dividing by their alpha.</returns>
+    private static int ReorderOpaque(ReadOnlySpan<byte> bgra, Span<byte> samples, int width, byte type)
+    {
+        if (type == RgbType)
+        {
+            return PngPixels.ToRgb(bgra, samples, width);
+        }
+
+        return PngPixels.IsOpaque(bgra) ? PngPixels.ToRgba(bgra, samples, width) : 0;
     }
 
     /// <summary>Writes one colour pixel, dividing the premultiplied colour by its alpha.</summary>
@@ -236,12 +245,45 @@ internal static class PdfPngWriter
     /// <returns>The new running value.</returns>
     private static uint Crc(uint crc, ReadOnlySpan<byte> bytes)
     {
-        foreach (var value in bytes)
+        // Eight bytes at a time: the running value is mixed into the first four, and each byte then looks up the table for how far
+        // it still has to travel through the bytes after it.
+        var i = 0;
+        for (; i + SliceBytes <= bytes.Length; i += SliceBytes)
         {
-            crc = CrcTable[(crc ^ value) & ChannelMax] ^ (crc >> ByteBits);
+            var block = BinaryPrimitives.ReadUInt64LittleEndian(bytes[i..]) ^ crc;
+            var next = 0U;
+            for (var k = 0; k < SliceBytes; k++)
+            {
+                next ^= Slices[((SliceBytes - 1 - k) * TableSize) + (int)((block >> (k * ByteBits)) & ChannelMax)];
+            }
+
+            crc = next;
+        }
+
+        for (; i < bytes.Length; i++)
+        {
+            crc = CrcTable[(crc ^ bytes[i]) & ChannelMax] ^ (crc >> ByteBits);
         }
 
         return crc;
+    }
+
+    /// <summary>Builds the tables for CRC-32 over eight bytes at a time: the first is the byte table, and each next one advances a byte by one more byte.</summary>
+    /// <returns>The eight tables, one after another.</returns>
+    private static uint[] BuildSliceTable()
+    {
+        var slices = new uint[SliceBytes * TableSize];
+        CrcTable.CopyTo(slices, 0);
+        for (var k = 1; k < SliceBytes; k++)
+        {
+            for (var n = 0; n < TableSize; n++)
+            {
+                var previous = slices[((k - 1) * TableSize) + n];
+                slices[(k * TableSize) + n] = (previous >> ByteBits) ^ CrcTable[previous & ChannelMax];
+            }
+        }
+
+        return slices;
     }
 
     /// <summary>Builds the CRC-32 table.</summary>

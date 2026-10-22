@@ -22,7 +22,7 @@ public class HyperPdfPageLabelBenchmarks
     /// <summary>The object number of the first page.</summary>
     private const int FirstPage = 3;
 
-    /// <summary>Builds the document, which is opened afresh for each measured read so the labels are read cold.</summary>
+    /// <summary>The document's bytes, opened afresh for each measured read so the labels are read cold.</summary>
     private byte[] _pdf = [];
 
     /// <summary>Builds the document outside the measured operations.</summary>

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 using System.Buffers;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using HyperPdfLibrary.Document;
@@ -15,6 +16,12 @@ public static class PdfFormOrder
 {
     /// <summary>The order value of a widget the structure tree does not list, so it sorts after those it does.</summary>
     private const int UnlistedOrdinal = int.MaxValue;
+
+    /// <summary>The longest calculation order checked for repeated names by scanning the names already listed.</summary>
+    private const int LinearLimit = 16;
+
+    /// <summary>The slots the repeat table has for each name, so it is never more than half full.</summary>
+    private const uint TableSpread = 2;
 
     /// <summary>
     /// Appends the full names of the fields that have a calculate action, in the order the form wants them recalculated
@@ -39,15 +46,23 @@ public static class PdfFormOrder
             return;
         }
 
-        var start = output.Count;
-        for (var i = 0; i < order.Count; i++)
+        // A long order is checked for repeats with a table of positions in the output; a short one is cheaper to scan.
+        if (order.Count <= LinearLimit)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (order.GetDictionary(i)is { } field && FieldAttributes.GetFullName(field)is { Length: > 0 } name
-                && !CollectionsMarshal.AsSpan(output)[start..].Contains(name))
-            {
-                output.Add(name);
-            }
+            AppendScanned(order, output, cancellationToken);
+            return;
+        }
+
+        var slots = TableSize(order.Count);
+        var table = ArrayPool<int>.Shared.Rent(slots);
+        try
+        {
+            table.AsSpan(0, slots).Clear();
+            AppendHashed(order, output, table, slots - 1, cancellationToken);
+        }
+        finally
+        {
+            ArrayPool<int>.Shared.Return(table);
         }
     }
 
@@ -170,6 +185,61 @@ public static class PdfFormOrder
         }
 
         return ordinals;
+    }
+
+    /// <summary>Gets the slots of the repeat table for a number of names: a power of two with room to spare, so probes stay short.</summary>
+    /// <param name="count">The names that may be added.</param>
+    /// <returns>The slots.</returns>
+    private static int TableSize(int count) => (int)BitOperations.RoundUpToPowerOf2((uint)count * TableSpread);
+
+    /// <summary>Appends the calculated names of a short order, skipping repeats by scanning the names already appended.</summary>
+    /// <param name="order">The <c>/CO</c> array.</param>
+    /// <param name="output">Receives the names.</param>
+    /// <param name="cancellationToken">Cancels the walk.</param>
+    private static void AppendScanned(PdfArray order, List<string> output, CancellationToken cancellationToken)
+    {
+        var start = output.Count;
+        for (var i = 0; i < order.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (order.GetDictionary(i)is { } field && FieldAttributes.GetFullName(field)is { Length: > 0 } name
+                && !CollectionsMarshal.AsSpan(output)[start..].Contains(name))
+            {
+                output.Add(name);
+            }
+        }
+    }
+
+    /// <summary>Appends the calculated names of a long order, skipping repeats with a table of positions in the output.</summary>
+    /// <param name="order">The <c>/CO</c> array.</param>
+    /// <param name="output">Receives the names.</param>
+    /// <param name="table">The cleared slots; each holds one more than the position in the output of the name that took it.</param>
+    /// <param name="mask">The slots in use, less one.</param>
+    /// <param name="cancellationToken">Cancels the walk.</param>
+    private static void AppendHashed(PdfArray order, List<string> output, int[] table, int mask, CancellationToken cancellationToken)
+    {
+        for (var i = 0; i < order.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (order.GetDictionary(i)is not { } field || FieldAttributes.GetFullName(field)is not { Length: > 0 } name)
+            {
+                continue;
+            }
+
+            var slot = StringComparer.Ordinal.GetHashCode(name) & mask;
+            while (table[slot] != 0 && !string.Equals(output[table[slot] - 1], name, StringComparison.Ordinal))
+            {
+                slot = (slot + 1) & mask;
+            }
+
+            if (table[slot] != 0)
+            {
+                continue;
+            }
+
+            table[slot] = output.Count + 1;
+            output.Add(name);
+        }
     }
 
     /// <summary>Appends widgets in annotation order without allocating sort keys.</summary>
