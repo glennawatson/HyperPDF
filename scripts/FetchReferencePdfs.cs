@@ -420,11 +420,13 @@ internal static class FetchReferencePdfs
                 DeleteTemporaryFile(temporaryPath);
             }
 
-            if (!downloaded)
+            if (downloaded)
             {
-                await Task.Delay(TimeSpan.FromMilliseconds(RetryDelayMilliseconds * attempt), cancellationToken);
-                attempt++;
+                continue;
             }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(RetryDelayMilliseconds * attempt), cancellationToken);
+            attempt++;
         }
     }
 
