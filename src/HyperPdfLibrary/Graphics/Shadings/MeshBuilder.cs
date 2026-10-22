@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Colors;
@@ -30,6 +31,15 @@ internal sealed partial class MeshBuilder
 
     /// <summary>The vertices in a triangle.</summary>
     private const int TriangleVertices = 3;
+
+    /// <summary>The vertices two triangles hold, which is what a cell between two lattice rows makes.</summary>
+    private const int CellTriangleVertices = 6;
+
+    /// <summary>The most vertices the lists are sized for ahead of reading; a larger shading grows them as it is read.</summary>
+    private const int MaxReserved = 1 << 24;
+
+    /// <summary>The rows a lattice needs before it has a cell.</summary>
+    private const int MinLatticeRows = 2;
 
     /// <summary>The vertices a lattice row has at least.</summary>
     private const int MinRowVertices = 2;
@@ -146,6 +156,24 @@ internal sealed partial class MeshBuilder
         Add(c);
     }
 
+    /// <summary>Counts the vertices the triangles of a type 5 shading hold: two triangles for each cell between rows.</summary>
+    /// <param name="scan">A copy of the reader at the start of the data.</param>
+    /// <param name="perRow">The vertices in a row.</param>
+    /// <param name="vertexBits">The bits of one vertex.</param>
+    /// <returns>The vertices.</returns>
+    private static int CountLatticeEntries(MeshBitReader scan, int perRow, int vertexBits)
+    {
+        var rowBits = (long)perRow * ((vertexBits + ByteBits - 1) / ByteBits * ByteBits);
+        long rows = 0;
+        while (scan.Remaining >= (long)vertexBits * perRow)
+        {
+            scan.Skip(rowBits);
+            rows++;
+        }
+
+        return rows < MinLatticeRows ? 0 : (int)Math.Min(CellTriangleVertices * (rows - 1) * (perRow - 1), MaxReserved);
+    }
+
     /// <summary>Maps a raw field to its range.</summary>
     /// <param name="raw">The raw value.</param>
     /// <param name="bits">The field width.</param>
@@ -198,6 +226,7 @@ internal sealed partial class MeshBuilder
     private void ReadFreeForm(ref MeshBitReader reader)
     {
         var vertexBits = _flagBits + (PointFields * _coordinateBits) + (_componentCount * _componentBits);
+        Reserve(CountFreeFormEntries(reader, vertexBits));
         MeshVertex a = default;
         MeshVertex b = default;
         MeshVertex c = default;
@@ -247,6 +276,7 @@ internal sealed partial class MeshBuilder
         }
 
         var vertexBits = (PointFields * _coordinateBits) + (_componentCount * _componentBits);
+        Reserve(CountLatticeEntries(reader, perRow, vertexBits));
         var previous = new MeshVertex[perRow];
         var current = new MeshVertex[perRow];
         var first = true;
@@ -269,6 +299,45 @@ internal sealed partial class MeshBuilder
             current.CopyTo(previous, 0);
             first = false;
         }
+    }
+
+    /// <summary>Sizes the lists for the vertices about to be read, so they are filled without growing.</summary>
+    /// <param name="entries">The vertices the triangles will hold, or more than are wanted when the shading has too many to size for.</param>
+    private void Reserve(int entries)
+    {
+        var count = Math.Min(entries, MaxReserved);
+        _ = _positions.EnsureCapacity(count);
+        _ = UsesRamp ? _texels.EnsureCapacity(count) : _colors.EnsureCapacity(count);
+    }
+
+    /// <summary>Counts the vertices the triangles of a type 4 shading hold, by walking the data the way the reader will.</summary>
+    /// <param name="scan">A copy of the reader at the start of the data.</param>
+    /// <param name="vertexBits">The bits of one vertex, with its flag.</param>
+    /// <returns>The vertices.</returns>
+    private int CountFreeFormEntries(MeshBitReader scan, int vertexBits)
+    {
+        var recordBits = (vertexBits + ByteBits - 1) / ByteBits * ByteBits;
+        var entries = 0;
+        var started = false;
+        while (scan.Remaining >= vertexBits)
+        {
+            var flag = scan.Read(_flagBits);
+            scan.Skip(recordBits - _flagBits);
+            if (flag == 0 || !started)
+            {
+                if (scan.Remaining < (PointFields * vertexBits))
+                {
+                    break;
+                }
+
+                started = true;
+                scan.Skip((long)PointFields * recordBits);
+            }
+
+            entries += TriangleVertices;
+        }
+
+        return entries;
     }
 
     /// <summary>Reads a position and colour, then skips to the next byte.</summary>
@@ -347,10 +416,12 @@ internal sealed partial class MeshBuilder
         for (var start = 0; start < total; start += ChunkVertices)
         {
             var count = Math.Min(ChunkVertices, total - start);
-            var positions = _positions.GetRange(start, count).ToArray();
+
+            // A slice of the list's span is copied once; GetRange would build a second list first.
+            var positions = CollectionsMarshal.AsSpan(_positions).Slice(start, count).ToArray();
             chunks.Add(UsesRamp
-                ? backend.CreateVertices(positions, _texels.GetRange(start, count).ToArray(), null!)
-                : backend.CreateVertices(positions, _colors.GetRange(start, count).ToArray()));
+                ? backend.CreateVertices(positions, CollectionsMarshal.AsSpan(_texels).Slice(start, count).ToArray(), null!)
+                : backend.CreateVertices(positions, CollectionsMarshal.AsSpan(_colors).Slice(start, count).ToArray()));
         }
 
         return new([..chunks], UsesRamp ? CreateRamp() : null);

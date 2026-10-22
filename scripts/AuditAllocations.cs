@@ -105,7 +105,7 @@ var environment = new Dictionary<string, string?>
 {
     ["DOTNET_EnableEventPipe"] = "1",
     ["DOTNET_EventPipeOutputPath"] = Path.Combine(output, "alloc-{pid}.nettrace"),
-    ["DOTNET_EventPipeConfig"] = "Microsoft-Windows-DotNETRuntime:0x41280001:5,HyperPdf.AllocationHarness:0xFFFFFFFFFFFFFFFF:5",
+    ["DOTNET_EventPipeConfig"] = "Microsoft-Windows-DotNETRuntime:0x412A0011:5,HyperPdf.AllocationHarness:0xFFFFFFFFFFFFFFFF:5",
 };
 
 var harness = await ScriptProcess.RunAsync(

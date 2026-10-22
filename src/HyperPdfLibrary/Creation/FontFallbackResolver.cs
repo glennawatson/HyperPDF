@@ -15,6 +15,15 @@ namespace HyperPdfLibrary.Creation;
 /// </summary>
 internal static class FontFallbackResolver
 {
+    /// <summary>The first character that is not ASCII.</summary>
+    private const char FirstNonAscii = '\u0080';
+
+    /// <summary>The carriage return, which forms one cluster with a following line feed.</summary>
+    private const char CarriageReturn = '\r';
+
+    /// <summary>The first combining mark; no character that extends a cluster is below it.</summary>
+    private const char FirstExtender = '̀';
+
     /// <summary>Zero-width non-joiner code point (<c>U+200C</c>).</summary>
     private const int ZeroWidthNonJoiner = 0x200C;
 
@@ -214,6 +223,12 @@ internal static class FontFallbackResolver
     /// <returns>The UTF-16 character length of the leading cluster.</returns>
     internal static int GetNextClusterLength(ReadOnlySpan<char> text)
     {
+        // An ASCII character stands alone unless it is a CR (which joins a following LF) or a joiner, mark or other extender follows; nothing that extends a cluster is below U+0300.
+        if (text[0] is < FirstNonAscii and not CarriageReturn && (text.Length == 1 || text[1] < FirstExtender))
+        {
+            return 1;
+        }
+
         _ = Rune.DecodeFromUtf16(text, out var firstRune, out var consumed);
         if (consumed <= 0)
         {

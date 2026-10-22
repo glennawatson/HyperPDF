@@ -1,13 +1,14 @@
 # Repository tools
 
 Run tools from the checkout with `dotnet run --file scripts/<name>.cs -- <arguments>`.
-Each entry point targets .NET 11. Files named `*Builder.cs` and `ScriptProcess.cs` are shared source, not entry points.
+Each entry point targets .NET 11. Files named `*Builder.cs`, `ScriptProcess.cs` and `SourceLines.cs` are shared source, not entry points.
 
 | Task | Tool |
 | --- | --- |
 | Measure and explain allocations for all supplied benchmark filters in one process | `AuditAllocations.cs '*Benchmark*' '*Another*'` (`--root <checkout>` audits another worktree) |
 | Compare a baseline ref with the current code using the same benchmark definitions | `CompareBenchmarks.cs <ref> '*Benchmark*' [more filters] [--leeway percent]` |
 | Read existing allocation or CPU traces | `AllocationAudit.cs`, `CpuAudit.cs` |
+| Name the source line behind each allocation or CPU sample | Set `HYPERPDF_SYMBOLS` to the folder of the built benchmark assemblies, which embed their PDB files, before `AuditAllocations.cs` or `AllocationAudit.cs` to see `File.cs:line` after each site. For CPU, run the benchmark project with `--cpu-lines --artifacts <folder>` (it traces samples from start-up with the JIT line map instead of BenchmarkDotNet's profiler), then `CpuAudit.cs <folder>` lists the busiest lines. The sampler stops threads at GC safepoints, so a line is where the thread was stopped and can sit a little after the code that cost the time; a profile with `Thread.PollGCWorker` high in it needs reading with that in mind. |
 | Publish Native AOT and separate debug symbols | `Publish.cs <runtime identifier> [publish arguments]` |
 | Fetch the FFmpeg libraries for a runtime (`Publish.cs` runs this; the build is pinned in `ffmpeg.json`) | `FetchFfmpeg.cs <runtime identifier> <folder>` |
 | Install a published Linux build and desktop integration | `InstallLinux.cs [--prefix directory] [--from directory]` |

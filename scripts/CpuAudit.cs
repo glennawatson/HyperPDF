@@ -3,6 +3,7 @@
 #:package Microsoft.Diagnostics.Tracing.TraceEvent
 #:property IsAotCompatible=false
 #:property PublishAot=false
+#:include SourceLines.cs
 
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
@@ -153,6 +154,13 @@ namespace HyperPdf.Scripts
             List(output, benchmark.Methods);
             output.WriteLine("  own code:");
             List(output, benchmark.Self);
+            if (benchmark.Lines.Count == 0)
+            {
+                return;
+            }
+
+            output.WriteLine("  by source line (the innermost HyperPDF line on the stack, including the time of the calls it makes):");
+            List(output, benchmark.Lines);
         }
 
         /// <summary>Prints the busiest methods of a list.</summary>
@@ -359,7 +367,14 @@ namespace HyperPdf.Scripts
         private static BenchmarkProfile Profile(SampleReader reader)
         {
             var perOperation = reader.Nanoseconds / NanosecondsPerMicrosecond / reader.Operations;
-            return new(reader.Name!, reader.Operations, reader.Samples, perOperation, Times(reader.Inclusive, reader.Samples, perOperation), Times(reader.Self, reader.Samples, perOperation));
+            return new(
+                reader.Name!,
+                reader.Operations,
+                reader.Samples,
+                perOperation,
+                Times(reader.Inclusive, reader.Samples, perOperation),
+                Times(reader.Self, reader.Samples, perOperation),
+                Times(reader.Lines, reader.Samples, perOperation));
         }
 
         /// <summary>Turns sample counts into shares and time per operation, busiest first.</summary>
@@ -402,6 +417,9 @@ namespace HyperPdf.Scripts
             /// <summary>The frames already counted for the current sample, so recursion counts once.</summary>
             private readonly HashSet<string> _seen = [];
 
+            /// <summary>The source lines of the build, or <see langword="null"/> when no PDB folder is named.</summary>
+            private readonly SourceLines? _sourceLines = SourceLines.FromEnvironment();
+
             /// <summary>When the current measured iteration started, or -1 outside one.</summary>
             private double _started = -1;
 
@@ -423,6 +441,9 @@ namespace HyperPdf.Scripts
             /// <summary>Gets the samples each method was the sampled frame for.</summary>
             internal Dictionary<string, long> Self { get; } = [];
 
+            /// <summary>Gets the samples each source line was the innermost HyperPDF line for.</summary>
+            internal Dictionary<string, long> Lines { get; } = [];
+
             /// <summary>Reads one event.</summary>
             /// <param name="data">The event.</param>
             internal void Read(TraceEvent data)
@@ -437,6 +458,19 @@ namespace HyperPdf.Scripts
                 {
                     Record(data.CallStack());
                 }
+            }
+
+            /// <summary>Counts a sample for the source line of the innermost HyperPDF frame, when the build's PDB files are available.</summary>
+            /// <param name="library">The innermost HyperPDF frame, or <see langword="null"/> when there is none.</param>
+            private void CountLine(TraceCodeAddress? library)
+            {
+                if (library is null || _sourceLines?.Find(library) is not { } line)
+                {
+                    return;
+                }
+
+                var key = $"{library.FullMethodName} @ {line}";
+                Lines[key] = Lines.GetValueOrDefault(key) + 1;
             }
 
             /// <summary>Follows the engine's iteration events.</summary>
@@ -476,6 +510,7 @@ namespace HyperPdf.Scripts
             {
                 _frames.Clear();
                 var inWorkload = false;
+                TraceCodeAddress? library = null;
                 for (var frame = stack; frame is not null; frame = frame.Caller)
                 {
                     var name = frame.CodeAddress.FullMethodName is { Length: > 0 } method ? method : $"{frame.CodeAddress.ModuleName}!?";
@@ -485,6 +520,7 @@ namespace HyperPdf.Scripts
                         break;
                     }
 
+                    library ??= name.StartsWith("HyperPdf", StringComparison.Ordinal) ? frame.CodeAddress : null;
                     _frames.Add(name);
                 }
 
@@ -494,6 +530,8 @@ namespace HyperPdf.Scripts
                 }
 
                 Samples++;
+                CountLine(library);
+
                 if (_frames.Count > 0)
                 {
                     Self[_frames[0]] = Self.GetValueOrDefault(_frames[0]) + 1;
@@ -517,8 +555,9 @@ namespace HyperPdf.Scripts
         /// <param name="MicrosecondsPerOperation">The measured time per operation.</param>
         /// <param name="Methods">Each method's share of the samples with its callees, busiest first.</param>
         /// <param name="Self">Each method's share of the samples in its own code, busiest first.</param>
+        /// <param name="Lines">Each source line's share of the samples, busiest first; empty without a PDB folder.</param>
         [DebuggerDisplay("{Name}: {MicrosecondsPerOperation} us/op")]
-        internal sealed record BenchmarkProfile(string Name, long Operations, long Samples, double MicrosecondsPerOperation, List<MethodTime> Methods, List<MethodTime> Self);
+        internal sealed record BenchmarkProfile(string Name, long Operations, long Samples, double MicrosecondsPerOperation, List<MethodTime> Methods, List<MethodTime> Self, List<MethodTime> Lines);
 
         /// <summary>The time a method and its callees take per operation.</summary>
         /// <param name="Name">The method.</param>

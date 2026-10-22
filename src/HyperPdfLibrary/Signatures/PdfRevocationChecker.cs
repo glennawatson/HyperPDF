@@ -161,12 +161,25 @@ internal static class PdfRevocationChecker
     private static PdfRevocationStatus CheckBasic(byte[] data, X509Certificate2 certificate, X509Certificate2 issuer)
     {
         var signed = PdfSignedStructure.Read(data);
-        if (!signed.IsSignedBy(issuer) && !IsSignedByResponder(signed, issuer))
+
+        // A store holds a response for each certificate of the chain, so most are about another certificate.
+        // Matching the certificate is a hash and a compare and a signature check is far dearer, so only a response about this certificate is checked.
+        var status = StatusOf(signed.Body, certificate);
+        if (status == PdfRevocationStatus.Unknown)
         {
-            return PdfRevocationStatus.Unknown;
+            return status;
         }
 
-        var body = new AsnReader(signed.Body, AsnEncodingRules.DER).ReadSequence();
+        return signed.IsSignedBy(issuer) || IsSignedByResponder(signed, issuer) ? status : PdfRevocationStatus.Unknown;
+    }
+
+    /// <summary>Reads the status a response gives a certificate, without checking the response's signature.</summary>
+    /// <param name="responseData">The DER ResponseData.</param>
+    /// <param name="certificate">The certificate.</param>
+    /// <returns>The status the first matching SingleResponse gives; unknown when none is about the certificate.</returns>
+    private static PdfRevocationStatus StatusOf(ReadOnlyMemory<byte> responseData, X509Certificate2 certificate)
+    {
+        var body = new AsnReader(responseData, AsnEncodingRules.DER).ReadSequence();
         if (body.PeekTag().TagClass == TagClass.ContextSpecific && body.PeekTag().TagValue == 0)
         {
             _ = body.ReadEncodedValue();

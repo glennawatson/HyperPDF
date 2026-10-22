@@ -234,9 +234,9 @@ internal sealed class WritePlan : IDisposable
     /// <returns>The file to write.</returns>
     private byte[] CheckRewrite(byte[] file, CancellationToken cancellationToken)
     {
-        var kept = KeepUaClaim(file, cancellationToken);
-        using var written = PdfDocumentReader.Open(kept, null);
-        return Settle(written, kept, PdfAClaimGuard.CheckOutput(written.Objects, kept, cancellationToken));
+        var kept = KeepUaClaim(file, out var opened, cancellationToken);
+        using var written = opened ?? PdfDocumentReader.Open(kept, null);
+        return Settle(written, kept, PdfAClaimGuard.CheckOutput(written, kept, cancellationToken));
     }
 
     /// <summary>Checks a rewritten file against the PDF/A level it claims, downloading font data a repair needs.</summary>
@@ -245,9 +245,9 @@ internal sealed class WritePlan : IDisposable
     /// <returns>The file to write.</returns>
     private async Task<byte[]> CheckRewriteAsync(byte[] file, CancellationToken cancellationToken)
     {
-        var kept = KeepUaClaim(file, cancellationToken);
-        using var written = PdfDocumentReader.Open(kept, null);
-        var outcome = await PdfAClaimGuard.CheckOutputAsync(written.Objects, kept, cancellationToken).ConfigureAwait(false);
+        var kept = KeepUaClaim(file, out var opened, cancellationToken);
+        using var written = opened ?? PdfDocumentReader.Open(kept, null);
+        var outcome = await PdfAClaimGuard.CheckOutputAsync(written, kept, cancellationToken).ConfigureAwait(false);
         return Settle(written, kept, outcome);
     }
 
@@ -258,11 +258,16 @@ internal sealed class WritePlan : IDisposable
     /// left unchecked.
     /// </summary>
     /// <param name="file">The rewritten file.</param>
+    /// <param name="unchanged">
+    /// Receives the file opened for the check when the check changed nothing, so the caller does not parse the same bytes
+    /// again, and the caller disposes it; otherwise <see langword="null"/>.
+    /// </param>
     /// <param name="cancellationToken">Stops the check.</param>
     /// <returns>The file to write.</returns>
     /// <exception cref="PdfException">The claim cannot be kept and the options did not allow removing it.</exception>
-    private byte[] KeepUaClaim(byte[] file, CancellationToken cancellationToken)
+    private byte[] KeepUaClaim(byte[] file, out PdfDocument? unchanged, CancellationToken cancellationToken)
     {
+        unchanged = null;
         if (!PdfUaClaimGuard.IsClaimed(_writer!.Store))
         {
             return file;
@@ -278,10 +283,23 @@ internal sealed class WritePlan : IDisposable
             return file;
         }
 
-        using (written)
+        try
         {
             PdfUaClaimGuard.Apply(written.Objects, true, _save, cancellationToken);
-            return StoreEditing.HasChanges(written.Objects) ? PdfIncrementalWriter.Save(written.Objects) : file;
+            if (StoreEditing.HasChanges(written.Objects))
+            {
+                return PdfIncrementalWriter.Save(written.Objects);
+            }
+
+            unchanged = written;
+            return file;
+        }
+        finally
+        {
+            if (unchanged is null)
+            {
+                written.Dispose();
+            }
         }
     }
 
