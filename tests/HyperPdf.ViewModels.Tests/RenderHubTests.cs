@@ -13,6 +13,9 @@ public sealed class RenderHubTests
     /// <summary>The document number used for removal.</summary>
     private const int DocumentId = 7;
 
+    /// <summary>The recovery requests the recovery test makes.</summary>
+    private const int Requests = 3;
+
     /// <summary>The hub asks the head for its tile factory once and releases it with the hub.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -61,10 +64,13 @@ public sealed class RenderHubTests
         await Assert.That(head.InvalidateCount).IsEqualTo(0);
     }
 
-    /// <summary>A recovery request from a render thread reaches the head as one frame, however many requests arrive while it waits.</summary>
+    /// <summary>
+    /// A recovery request from a render thread always reaches the head as a frame, and never as more frames than requests.
+    /// Whether two requests share a frame depends on whether the UI thread ran between them, so the test does not fix that.
+    /// </summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task RecoveryRequestsCollapseIntoOneFrame()
+    public async Task RecoveryRequestsAreServedWithoutExtraFrames()
     {
         var head = new FakeRenderHead();
         using var hub = new RenderHub(CacheBytes, head);
@@ -73,8 +79,13 @@ public sealed class RenderHubTests
         recover();
         recover();
         _ = await TestWait.UntilAsync(() => head.InvalidateCount > 0);
+        var served = head.InvalidateCount;
 
-        await Assert.That(head.InvalidateCount).IsEqualTo(1);
+        // The first callback has run, so the next request cannot be dropped as a repeat of one already waiting.
+        recover();
+        _ = await TestWait.UntilAsync(() => head.InvalidateCount > served);
+
+        await Assert.That(head.InvalidateCount).IsLessThanOrEqualTo(Requests);
     }
 
     /// <summary>A hub made without a head is refused.</summary>
