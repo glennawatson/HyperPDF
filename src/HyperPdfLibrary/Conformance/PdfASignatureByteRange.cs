@@ -201,32 +201,30 @@ internal static class PdfASignatureByteRange
         var marker = 0;
         var candidate = true;
         var next = 1;
-        while (true)
+        var result = -1;
+        var scanning = true;
+        while (scanning)
         {
             if (!inStream && candidate && IsMarker(data, marker))
             {
-                return marker;
+                result = marker;
+                scanning = false;
             }
-
-            if (StepsOverKeyword(data, ref next, ref inStream))
+            else if (StepsOverKeyword(data, ref next, ref inStream))
             {
                 candidate = false;
-                if (next >= data.Length)
-                {
-                    return -1;
-                }
-
-                continue;
+                scanning = next < data.Length;
             }
-
-            marker = next;
-            candidate = true;
-            next++;
-            if (marker + EndMarker.Length >= data.Length && !IsMarker(data, marker))
+            else
             {
-                return -1;
+                marker = next;
+                candidate = true;
+                next++;
+                scanning = marker + EndMarker.Length < data.Length || IsMarker(data, marker);
             }
         }
+
+        return result;
     }
 
     /// <summary>Steps over <c>stream</c>, or <c>endstream</c> inside a stream, when it starts at an offset.</summary>

@@ -205,22 +205,21 @@ internal sealed class PagePictures
     /// <returns>The status; <see cref="PdfRenderStatus.Done"/> once the content is recorded.</returns>
     internal PdfRenderStatus ContinueContent(PdfRenderCache cache, PdfPage page, bool printing, Func<bool>? shouldPause, CancellationToken cancellationToken)
     {
-        while (true)
+        PdfRenderStatus status;
+
+        // The callback runs between slices with no lock held, so it may call back into the renderer.
+        do
         {
-            PdfRenderStatus status;
             lock (_gate)
             {
                 status = (printing ? _printContent : _content) is not null
                     ? PdfRenderStatus.Done
                     : StepLocked(cache, page, printing, cancellationToken);
             }
-
-            // The callback runs between slices with no lock held, so it may call back into the renderer.
-            if (status != PdfRenderStatus.Paused || shouldPause?.Invoke() == true)
-            {
-                return status;
-            }
         }
+        while (status == PdfRenderStatus.Paused && shouldPause?.Invoke() != true);
+
+        return status;
     }
 
     /// <summary>Gets the annotation appearances, recording them on first use.</summary>

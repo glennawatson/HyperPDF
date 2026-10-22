@@ -27,18 +27,17 @@ internal static class PageTreeReader
         {
             walk = new(objects.Size);
             var node = new PendingNode(root, default, 0, 0);
-            while (true)
+            var walking = true;
+            while (walking)
             {
                 PdfOpenContext.ThrowIfCancelled(objects.Context);
                 if (Visit(objects, node, ref walk, ref pages, out var firstChild))
                 {
                     node = firstChild;
-                    continue;
                 }
-
-                if (!TryNextChild(ref walk, out node))
+                else
                 {
-                    break;
+                    walking = TryNextChild(ref walk, out node);
                 }
             }
 

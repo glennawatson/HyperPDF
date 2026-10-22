@@ -252,16 +252,16 @@ internal static class Pdf2Documents
         var passwordBytes = Encoding.UTF8.GetBytes(password);
         var k = SHA256.HashData(Concat(passwordBytes, salt, userData[..Math.Min(userData.Length, UserDataLength)]));
         var done = 0;
-        while (true)
+        byte[] e;
+        do
         {
-            var e = Round(passwordBytes, k, userData);
+            e = Round(passwordBytes, k, userData);
             k = NextHash(e);
             done++;
-            if (done >= MinRounds && e[^1] <= done - ExitOffset)
-            {
-                return k[..KeyLength];
-            }
         }
+        while (done < MinRounds || e[^1] > done - ExitOffset);
+
+        return k[..KeyLength];
     }
 
     /// <summary>Runs one round of the revision 6 hash.</summary>

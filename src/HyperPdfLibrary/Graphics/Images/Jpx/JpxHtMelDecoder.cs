@@ -60,22 +60,19 @@ internal ref struct JpxHtMelDecoder
     /// <returns>1 for a significant quad, 0 otherwise.</returns>
     internal int Next()
     {
-        while (true)
+        while (_zeros <= 0 && !_oneFollows)
         {
-            if (_zeros > 0)
-            {
-                _zeros--;
-                return 0;
-            }
-
-            if (_oneFollows)
-            {
-                _oneFollows = false;
-                return 1;
-            }
-
             ReadRun();
         }
+
+        if (_zeros > 0)
+        {
+            _zeros--;
+            return 0;
+        }
+
+        _oneFollows = false;
+        return 1;
     }
 
     /// <summary>Reads one MEL codeword: a one for a full run of zeros, or a zero and the length of a run ended by a one.</summary>

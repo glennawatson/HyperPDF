@@ -107,16 +107,17 @@ internal static class PdfATrailerEntries
         }
 
         var bytes = new List<byte>();
-        while (true)
+        var reading = true;
+        while (reading)
         {
             reader.Next();
             if (reader.Kind is PdfASyntaxToken.LiteralString or PdfASyntaxToken.HexString)
             {
                 bytes.AddRange(reader.Value);
             }
-            else if (reader.Kind == PdfASyntaxToken.ArrayEnd || PdfASyntaxValues.FromToken(ref reader, scratch, 1) is PdfASyntaxValue.Broken or PdfASyntaxValue.Empty)
+            else
             {
-                break;
+                reading = reader.Kind != PdfASyntaxToken.ArrayEnd && PdfASyntaxValues.FromToken(ref reader, scratch, 1) is not (PdfASyntaxValue.Broken or PdfASyntaxValue.Empty);
             }
         }
 

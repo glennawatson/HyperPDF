@@ -111,14 +111,9 @@ internal static class PdfAInlineImageSyntax
 
         var result = PdfAInlineFilters.None;
         var names = true;
-        while (true)
+        reader.Next();
+        while (reader.Kind is not (PdfASyntaxToken.ArrayEnd or PdfASyntaxToken.End or PdfASyntaxToken.Broken))
         {
-            reader.Next();
-            if (reader.Kind is PdfASyntaxToken.ArrayEnd or PdfASyntaxToken.End or PdfASyntaxToken.Broken)
-            {
-                break;
-            }
-
             if (reader.Kind == PdfASyntaxToken.Name)
             {
                 result = result.And(PdfAInlineFilters.Of(reader.Value));
@@ -128,6 +123,8 @@ internal static class PdfAInlineImageSyntax
                 names = false;
                 _ = PdfASyntaxValues.FromToken(ref reader, scratch, 0);
             }
+
+            reader.Next();
         }
 
         return names ? result : PdfAInlineFilters.None;

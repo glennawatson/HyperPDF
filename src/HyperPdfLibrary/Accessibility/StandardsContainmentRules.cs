@@ -182,7 +182,8 @@ internal static class StandardsContainmentRules
         var seen = OnceChild.None;
         var pending = 0;
         var holder = element;
-        while (true)
+        var more = true;
+        while (more)
         {
             foreach (var kid in holder.KidSpan)
             {
@@ -201,9 +202,10 @@ internal static class StandardsContainmentRules
                 Judge(parent, childName, violations, ref seen);
             }
 
-            if (pending == 0)
+            more = pending > 0;
+            if (!more)
             {
-                return;
+                continue;
             }
 
             pending--;

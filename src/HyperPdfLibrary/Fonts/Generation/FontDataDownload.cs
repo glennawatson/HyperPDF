@@ -37,7 +37,8 @@ internal static class FontDataDownload
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(TimeSpan.FromSeconds(TimeoutSeconds));
         var attempt = 0;
-        while (true)
+        byte[]? data = null;
+        while (data is null)
         {
             attempt++;
             deadline.Token.ThrowIfCancellationRequested();
@@ -45,13 +46,15 @@ internal static class FontDataDownload
             {
                 using var response = await api.ReadAsync(path, deadline.Token).ConfigureAwait(false);
                 _ = response.EnsureSuccessStatusCode();
-                return await response.Content.ReadAsByteArrayAsync(deadline.Token).ConfigureAwait(false);
+                data = await response.Content.ReadAsByteArrayAsync(deadline.Token).ConfigureAwait(false);
             }
             catch (Exception exception) when (attempt < MaximumAttempts && !deadline.IsCancellationRequested && IsTransient(exception))
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(RetryMilliseconds * attempt), deadline.Token).ConfigureAwait(false);
             }
         }
+
+        return data;
     }
 
     /// <summary>Recognizes recoverable GET failures without retrying protocol or content errors.</summary>

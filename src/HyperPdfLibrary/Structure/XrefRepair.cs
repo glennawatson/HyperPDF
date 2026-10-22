@@ -101,29 +101,25 @@ internal static class XrefRepair
     private static void ScanObjects(PdfByteSource file, XrefTable table, PdfOpenContext? context)
     {
         var position = 0L;
-        while (true)
+        PdfOpenContext.ThrowIfCancelled(context);
+        var keyword = PdfByteSearch.IndexOf(file, ObjKeyword, position);
+        while (keyword >= 0)
         {
-            PdfOpenContext.ThrowIfCancelled(context);
-            var keyword = PdfByteSearch.IndexOf(file, ObjKeyword, position);
-            if (keyword < 0)
-            {
-                break;
-            }
-
             position = keyword + ObjKeyword.Length;
             var after = file.ByteAt(position);
-            if (!TryReadHeaderBefore(file, keyword, out var number, out var generation, out var start) || (after >= 0 && !PdfCharacters.EndsToken((byte)after)))
+            if (TryReadHeaderBefore(file, keyword, out var number, out var generation, out var start) && (after < 0 || PdfCharacters.EndsToken((byte)after)))
             {
-                continue;
+                table.Set(number, XrefEntryType.InFile, start, generation);
+                if (PdfByteSearch.IndexOf(file, "ObjStm"u8, start, start + HeaderWindow) >= 0)
+                {
+                    table.AddObjectStream(start);
+                }
+
+                position = SkipStreamBody(file, position);
             }
 
-            table.Set(number, XrefEntryType.InFile, start, generation);
-            if (PdfByteSearch.IndexOf(file, "ObjStm"u8, start, start + HeaderWindow) >= 0)
-            {
-                table.AddObjectStream(start);
-            }
-
-            position = SkipStreamBody(file, position);
+            PdfOpenContext.ThrowIfCancelled(context);
+            keyword = PdfByteSearch.IndexOf(file, ObjKeyword, position);
         }
     }
 

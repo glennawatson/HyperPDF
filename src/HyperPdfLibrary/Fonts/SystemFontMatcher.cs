@@ -297,31 +297,34 @@ internal sealed class SystemFontMatcher(IPdfFontProvider? provider, PdfFontResou
     {
         var a = 0;
         var w = 0;
-        while (true)
+        a = SkipSpaces(actual, a);
+        w = SkipSpaces(wanted, w);
+        while (a < actual.Length && w < wanted.Length)
         {
-            while (a < actual.Length && actual[a] == ' ')
-            {
-                a++;
-            }
-
-            while (w < wanted.Length && wanted[w] == ' ')
-            {
-                w++;
-            }
-
-            if (a == actual.Length || w == wanted.Length)
-            {
-                return a == actual.Length && w == wanted.Length;
-            }
-
             if (char.ToUpperInvariant(actual[a]) != char.ToUpperInvariant(wanted[w]))
             {
                 return false;
             }
 
-            a++;
-            w++;
+            a = SkipSpaces(actual, a + 1);
+            w = SkipSpaces(wanted, w + 1);
         }
+
+        return a == actual.Length && w == wanted.Length;
+    }
+
+    /// <summary>Moves past a run of spaces.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="index">The index to start at.</param>
+    /// <returns>The index of the first character that is not a space, or the length of the text.</returns>
+    private static int SkipSpaces(string text, int index)
+    {
+        while (index < text.Length && text[index] == ' ')
+        {
+            index++;
+        }
+
+        return index;
     }
 
     /// <summary>Finds a system font by name, then the bundled generic face, then the generic system families.</summary>

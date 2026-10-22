@@ -506,23 +506,26 @@ internal static class CcittFaxDecoder
             var table = white ? WhiteLookup : BlackLookup;
             var bits = white ? WhiteBits : BlackBits;
             var run = 0;
-            while (true)
+            var reading = true;
+            while (reading)
             {
                 var entry = table[reader.Peek(bits)];
                 var length = entry >> LengthShift;
                 if (length == 0)
                 {
-                    return -1;
+                    run = -1;
+                    reading = false;
                 }
-
-                reader.Skip(length);
-                var part = entry & ValueMask;
-                run = Math.Min(run + part, limit);
-                if (part < TerminatingLimit)
+                else
                 {
-                    return run;
+                    reader.Skip(length);
+                    var part = entry & ValueMask;
+                    run = Math.Min(run + part, limit);
+                    reading = part >= TerminatingLimit;
                 }
             }
+
+            return run;
         }
 
         /// <summary>Skips fill zeros and an end-of-line code, if one comes next.</summary>

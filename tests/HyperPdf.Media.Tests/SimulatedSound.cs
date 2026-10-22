@@ -77,9 +77,11 @@ internal sealed class SimulatedSound : IStreamingAudioOutput
     /// <inheritdoc />
     public bool Write(ReadOnlySpan<float> samples, CancellationToken cancellationToken)
     {
-        while (true)
+        var written = true;
+        var waiting = true;
+        while (waiting)
         {
-            double wait;
+            var wait = 0.0;
             lock (_gate)
             {
                 var remaining = Remaining();
@@ -88,17 +90,20 @@ internal sealed class SimulatedSound : IStreamingAudioOutput
                     _queued = remaining + ((double)samples.Length / _rate / _channels);
                     _measuredAt = Stopwatch.GetTimestamp();
                     _ = Interlocked.Add(ref _samples, samples.Length);
-                    return true;
+                    waiting = false;
                 }
-
-                wait = remaining - BufferSeconds;
+                else
+                {
+                    wait = remaining - BufferSeconds;
+                }
             }
 
-            if (cancellationToken.WaitHandle.WaitOne(TimeSpan.FromSeconds(wait)))
-            {
-                return false;
-            }
+            var cancelled = waiting && cancellationToken.WaitHandle.WaitOne(TimeSpan.FromSeconds(wait));
+            written &= !cancelled;
+            waiting &= !cancelled;
         }
+
+        return written;
     }
 
     /// <inheritdoc />

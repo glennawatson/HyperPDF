@@ -467,27 +467,31 @@ internal sealed class JpxPacketDecoder
         }
 
         var remaining = passes;
-        while (true)
+        var valid = true;
+        do
         {
             ref var current = ref _tile.Segments[segment];
             var count = Math.Min(current.MaxPasses - current.Passes, remaining);
             var bits = block.LengthBits + BitOperations.Log2((uint)count);
             if (bits > MaxLengthBits)
             {
-                return false;
+                valid = false;
             }
-
-            var length = reader.ReadBits(bits);
-            current.NewPasses = count;
-            current.NewLength = (int)Math.Min(length, int.MaxValue);
-            remaining -= count;
-            if (remaining <= 0)
+            else
             {
-                return true;
+                var length = reader.ReadBits(bits);
+                current.NewPasses = count;
+                current.NewLength = (int)Math.Min(length, int.MaxValue);
+                remaining -= count;
+                if (remaining > 0)
+                {
+                    segment = AddSegment(ref block, style);
+                }
             }
-
-            segment = AddSegment(ref block, style);
         }
+        while (valid && remaining > 0);
+
+        return valid;
     }
 
     /// <summary>Adds a codeword segment to a code-block.</summary>

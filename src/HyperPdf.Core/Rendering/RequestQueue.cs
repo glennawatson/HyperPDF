@@ -90,14 +90,9 @@ internal sealed class RequestQueue
     private static void SiftDown(QueuedRequest[] items, int count, in QueuedRequest moved)
     {
         var index = 0;
-        while (true)
+        var child = 1;
+        while (child < count)
         {
-            var child = (index << ChildShift) + 1;
-            if (child >= count)
-            {
-                break;
-            }
-
             if (child + 1 < count && items[child + 1].Stamp < items[child].Stamp)
             {
                 child++;
@@ -110,6 +105,7 @@ internal sealed class RequestQueue
 
             items[index] = items[child];
             index = child;
+            child = (index << ChildShift) + 1;
         }
 
         items[index] = moved;

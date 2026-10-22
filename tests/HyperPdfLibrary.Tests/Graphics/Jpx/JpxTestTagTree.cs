@@ -34,16 +34,13 @@ internal sealed class JpxTestTagTree
         var total = 0;
         var w = width;
         var h = height;
-        while (true)
+        var last = false;
+        while (!last)
         {
             _levelStarts.Add(total);
             _levelWidths.Add(w);
             total += w * h;
-            if (w <= 1 && h <= 1)
-            {
-                break;
-            }
-
+            last = w <= 1 && h <= 1;
             w = (w + 1) / Branching;
             h = (h + 1) / Branching;
         }

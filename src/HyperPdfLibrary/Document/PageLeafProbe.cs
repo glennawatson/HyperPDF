@@ -110,18 +110,15 @@ internal static class PageLeafProbe
             return false;
         }
 
-        while (true)
+        var kind = parser.NextToken();
+        while (kind != PdfTokenKind.DictionaryEnd)
         {
-            var kind = parser.NextToken();
-            if (kind == PdfTokenKind.DictionaryEnd)
-            {
-                break;
-            }
-
             if (kind != PdfTokenKind.Name || !ReadEntry(ref parser, ref state))
             {
                 return false;
             }
+
+            kind = parser.NextToken();
         }
 
         // A window that ended inside a token may have cut the object short.

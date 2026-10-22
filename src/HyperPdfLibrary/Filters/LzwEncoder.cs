@@ -174,21 +174,19 @@ internal static class LzwEncoder
         {
             var key = KeyOf(prefix, value);
             var slot = SlotOf(key);
-            while (true)
+            var stored = (uint)_slots[slot * IntsPerSlot];
+            while (stored != key)
             {
-                var stored = (uint)_slots[slot * IntsPerSlot];
-                if (stored == key)
-                {
-                    return _slots[(slot * IntsPerSlot) + 1];
-                }
-
                 if (stored >> KeyBits != (uint)_epoch)
                 {
                     return -1;
                 }
 
                 slot = (slot + 1) & _mask;
+                stored = (uint)_slots[slot * IntsPerSlot];
             }
+
+            return _slots[(slot * IntsPerSlot) + 1];
         }
 
         /// <summary>Adds the string made of a known string and one more byte under the next code.</summary>

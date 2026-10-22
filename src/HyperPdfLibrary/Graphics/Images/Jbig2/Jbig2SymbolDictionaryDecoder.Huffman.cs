@@ -76,14 +76,9 @@ internal static partial class Jbig2SymbolDictionaryDecoder
         var first = context.Decoded;
         long width = 0;
         long totalWidth = 0;
-        while (true)
+        var result = context.Settings.WidthDelta.Decode(ref reader, out var delta);
+        while (result != Jbig2HuffmanResult.OutOfBand)
         {
-            var result = context.Settings.WidthDelta.Decode(ref reader, out var delta);
-            if (result == Jbig2HuffmanResult.OutOfBand)
-            {
-                break;
-            }
-
             width += delta;
             if (result != Jbig2HuffmanResult.Value || context.Decoded >= context.Settings.NewCount || width is < 0 or > Jbig2Limits.MaxImageSide)
             {
@@ -97,6 +92,7 @@ internal static partial class Jbig2SymbolDictionaryDecoder
             }
 
             context.Decoded++;
+            result = context.Settings.WidthDelta.Decode(ref reader, out delta);
         }
 
         return context.Settings.RefinementAggregate || ReadCollectiveBitmap(ref reader, ref context, first, totalWidth, height);

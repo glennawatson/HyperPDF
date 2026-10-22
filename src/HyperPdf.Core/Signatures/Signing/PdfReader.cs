@@ -219,15 +219,9 @@ internal static class PdfReader
     /// <exception cref="InvalidDataException">The table is damaged.</exception>
     private static byte[] ReadTable(ReadOnlySpan<byte> file, int index, Dictionary<int, XrefEntry> entries)
     {
-        while (true)
+        index = PdfSyntax.SkipSpace(file, index);
+        while (!file[index..].StartsWith("trailer"u8))
         {
-            index = PdfSyntax.SkipSpace(file, index);
-            if (file[index..].StartsWith("trailer"u8))
-            {
-                var dictionary = PdfSyntax.SkipSpace(file, index + "trailer"u8.Length);
-                return file[dictionary..PdfSyntax.ValueEnd(file, dictionary)].ToArray();
-            }
-
             index = PdfSyntax.ReadLong(file, index, out var first);
             index = PdfSyntax.ReadLong(file, PdfSyntax.SkipSpace(file, index), out var count);
             if (index < 0)
@@ -248,7 +242,12 @@ internal static class PdfReader
                 _ = entries.TryAdd((int)(first + i), new(file[index] == (byte)'n' ? 1 : 0, location, 0));
                 index++;
             }
+
+            index = PdfSyntax.SkipSpace(file, index);
         }
+
+        var dictionary = PdfSyntax.SkipSpace(file, index + "trailer"u8.Length);
+        return file[dictionary..PdfSyntax.ValueEnd(file, dictionary)].ToArray();
     }
 
     /// <summary>Reads a cross-reference stream.</summary>
@@ -280,17 +279,15 @@ internal static class PdfReader
         var ranges = file.Slice(indexArray + 1, PdfSyntax.ValueEnd(file, indexArray) - indexArray - Brackets);
         var rangeCursor = 0;
         var row = 0;
-        while (true)
+        rangeCursor = PdfSyntax.ReadLong(ranges, PdfSyntax.SkipSpace(ranges, rangeCursor), out var first);
+        while (rangeCursor >= 0)
         {
-            rangeCursor = PdfSyntax.ReadLong(ranges, PdfSyntax.SkipSpace(ranges, rangeCursor), out var first);
-            if (rangeCursor < 0)
-            {
-                return trailer;
-            }
-
             rangeCursor = PdfSyntax.ReadLong(ranges, PdfSyntax.SkipSpace(ranges, rangeCursor), out var count);
             row = ReadRows(data, widths, row, first, count, entries);
+            rangeCursor = PdfSyntax.ReadLong(ranges, PdfSyntax.SkipSpace(ranges, rangeCursor), out first);
         }
+
+        return trailer;
     }
 
     /// <summary>Reads rows of a cross-reference stream for a run of object numbers.</summary>

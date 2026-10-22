@@ -75,22 +75,18 @@ public static class StoreParsing
         }
 
         var window = StoreParsing.FirstWindow(self, offset);
-        while (true)
+        PdfValue value;
+        bool truncated;
+        do
         {
-            PdfValue value;
-            bool truncated;
-            using (var lease = self.Source.Lease(offset, window))
-            {
-                var parser = PdfParser.ForWindow(lease.Span, 0, self, self.Names, null);
-                value = parser.ParseValue();
-                truncated = parser.ReachedEnd;
-            }
-
-            if (!truncated || !StoreParsing.TryGrowWindow(self, offset, ref window))
-            {
-                return value;
-            }
+            using var lease = self.Source.Lease(offset, window);
+            var parser = PdfParser.ForWindow(lease.Span, 0, self, self.Names, null);
+            value = parser.ParseValue();
+            truncated = parser.ReachedEnd;
         }
+        while (truncated && StoreParsing.TryGrowWindow(self, offset, ref window));
+
+        return value;
     }
 
     /// <summary>Reads "number generation obj".</summary>
@@ -187,30 +183,24 @@ public static class StoreParsing
     internal static bool TryParseInWindows(PdfObjectStore self, long offset, out PdfObjectId id, out PdfValue value)
     {
         var window = StoreParsing.FirstWindow(self, offset);
-        while (true)
+        bool found;
+        int keywordEnd;
+        bool truncated;
+        do
         {
-            bool found;
-            int keywordEnd;
-            bool truncated;
-            using (var lease = self.Source.Lease(offset, window))
-            {
-                var parser = PdfParser.ForWindow(lease.Span, 0, self, self.Names, self.Security);
-                found = StoreParsing.TryParseObject(ref parser, out id, out value, out keywordEnd);
-                truncated = parser.ReachedEnd;
-            }
-
-            if (truncated && StoreParsing.TryGrowWindow(self, offset, ref window))
-            {
-                continue;
-            }
-
-            if (found && keywordEnd >= 0)
-            {
-                value = StoreParsing.ReadStream(self, value.AsDictionary()!, offset + keywordEnd, id);
-            }
-
-            return found;
+            using var lease = self.Source.Lease(offset, window);
+            var parser = PdfParser.ForWindow(lease.Span, 0, self, self.Names, self.Security);
+            found = StoreParsing.TryParseObject(ref parser, out id, out value, out keywordEnd);
+            truncated = parser.ReachedEnd;
         }
+        while (truncated && StoreParsing.TryGrowWindow(self, offset, ref window));
+
+        if (found && keywordEnd >= 0)
+        {
+            value = StoreParsing.ReadStream(self, value.AsDictionary()!, offset + keywordEnd, id);
+        }
+
+        return found;
     }
 
     /// <summary>Gets the first window for a parse at an offset.</summary>

@@ -89,20 +89,17 @@ internal abstract class JpxParallelJob : IThreadPoolWorkItem
     private void Join()
     {
         var state = Volatile.Read(ref _state);
-        while (true)
+        var joined = false;
+        while (!joined && (state & OpenBit) != 0)
         {
-            if ((state & OpenBit) == 0)
-            {
-                return;
-            }
-
             var seen = Interlocked.CompareExchange(ref _state, state + 1, state);
-            if (seen == state)
-            {
-                break;
-            }
-
+            joined = seen == state;
             state = seen;
+        }
+
+        if (!joined)
+        {
+            return;
         }
 
         try

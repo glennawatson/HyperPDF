@@ -23,17 +23,16 @@ internal static class JpxTagTree
     internal static int CountNodes(int width, int height)
     {
         var total = 0;
-        while (true)
+        var last = false;
+        while (!last)
         {
             total += width * height;
-            if (width <= 1 && height <= 1)
-            {
-                return total;
-            }
-
+            last = width <= 1 && height <= 1;
             width = (width + 1) >> 1;
             height = (height + 1) >> 1;
         }
+
+        return total;
     }
 
     /// <summary>Adds a tree with every node unknown.</summary>

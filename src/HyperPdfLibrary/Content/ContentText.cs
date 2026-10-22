@@ -292,14 +292,9 @@ internal static class ContentText
     internal static void ShowArrayItems(ContentInterpreter self, ReadOnlySpan<byte> body)
     {
         var lexer = new PdfLexer(body);
-        while (true)
+        var kind = lexer.Next();
+        while (kind != PdfTokenKind.EndOfData)
         {
-            var kind = lexer.Next();
-            if (kind == PdfTokenKind.EndOfData)
-            {
-                return;
-            }
-
             if (kind is PdfTokenKind.LiteralString or PdfTokenKind.HexString)
             {
                 ContentText.ShowEncoded(self, kind == PdfTokenKind.HexString, lexer.Lexeme);
@@ -308,6 +303,8 @@ internal static class ContentText
             {
                 ContentText.Adjust(self, adjustment);
             }
+
+            kind = lexer.Next();
         }
     }
 

@@ -63,7 +63,8 @@ internal sealed class RegistryWatcher : IDisposable
                 keys[i] = Registry.CurrentUser.OpenSubKey(_keys[i].Path);
             }
 
-            while (true)
+            var watching = true;
+            while (watching)
             {
                 for (var i = 0; i < keys.Length; i++)
                 {
@@ -73,12 +74,11 @@ internal sealed class RegistryWatcher : IDisposable
                     }
                 }
 
-                if (WaitHandle.WaitAny([_stop, changed]) == 0)
+                watching = WaitHandle.WaitAny([_stop, changed]) != 0;
+                if (watching)
                 {
-                    return;
+                    _changes.OnNext(RxVoid.Default);
                 }
-
-                _changes.OnNext(RxVoid.Default);
             }
         }
         finally
