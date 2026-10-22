@@ -114,10 +114,24 @@ internal static class FormChoices
     internal static int FirstSelected(PdfDictionary field)
     {
         var count = Count(field);
-        var useIndices = UsesSelectedIndices(field);
-        for (var i = 0; i < count; i++)
+        if (UsesSelectedIndices(field))
         {
-            if (IsSelected(field, i, useIndices))
+            for (var i = 0; i < count; i++)
+            {
+                if (IsSelectedIndex(field, i))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        // The selected texts are read once, and each option is compared without making a string for it.
+        var selected = SelectedTexts(field);
+        for (var i = 0; selected.Length > 0 && i < count; i++)
+        {
+            if (EqualsAny(GetTextBytes(field, i, ValueSlot), selected))
             {
                 return i;
             }
@@ -312,6 +326,60 @@ internal static class FormChoices
         }
 
         return option.Kind == PdfKind.String ? option.AsStringBytes() : default;
+    }
+
+    /// <summary>Reads the texts <c>/V</c> selects: its string, or the strings of its array.</summary>
+    /// <param name="field">The field dictionary.</param>
+    /// <returns>The texts; empty when <c>/V</c> selects nothing.</returns>
+    private static string[] SelectedTexts(PdfDictionary field)
+    {
+        var value = FieldAttributes.Find(field, KnownName.V);
+        if (value.AsArray() is not { } array)
+        {
+            return value.Kind == PdfKind.String ? [FieldAttributes.ReadText(value)] : [];
+        }
+
+        List<string> texts = [];
+        for (var i = 0; i < array.Count; i++)
+        {
+            if (array.Get(i).Kind == PdfKind.String)
+            {
+                texts.Add(FieldAttributes.ReadText(array.Get(i)));
+            }
+        }
+
+        return [.. texts];
+    }
+
+    /// <summary>Determines whether an option's text equals one of the selected texts.</summary>
+    /// <param name="option">The option's text bytes.</param>
+    /// <param name="selected">The selected texts.</param>
+    /// <returns><see langword="true"/> when they match.</returns>
+    private static bool EqualsAny(ReadOnlySpan<byte> option, string[] selected)
+    {
+        var length = PdfText.GetDecodedLength(option);
+        char[]? rented = null;
+        var buffer = length <= StackCharacters ? stackalloc char[StackCharacters] : (rented = ArrayPool<char>.Shared.Rent(length));
+        try
+        {
+            var text = buffer[..PdfText.Decode(option, buffer)];
+            foreach (var candidate in selected)
+            {
+                if (text.SequenceEqual(candidate))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<char>.Shared.Return(rented);
+            }
+        }
     }
 
     /// <summary>Determines whether the value names an option.</summary>

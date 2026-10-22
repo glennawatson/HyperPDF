@@ -135,7 +135,16 @@ internal static class ContentGraphicsState
             total += Math.Abs(lengths[i]);
         }
 
-        self.State.Dash = count == 0 || total <= 0 ? default : lengths[..count].ToArray();
+        // Content often sets the same dash before every stroke; the array is never changed, so the one in place is kept.
+        if (count == 0 || total <= 0)
+        {
+            self.State.Dash = default;
+        }
+        else if (!self.State.Dash.Span.SequenceEqual(lengths[..count]))
+        {
+            self.State.Dash = lengths[..count].ToArray();
+        }
+
         self.State.DashPhase = phase;
     }
 }

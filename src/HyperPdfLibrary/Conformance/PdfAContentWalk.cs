@@ -44,17 +44,9 @@ internal static class PdfAContentWalk
             return;
         }
 
-        var buffer = default(PooledBuffer);
-        try
+        if (state.Context.Streams.TryGet(stream, state.Context.CancellationToken, out var content))
         {
-            if (PdfAStreams.TryDecode(stream, ref buffer, state.Context.CancellationToken))
-            {
-                Walk(state, buffer.WrittenSpan, new(scope, initial));
-            }
-        }
-        finally
-        {
-            buffer.Dispose();
+            Walk(state, content, new(scope, initial));
         }
     }
 
@@ -77,18 +69,16 @@ internal static class PdfAContentWalk
         }
 
         var buffer = default(PooledBuffer);
-        var part = default(PooledBuffer);
         try
         {
             for (var i = 0; i < parts.Count; i++)
             {
-                part.Length = 0;
-                if (parts.Get(i).AsStream() is not { } stream || !PdfAStreams.TryDecode(stream, ref part, state.Context.CancellationToken))
+                if (parts.Get(i).AsStream() is not { } stream || !state.Context.Streams.TryGet(stream, state.Context.CancellationToken, out var part))
                 {
                     continue;
                 }
 
-                buffer.Write(part.WrittenSpan);
+                buffer.Write(part);
                 buffer.WriteByte((byte)'\n');
             }
 
@@ -96,7 +86,6 @@ internal static class PdfAContentWalk
         }
         finally
         {
-            part.Dispose();
             buffer.Dispose();
         }
     }

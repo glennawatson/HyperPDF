@@ -51,7 +51,7 @@ internal static class PdfAContentScan
         walk.Depth++;
         try
         {
-            if (TryDecode(contents, ref buffer, cancellationToken) && !HasUnparsableKeyword(walk, buffer.WrittenSpan))
+            if (TryDecode(contents, ref buffer, walk.Context.Streams, cancellationToken) && !HasUnparsableKeyword(walk, buffer.WrittenSpan))
             {
                 Run(walk, state, buffer.WrittenSpan);
             }
@@ -137,13 +137,14 @@ internal static class PdfAContentScan
     /// <summary>Decodes content, joining the streams of an array with nothing between them.</summary>
     /// <param name="contents">The resolved content.</param>
     /// <param name="buffer">Receives the bytes.</param>
+    /// <param name="streams">The decoded streams the validation shares.</param>
     /// <param name="cancellationToken">Cancels decoding.</param>
     /// <returns><see langword="false"/> when the content is not a stream or array, or does not decode.</returns>
-    private static bool TryDecode(PdfValue contents, ref PooledBuffer buffer, CancellationToken cancellationToken)
+    private static bool TryDecode(PdfValue contents, ref PooledBuffer buffer, PdfAStreamDecodes streams, CancellationToken cancellationToken)
     {
         try
         {
-            return Decode(contents, ref buffer, cancellationToken);
+            return Decode(contents, ref buffer, streams, cancellationToken);
         }
         catch (Exception ex) when (IsDecodeFailure(ex))
         {
@@ -154,13 +155,14 @@ internal static class PdfAContentScan
     /// <summary>Decodes content, joining the streams of an array with a carriage return.</summary>
     /// <param name="contents">The resolved content.</param>
     /// <param name="buffer">Receives the bytes.</param>
+    /// <param name="streams">The decoded streams the validation shares.</param>
     /// <param name="cancellationToken">Cancels decoding.</param>
     /// <returns><see langword="false"/> when the content is not a stream or array.</returns>
-    private static bool Decode(PdfValue contents, ref PooledBuffer buffer, CancellationToken cancellationToken)
+    private static bool Decode(PdfValue contents, ref PooledBuffer buffer, PdfAStreamDecodes streams, CancellationToken cancellationToken)
     {
         if (contents.AsStream() is { } single)
         {
-            AppendDecoded(single, ref buffer, cancellationToken);
+            AppendDecoded(single, ref buffer, streams, cancellationToken);
             return true;
         }
 
@@ -183,7 +185,7 @@ internal static class PdfAContentScan
             }
 
             first = false;
-            AppendDecoded(part, ref buffer, cancellationToken);
+            AppendDecoded(part, ref buffer, streams, cancellationToken);
         }
 
         return true;
@@ -232,14 +234,22 @@ internal static class PdfAContentScan
     /// <summary>Decodes one stream onto the end of a buffer; a stream veraPDF cannot decode adds nothing.</summary>
     /// <param name="stream">The stream.</param>
     /// <param name="buffer">The buffer.</param>
+    /// <param name="streams">The decoded streams the validation shares.</param>
     /// <param name="cancellationToken">Cancels decoding.</param>
-    private static void AppendDecoded(PdfStream stream, ref PooledBuffer buffer, CancellationToken cancellationToken)
+    private static void AppendDecoded(PdfStream stream, ref PooledBuffer buffer, PdfAStreamDecodes streams, CancellationToken cancellationToken)
     {
         if (!HasReadableFilters(stream, cancellationToken))
         {
             return;
         }
 
+        if (streams.TryGet(stream, cancellationToken, out var data))
+        {
+            buffer.Write(data);
+            return;
+        }
+
+        // A stream that failed to decode throws again here, so the caller sees the failure it would see without the shared data.
         var piece = default(PooledBuffer);
         try
         {

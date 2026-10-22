@@ -29,7 +29,7 @@ internal static class PdfATransparencyUse
         var content = default(PooledBuffer);
         try
         {
-            ContentExecution.DecodeContents(page, ref content, context.CancellationToken);
+            context.Streams.AppendContents(page.Dictionary.Get(KnownName.Contents), ref content, context.CancellationToken);
             if (ContentUses(walk, content.WrittenSpan, page.Resources, 0))
             {
                 return true;

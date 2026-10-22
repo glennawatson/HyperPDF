@@ -24,7 +24,7 @@ internal static class PdfASyntaxContent
     /// <param name="work">The stream.</param>
     internal static void Check(PdfASyntaxWalk walk, PdfASyntaxWork work)
     {
-        var data = Decode(work.Parts, walk.Scan.CancellationToken);
+        var data = Decode(work.Parts, walk.Scan.Context.Streams, walk.Scan.CancellationToken);
         walk.Resources = work.Resources;
         walk.Font = null;
         walk.SavedFonts.Clear();
@@ -45,23 +45,33 @@ internal static class PdfASyntaxContent
 
     /// <summary>Decodes a stream's parts and joins them, as veraPDF reads a page's contents array.</summary>
     /// <param name="parts">The parts.</param>
+    /// <param name="streams">The decoded streams the validation shares.</param>
     /// <param name="cancellationToken">Cancels decoding.</param>
-    /// <returns>The bytes.</returns>
-    private static byte[] Decode(PdfStream[] parts, CancellationToken cancellationToken)
+    /// <returns>The bytes; readers must not change them.</returns>
+    private static byte[] Decode(PdfStream[] parts, PdfAStreamDecodes streams, CancellationToken cancellationToken)
     {
         if (parts.Length == 1)
         {
-            return parts[0].DecodeToArray(cancellationToken);
+            return DecodePart(parts[0], streams, cancellationToken);
         }
 
         var joined = new List<byte>();
         foreach (var part in parts)
         {
-            joined.AddRange(part.DecodeToArray(cancellationToken));
+            joined.AddRange(DecodePart(part, streams, cancellationToken));
         }
 
         return [.. joined];
     }
+
+    /// <summary>Decodes one part, from the shared data when another rule area decoded it.</summary>
+    /// <param name="part">The part.</param>
+    /// <param name="streams">The decoded streams the validation shares.</param>
+    /// <param name="cancellationToken">Cancels decoding.</param>
+    /// <returns>The bytes.</returns>
+    private static byte[] DecodePart(PdfStream part, PdfAStreamDecodes streams, CancellationToken cancellationToken) =>
+        // A stream that failed to decode throws again from DecodeToArray, as it did before the data was shared.
+        streams.TryGet(part, cancellationToken, out var data) ? data : part.DecodeToArray(cancellationToken);
 
     /// <summary>Reads tokens until the end of the stream.</summary>
     /// <param name="reader">The reader.</param>

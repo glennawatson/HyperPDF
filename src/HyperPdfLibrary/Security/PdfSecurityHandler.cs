@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -14,8 +15,8 @@ namespace HyperPdfLibrary.Security;
 
 /// <summary>
 /// The standard security handler: works out the file key from a password and decrypts (and encrypts) strings and
-/// streams with RC4, AES-128 or AES-256 (revisions 2 to 6). Hashes use one-shot APIs on stack buffers, and one AES
-/// instance is reused for every object.
+/// streams with RC4, AES-128 or AES-256 (revisions 2 to 6). Hashes use one-shot APIs on stack buffers, and AES instances
+/// are pooled and reused for every object.
 /// </summary>
 [DebuggerDisplay("PdfSecurityHandler: R{Revision} {StreamMethod}")]
 public sealed partial class PdfSecurityHandler : IDisposable
@@ -68,10 +69,10 @@ public sealed partial class PdfSecurityHandler : IDisposable
     /// <summary>The file key.</summary>
     private readonly byte[] _fileKey;
 
-    /// <summary>The AES instance reused for every object; guarded by <see cref="_gate"/> as it is not thread safe.</summary>
-    private readonly Aes _aes = Aes.Create();
+    /// <summary>The AES instances not in use. An instance is not thread safe, so each call takes one, keys it, and puts it back; calls on different threads do not wait for each other.</summary>
+    private readonly ConcurrentStack<Aes> _aesPool = new();
 
-    /// <summary>Guards <see cref="_aes"/> and <see cref="_gcm"/>.</summary>
+    /// <summary>Guards <see cref="_gcm"/> and disposal.</summary>
     private readonly Lock _gate = new();
 
     /// <summary>The AES-GCM instance, created on first use; guarded by <see cref="_gate"/>.</summary>
@@ -250,7 +251,7 @@ public sealed partial class PdfSecurityHandler : IDisposable
             }
 
             Volatile.Write(ref _disposed, 1);
-            _aes.Dispose();
+            DisposeAesPool();
             _gcm?.Dispose();
 
             // Every user of the key checks the flag under this lock, or after reading the key, so none keeps a zeroed key.
@@ -625,20 +626,64 @@ public sealed partial class PdfSecurityHandler : IDisposable
 
         var body = data[AesBlock..];
         body = body[..(body.Length - (body.Length % AesBlock))];
-        lock (_gate)
+        var aes = RentAes(key);
+        try
         {
-            ObjectDisposedException.ThrowIf(_disposed != 0, this);
-            _aes.SetKey(key);
+            byte[] plain;
             try
             {
-                return _aes.DecryptCbc(body, data[..AesBlock]);
+                plain = aes.DecryptCbc(body, data[..AesBlock]);
             }
             catch (CryptographicException)
             {
                 // Some writers pad wrongly; keep the bytes, dropping a trailing pad when its length byte is plausible.
-                var raw = _aes.DecryptCbc(body, data[..AesBlock], PaddingMode.None);
-                return StripPlausiblePad(raw);
+                plain = StripPlausiblePad(aes.DecryptCbc(body, data[..AesBlock], PaddingMode.None));
             }
+
+            // Dispose sets the flag and then zeroes the file key, so a call that overlapped it must not return what it made from the zeroed key.
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+            return plain;
+        }
+        finally
+        {
+            ReturnAes(aes);
+        }
+    }
+
+    /// <summary>Takes an AES instance from the pool, or makes one, and keys it.</summary>
+    /// <param name="key">The key.</param>
+    /// <returns>The keyed instance; give it back with <see cref="ReturnAes"/>.</returns>
+    private Aes RentAes(ReadOnlySpan<byte> key)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        if (!_aesPool.TryPop(out var aes))
+        {
+            aes = Aes.Create();
+        }
+
+        aes.SetKey(key);
+        return aes;
+    }
+
+    /// <summary>Puts an AES instance back in the pool, or disposes it when the handler has been disposed.</summary>
+    /// <param name="aes">The instance.</param>
+    private void ReturnAes(Aes aes)
+    {
+        _aesPool.Push(aes);
+
+        // A disposal that ran before the push did not see this instance, so drain the pool again.
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            DisposeAesPool();
+        }
+    }
+
+    /// <summary>Disposes the pooled AES instances.</summary>
+    private void DisposeAesPool()
+    {
+        while (_aesPool.TryPop(out var aes))
+        {
+            aes.Dispose();
         }
     }
 
@@ -650,15 +695,19 @@ public sealed partial class PdfSecurityHandler : IDisposable
     {
         Span<byte> iv = stackalloc byte[AesBlock];
         RandomNumberGenerator.Fill(iv);
-        lock (_gate)
+        var aes = RentAes(key);
+        try
         {
-            ObjectDisposedException.ThrowIf(_disposed != 0, this);
-            _aes.SetKey(key);
-            var cipher = _aes.EncryptCbc(data, iv);
+            var cipher = aes.EncryptCbc(data, iv);
             var result = new byte[AesBlock + cipher.Length];
             iv.CopyTo(result);
             cipher.CopyTo(result.AsSpan(AesBlock));
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
             return result;
+        }
+        finally
+        {
+            ReturnAes(aes);
         }
     }
 

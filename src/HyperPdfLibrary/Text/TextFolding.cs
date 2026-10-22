@@ -4,6 +4,7 @@
 
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace HyperPdfLibrary.Text;
 
@@ -145,6 +146,13 @@ internal static class TextFolding
     /// <param name="writer">Receives the folded characters and their source indexes.</param>
     private static void FoldInto(ReadOnlySpan<char> text, PdfTextSearchOptions options, ref FoldWriter writer)
     {
+        // ASCII has no decomposition, no combining mark and no variant to fold, so plain ASCII text is only lower-cased, in one pass.
+        if (Ascii.IsValid(text))
+        {
+            writer.AddAscii(text, options);
+            return;
+        }
+
         var compatibility = (options & PdfTextSearchOptions.FoldCompatibility) != 0;
         Span<char> parts = stackalloc char[TextUnicodeData.LongestCompatibility];
         for (var i = 0; i < text.Length; i++)
@@ -261,6 +269,26 @@ internal static class TextFolding
 
             _chars[Count] = folded;
             Count++;
+        }
+
+        /// <summary>
+        /// Writes a whole text of ASCII characters, each of which folds to one character: itself, or its lower case unless case
+        /// matters. Nothing is dropped, so the text needs no map.
+        /// </summary>
+        /// <param name="text">The ASCII text.</param>
+        /// <param name="options">The search options.</param>
+        internal void AddAscii(ReadOnlySpan<char> text, PdfTextSearchOptions options)
+        {
+            if ((options & PdfTextSearchOptions.MatchCase) != 0)
+            {
+                text.CopyTo(_chars);
+            }
+            else
+            {
+                _ = Ascii.ToLower(text, _chars, out _);
+            }
+
+            Count = text.Length;
         }
 
         /// <summary>Puts the combining marks of the written characters in canonical order.</summary>

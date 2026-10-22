@@ -17,11 +17,27 @@ internal static class PdfAGlyphFonts
     /// <summary>The bits in a byte.</summary>
     private const int ByteBits = 8;
 
+    /// <summary>Gets a font's glyph state, building it the first time a rule area asks and sharing it with the others.</summary>
+    /// <param name="context">The validation.</param>
+    /// <param name="use">The font use.</param>
+    /// <returns>The state, which rules read and never change.</returns>
+    internal static PdfAGlyphFont Create(PdfAValidationContext context, PdfAFontUse use)
+    {
+        if (context.GlyphFonts.TryGetValue(use, out var shared))
+        {
+            return shared;
+        }
+
+        var font = Build(context, use);
+        context.GlyphFonts[use] = font;
+        return font;
+    }
+
     /// <summary>Builds a font's glyph state.</summary>
     /// <param name="context">The validation.</param>
     /// <param name="use">The font use.</param>
     /// <returns>The state.</returns>
-    internal static PdfAGlyphFont Create(PdfAValidationContext context, PdfAFontUse use)
+    private static PdfAGlyphFont Build(PdfAValidationContext context, PdfAFontUse use)
     {
         var store = context.Document.Objects;
         var program = PdfAFontPrograms.Get(context, use);

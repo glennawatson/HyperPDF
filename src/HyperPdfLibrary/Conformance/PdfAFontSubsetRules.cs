@@ -45,11 +45,13 @@ internal static class PdfAFontSubsetRules
     /// <param name="font">The font.</param>
     internal static void Check(PdfAValidationContext context, PdfAFontUse font)
     {
-        if (font.Kind == PdfAFontKind.Type1)
+        // Only subsets are checked, and a font's glyph state is costly to build, so a font that is no subset never builds it.
+        var store = context.Document.Objects;
+        if (font.Kind == PdfAFontKind.Type1 && IsSubset(store, PdfAFontFacts.Primary(font)))
         {
             CheckCharSet(context, PdfAGlyphFonts.Create(context, font));
         }
-        else if (font.Kind == PdfAFontKind.Type0 && PdfAFontFacts.Descendant(font.Dictionary) is not null)
+        else if (font.Kind == PdfAFontKind.Type0 && PdfAFontFacts.Descendant(font.Dictionary) is { } descendant && IsSubset(store, descendant))
         {
             CheckCidSet(context, PdfAGlyphFonts.Create(context, font));
         }
@@ -60,11 +62,6 @@ internal static class PdfAFontSubsetRules
     /// <param name="font">The font.</param>
     private static void CheckCharSet(PdfAValidationContext context, PdfAGlyphFont font)
     {
-        if (!IsSubset(context.Document.Objects, font.Primary))
-        {
-            return;
-        }
-
         var where = PdfAFontFacts.Context(context.Document.Objects, font.Primary);
         var charSet = font.Descriptor?.Get(KnownName.CharSet) is { Kind: PdfKind.String } value ? value : default;
         var program = ProgramNames(font.Program);
@@ -85,11 +82,6 @@ internal static class PdfAFontSubsetRules
     /// <param name="font">The composite font.</param>
     private static void CheckCidSet(PdfAValidationContext context, PdfAGlyphFont font)
     {
-        if (!IsSubset(context.Document.Objects, font.Primary))
-        {
-            return;
-        }
-
         var where = PdfAFontFacts.Context(context.Document.Objects, font.Primary);
         var stream = font.Descriptor?.GetStream(KnownName.CIDSet);
         var bits = stream is null ? [] : ReadBits(stream, context.CancellationToken);

@@ -26,20 +26,44 @@ internal static class HyperPdfDocumentFormScripts
 
         List<PdfWidgetScripts> widgets = [];
         PdfFormReading.GetScripts(PdfDocumentForms.GetForm(self.Document), pageIndex, widgets);
+
+        // Fields of a form repeat the same few scripts, so each text is recognised once for the page.
+        Dictionary<string, FormScript> recognised = [with(StringComparer.Ordinal)];
         foreach (var widget in widgets)
         {
             FieldScripts scripts = new(
                 widget.PageIndex,
                 widget.Index,
                 widget.Name,
-                FormScript.Parse(widget.Keystroke),
-                FormScript.Parse(widget.Format),
-                FormScript.Parse(widget.Validate),
-                FormScript.Parse(widget.Calculate));
+                Recognise(recognised, widget.Keystroke),
+                Recognise(recognised, widget.Format),
+                Recognise(recognised, widget.Validate),
+                Recognise(recognised, widget.Calculate));
             if (scripts.HasAny)
             {
                 output.Add(scripts);
             }
         }
+    }
+
+    /// <summary>Recognises a script, or returns the script already recognised from the same text.</summary>
+    /// <param name="recognised">The scripts recognised so far, by their text.</param>
+    /// <param name="javaScript">The field action's JavaScript.</param>
+    /// <returns>The script, which is never changed and so may be shared.</returns>
+    private static FormScript Recognise(Dictionary<string, FormScript> recognised, string? javaScript)
+    {
+        if (string.IsNullOrWhiteSpace(javaScript))
+        {
+            return FormScript.None;
+        }
+
+        if (recognised.TryGetValue(javaScript, out var script))
+        {
+            return script;
+        }
+
+        script = FormScript.Parse(javaScript);
+        recognised[javaScript] = script;
+        return script;
     }
 }

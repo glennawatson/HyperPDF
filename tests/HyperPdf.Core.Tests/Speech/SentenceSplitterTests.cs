@@ -18,6 +18,12 @@ public sealed class SentenceSplitterTests
     /// <summary>The longest piece spoken at once.</summary>
     private const int MaxLength = 300;
 
+    /// <summary>Where each piece of the repeated word text starts after the one before it: 299 characters and the space that ends it.</summary>
+    private const int PieceStride = 300;
+
+    /// <summary>The length of each piece of the repeated word text, without the space that ends it.</summary>
+    private const int PieceLength = 299;
+
     /// <summary>Verifies sentences end at full stops, question and exclamation marks, but not at abbreviations or initials.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -68,6 +74,19 @@ public sealed class SentenceSplitterTests
 
         await Assert.That(sentences.Count).IsGreaterThan(1);
         await Assert.That(sentences.TrueForAll(static s => s.Length <= MaxLength)).IsTrue();
+    }
+
+    /// <summary>Verifies a long run splits at the first space once a sentence reaches 299 characters, and each piece starts after that space.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SplitsLongRunsAtTheFirstSpaceAfterTheLimit()
+    {
+        var text = string.Join(' ', Enumerable.Repeat("word", Words));
+        List<SpeechSentence> sentences = [];
+        SentenceSplitter.Split(text, sentences);
+
+        await Assert.That(sentences.ConvertAll(static s => s.Start)).IsEquivalentTo([0, PieceStride, PieceStride * ParagraphCount]);
+        await Assert.That(sentences.TrueForAll(static s => s.Length == PieceLength)).IsTrue();
     }
 
     /// <summary>Verifies words hyphenated across lines are joined and line breaks become spaces.</summary>

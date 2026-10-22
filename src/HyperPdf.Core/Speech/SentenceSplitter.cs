@@ -29,6 +29,12 @@ public static class SentenceSplitter
     /// <summary>Characters that end a sentence.</summary>
     private static readonly SearchValues<char> Terminators = SearchValues.Create(".!?");
 
+    /// <summary>Characters a sentence can end at whatever its length: terminators and the line feed that ends a line.</summary>
+    private static readonly SearchValues<char> EndCandidates = SearchValues.Create(".!?\n");
+
+    /// <summary>Characters a run too long to speak in one piece is split after.</summary>
+    private static readonly SearchValues<char> LongRunBreaks = SearchValues.Create(",; ");
+
     /// <summary>Words that end with a full stop without ending the sentence.</summary>
     private static readonly string[] Abbreviations =
     [
@@ -44,16 +50,19 @@ public static class SentenceSplitter
         ArgumentNullException.ThrowIfNull(sentences);
         sentences.Clear();
         var start = SkipSpace(text, 0);
-        for (var i = start; i < text.Length; i++)
+        var i = NextCandidate(text, start, start);
+        while (i < text.Length)
         {
-            if (!EndsSentence(text, i, start))
+            if (EndsSentence(text, i, start))
             {
-                continue;
+                Add(text, start, i + 1, sentences);
+                start = SkipSpace(text, i + 1);
+                i = NextCandidate(text, start, start);
             }
-
-            Add(text, start, i + 1, sentences);
-            start = SkipSpace(text, i + 1);
-            i = start - 1;
+            else
+            {
+                i = NextCandidate(text, i + 1, start);
+            }
         }
 
         Add(text, start, text.Length, sentences);
@@ -130,6 +139,33 @@ public static class SentenceSplitter
         }
 
         return index;
+    }
+
+    /// <summary>
+    /// Finds the next character a sentence can end at: a terminator or line feed, or, once the sentence is long enough to be
+    /// split, a comma, semicolon or space. Every other character cannot end one, so <see cref="EndsSentence"/> is skipped for it.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="from">Where to look from.</param>
+    /// <param name="start">Where the sentence started.</param>
+    /// <returns>The index of the candidate, or the text's length when there is none.</returns>
+    private static int NextCandidate(ReadOnlySpan<char> text, int from, int start)
+    {
+        if (from >= text.Length)
+        {
+            return text.Length;
+        }
+
+        var found = text[from..].IndexOfAny(EndCandidates);
+        var end = found < 0 ? text.Length : from + found;
+        var splittableFrom = Math.Max(from, start + MaxLength - 1);
+        if (splittableFrom >= end)
+        {
+            return end;
+        }
+
+        var breakable = text[splittableFrom..end].IndexOfAny(LongRunBreaks);
+        return breakable < 0 ? end : splittableFrom + breakable;
     }
 
     /// <summary>Determines whether a sentence ends at a character.</summary>
