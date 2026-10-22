@@ -127,8 +127,14 @@ internal static class FormChoices
             return -1;
         }
 
-        // The selected texts are read once, and each option is compared without making a string for it.
-        var selected = SelectedTexts(field);
+        // The selected text is read once, and each option is compared without making a string for it.
+        var value = FieldAttributes.Find(field, KnownName.V);
+        if (value.Kind == PdfKind.String)
+        {
+            return FirstEqualTo(field, count, value.AsStringBytes());
+        }
+
+        var selected = SelectedTexts(value);
         for (var i = 0; selected.Length > 0 && i < count; i++)
         {
             if (EqualsAny(GetTextBytes(field, i, ValueSlot), selected))
@@ -328,15 +334,46 @@ internal static class FormChoices
         return option.Kind == PdfKind.String ? option.AsStringBytes() : default;
     }
 
-    /// <summary>Reads the texts <c>/V</c> selects: its string, or the strings of its array.</summary>
+    /// <summary>Finds the first option whose text equals a selected string.</summary>
     /// <param name="field">The field dictionary.</param>
-    /// <returns>The texts; empty when <c>/V</c> selects nothing.</returns>
-    private static string[] SelectedTexts(PdfDictionary field)
+    /// <param name="count">The options.</param>
+    /// <param name="selectedBytes">The bytes of the string <c>/V</c> holds.</param>
+    /// <returns>The option index, or -1.</returns>
+    private static int FirstEqualTo(PdfDictionary field, int count, ReadOnlySpan<byte> selectedBytes)
     {
-        var value = FieldAttributes.Find(field, KnownName.V);
+        var length = PdfText.GetDecodedLength(selectedBytes);
+        char[]? rented = null;
+        var buffer = length <= StackCharacters ? stackalloc char[StackCharacters] : (rented = ArrayPool<char>.Shared.Rent(length));
+        try
+        {
+            var selected = buffer[..PdfText.Decode(selectedBytes, buffer)];
+            for (var i = 0; i < count; i++)
+            {
+                if (EqualsText(GetTextBytes(field, i, ValueSlot), selected))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<char>.Shared.Return(rented);
+            }
+        }
+    }
+
+    /// <summary>Reads the texts <c>/V</c> selects when it is an array: the array's strings.</summary>
+    /// <param name="value">The value of <c>/V</c>.</param>
+    /// <returns>The texts; empty when <c>/V</c> selects nothing.</returns>
+    private static string[] SelectedTexts(PdfValue value)
+    {
         if (value.AsArray() is not { } array)
         {
-            return value.Kind == PdfKind.String ? [FieldAttributes.ReadText(value)] : [];
+            return [];
         }
 
         List<string> texts = [];
@@ -357,21 +394,29 @@ internal static class FormChoices
     /// <returns><see langword="true"/> when they match.</returns>
     private static bool EqualsAny(ReadOnlySpan<byte> option, string[] selected)
     {
+        foreach (var candidate in selected)
+        {
+            if (EqualsText(option, candidate))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Determines whether an option's text equals a selected text, without making a string for the option.</summary>
+    /// <param name="option">The option's text bytes.</param>
+    /// <param name="selected">The selected text.</param>
+    /// <returns><see langword="true"/> when they match.</returns>
+    private static bool EqualsText(ReadOnlySpan<byte> option, ReadOnlySpan<char> selected)
+    {
         var length = PdfText.GetDecodedLength(option);
         char[]? rented = null;
         var buffer = length <= StackCharacters ? stackalloc char[StackCharacters] : (rented = ArrayPool<char>.Shared.Rent(length));
         try
         {
-            var text = buffer[..PdfText.Decode(option, buffer)];
-            foreach (var candidate in selected)
-            {
-                if (text.SequenceEqual(candidate))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return buffer[..PdfText.Decode(option, buffer)].SequenceEqual(selected);
         }
         finally
         {

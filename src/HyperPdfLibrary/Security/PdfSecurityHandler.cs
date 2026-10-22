@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers.Binary;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -23,6 +22,9 @@ public sealed partial class PdfSecurityHandler : IDisposable
 {
     /// <summary>The AES block size.</summary>
     internal const int AesBlock = 16;
+
+    /// <summary>The idle AES instances kept; a call that finds every slot full disposes its instance.</summary>
+    private const int AesSlotCount = 16;
 
     /// <summary>The bytes of the object number and generation mixed into an object key.</summary>
     private const int ObjectSaltLength = 5;
@@ -69,8 +71,11 @@ public sealed partial class PdfSecurityHandler : IDisposable
     /// <summary>The file key.</summary>
     private readonly byte[] _fileKey;
 
-    /// <summary>The AES instances not in use. An instance is not thread safe, so each call takes one, keys it, and puts it back; calls on different threads do not wait for each other.</summary>
-    private readonly ConcurrentStack<Aes> _aesPool = new();
+    /// <summary>
+    /// The AES instances not in use, in slots a call empties with an exchange and fills again with a compare-exchange. An
+    /// instance is not thread safe, so each call takes one, keys it, and puts it back; calls on different threads do not wait.
+    /// </summary>
+    private readonly Aes?[] _aesSlots = new Aes?[AesSlotCount];
 
     /// <summary>Guards <see cref="_gcm"/> and disposal.</summary>
     private readonly Lock _gate = new();
@@ -656,34 +661,45 @@ public sealed partial class PdfSecurityHandler : IDisposable
     private Aes RentAes(ReadOnlySpan<byte> key)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-        if (!_aesPool.TryPop(out var aes))
+        Aes? aes = null;
+        for (var i = 0; i < _aesSlots.Length && aes is null; i++)
         {
-            aes = Aes.Create();
+            aes = Interlocked.Exchange(ref _aesSlots[i], null);
         }
 
+        aes ??= Aes.Create();
         aes.SetKey(key);
         return aes;
     }
 
-    /// <summary>Puts an AES instance back in the pool, or disposes it when the handler has been disposed.</summary>
+    /// <summary>Puts an AES instance back in a free slot, or disposes it when every slot is full or the handler has been disposed.</summary>
     /// <param name="aes">The instance.</param>
     private void ReturnAes(Aes aes)
     {
-        _aesPool.Push(aes);
+        var stored = false;
+        for (var i = 0; i < _aesSlots.Length && !stored; i++)
+        {
+            stored = Interlocked.CompareExchange(ref _aesSlots[i], aes, null) is null;
+        }
 
-        // A disposal that ran before the push did not see this instance, so drain the pool again.
+        if (!stored)
+        {
+            aes.Dispose();
+        }
+
+        // A disposal that ran before the store did not see this instance, so empty the slots again.
         if (Volatile.Read(ref _disposed) != 0)
         {
             DisposeAesPool();
         }
     }
 
-    /// <summary>Disposes the pooled AES instances.</summary>
+    /// <summary>Disposes the idle AES instances.</summary>
     private void DisposeAesPool()
     {
-        while (_aesPool.TryPop(out var aes))
+        for (var i = 0; i < _aesSlots.Length; i++)
         {
-            aes.Dispose();
+            Interlocked.Exchange(ref _aesSlots[i], null)?.Dispose();
         }
     }
 

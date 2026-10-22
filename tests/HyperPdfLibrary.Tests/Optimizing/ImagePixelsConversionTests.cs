@@ -73,18 +73,27 @@ public sealed class ImagePixelsConversionTests
     private static async Task AssertWidens(int count)
     {
         var samples = Random(count * Rgb);
+        var expected = new byte[count * Rgbx];
+        for (var i = 0; i < count; i++)
+        {
+            samples.AsSpan(i * Rgb, Rgb).CopyTo(expected.AsSpan(i * Rgbx));
+            expected[(i * Rgbx) + Rgb] = byte.MaxValue;
+        }
+
+        await Assert.That(Widen(samples, count)).IsEquivalentTo(expected);
+    }
+
+    /// <summary>Widens samples with the optimizer's conversion.</summary>
+    /// <param name="samples">The RGB samples.</param>
+    /// <param name="count">The pixels.</param>
+    /// <returns>The RGBX pixels.</returns>
+    private static byte[] Widen(byte[] samples, int count)
+    {
         var pixels = default(PooledBuffer);
         try
         {
             ImagePixels.FromSamples(samples, Rgb, count, ref pixels);
-            var expected = new byte[count * Rgbx];
-            for (var i = 0; i < count; i++)
-            {
-                samples.AsSpan(i * Rgb, Rgb).CopyTo(expected.AsSpan(i * Rgbx));
-                expected[(i * Rgbx) + Rgb] = byte.MaxValue;
-            }
-
-            await Assert.That(pixels.WrittenSpan.ToArray()).IsEquivalentTo(expected);
+            return pixels.WrittenSpan.ToArray();
         }
         finally
         {
@@ -98,17 +107,26 @@ public sealed class ImagePixelsConversionTests
     private static async Task AssertNarrows(int count)
     {
         var pixels = Random(count * Rgbx);
+        var expected = new byte[count * Rgb];
+        for (var i = 0; i < count; i++)
+        {
+            pixels.AsSpan(i * Rgbx, Rgb).CopyTo(expected.AsSpan(i * Rgb));
+        }
+
+        await Assert.That(Narrow(pixels, count)).IsEquivalentTo(expected);
+    }
+
+    /// <summary>Narrows pixels with the optimizer's conversion.</summary>
+    /// <param name="pixels">The RGBX pixels.</param>
+    /// <param name="count">The pixels.</param>
+    /// <returns>The RGB samples.</returns>
+    private static byte[] Narrow(byte[] pixels, int count)
+    {
         var samples = default(PooledBuffer);
         try
         {
             ImagePixels.ToSamples(pixels, Rgb, count, ref samples);
-            var expected = new byte[count * Rgb];
-            for (var i = 0; i < count; i++)
-            {
-                pixels.AsSpan(i * Rgbx, Rgb).CopyTo(expected.AsSpan(i * Rgb));
-            }
-
-            await Assert.That(samples.WrittenSpan.ToArray()).IsEquivalentTo(expected);
+            return samples.WrittenSpan.ToArray();
         }
         finally
         {
@@ -125,20 +143,31 @@ public sealed class ImagePixelsConversionTests
         var source = Random(BlockWidth * BlockHeight * bytes);
         const int width = (BlockWidth + BlockSide - 1) / BlockSide;
         const int height = (BlockHeight + BlockSide - 1) / BlockSide;
+        var expected = new byte[width * height * bytes];
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                AverageBlock(source, bytes, x, y, expected.AsSpan(((y * width) + x) * bytes, bytes));
+            }
+        }
+
+        await Assert.That(Reduce(source, components, width, height)).IsEquivalentTo(expected);
+    }
+
+    /// <summary>Reduces an image by whole blocks with the optimizer's conversion.</summary>
+    /// <param name="source">The pixels.</param>
+    /// <param name="components">One for grey, three for RGBX.</param>
+    /// <param name="width">The reduced width.</param>
+    /// <param name="height">The reduced height.</param>
+    /// <returns>The reduced pixels.</returns>
+    private static byte[] Reduce(byte[] source, int components, int width, int height)
+    {
         var output = default(PooledBuffer);
         try
         {
             _ = ImagePixels.Downsample(null!, source, new(BlockWidth, BlockHeight, components), width, height, ref output);
-            var expected = new byte[width * height * bytes];
-            for (var y = 0; y < height; y++)
-            {
-                for (var x = 0; x < width; x++)
-                {
-                    AverageBlock(source, bytes, x, y, expected.AsSpan(((y * width) + x) * bytes, bytes));
-                }
-            }
-
-            await Assert.That(output.WrittenSpan.ToArray()).IsEquivalentTo(expected);
+            return output.WrittenSpan.ToArray();
         }
         finally
         {

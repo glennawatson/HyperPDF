@@ -4193,5 +4193,75 @@
     "type": "HyperPdf.Rendering.Skia.SkiaTileBatch",
     "frame": "HyperPdf.Benchmarks.SkiaTileBatchRenderBenchmarks.RenderBatch",
     "reason": "A frame builds one batch object for the page and hands it to the compositor, which keeps it until the scene is gone, so it cannot be reused. Drawing the tiles allocates nothing."
+  },
+  {
+    "type": "HyperPdfLibrary.Conformance.PdfAStreamDecodes",
+    "frame": "HyperPdfLibrary.Conformance.PdfAValidationContext..ctor",
+    "reason": "Each validation owns one table of decoded content streams, so the rule areas inflate each stream once. It lives for the validation and holds that validation's data, so it cannot be shared or pooled across validations."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Objects.PdfStream,System.Byte[]]",
+    "frame": "HyperPdfLibrary.Conformance.PdfAStreamDecodes..ctor",
+    "reason": "The lookup from a stream to its decoded bytes is the table of the validation's shared decodes."
+  },
+  {
+    "type": "Entry[HyperPdfLibrary.Objects.PdfStream,System.Byte[]][]",
+    "frame": "HyperPdfLibrary.Conformance.PdfAStreamDecodes.TryGet",
+    "reason": "The shared decode table grows with the streams the validation reads. Its entries replace the repeated decodes of every content stream by each rule area, which allocated far more."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Conformance.PdfAFontUse,HyperPdfLibrary.Conformance.PdfAGlyphFont]",
+    "frame": "HyperPdfLibrary.Conformance.PdfAValidationContext..ctor",
+    "reason": "Each validation shares the glyph state it builds for a font between the glyph and subset rules, so the table lives as long as the validation."
+  },
+  {
+    "type": "Entry[HyperPdfLibrary.Conformance.PdfAFontUse,HyperPdfLibrary.Conformance.PdfAGlyphFont][]",
+    "frame": "HyperPdfLibrary.Conformance.PdfAGlyphFonts.Create",
+    "reason": "The table of shared glyph state grows with the fonts a document uses."
+  },
+  {
+    "type": "HyperPdfLibrary.Conformance.PdfAGlyphFont",
+    "frame": "HyperPdfLibrary.Conformance.PdfAGlyphFonts.Build",
+    "reason": "A font's glyph state is built once per validation and shared by the glyph and subset rules; it holds the font's tables for the rest of the validation."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,HyperPdf.Core.Forms.Scripting.FormScript]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentFormScripts.GetScripts",
+    "reason": "The page's scripts are recognised once for each distinct text, which this table of the call remembers. It replaces four recognitions for every field, which allocated far more."
+  },
+  {
+    "type": "Entry[System.String,HyperPdf.Core.Forms.Scripting.FormScript][]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentFormScripts.GetScripts",
+    "reason": "The table of recognised scripts grows with the distinct script texts on the page."
+  },
+  {
+    "type": "System.Single[]",
+    "frame": "HyperPdfLibrary.Content.ContentGraphicsState.SetDash",
+    "reason": "The dash lengths are kept in the graphics state as an array that is never changed, so a copy is made when the pattern differs from the one in place. Setting the same pattern again allocates nothing."
+  },
+  {
+    "type": "System.Security.Cryptography.FixedMemoryKeyBox",
+    "frame": "HyperPdfLibrary.Security.PdfSecurityHandler.RentAes",
+    "reason": "Setting an AES key makes the runtime build a new key box and OpenSSL cipher context. The span based API has no way to change the key of a context in place, and AES-128 uses a different key for every object."
+  },
+  {
+    "type": "System.Security.Cryptography.KeySizes[]",
+    "frame": "HyperPdfLibrary.Security.PdfSecurityHandler.RentAes",
+    "reason": "The runtime builds the legal key size list each time a key is set."
+  },
+  {
+    "type": "System.Security.Cryptography.OpenSslCipherLite",
+    "frame": "HyperPdfLibrary.Security.PdfSecurityHandler.DecryptAes",
+    "reason": "The runtime builds an OpenSSL cipher for each one-shot AES-CBC decrypt, and there is no span based API to reuse it."
+  },
+  {
+    "type": "Microsoft.Win32.SafeHandles.SafeEvpCipherCtxHandle",
+    "frame": "HyperPdfLibrary.Security.PdfSecurityHandler.DecryptAes",
+    "reason": "The cipher context handle of the one-shot AES-CBC decrypt; the runtime makes one for each call."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Security.PdfSecurityHandler.DecryptAes",
+    "reason": "The plain bytes are the returned data of the decrypt, which the caller keeps, so they cannot live in pooled storage."
   }
 ]

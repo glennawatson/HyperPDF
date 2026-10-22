@@ -278,30 +278,13 @@ internal static class PredictorFilter
     /// <param name="cancellationToken">Cancels this operation.</param>
     private static void Paeth(Span<byte> row, ReadOnlySpan<byte> previous, int pixelBytes, CancellationToken cancellationToken)
     {
-        // With nothing above, the predictor is always the byte to the left, which is the Sub filter.
-        if (previous.IsEmpty)
+        for (var i = 0; i < row.Length; i++)
         {
-            AddLeft(row, pixelBytes, cancellationToken);
-            return;
-        }
-
-        // The first pixel has nothing to its left or above-left, so the predictor is the byte above.
-        var head = Math.Min(pixelBytes, row.Length);
-        ref var current = ref MemoryMarshal.GetReference(row);
-        ref var above = ref MemoryMarshal.GetReference(previous);
-        for (var i = 0; i < head; i++)
-        {
-            Unsafe.Add(ref current, i) += Unsafe.Add(ref above, i);
-        }
-
-        for (var start = head; start < row.Length; start += ChunkLength)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var end = Math.Min(start + ChunkLength, row.Length);
-            for (var i = start; i < end; i++)
-            {
-                Unsafe.Add(ref current, i) += (byte)PaethPredict(Unsafe.Add(ref current, i - pixelBytes), Unsafe.Add(ref above, i), Unsafe.Add(ref above, i - pixelBytes));
-            }
+            CheckCancellation(i, cancellationToken);
+            var left = i >= pixelBytes ? row[i - pixelBytes] : 0;
+            var up = previous.IsEmpty ? 0 : previous[i];
+            var upLeft = i >= pixelBytes && !previous.IsEmpty ? previous[i - pixelBytes] : 0;
+            row[i] = (byte)(row[i] + PaethPredict(left, up, upLeft));
         }
     }
 
