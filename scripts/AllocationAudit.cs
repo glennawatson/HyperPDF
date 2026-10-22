@@ -3,6 +3,7 @@
 #:package Microsoft.Diagnostics.Tracing.TraceEvent
 #:property IsAotCompatible=false
 #:property PublishAot=false
+#:include SourceLines.cs
 
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
@@ -379,7 +380,7 @@ namespace HyperPdf.Scripts
         /// </summary>
         /// <param name="stack">The call stack, innermost first.</param>
         /// <returns>The method, or <see langword="null"/> when only the harness and the runtime are on the stack.</returns>
-        private static string? LibraryFrame(TraceCallStack? stack)
+        private static TraceCodeAddress? LibraryFrame(TraceCallStack? stack)
         {
             for (var frame = stack; frame is not null; frame = frame.Caller)
             {
@@ -391,7 +392,7 @@ namespace HyperPdf.Scripts
 
                 if (name.StartsWith(LibraryPrefix, StringComparison.Ordinal) || name.StartsWith(EnginePrefix, StringComparison.Ordinal))
                 {
-                    return name;
+                    return frame.CodeAddress;
                 }
             }
 
@@ -468,6 +469,9 @@ namespace HyperPdf.Scripts
 
             /// <summary>The type names by id, shared by every benchmark of a trace.</summary>
             private readonly Dictionary<ulong, string> _typeNames;
+
+            /// <summary>The source lines of the build, or <see langword="null"/> when no PDB folder is named.</summary>
+            private readonly SourceLines? _lines = SourceLines.FromEnvironment();
 
             /// <summary>Whether a measured iteration is running.</summary>
             private bool _measuring;
@@ -571,14 +575,21 @@ namespace HyperPdf.Scripts
             /// <param name="bytes">The bytes the sample stands for.</param>
             private void Record(string type, TraceCallStack? stack, long count, long bytes)
             {
-                if (LibraryFrame(stack) is not { } frame)
+                if (LibraryFrame(stack) is not { } address)
                 {
                     return;
                 }
 
+                var frame = address.FullMethodName ?? string.Empty;
                 if (IsExternalComparison(type, frame, stack))
                 {
                     return;
+                }
+
+                // With the build's PDB files named by HYPERPDF_SYMBOLS, each site also names its source line.
+                if (_lines?.Find(address) is { } line)
+                {
+                    frame = $"{frame} @ {line}";
                 }
 
                 var current = Sites.GetValueOrDefault((type, frame));
