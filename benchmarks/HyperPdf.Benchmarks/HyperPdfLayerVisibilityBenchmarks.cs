@@ -22,6 +22,12 @@ public class HyperPdfLayerVisibilityBenchmarks
     /// <summary>The membership dictionary's object number.</summary>
     private const int MembershipNumber = 6;
 
+    /// <summary>The threads that check at once.</summary>
+    private const int Threads = 8;
+
+    /// <summary>The checks each thread makes.</summary>
+    private const int ChecksPerThread = 20_000;
+
     /// <summary>The open document.</summary>
     private PdfDocument _document = null!;
 
@@ -65,4 +71,23 @@ public class HyperPdfLayerVisibilityBenchmarks
     /// <returns>Whether it is shown.</returns>
     [Benchmark]
     public bool IsMembershipVisible() => _content.IsVisible(_membership);
+
+    /// <summary>Checks a membership dictionary from several threads at once, as the render threads of a layered page do.</summary>
+    /// <returns>The number of checks that found it shown.</returns>
+    [Benchmark]
+    public int IsMembershipVisibleOnEightThreads()
+    {
+        var shown = 0;
+        _ = Parallel.For(0, Threads, new ParallelOptions { MaxDegreeOfParallelism = Threads }, _ =>
+        {
+            var local = 0;
+            for (var i = 0; i < ChecksPerThread; i++)
+            {
+                local += _content.IsVisible(_membership) ? 1 : 0;
+            }
+
+            _ = Interlocked.Add(ref shown, local);
+        });
+        return shown;
+    }
 }
