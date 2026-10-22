@@ -11,12 +11,9 @@ using HyperPdfLibrary.Writing;
 
 namespace HyperPdf.Benchmarks;
 
-/// <summary>Decrypts a 4 KiB AES-128 stream that is padded correctly, and one a writer padded wrongly, which the reader decrypts again without padding and drops a plausible pad from.</summary>
+/// <summary>Decrypts AES-128 data that is padded correctly, and data a writer padded wrongly, from a short string to a long stream.</summary>
 public class HyperPdfAesPaddingBenchmarks
 {
-    /// <summary>The bytes of the stream.</summary>
-    private const int StreamBytes = 4096;
-
     /// <summary>The password of the document.</summary>
     private const string Password = "benchmark";
 
@@ -31,6 +28,10 @@ public class HyperPdfAesPaddingBenchmarks
 
     /// <summary>The encrypted stream whose padding is wrong.</summary>
     private byte[] _bad = [];
+
+    /// <summary>Gets or sets the bytes of the data: a short string, a page's content and a long stream.</summary>
+    [Params(32, 4_096, 65_536)]
+    public int StreamBytes { get; set; }
 
     /// <summary>Encrypts a document, takes its handler and makes the two streams.</summary>
     /// <exception cref="InvalidOperationException">The document has no handler, or the damaged stream still decrypts with its padding.</exception>

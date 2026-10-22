@@ -14,9 +14,6 @@ namespace HyperPdf.Benchmarks;
 /// <summary>Checks the revocation status of six certificates against a security store that holds a signed OCSP response for each of them.</summary>
 public class HyperPdfRevocationCheckBenchmarks
 {
-    /// <summary>The certificates, and so the OCSP responses, in the store.</summary>
-    private const int Certificates = 6;
-
     /// <summary>The first byte of every leaf certificate's serial number, clear of the sign bit.</summary>
     private const byte SerialPrefix = 0x10;
 
@@ -34,6 +31,10 @@ public class HyperPdfRevocationCheckBenchmarks
 
     /// <summary>The store holding the responses.</summary>
     private PdfSecurityStore _store = null!;
+
+    /// <summary>Gets or sets the certificates, and so the OCSP responses, in the store: a short chain, a longer one and a store holding several documents' chains.</summary>
+    [Params(3, 6, 12)]
+    public int Certificates { get; set; }
 
     /// <summary>Makes the certificates, signs a response for each and puts them in a store.</summary>
     /// <exception cref="InvalidOperationException">A response is not accepted.</exception>
