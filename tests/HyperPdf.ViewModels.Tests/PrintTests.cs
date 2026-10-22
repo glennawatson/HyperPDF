@@ -123,7 +123,9 @@ public sealed class PrintTests
             preview.TwoSided = true;
             preview.Binding = binding;
             preview.Colour = false;
-            await Assert.That(await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Destination == PrintDestination.Printer && preview.Summary == "2 sheets")).IsTrue();
+            await Assert.That(await WaitAsync(() =>
+                preview.IsValid && !preview.IsBuilding && preview.Destination == PrintDestination.Printer
+                && preview.Summary == "2 sheets" && preview.Sheets.Count == ExpectedSheets)).IsTrue();
             sheets = preview.Sheets.Count;
             context.SetOutput(true);
         });
