@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using HyperPdf.Core.Platform;
@@ -53,17 +52,7 @@ public sealed unsafe class MacThemeSource : IDesktopThemeSource
     private const uint DefaultAccent = 0x007AFF;
 
     /// <summary>The accent colours by their <c>AppleAccentColor</c> number.</summary>
-    private static readonly FrozenDictionary<long, uint> Accents = new Dictionary<long, uint>
-    {
-        [-1] = 0x8C8C8C,
-        [0] = 0xFF5257,
-        [1] = 0xF7821B,
-        [2] = 0xFFC600,
-        [3] = 0x62BA46,
-        [4] = 0x007AFF,
-        [5] = 0xA550A7,
-        [6] = 0xF74F9E,
-    }.ToFrozenDictionary();
+    private static readonly Dictionary<long, uint> Accents = new() { [-1] = 0x8C8C8C, [0] = 0xFF5257, [1] = 0xF7821B, [2] = 0xFFC600, [3] = 0x62BA46, [4] = 0x007AFF, [5] = 0xA550A7, [6] = 0xF74F9E };
 
     /// <summary>The dark appearance colours of macOS.</summary>
     private static readonly DesktopPalette DarkPalette = new()

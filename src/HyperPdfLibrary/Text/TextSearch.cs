@@ -92,9 +92,13 @@ internal static class TextSearch
         var overlap = (options & PdfTextSearchOptions.Consecutive) != 0;
         var wholeWord = (options & PdfTextSearchOptions.WholeWord) != 0;
         var from = 0;
+
+        // A match starts with the pattern's first word, which is matched character for character, so look for the word.
+        var space = pattern.IndexOf(' ');
+        var firstWord = space < 0 ? pattern : pattern[..space];
         while (from < text.Length)
         {
-            var found = text[from..].IndexOf(pattern[0]);
+            var found = text[from..].IndexOf(firstWord);
             if (found < 0)
             {
                 return;

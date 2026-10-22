@@ -10,7 +10,6 @@
 // Helpers for dotnet run --file scripts/CheckScreenReader.cs --, which runs them:
 //   dotnet run --file scripts/AccessibilityCheck.cs -- create-check-pdf <output PDF>
 //   dotnet run --file scripts/AccessibilityCheck.cs -- atspi-walk <bus address> <application> <minimum named controls>
-using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
@@ -36,7 +35,7 @@ namespace HyperPdf.Scripts
         private const int WalkArguments = 3;
 
         /// <summary>The roles that need spoken names.</summary>
-        private static readonly FrozenSet<string> Controls = FrozenSet.ToFrozenSet(
+        private static readonly HashSet<string> Controls = new(
         [
             "push button", "toggle button", "combo box", "entry", "text", "check box",
             "radio button", "slider", "page tab", "menu item",

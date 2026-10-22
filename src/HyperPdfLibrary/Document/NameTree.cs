@@ -235,6 +235,40 @@ internal static class NameTree
     /// <returns>The value, or null.</returns>
     private static PdfValue FindInKids(PdfArray? kids, ReadOnlySpan<byte> key, int depth, ref HashSet<PdfDictionary>? visited)
     {
+        // A tree with sorted /Limits is searched by halving; a tree without them, or one that does not hold the key where its
+        // limits say, is searched kid by kid, which skips the kid already searched.
+        if (kids is not null && FindKidByLimits(kids, key) is { } guess)
+        {
+            var hit = FindInKid(guess, key, depth, ref visited);
+            if (!hit.IsNull)
+            {
+                return hit;
+            }
+        }
+
+        return FindInKidsInOrder(kids, key, depth, ref visited);
+    }
+
+    /// <summary>Searches a kid unless it was searched already.</summary>
+    /// <param name="kid">The kid.</param>
+    /// <param name="key">The key.</param>
+    /// <param name="depth">The kid's depth.</param>
+    /// <param name="visited">The nodes already searched.</param>
+    /// <returns>The value, or null.</returns>
+    private static PdfValue FindInKid(PdfDictionary kid, ReadOnlySpan<byte> key, int depth, ref HashSet<PdfDictionary>? visited)
+    {
+        visited ??= [with(ReferenceEqualityComparer.Instance)];
+        return visited.Add(kid) ? FindIn(kid, key, depth, ref visited) : default;
+    }
+
+    /// <summary>Searches each kid whose /Limits cover the key, in order, until one holds it.</summary>
+    /// <param name="kids">The /Kids array.</param>
+    /// <param name="key">The key.</param>
+    /// <param name="depth">The kids' depth.</param>
+    /// <param name="visited">The nodes already searched.</param>
+    /// <returns>The value, or null.</returns>
+    private static PdfValue FindInKidsInOrder(PdfArray? kids, ReadOnlySpan<byte> key, int depth, ref HashSet<PdfDictionary>? visited)
+    {
         for (var i = 0; kids is not null && i < kids.Count; i++)
         {
             var kid = kids.GetDictionary(i);
@@ -243,8 +277,7 @@ internal static class NameTree
                 continue;
             }
 
-            visited ??= [with(ReferenceEqualityComparer.Instance)];
-            var found = visited.Add(kid) ? FindIn(kid, key, depth, ref visited) : default;
+            var found = FindInKid(kid, key, depth, ref visited);
             if (!found.IsNull)
             {
                 return found;
@@ -252,6 +285,40 @@ internal static class NameTree
         }
 
         return default;
+    }
+
+    /// <summary>Finds the kid whose /Limits cover a key by halving the kids, which the standard keeps in order.</summary>
+    /// <param name="kids">The /Kids array.</param>
+    /// <param name="key">The key.</param>
+    /// <returns>The kid, or <see langword="null"/> when a kid has no usable /Limits or none covers the key.</returns>
+    private static PdfDictionary? FindKidByLimits(PdfArray kids, ReadOnlySpan<byte> key)
+    {
+        var low = 0;
+        var high = kids.Count - 1;
+        while (low <= high)
+        {
+            var middle = (low + high) >>> 1;
+            var kid = kids.GetDictionary(middle);
+            if (kid?.GetArray(KnownName.Limits) is not { Count: >= PairLength } limits)
+            {
+                return null;
+            }
+
+            if (limits.Get(0).AsStringBytes().SequenceCompareTo(key) > 0)
+            {
+                high = middle - 1;
+            }
+            else if (limits.Get(1).AsStringBytes().SequenceCompareTo(key) < 0)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                return kid;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>Determines whether a node's /Limits cover a key; a node without /Limits might hold anything.</summary>

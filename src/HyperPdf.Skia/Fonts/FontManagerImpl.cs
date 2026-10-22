@@ -16,6 +16,15 @@ internal sealed class FontManagerImpl : IFontManagerImpl
     /// <summary>The minimum font weight considered bold for simulations.</summary>
     private const int BoldWeightThreshold = 600;
 
+    /// <summary>The most fallback answers kept.</summary>
+    private const int MaxFallbacks = 512;
+
+    /// <summary>The answers to earlier fallback requests, by what was asked; a typeface kept here is shared.</summary>
+    private readonly Dictionary<FallbackKey, SkiaTypeface?> _fallbacks = [];
+
+    /// <summary>Guards <see cref="_fallbacks"/>.</summary>
+    private readonly Lock _fallbackGate = new();
+
     /// <summary>The underlying Skia font manager.</summary>
     private SKFontManager _fontManager = SKFontManager.Default;
 
@@ -29,6 +38,12 @@ internal sealed class FontManagerImpl : IFontManagerImpl
         if (checkForUpdates)
         {
             _fontManager = SKFontManager.CreateDefault();
+
+            // New fonts can change which font has a character.
+            lock (_fallbackGate)
+            {
+                _fallbacks.Clear();
+            }
         }
 
         return _fontManager.GetFontFamilies();
@@ -44,18 +59,26 @@ internal sealed class FontManagerImpl : IFontManagerImpl
         CultureInfo? culture,
         [NotNullWhen(true)] out IPlatformTypeface? platformTypeface)
     {
-        var style = new SKFontStyle((SKFontStyleWeight)fontWeight, (SKFontStyleWidth)fontStretch, fontStyle.ToSkia());
         culture ??= CultureInfo.CurrentUICulture;
-        string[] bcp47 = [culture.Name];
-        var matched = _fontManager.MatchCharacter(string.IsNullOrEmpty(familyName) ? null : familyName, style, bcp47, codepoint);
-        if (matched is not null)
-        {
-            platformTypeface = new SkiaTypeface(matched, FontSimulations.None);
-            return true;
-        }
+        var key = new FallbackKey(codepoint, fontStyle, fontWeight, fontStretch, string.IsNullOrEmpty(familyName) ? null : familyName, culture.Name);
 
-        platformTypeface = null;
-        return false;
+        // Asking the system for a font that has a character searches every installed font, which takes under a millisecond to
+        // several; text asks again for each unmatched character of each run, so the answer, including "none has it", is kept.
+        lock (_fallbackGate)
+        {
+            if (!_fallbacks.TryGetValue(key, out var matched))
+            {
+                var keep = _fallbacks.Count < MaxFallbacks;
+                matched = MatchUncached(key, keep);
+                if (keep)
+                {
+                    _fallbacks[key] = matched;
+                }
+            }
+
+            platformTypeface = matched;
+            return matched is not null;
+        }
     }
 
     /// <inheritdoc/>
@@ -118,4 +141,24 @@ internal sealed class FontManagerImpl : IFontManagerImpl
         familyTypefaces = result;
         return true;
     }
+
+    /// <summary>Asks the system font manager for a font that has a character.</summary>
+    /// <param name="key">What to match.</param>
+    /// <param name="shared">Whether the font manager keeps the typeface, so a caller's dispose must leave it alone.</param>
+    /// <returns>The typeface, or <see langword="null"/> when no font has the character.</returns>
+    private SkiaTypeface? MatchUncached(in FallbackKey key, bool shared)
+    {
+        var style = new SKFontStyle((SKFontStyleWeight)key.Weight, (SKFontStyleWidth)key.Stretch, key.Style.ToSkia());
+        var matched = _fontManager.MatchCharacter(key.Family, style, [key.Culture], key.Codepoint);
+        return matched is null ? null : new SkiaTypeface(matched, FontSimulations.None) { IsShared = shared };
+    }
+
+    /// <summary>What a fallback request asked for.</summary>
+    /// <param name="Codepoint">The character.</param>
+    /// <param name="Style">The style.</param>
+    /// <param name="Weight">The weight.</param>
+    /// <param name="Stretch">The stretch.</param>
+    /// <param name="Family">The family asked for first, or <see langword="null"/>.</param>
+    /// <param name="Culture">The culture's BCP 47 name.</param>
+    private readonly record struct FallbackKey(int Codepoint, FontStyle Style, FontWeight Weight, FontStretch Stretch, string? Family, string Culture);
 }

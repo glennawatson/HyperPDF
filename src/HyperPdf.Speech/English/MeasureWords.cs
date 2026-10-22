@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
-
 namespace HyperPdf.Speech.English;
 
 /// <summary>Says measurements, fractions, ranges, versions, page references and signs before numbers.</summary>
@@ -16,7 +14,7 @@ internal static class MeasureWords
     private const int MaxFractionPart = 10;
 
     /// <summary>Units said after a number, singular and plural.</summary>
-    private static readonly FrozenDictionary<string, UnitWords> Units = new Dictionary<string, UnitWords>(StringComparer.Ordinal)
+    private static readonly Dictionary<string, UnitWords> Units = new(StringComparer.Ordinal)
     {
         ["km/h"] = new("kilometre per hour", "kilometres per hour"),
         ["mph"] = new("mile per hour", "miles per hour"),
@@ -49,15 +47,10 @@ internal static class MeasureWords
         ["ms"] = new("millisecond", "milliseconds"),
         ["kW"] = new("kilowatt", "kilowatts"),
         ["kWh"] = new("kilowatt hour", "kilowatt hours"),
-    }.ToFrozenDictionary(StringComparer.Ordinal);
+    };
 
     /// <summary>Fractions said by name.</summary>
-    private static readonly FrozenDictionary<int, UnitWords> Denominators = new Dictionary<int, UnitWords>
-    {
-        [2] = new("half", "halves"),
-        [3] = new("third", "thirds"),
-        [4] = new("quarter", "quarters"),
-    }.ToFrozenDictionary();
+    private static readonly Dictionary<int, UnitWords> Denominators = new() { [2] = new("half", "halves"), [3] = new("third", "thirds"), [4] = new("quarter", "quarters") };
 
     /// <summary>Writes a measurement: "5 km" as "5 kilometres", "1 kg" as "1 kilogram".</summary>
     /// <param name="context">The number and the unit.</param>

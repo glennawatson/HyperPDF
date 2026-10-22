@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Diagnostics;
 using HyperPdf.Core.Spelling;
 
@@ -13,9 +12,9 @@ namespace HyperPdf.TestAssets;
 public sealed class FakeSpellChecker : ISpellChecker
 {
     /// <summary>The words spelled correctly.</summary>
-    private static readonly FrozenSet<string> Words = FrozenSet.Create(
-        StringComparer.OrdinalIgnoreCase,
-        ["the", "quick", "brown", "fox", "please", "receive", "signed", "form", "name", "address", "don't", "PDF", "hello"]);
+    private static readonly HashSet<string> Words = new(
+        ["the", "quick", "brown", "fox", "please", "receive", "signed", "form", "name", "address", "don't", "PDF", "hello"],
+        StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Gets the shared instance.</summary>
     public static FakeSpellChecker Instance { get; } = new();

@@ -165,12 +165,7 @@ internal static class PredictorFilter
         CopyForward(source, target, cancellationToken);
         if (filter == PngSub)
         {
-            for (var i = pixelBytes; i < target.Length; i++)
-            {
-                CheckCancellation(i, cancellationToken);
-                target[i] += target[i - pixelBytes];
-            }
-
+            AddLeft(target, pixelBytes, cancellationToken);
             return;
         }
 
@@ -241,12 +236,38 @@ internal static class PredictorFilter
     /// <param name="cancellationToken">Cancels this operation.</param>
     private static void Average(Span<byte> row, ReadOnlySpan<byte> previous, int pixelBytes, CancellationToken cancellationToken)
     {
-        for (var i = 0; i < row.Length; i++)
+        // The first pixel has nothing to its left, so it adds half the byte above. The first row has nothing above.
+        var head = Math.Min(pixelBytes, row.Length);
+        ref var current = ref MemoryMarshal.GetReference(row);
+        if (previous.IsEmpty)
         {
-            CheckCancellation(i, cancellationToken);
-            var left = i >= pixelBytes ? row[i - pixelBytes] : 0;
-            var up = previous.IsEmpty ? 0 : previous[i];
-            row[i] = (byte)(row[i] + ((left + up) >> 1));
+            for (var start = head; start < row.Length; start += ChunkLength)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var end = Math.Min(start + ChunkLength, row.Length);
+                for (var i = start; i < end; i++)
+                {
+                    Unsafe.Add(ref current, i) += (byte)(Unsafe.Add(ref current, i - pixelBytes) >> 1);
+                }
+            }
+
+            return;
+        }
+
+        ref var above = ref MemoryMarshal.GetReference(previous);
+        for (var i = 0; i < head; i++)
+        {
+            Unsafe.Add(ref current, i) += (byte)(Unsafe.Add(ref above, i) >> 1);
+        }
+
+        for (var start = head; start < row.Length; start += ChunkLength)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var end = Math.Min(start + ChunkLength, row.Length);
+            for (var i = start; i < end; i++)
+            {
+                Unsafe.Add(ref current, i) += (byte)((Unsafe.Add(ref current, i - pixelBytes) + Unsafe.Add(ref above, i)) >> 1);
+            }
         }
     }
 
@@ -264,6 +285,24 @@ internal static class PredictorFilter
             var up = previous.IsEmpty ? 0 : previous[i];
             var upLeft = i >= pixelBytes && !previous.IsEmpty ? previous[i - pixelBytes] : 0;
             row[i] = (byte)(row[i] + PaethPredict(left, up, upLeft));
+        }
+    }
+
+    /// <summary>Adds the byte a stride earlier to each byte from the stride on, in place: the Sub filter and TIFF Predictor 2 at eight bits.</summary>
+    /// <param name="row">The row, decoded in place.</param>
+    /// <param name="stride">The distance to the byte added, at least one.</param>
+    /// <param name="cancellationToken">Cancels this operation between chunks.</param>
+    private static void AddLeft(Span<byte> row, int stride, CancellationToken cancellationToken)
+    {
+        ref var current = ref MemoryMarshal.GetReference(row);
+        for (var start = stride; start < row.Length; start += ChunkLength)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var end = Math.Min(start + ChunkLength, row.Length);
+            for (var i = start; i < end; i++)
+            {
+                Unsafe.Add(ref current, i) += Unsafe.Add(ref current, i - stride);
+            }
         }
     }
 
@@ -302,11 +341,7 @@ internal static class PredictorFilter
             var line = data.Slice(offset, Math.Min(rowBytes, data.Length - offset));
             if (bits == ByteBits)
             {
-                for (var i = colors; i < line.Length; i++)
-                {
-                    CheckCancellation(i, cancellationToken);
-                    line[i] += line[i - colors];
-                }
+                AddLeft(line, colors, cancellationToken);
             }
             else if (bits == SixteenBits)
             {

@@ -55,6 +55,12 @@ internal sealed class PdfAValidationContext
     /// <summary>Gets the token that cancels the validation.</summary>
     internal CancellationToken CancellationToken { get; }
 
+    /// <summary>Gets the decoded content streams the rule areas share.</summary>
+    internal PdfAStreamDecodes Streams { get; } = new();
+
+    /// <summary>Gets the glyph state built for each used font, so the glyph and subset rules build it once.</summary>
+    internal Dictionary<PdfAFontUse, PdfAGlyphFont> GlyphFonts { get; } = [with(ReferenceEqualityComparer.Instance)];
+
     /// <summary>Records one failure of a rule.</summary>
     /// <param name="rule">The rule broken.</param>
     /// <param name="context">Where, such as "object 12"; <see langword="null"/> when the place has no name.</param>

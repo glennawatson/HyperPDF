@@ -408,7 +408,7 @@ public sealed class MeloEngine : ISpeechEngine
 
     /// <summary>Gets the ONNX sessions, loading the models on first use. Callers hold the gate.</summary>
     /// <returns>The synthesizer and BERT sessions.</returns>
-    private (InferenceSession Synthesizer, InferenceSession Bert) GetSessions()
+    private MeloSessions GetSessions()
     {
         if (_synthesizer is null || _bert is null)
         {
@@ -417,6 +417,11 @@ public sealed class MeloEngine : ISpeechEngine
             _bert ??= new(Path.Combine(_directory, MeloModel.BertFile), options);
         }
 
-        return (_synthesizer, _bert);
+        return new(_synthesizer, _bert);
     }
+
+    /// <summary>The two loaded ONNX sessions.</summary>
+    /// <param name="Synthesizer">The synthesizer session.</param>
+    /// <param name="Bert">The BERT session.</param>
+    private readonly record struct MeloSessions(InferenceSession Synthesizer, InferenceSession Bert);
 }

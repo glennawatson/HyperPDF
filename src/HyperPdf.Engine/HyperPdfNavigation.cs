@@ -142,7 +142,7 @@ internal static class HyperPdfNavigation
     /// <summary>Refreshes page geometry and navigation after a committed page edit, undo or redo.</summary>
     /// <param name="self">The owning document.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void PagesEdited(HyperPdfDocument self) =>PagesEdited(self, PdfCacheScopes.All);
+    internal static void PagesEdited(HyperPdfDocument self) => PagesEdited(self, PdfCacheScopes.All);
 
     /// <summary>Refreshes page geometry and navigation after a committed edit that changed only some parts of the document.</summary>
     /// <param name="self">The owning document.</param>
@@ -160,7 +160,12 @@ internal static class HyperPdfNavigation
             HyperPdfAnnotationReading.InvalidatePages(annotationState);
         }
 
-        Volatile.Write(ref self.PageSizes, ReadPageSizes(self.Document, Volatile.Read(ref self.PageSizes)));
+        // A page's size comes from its boxes and rotation, so an edit that names no page part leaves every size as published.
+        if (scopes != PdfCacheScopes.None)
+        {
+            Volatile.Write(ref self.PageSizes, ReadPageSizes(self.Document, Volatile.Read(ref self.PageSizes)));
+        }
+
         Volatile.Write(ref self.Outline, null);
         Volatile.Write(ref self.Attachments, null);
     }

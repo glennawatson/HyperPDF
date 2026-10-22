@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 using HyperPdfLibrary.Creation;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Filters;
@@ -29,6 +31,12 @@ internal static class ImagePixels
     /// <summary>The value of an opaque channel.</summary>
     private const byte Opaque = 0xFF;
 
+    /// <summary>The bytes of a 128-bit vector.</summary>
+    private const int VectorBytes = 16;
+
+    /// <summary>The pixels converted by one vector step.</summary>
+    private const int VectorPixels = 4;
+
     /// <summary>The smallest shrink factor worth averaging whole blocks for before the cubic resample.</summary>
     private const int MinBoxFactor = 2;
 
@@ -51,7 +59,8 @@ internal static class ImagePixels
         }
 
         var target = pixels.GetSpan(pixelCount * RgbxBytes);
-        for (var i = 0; i < pixelCount; i++)
+        var done = WidenVectors(samples, target, pixelCount);
+        for (var i = done; i < pixelCount; i++)
         {
             var source = samples.Slice(i * RgbBytes, RgbBytes);
             var pixel = target.Slice(i * RgbxBytes, RgbxBytes);
@@ -78,13 +87,72 @@ internal static class ImagePixels
         }
 
         var target = samples.GetSpan(pixelCount * RgbBytes);
-        for (var i = 0; i < pixelCount; i++)
+        var done = NarrowVectors(pixels, target, pixelCount);
+        for (var i = done; i < pixelCount; i++)
         {
             var source = pixels.Slice(i * RgbxBytes, RgbBytes);
             source.CopyTo(target.Slice(i * RgbBytes, RgbBytes));
         }
 
         samples.Advance(pixelCount * RgbBytes);
+    }
+
+    /// <summary>
+    /// Widens four RGB pixels at a time to RGBX with a byte shuffle. Each step reads sixteen bytes, so the last few pixels are
+    /// left to the caller.
+    /// </summary>
+    /// <param name="samples">The RGB samples.</param>
+    /// <param name="target">Receives the RGBX pixels.</param>
+    /// <param name="pixelCount">The pixels to convert.</param>
+    /// <returns>The pixels converted; the caller converts the rest.</returns>
+    internal static int WidenVectors(ReadOnlySpan<byte> samples, Span<byte> target, int pixelCount)
+    {
+        if (!Vector128.IsHardwareAccelerated)
+        {
+            return 0;
+        }
+
+        // Source bytes 0 1 2 _ 3 4 5 _ 6 7 8 _ 9 10 11 _: a lane of 0x80 selects nothing and comes out zero, and the alpha mask then sets it to opaque.
+        var widen = Vector128.Create(0x8005040380020100UL, 0x800B0A0980080706UL).AsByte();
+        var alpha = Vector128.Create(0xFF000000FF000000UL).AsByte();
+        ref var source = ref MemoryMarshal.GetReference(samples);
+        ref var destination = ref MemoryMarshal.GetReference(target);
+        var i = 0;
+        for (; (i * RgbBytes) + VectorBytes <= pixelCount * RgbBytes; i += VectorPixels)
+        {
+            var rgb = Vector128.LoadUnsafe(ref source, (nuint)(i * RgbBytes));
+            (Vector128.Shuffle(rgb, widen) | alpha).StoreUnsafe(ref destination, (nuint)(i * RgbxBytes));
+        }
+
+        return i;
+    }
+
+    /// <summary>
+    /// Narrows four RGBX pixels at a time to RGB with a byte shuffle. Each step stores sixteen bytes, of which twelve are new,
+    /// and the next step overwrites the rest, so the last few pixels are left to the caller.
+    /// </summary>
+    /// <param name="pixels">The RGBX pixels.</param>
+    /// <param name="target">Receives the RGB samples.</param>
+    /// <param name="pixelCount">The pixels to convert.</param>
+    /// <returns>The pixels converted; the caller converts the rest.</returns>
+    internal static int NarrowVectors(ReadOnlySpan<byte> pixels, Span<byte> target, int pixelCount)
+    {
+        if (!Vector128.IsHardwareAccelerated)
+        {
+            return 0;
+        }
+
+        // Source bytes 0 1 2 4 5 6 8 9 10 12 13 14 then four unused lanes.
+        var narrow = Vector128.Create(0x0908060504020100UL, 0x808080800E0D0C0AUL).AsByte();
+        ref var source = ref MemoryMarshal.GetReference(pixels);
+        ref var destination = ref MemoryMarshal.GetReference(target);
+        var i = 0;
+        for (; (i * RgbBytes) + VectorBytes <= pixelCount * RgbBytes; i += VectorPixels)
+        {
+            Vector128.Shuffle(Vector128.LoadUnsafe(ref source, (nuint)(i * RgbxBytes)), narrow).StoreUnsafe(ref destination, (nuint)(i * RgbBytes));
+        }
+
+        return i;
     }
 
     /// <summary>Shrinks pixels to a target size: whole blocks averaged first, then a cubic resample to the exact size.</summary>
@@ -238,17 +306,43 @@ internal static class ImagePixels
     /// <param name="sums">Receives each channel's sum.</param>
     private static void SumBlock(ReadOnlySpan<byte> source, int stride, int bytes, PixelBlock block, Span<int> sums)
     {
+        // Grey and RGBX are the only layouts, and each keeps its channel sums in locals instead of a span.
+        var first = 0;
+        var second = 0;
+        var third = 0;
+        var fourth = 0;
         for (var row = block.Top; row < block.Bottom; row++)
         {
             var line = source.Slice((row * stride) + (block.Left * bytes), (block.Right - block.Left) * bytes);
-            for (var i = 0; i < line.Length; i += bytes)
+            ref var pixel = ref MemoryMarshal.GetReference(line);
+            if (bytes == 1)
             {
-                for (var c = 0; c < bytes; c++)
+                for (var i = 0; i < line.Length; i++)
                 {
-                    sums[c] += line[i + c];
+                    first += Unsafe.Add(ref pixel, i);
                 }
+
+                continue;
+            }
+
+            for (var i = 0; i < line.Length; i += RgbxBytes)
+            {
+                first += Unsafe.Add(ref pixel, i);
+                second += Unsafe.Add(ref pixel, i + 1);
+                third += Unsafe.Add(ref pixel, i + Blue);
+                fourth += Unsafe.Add(ref pixel, i + RgbBytes);
             }
         }
+
+        sums[0] += first;
+        if (bytes != RgbxBytes)
+        {
+            return;
+        }
+
+        sums[1] += second;
+        sums[Blue] += third;
+        sums[RgbBytes] += fourth;
     }
 
     /// <summary>Describes the optimizer's gray or RGBX pixels.</summary>

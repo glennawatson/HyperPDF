@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 
 namespace HyperPdf.Core.Documents;
@@ -20,14 +19,14 @@ public static class LinkedFiles
     private const int DriveFolderStart = 2;
 
     /// <summary>The extensions of files that run code, which links and attachments are never allowed to start.</summary>
-    private static readonly FrozenSet<string> Runnable = FrozenSet.Create(
-        StringComparer.OrdinalIgnoreCase,
+    private static readonly HashSet<string> Runnable = new(
         [
         ".app", ".apk", ".appimage", ".application", ".bat", ".bin", ".cmd", ".com", ".command", ".cpl", ".csh", ".deb", ".desktop", ".dll",
         ".dmg", ".exe", ".gadget", ".hta", ".inf", ".ins", ".isp", ".jar", ".js", ".jse", ".ksh", ".lnk", ".msc", ".msi", ".msp", ".pif",
         ".pkg", ".pl", ".ps1", ".ps2", ".psc1", ".py", ".rb", ".reg", ".rpm", ".run", ".scf", ".scr", ".sct", ".sh", ".so", ".url",
         ".vb", ".vbe", ".vbs", ".workflow", ".ws", ".wsc", ".wsf", ".wsh", ".zsh",
-        ]);
+        ],
+        StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Gets the full path of a file named in a document.</summary>
     /// <param name="documentPath">The document that names the file.</param>

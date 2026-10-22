@@ -20,6 +20,9 @@ public sealed class PdfOptionalContent
     /// <summary>The deepest visibility expression evaluated.</summary>
     private const int MaxExpressionDepth = 16;
 
+    /// <summary>The lock-free reads of the visible layers tried before taking the lock.</summary>
+    private const int OptimisticReads = 4;
+
     /// <summary>The objects references resolve against.</summary>
     private readonly PdfObjectStore _objects;
 
@@ -43,6 +46,9 @@ public sealed class PdfOptionalContent
 
     /// <summary>The visibility version.</summary>
     private int _version;
+
+    /// <summary>Counts the starts and ends of changes to the visible layers; odd while a change is under way.</summary>
+    private int _writes;
 
     /// <summary>Initializes a new instance of the <see cref="PdfOptionalContent"/> class.</summary>
     /// <param name="objects">The document's objects.</param>
@@ -146,7 +152,9 @@ public sealed class PdfOptionalContent
         lock (_gate)
         {
             var set = (_reader ??= new()).Read(_objects, index);
+            ToggleWriting();
             Volatile.Write(ref _set, set);
+            ToggleWriting();
             _ = Interlocked.Increment(ref _version);
         }
 
@@ -161,6 +169,7 @@ public sealed class PdfOptionalContent
         {
             var set = Volatile.Read(ref _set);
             var changed = false;
+            ToggleWriting();
             for (var i = 0; i < set.Hidden.Length; i++)
             {
                 if (Volatile.Read(ref set.Current[i]) == set.Hidden[i])
@@ -172,6 +181,7 @@ public sealed class PdfOptionalContent
                 changed = true;
             }
 
+            ToggleWriting();
             if (!changed)
             {
                 return false;
@@ -279,7 +289,25 @@ public sealed class PdfOptionalContent
             return true;
         }
 
-        // A radio group changes several bits together; an expression must see the whole change.
+        // A radio group changes several bits together; an expression must see the whole change. A writer makes the write count odd while it
+        // changes anything, so a read that saw an even count before and the same count after saw no change in between, and takes no lock.
+        for (var attempt = 0; attempt < OptimisticReads; attempt++)
+        {
+            var before = Volatile.Read(ref _writes);
+            if ((before & 1) != 0)
+            {
+                continue;
+            }
+
+            set = Volatile.Read(ref _set);
+            var shown = Evaluate(value, new(set.Current, set, zoomClass), 0);
+            Interlocked.MemoryBarrier();
+            if (Volatile.Read(ref _writes) == before)
+            {
+                return shown;
+            }
+        }
+
         lock (_gate)
         {
             set = _set;
@@ -386,12 +414,14 @@ public sealed class PdfOptionalContent
                 return false;
             }
 
+            ToggleWriting();
             var changed = visible ? OptionalContentSet.Lower(set.Current, bit) : OptionalContentSet.Raise(set.Current, bit);
             if (visible)
             {
                 changed |= HideSiblings(set, id, overrideLocks);
             }
 
+            ToggleWriting();
             if (changed)
             {
                 _ = Interlocked.Increment(ref _version);
@@ -400,6 +430,13 @@ public sealed class PdfOptionalContent
 
         return true;
     }
+
+    /// <summary>
+    /// Changes whether a write is under way: called before a change it makes the write count odd, which tells lock-free readers to
+    /// wait, and called after it makes the count even again. The caller holds <see cref="_gate"/>.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ToggleWriting() => _ = Interlocked.Increment(ref _writes);
 
     /// <summary>Evaluates an OCG reference, an OCMD or a visibility expression.</summary>
     /// <param name="value">The value.</param>

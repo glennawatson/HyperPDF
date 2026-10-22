@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Runtime.InteropServices;
 using HyperPdf.Scripts;
 
@@ -21,7 +20,7 @@ internal static class JpxTestHtCodebook
     private const int ContextKeyShift = 5;
 
     /// <summary>The codewords of each key.</summary>
-    private static readonly FrozenDictionary<int, List<JpxTestHtCode>> Codes = Build().ToFrozenDictionary();
+    private static readonly Dictionary<int, List<JpxTestHtCode>> Codes = Build();
 
     /// <summary>Gets the codewords for a quad.</summary>
     /// <param name="firstRow">Whether the quad is in the first row.</param>

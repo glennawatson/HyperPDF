@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
-using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -74,11 +73,11 @@ internal sealed class EnglishPhonemizer
     private static readonly SearchValues<char> VoicelessPast = SearchValues.Create("pkfθʃsʧ");
 
     /// <summary>Symbols said as words.</summary>
-    private static readonly FrozenDictionary<char, string> Symbols =
-        new Dictionary<char, string> { ['%'] = "percent", ['&'] = "and", ['+'] = "plus", ['@'] = "at", ['='] = "equals" }.ToFrozenDictionary();
+    private static readonly Dictionary<char, string> Symbols =
+        new() { ['%'] = "percent", ['&'] = "and", ['+'] = "plus", ['@'] = "at", ['='] = "equals" };
 
     /// <summary>Punctuation the voice uses for pauses and tone, as strings so tokens share them.</summary>
-    private static readonly FrozenDictionary<char, string> PauseMarks = BuildPauseMarks();
+    private static readonly Dictionary<char, string> PauseMarks = BuildPauseMarks();
 
     /// <summary>The pronunciations.</summary>
     private readonly PronunciationLexicon _lexicon;
@@ -271,7 +270,7 @@ internal sealed class EnglishPhonemizer
 
     /// <summary>Builds the pause marks as strings.</summary>
     /// <returns>The marks.</returns>
-    private static FrozenDictionary<char, string> BuildPauseMarks()
+    private static Dictionary<char, string> BuildPauseMarks()
     {
         var marks = new Dictionary<char, string>();
         foreach (var c in ";:,.!?—…\"()“”")
@@ -279,7 +278,7 @@ internal sealed class EnglishPhonemizer
             marks[c] = c.ToString();
         }
 
-        return marks.ToFrozenDictionary();
+        return marks;
     }
 
     /// <summary>Determines whether a hyphen stands alone as a dash.</summary>

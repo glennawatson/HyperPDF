@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 using Avalonia.Media;
 using Avalonia.Media.Fonts;
 using SkiaSharp;
@@ -30,6 +29,9 @@ internal sealed class SkiaTypeface : IPlatformTypeface, ITextShaperTypeface
 
     /// <summary>Gets the underlying Skia typeface.</summary>
     public SKTypeface Typeface { get; }
+
+    /// <summary>Gets a value indicating whether the font manager keeps this typeface for later requests, so a caller's <see cref="Dispose"/> must leave it alone.</summary>
+    public bool IsShared { get; init; }
 
     /// <summary>Gets the font simulations.</summary>
     public FontSimulations FontSimulations { get; }
@@ -79,8 +81,13 @@ internal sealed class SkiaTypeface : IPlatformTypeface, ITextShaperTypeface
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => Typeface.Dispose();
+    public void Dispose()
+    {
+        if (!IsShared)
+        {
+            Typeface.Dispose();
+        }
+    }
 
     /// <summary>Creates a modern <see cref = "SKFont"/> configured for this typeface and size.</summary>
     /// <param name = "size">The font size in pixels.</param>

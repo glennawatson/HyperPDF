@@ -2,21 +2,19 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
-
 namespace HyperPdf.Speech.English;
 
 /// <summary>Says money: "$1,200.50" is "1,200 dollars and 50 cents", "£3 million" is "3 million pounds".</summary>
 internal static class MoneyWords
 {
     /// <summary>Currency symbols, singular and plural, and their hundredths.</summary>
-    private static readonly FrozenDictionary<char, CurrencyWords> Currencies = new Dictionary<char, CurrencyWords>
+    private static readonly Dictionary<char, CurrencyWords> Currencies = new()
     {
         ['$'] = new("dollar", "dollars", "cent", "cents"),
         ['£'] = new("pound", "pounds", "penny", "pence"),
         ['€'] = new("euro", "euros", "cent", "cents"),
         ['¥'] = new("yen", "yen", "sen", "sen"),
-    }.ToFrozenDictionary();
+    };
 
     /// <summary>Writes the words for a matched amount of money.</summary>
     /// <param name="context">The symbol, the amount, optional cents and an optional scale.</param>

@@ -67,7 +67,7 @@ internal static class PdfATextWalk
             return;
         }
 
-        if (!PdfAFontStreams.TryDecode(stream, state.Validation.CancellationToken, out var content))
+        if (!state.Validation.Streams.TryGet(stream, state.Validation.CancellationToken, out var content))
         {
             return;
         }
@@ -104,7 +104,7 @@ internal static class PdfATextWalk
         var contents = page.Dictionary.Get(KnownName.Contents);
         if (contents.AsStream() is { } single)
         {
-            if (PdfAFontStreams.TryDecode(single, state.Validation.CancellationToken, out var data))
+            if (state.Validation.Streams.TryGet(single, state.Validation.CancellationToken, out var data))
             {
                 Read(state, new(null, default, structParents), data);
             }
@@ -120,7 +120,7 @@ internal static class PdfATextWalk
         using var joined = new PooledWriteStream();
         for (var i = 0; i < parts.Count; i++)
         {
-            if (parts.Get(i).AsStream() is not { } part || !PdfAFontStreams.TryDecode(part, state.Validation.CancellationToken, out var data))
+            if (parts.Get(i).AsStream() is not { } part || !state.Validation.Streams.TryGet(part, state.Validation.CancellationToken, out var data))
             {
                 continue;
             }

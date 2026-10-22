@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 
 namespace HyperPdf.Speech.English;
@@ -60,7 +59,7 @@ internal static class NumberWords
     private static readonly string[] Scales = [string.Empty, "thousand", "million", "billion", "trillion"];
 
     /// <summary>The ordinal of each word a number can end in.</summary>
-    private static readonly FrozenDictionary<string, string> Ordinals = BuildOrdinals();
+    private static readonly Dictionary<string, string> Ordinals = BuildOrdinals();
 
     /// <summary>Says a number written with digits, an optional decimal point and thousands commas.</summary>
     /// <typeparam name="TSink">The sink type.</typeparam>
@@ -167,14 +166,14 @@ internal static class NumberWords
 
     /// <summary>Builds the ordinal of every word a number can end in.</summary>
     /// <returns>The ordinals by cardinal word.</returns>
-    private static FrozenDictionary<string, string> BuildOrdinals()
+    private static Dictionary<string, string> BuildOrdinals()
     {
         var ordinals = new Dictionary<string, string>(StringComparer.Ordinal);
         AddOrdinals(ordinals, Ones);
         AddOrdinals(ordinals, Tens);
         AddOrdinals(ordinals, Scales);
         AddOrdinals(ordinals, [HundredWord]);
-        return ordinals.ToFrozenDictionary(StringComparer.Ordinal);
+        return ordinals;
     }
 
     /// <summary>Adds the ordinal of each word in a list.</summary>

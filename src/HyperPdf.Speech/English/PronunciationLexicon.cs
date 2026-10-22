@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -20,14 +19,14 @@ internal sealed class PronunciationLexicon
     private const string DefaultKey = "DEFAULT";
 
     /// <summary>The pronunciations.</summary>
-    private readonly FrozenDictionary<string, string> _words;
+    private readonly Dictionary<string, string> _words;
 
     /// <summary>Looks words up from a span of characters, so no string is made to ask.</summary>
-    private readonly FrozenDictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> _lookup;
+    private readonly Dictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> _lookup;
 
     /// <summary>Initializes a new instance of the <see cref="PronunciationLexicon"/> class.</summary>
     /// <param name="words">The pronunciations.</param>
-    private PronunciationLexicon(FrozenDictionary<string, string> words)
+    private PronunciationLexicon(Dictionary<string, string> words)
     {
         _words = words;
         _lookup = words.GetAlternateLookup<ReadOnlySpan<char>>();
@@ -48,7 +47,7 @@ internal sealed class PronunciationLexicon
         }
 
         Grow(words);
-        return new(words.ToFrozenDictionary(StringComparer.Ordinal));
+        return new(words);
     }
 
     /// <summary>Looks a word up exactly.</summary>

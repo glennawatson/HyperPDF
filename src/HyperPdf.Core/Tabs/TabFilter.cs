@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Text;
 
 namespace HyperPdf.Core.Tabs;
 
@@ -26,6 +27,8 @@ public static class TabFilter
     /// <returns><see langword="true"/> when every word of the query appears in one of the fields.</returns>
     public static bool Matches(ReadOnlySpan<char> query, ReadOnlySpan<char> fileName, ReadOnlySpan<char> title, ReadOnlySpan<char> folder)
     {
+        var compare = Compare;
+        var ordinalSafe = IsOrdinalSafe(compare);
         foreach (var range in query.SplitAny(" \t"))
         {
             var word = query[range];
@@ -34,7 +37,8 @@ public static class TabFilter
                 continue;
             }
 
-            if (Compare.IndexOf(fileName, word, Options) < 0 && Compare.IndexOf(title, word, Options) < 0 && Compare.IndexOf(folder, word, Options) < 0)
+            var asciiWord = ordinalSafe && Ascii.IsValid(word);
+            if (IndexOf(compare, asciiWord, fileName, word) < 0 && IndexOf(compare, asciiWord, title, word) < 0 && IndexOf(compare, asciiWord, folder, word) < 0)
             {
                 return false;
             }
@@ -71,4 +75,21 @@ public static class TabFilter
 
         return count;
     }
+
+    /// <summary>
+    /// Determines whether the culture's rules for plain ASCII text are the same as an ordinal comparison that ignores case.
+    /// English and the invariant culture have no contractions and no special casing; Turkish and Czech, for example, do.
+    /// </summary>
+    /// <param name="compare">The culture's comparer.</param>
+    /// <returns><see langword="true"/> when ASCII text may be compared ordinally.</returns>
+    private static bool IsOrdinalSafe(CompareInfo compare) => compare.Name.Length == 0 || compare.Name.StartsWith("en", StringComparison.Ordinal);
+
+    /// <summary>Finds a word in a field, skipping the culture compare when both are plain ASCII.</summary>
+    /// <param name="compare">The culture's comparer.</param>
+    /// <param name="asciiWord">Whether the word is ASCII and ASCII text may be compared ordinally.</param>
+    /// <param name="field">The field to search.</param>
+    /// <param name="word">The word.</param>
+    /// <returns>The index of the word, or -1.</returns>
+    private static int IndexOf(CompareInfo compare, bool asciiWord, ReadOnlySpan<char> field, ReadOnlySpan<char> word) =>
+        asciiWord && Ascii.IsValid(field) ? field.IndexOf(word, StringComparison.OrdinalIgnoreCase) : compare.IndexOf(field, word, Options);
 }
