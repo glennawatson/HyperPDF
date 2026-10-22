@@ -134,17 +134,17 @@ public sealed class TextBoxLayout
     private void LayoutParagraphs(ReadOnlySpan<char> text, ITextShaper shaper, in LineContext context)
     {
         var start = 0;
-        while (true)
+        var more = true;
+        while (more)
         {
             var end = text[start..].IndexOfAny('\r', '\n');
             var length = end < 0 ? text.Length - start : end;
             LayoutParagraph(text, start, length, shaper, context);
-            if (end < 0)
+            more = end >= 0;
+            if (more)
             {
-                return;
+                start += length + BreakLength(text, start + length);
             }
-
-            start += length + BreakLength(text, start + length);
         }
     }
 

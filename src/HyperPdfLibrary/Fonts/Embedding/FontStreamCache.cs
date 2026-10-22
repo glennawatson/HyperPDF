@@ -125,19 +125,21 @@ internal static class FontStreamCache
             return entry.Compressed;
         }
 
-        while (true)
+        var current = Volatile.Read(ref state);
+        var existing = Find(current, entry.Hash, entry.Source);
+        while (existing is null)
         {
-            var current = Volatile.Read(ref state);
-            if (Find(current, entry.Hash, entry.Source) is { } existing)
-            {
-                return existing;
-            }
-
-            if (ReferenceEquals(Interlocked.CompareExchange(ref state, Append(current, entry, size, maxEntries, maxBytes), current), current))
+            var seen = Interlocked.CompareExchange(ref state, Append(current, entry, size, maxEntries, maxBytes), current);
+            if (ReferenceEquals(seen, current))
             {
                 return entry.Compressed;
             }
+
+            current = seen;
+            existing = Find(current, entry.Hash, entry.Source);
         }
+
+        return existing;
     }
 
     /// <summary>Builds the snapshot that holds a new entry first and as many older entries as fit.</summary>

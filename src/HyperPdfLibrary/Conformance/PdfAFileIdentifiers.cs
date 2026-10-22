@@ -87,7 +87,9 @@ internal static class PdfAFileIdentifiers
         var numbers = 0;
         var numberStart = -1;
         var previousStart = -1;
-        while (true)
+        var result = -1;
+        var searching = true;
+        while (searching)
         {
             reader.SkipSpaces(true);
             var tokenStart = reader.Position;
@@ -96,7 +98,8 @@ internal static class PdfAFileIdentifiers
             {
                 case PdfASyntaxToken.End:
                 {
-                    return -1;
+                    searching = false;
+                    break;
                 }
 
                 case PdfASyntaxToken.Integer:
@@ -111,13 +114,19 @@ internal static class PdfAFileIdentifiers
                 {
                     if (reader.IsWord(ObjWord) && numbers >= HeaderNumbers)
                     {
-                        return previousStart;
+                        result = previousStart;
+                        searching = false;
+                    }
+                    else
+                    {
+                        numbers = 0;
                     }
 
-                    numbers = 0;
                     break;
                 }
             }
         }
+
+        return result;
     }
 }

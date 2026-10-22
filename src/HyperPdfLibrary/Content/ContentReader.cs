@@ -100,22 +100,29 @@ internal ref struct ContentReader
     internal bool Next(out ContentOperator op)
     {
         OperandCount = 0;
-        while (true)
+        op = ContentOperator.Unknown;
+        var found = false;
+        var reading = true;
+        while (reading)
         {
             var kind = _lexer.Next();
             if (kind == PdfTokenKind.EndOfData)
             {
                 op = ContentOperator.Unknown;
-                return false;
+                reading = false;
             }
-
-            if (kind == PdfTokenKind.Keyword && TryReadOperator(out op))
+            else if (kind == PdfTokenKind.Keyword && TryReadOperator(out op))
             {
-                return true;
+                found = true;
+                reading = false;
             }
-
-            ReadOperand(kind);
+            else
+            {
+                ReadOperand(kind);
+            }
         }
+
+        return found;
     }
 
     /// <summary>Handles a keyword: an operator, or true, false or null operands.</summary>
@@ -222,9 +229,9 @@ internal ref struct ContentReader
     {
         var dictionaryStart = _lexer.Position;
         var dictionaryEnd = dictionaryStart;
-        while (true)
+        var kind = _lexer.Next();
+        while (kind != PdfTokenKind.Keyword || !_lexer.Lexeme.SequenceEqual("ID"u8))
         {
-            var kind = _lexer.Next();
             if (kind == PdfTokenKind.EndOfData)
             {
                 InlineImageDictionary = new(dictionaryStart, _content.Length);
@@ -232,12 +239,8 @@ internal ref struct ContentReader
                 return;
             }
 
-            if (kind == PdfTokenKind.Keyword && _lexer.Lexeme.SequenceEqual("ID"u8))
-            {
-                break;
-            }
-
             dictionaryEnd = _lexer.Position;
+            kind = _lexer.Next();
         }
 
         InlineImageDictionary = new(dictionaryStart, dictionaryEnd);

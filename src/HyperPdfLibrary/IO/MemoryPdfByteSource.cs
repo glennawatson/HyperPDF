@@ -206,16 +206,13 @@ public sealed class MemoryPdfByteSource : PdfByteSource
     private void AddLease()
     {
         var state = Volatile.Read(ref _state);
-        while (true)
+        ObjectDisposedException.ThrowIf((state & DisposedBit) != 0, this);
+        var seen = Interlocked.CompareExchange(ref _state, state + 1, state);
+        while (seen != state)
         {
-            ObjectDisposedException.ThrowIf((state & DisposedBit) != 0, this);
-            var seen = Interlocked.CompareExchange(ref _state, state + 1, state);
-            if (seen == state)
-            {
-                return;
-            }
-
             state = seen;
+            ObjectDisposedException.ThrowIf((state & DisposedBit) != 0, this);
+            seen = Interlocked.CompareExchange(ref _state, state + 1, state);
         }
     }
 

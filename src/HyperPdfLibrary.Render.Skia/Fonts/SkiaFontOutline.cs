@@ -33,9 +33,10 @@ internal static class SkiaFontOutline
         var builder = new PdfPathBuilder { FillRule = path.FillType == SKPathFillType.EvenOdd ? PdfPathFillRule.EvenOdd : PdfPathFillRule.Winding };
         using var iterator = path.CreateRawIterator();
         Span<SKPoint> points = stackalloc SKPoint[SegmentPoints];
-        while (true)
+        var verb = iterator.Next(points);
+        while (verb != SKPathVerb.Done)
         {
-            switch (iterator.Next(points))
+            switch (verb)
             {
                 case SKPathVerb.Move:
                     {
@@ -75,10 +76,14 @@ internal static class SkiaFontOutline
 
                 case SKPathVerb.Done:
                     {
-                        return builder.Detach();
+                        break;
                     }
             }
+
+            verb = iterator.Next(points);
         }
+
+        return builder.Detach();
     }
 
     /// <summary>Converts a rational quadratic to managed quadratic segments.</summary>

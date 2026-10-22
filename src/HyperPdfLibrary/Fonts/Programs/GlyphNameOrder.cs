@@ -35,14 +35,9 @@ internal static class GlyphNameOrder
     {
         var glyph = heap[root];
         var parent = root;
-        while (true)
+        var child = (parent << 1) + 1;
+        while (child < count)
         {
-            var child = (parent << 1) + 1;
-            if (child >= count)
-            {
-                break;
-            }
-
             if (child + 1 < count && Compare(program, heap[child], heap[child + 1]) < 0)
             {
                 child++;
@@ -55,6 +50,7 @@ internal static class GlyphNameOrder
 
             heap[parent] = heap[child];
             parent = child;
+            child = (parent << 1) + 1;
         }
 
         heap[parent] = glyph;

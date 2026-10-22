@@ -207,7 +207,8 @@ public sealed class NeighbourPagePreparer : IDisposable
     /// <returns>A task that completes when the page is prepared.</returns>
     private async Task PrepareOneAsync(IDocument document, PageRenderInfo info, CancellationToken runToken)
     {
-        while (true)
+        var prepared = false;
+        while (!prepared)
         {
             using var attempt = CancellationTokenSource.CreateLinkedTokenSource(runToken);
             lock (_gate)
@@ -219,7 +220,7 @@ public sealed class NeighbourPagePreparer : IDisposable
             {
                 await document.PreparePageAsync(info.PageIndex, attempt.Token).ConfigureAwait(false);
                 _ = document.PrepareAhead(info, attempt.Token);
-                return;
+                prepared = true;
             }
             catch (OperationCanceledException) when (!runToken.IsCancellationRequested)
             {

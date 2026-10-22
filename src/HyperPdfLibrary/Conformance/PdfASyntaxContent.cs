@@ -69,7 +69,9 @@ internal static class PdfASyntaxContent
     /// <returns><see langword="false"/> when the stream holds syntax veraPDF cannot read.</returns>
     private static bool ReadOperators(ref PdfASyntaxReader reader, PdfASyntaxWalk walk)
     {
-        while (true)
+        var readable = true;
+        var ended = false;
+        while (readable && !ended)
         {
             reader.SkipSpaces(true);
             var start = reader.Position;
@@ -78,30 +80,25 @@ internal static class PdfASyntaxContent
             {
                 case PdfASyntaxToken.End:
                 {
-                    return true;
+                    ended = true;
+                    break;
                 }
 
                 case PdfASyntaxToken.Keyword when !IsValueWord(ref reader):
                 {
-                    if (!RunOperator(ref reader, walk))
-                    {
-                        return false;
-                    }
-
+                    readable = RunOperator(ref reader, walk);
                     break;
                 }
 
                 default:
                 {
-                    if (!AddOperand(ref reader, walk, start))
-                    {
-                        return false;
-                    }
-
+                    readable = AddOperand(ref reader, walk, start);
                     break;
                 }
             }
         }
+
+        return readable;
     }
 
     /// <summary>Determines whether a word is a value rather than an operator.</summary>

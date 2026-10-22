@@ -352,18 +352,20 @@ internal static class FormTextAppearance
     private static float LayOutMultiline(FormFont font, FormCodes codes, in FormFrame frame, float requested, ref TextLines lines, CancellationToken cancellationToken)
     {
         var size = requested > 0 ? requested : MaximumFitSize;
-        while (true)
+        var fitting = true;
+        while (fitting)
         {
             lines.Clear();
             TextLayout.Wrap(codes, size, frame.PaddedWidth, ref lines, cancellationToken);
             var tooTall = lines.Count * font.LineHeight * size / GlyphUnits > frame.PaddedHeight;
-            if (requested > 0 || !tooTall || size <= MinimumFitSize)
+            fitting = requested <= 0 && tooTall && size > MinimumFitSize;
+            if (fitting)
             {
-                return size;
+                size = Math.Max(MinimumFitSize, size - 1);
             }
-
-            size = Math.Max(MinimumFitSize, size - 1);
         }
+
+        return size;
     }
 
     /// <summary>Gets the x position a line starts at for the field's alignment.</summary>

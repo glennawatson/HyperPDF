@@ -120,7 +120,9 @@ internal static class IndicSyllables
     private static int ConsonantCluster(ReadOnlySpan<IndicCategory> categories, int start)
     {
         var i = start + 1;
-        while (true)
+        var end = 0;
+        var open = true;
+        while (open)
         {
             while (i < categories.Length && categories[i] == IndicCategory.Nukta)
             {
@@ -130,11 +132,16 @@ internal static class IndicSyllables
             var afterHalant = SkipHalant(categories, i);
             if (afterHalant == i || afterHalant >= categories.Length || categories[afterHalant] != IndicCategory.Consonant)
             {
-                return afterHalant;
+                end = afterHalant;
+                open = false;
             }
-
-            i = afterHalant + 1;
+            else
+            {
+                i = afterHalant + 1;
+            }
         }
+
+        return end;
     }
 
     /// <summary>Skips a virama and the joiner or non-joiner that may follow it.</summary>

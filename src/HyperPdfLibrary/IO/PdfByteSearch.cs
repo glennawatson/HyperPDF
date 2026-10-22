@@ -84,21 +84,16 @@ internal static class PdfByteSearch
     internal static long SkipAny(PdfByteSource source, long position, SearchValues<byte> skipped)
     {
         Span<byte> probe = stackalloc byte[ProbeLength];
-        while (true)
+        var read = source.Read(position, probe);
+        var other = probe[..read].IndexOfAnyExcept(skipped);
+        while (other < 0 && read == probe.Length)
         {
-            var read = source.Read(position, probe);
-            var other = probe[..read].IndexOfAnyExcept(skipped);
-            if (other >= 0)
-            {
-                return position + other;
-            }
-
             position += read;
-            if (read < probe.Length)
-            {
-                return position;
-            }
+            read = source.Read(position, probe);
+            other = probe[..read].IndexOfAnyExcept(skipped);
         }
+
+        return other >= 0 ? position + other : position + read;
     }
 
     /// <summary>Determines whether bytes appear at an offset.</summary>

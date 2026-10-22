@@ -196,14 +196,9 @@ internal static class PdfSyntax
     /// <returns>The index after the closer.</returns>
     private static int ContainerEnd(ReadOnlySpan<byte> data, int index, bool dictionary)
     {
-        while (true)
+        index = SkipSpace(data, index);
+        while (index < data.Length)
         {
-            index = SkipSpace(data, index);
-            if (index >= data.Length)
-            {
-                return data.Length;
-            }
-
             if (dictionary && data[index] == Greater && index + 1 < data.Length && data[index + 1] == Greater)
             {
                 return index + PairLength;
@@ -215,8 +210,10 @@ internal static class PdfSyntax
             }
 
             var end = ValueEnd(data, index);
-            index = end > index ? end : index + 1;
+            index = SkipSpace(data, end > index ? end : index + 1);
         }
+
+        return data.Length;
     }
 
     /// <summary>Finds the end of a literal string, honouring escapes and nested parentheses.</summary>

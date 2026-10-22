@@ -72,19 +72,18 @@ internal static class SandboxLexer
     /// <returns><see langword="true"/> when there is more script.</returns>
     private static bool SkipSpace(string source, ref int at)
     {
-        while (true)
+        var skipping = true;
+        while (skipping)
         {
             var rest = source.AsSpan(at);
             var spaces = rest.IndexOfAnyExcept(Whitespace);
             at += spaces < 0 ? rest.Length : spaces;
             var after = SkipComment(source, at);
-            if (after == at)
-            {
-                return at < source.Length;
-            }
-
+            skipping = after != at;
             at = after;
         }
+
+        return at < source.Length;
     }
 
     /// <summary>Skips a comment that starts at a position.</summary>

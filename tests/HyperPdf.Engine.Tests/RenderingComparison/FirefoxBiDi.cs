@@ -290,7 +290,8 @@ internal sealed class FirefoxBiDi : IAsyncDisposable
     private async Task<JsonElement> ReceiveAsync(int id, CancellationToken cancellationToken)
     {
         var buffer = new byte[ReceiveBufferLength];
-        while (true)
+        JsonElement? response = null;
+        while (response is null)
         {
             await using var message = new MemoryStream();
             ValueWebSocketReceiveResult received;
@@ -318,7 +319,9 @@ internal sealed class FirefoxBiDi : IAsyncDisposable
                 throw new IOException(root.GetRawText());
             }
 
-            return root.Clone();
+            response = root.Clone();
         }
+
+        return response.Value;
     }
 }

@@ -264,14 +264,9 @@ internal static class PageContentParseText
     internal static void ShowArrayItems(PageContentParseState state, ReadOnlySpan<byte> body)
     {
         var lexer = new PdfLexer(body);
-        while (true)
+        var kind = lexer.Next();
+        while (kind != PdfTokenKind.EndOfData)
         {
-            var kind = lexer.Next();
-            if (kind == PdfTokenKind.EndOfData)
-            {
-                return;
-            }
-
             if (kind is PdfTokenKind.LiteralString or PdfTokenKind.HexString)
             {
                 PageContentParseText.ShowEncoded(state, kind == PdfTokenKind.HexString, lexer.Lexeme);
@@ -280,6 +275,8 @@ internal static class PageContentParseText
             {
                 PageContentParseText.Adjust(state, adjustment);
             }
+
+            kind = lexer.Next();
         }
     }
 

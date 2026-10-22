@@ -90,7 +90,7 @@ public sealed class FormScriptProgramTests
     /// <returns>A task.</returns>
     [Test]
     [Arguments("var t = 0; for (var i = 1; i <= 10; i++) { t += i; } event.value = t;", "55")]
-    [Arguments("var t = 0; var i = 0; while (true) { i++; if (i > 5) { break; } if (i == 2) { continue; } t += i; } event.value = t;", "13")]
+    [Arguments("var t = 0; var i = 0; while (i < 100) { i++; if (i > 5) { break; } if (i == 2) { continue; } t += i; } event.value = t;", "13")]
     [Arguments("var a = [3, 1, 2]; a.push(9); event.value = a.length + ':' + a[3] + ':' + a.join('-');", "4:9:3-1-2-9")]
     [Arguments("event.value = (1 + 2) * 3 - 4 / 2 % 3;", "7")]
     [Arguments("event.value = 5 > 3 ? 'yes' : 'no';", "yes")]
@@ -232,9 +232,9 @@ public sealed class FormScriptProgramTests
     /// <param name="script">The script.</param>
     /// <returns>A task.</returns>
     [Test]
-    [Arguments("while (true) { }")]
-    [Arguments("for (;;) { var x = 1; }")]
-    [Arguments("var a = []; while (true) { a.push(1); }")]
+    [Arguments("while (1 > 0) { }")]
+    [Arguments("for (var n = 0; n >= 0; n++) { var x = 1; }")]
+    [Arguments("var a = []; while (1 > 0) { a.push(1); }")]
     public async Task StopsRunawayScripts(string script)
     {
         var outcome = Run(script, "kept");

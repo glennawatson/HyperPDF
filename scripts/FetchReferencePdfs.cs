@@ -403,12 +403,13 @@ internal static class FetchReferencePdfs
     private static async Task DownloadWithRetryAsync(HttpClient client, ReferencePdfEntry entry, string temporaryPath, CancellationToken cancellationToken)
     {
         var attempt = 1;
-        while (true)
+        var downloaded = false;
+        while (!downloaded)
         {
             try
             {
                 await DownloadAsync(client, entry, entry.Uris[(attempt - 1) % entry.Uris.Length], temporaryPath, cancellationToken);
-                return;
+                downloaded = true;
             }
             catch (HttpRequestException error) when (attempt < MaximumDownloadAttempts && IsTransient(error) && !cancellationToken.IsCancellationRequested)
             {
@@ -417,6 +418,11 @@ internal static class FetchReferencePdfs
             catch (IOException) when (attempt < MaximumDownloadAttempts && !cancellationToken.IsCancellationRequested)
             {
                 DeleteTemporaryFile(temporaryPath);
+            }
+
+            if (downloaded)
+            {
+                continue;
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(RetryDelayMilliseconds * attempt), cancellationToken);
@@ -443,7 +449,8 @@ internal static class FetchReferencePdfs
     {
         var uri = source;
         var redirectCount = 0;
-        while (true)
+        var saved = false;
+        while (!saved)
         {
             EnsureHttps(uri);
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
@@ -452,13 +459,14 @@ internal static class FetchReferencePdfs
             {
                 uri = GetRedirectUri(response, uri, entry.Id, redirectCount);
                 redirectCount++;
-                continue;
             }
-
-            _ = response.EnsureSuccessStatusCode();
-            EnsureContentLength(response, entry);
-            await SaveAndVerifyAsync(response, entry, temporaryPath, cancellationToken);
-            return;
+            else
+            {
+                _ = response.EnsureSuccessStatusCode();
+                EnsureContentLength(response, entry);
+                await SaveAndVerifyAsync(response, entry, temporaryPath, cancellationToken);
+                saved = true;
+            }
         }
     }
 

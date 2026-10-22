@@ -444,7 +444,8 @@ internal sealed class SandboxParser
     private SandboxNode CallOrMember()
     {
         var node = Primary();
-        while (true)
+        var chained = true;
+        while (chained)
         {
             if (IsSymbol("."))
             {
@@ -468,9 +469,11 @@ internal sealed class SandboxParser
             }
             else
             {
-                return node;
+                chained = false;
             }
         }
+
+        return node;
     }
 
     /// <summary>Reads comma separated expressions up to a closing symbol.</summary>

@@ -112,21 +112,28 @@ internal static partial class Jbig2TextRegion
 
             _firstS += firstDelta;
             _currentS = _firstS;
-            while (true)
+            var valid = true;
+            var more = true;
+            while (valid && more)
             {
                 if (!ReadHuffmanInstance(ref reader, out var instance) || !PlaceHuffman(ref reader, instance))
                 {
-                    return false;
+                    valid = false;
+                    continue;
                 }
 
                 var result = _settings.DeltaS.Decode(ref reader, out var sDelta);
                 if (result != Jbig2HuffmanResult.Value)
                 {
-                    return result == Jbig2HuffmanResult.OutOfBand;
+                    valid = result == Jbig2HuffmanResult.OutOfBand;
+                    more = false;
+                    continue;
                 }
 
                 _currentS += (long)sDelta + _settings.SOffset;
             }
+
+            return valid;
         }
 
         /// <summary>Reads an instance's T offset, symbol ID and refinement flag.</summary>

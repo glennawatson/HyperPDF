@@ -157,20 +157,16 @@ internal static class PdfASyntaxValues
     private static PdfASyntaxValue ReadArray(ref PdfASyntaxReader reader, PdfAObjectFindings findings, int depth)
     {
         var count = 0;
-        while (true)
+        var value = Read(ref reader, findings, depth);
+        while (value is not (PdfASyntaxValue.Broken or PdfASyntaxValue.Empty))
         {
-            var value = Read(ref reader, findings, depth);
-            if (value == PdfASyntaxValue.Broken)
-            {
-                return value;
-            }
-
-            if (value == PdfASyntaxValue.Empty)
-            {
-                break;
-            }
-
             count++;
+            value = Read(ref reader, findings, depth);
+        }
+
+        if (value == PdfASyntaxValue.Broken)
+        {
+            return value;
         }
 
         if (reader.Kind != PdfASyntaxToken.ArrayEnd)

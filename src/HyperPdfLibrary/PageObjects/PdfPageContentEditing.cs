@@ -42,16 +42,14 @@ public static class PdfPageContentEditing
         var names = state.Document.Objects.Names;
         var existing = state.Resources?.GetDictionary(category);
         var number = 1;
-        while (true)
+        var candidate = names.Intern(string.Create(CultureInfo.InvariantCulture, $"{prefix}{number}"));
+        while ((existing is not null && existing.ContainsKey(candidate)) || PdfPageContentEditing.IsPending(state, category, candidate))
         {
-            var candidate = names.Intern(string.Create(CultureInfo.InvariantCulture, $"{prefix}{number}"));
-            if ((existing is null || !existing.ContainsKey(candidate)) && !PdfPageContentEditing.IsPending(state, category, candidate))
-            {
-                return candidate;
-            }
-
             number++;
+            candidate = names.Intern(string.Create(CultureInfo.InvariantCulture, $"{prefix}{number}"));
         }
+
+        return candidate;
     }
 
     /// <summary>Adds a resource the appended content names. It is stored in the resources when the content is applied.</summary>

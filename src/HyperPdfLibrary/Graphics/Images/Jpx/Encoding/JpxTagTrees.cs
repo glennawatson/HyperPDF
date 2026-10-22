@@ -70,14 +70,11 @@ internal sealed class JpxTagTrees : IDisposable
         var nodes = 0;
         var w = width;
         var h = height;
-        while (true)
+        var last = false;
+        while (!last)
         {
             nodes += w * h;
-            if (w <= 1 && h <= 1)
-            {
-                break;
-            }
-
+            last = w <= 1 && h <= 1;
             w = (w + 1) / Branching;
             h = (h + 1) / Branching;
         }
@@ -133,14 +130,16 @@ internal sealed class JpxTagTrees : IDisposable
         Span<int> starts = stackalloc int[MaxLevels];
         Span<int> widths = stackalloc int[MaxLevels];
         var levels = 0;
-        while (true)
+        var top = false;
+        while (!top)
         {
             starts[levels] = start;
             widths[levels] = width;
             levels++;
-            if (width <= 1 && height <= 1)
+            top = width <= 1 && height <= 1;
+            if (top)
             {
-                break;
+                continue;
             }
 
             start += width * height;

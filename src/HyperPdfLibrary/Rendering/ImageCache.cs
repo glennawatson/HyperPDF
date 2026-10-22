@@ -145,28 +145,34 @@ internal sealed class ImageCache
     /// <returns>The acquired image, or null when decoding fails.</returns>
     internal ImageEntry? Acquire<TState>(in ImageKey key, TState state, Func<ImageKey, TState, ImageEntry?> decode, CancellationToken cancellationToken)
     {
-        while (true)
+        ImageEntry? result = null;
+        var done = false;
+        while (!done)
         {
             var pending = Begin(key, out var entry, out var leader);
             if (pending is null)
             {
-                return entry;
+                result = entry;
+                done = true;
             }
-
-            if (leader)
+            else if (leader)
             {
-                return Lead(key, state, decode, pending);
+                result = Lead(key, state, decode, pending);
+                done = true;
             }
-
-            // An image whose decode needs itself (a mask that refers back to the image) would wait on its own decode
-            // forever; it cannot be drawn, so it is treated like any image that fails to decode.
-            if (pending.IsOwnedByCurrentThread)
+            else if (pending.IsOwnedByCurrentThread)
             {
-                return null;
+                // An image whose decode needs itself (a mask that refers back to the image) would wait on its own decode
+                // forever; it cannot be drawn, so it is treated like any image that fails to decode.
+                done = true;
             }
-
-            pending.Wait(cancellationToken);
+            else
+            {
+                pending.Wait(cancellationToken);
+            }
         }
+
+        return result;
     }
 
     /// <summary>Gets an image like Acquire, but waits for another thread's decode without holding a thread.</summary>
@@ -190,27 +196,33 @@ internal sealed class ImageCache
     /// <returns>The acquired image, or null when decoding fails.</returns>
     internal async ValueTask<ImageEntry?> AcquireAsync<TState>(ImageKey key, TState state, Func<ImageKey, TState, ImageEntry?> decode, CancellationToken cancellationToken)
     {
-        while (true)
+        ImageEntry? result = null;
+        var done = false;
+        while (!done)
         {
             var pending = Begin(key, out var entry, out var leader);
             if (pending is null)
             {
-                return entry;
+                result = entry;
+                done = true;
             }
-
-            if (leader)
+            else if (leader)
             {
-                return Lead(key, state, decode, pending);
+                result = Lead(key, state, decode, pending);
+                done = true;
             }
-
-            // The decode runs synchronously on its leader's thread, so a request from that thread is the decode needing itself.
-            if (pending.IsOwnedByCurrentThread)
+            else if (pending.IsOwnedByCurrentThread)
             {
-                return null;
+                // The decode runs synchronously on its leader's thread, so a request from that thread is the decode needing itself.
+                done = true;
             }
-
-            await pending.WaitAsync(cancellationToken).ConfigureAwait(false);
+            else
+            {
+                await pending.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
         }
+
+        return result;
     }
 
     /// <summary>Evicts every image.</summary>

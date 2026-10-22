@@ -480,7 +480,8 @@ internal static class PdfTreeEditing
         var id = leafId;
         var level = path.Count;
         var isLeaf = true;
-        while (true)
+        var splitting = true;
+        while (splitting)
         {
             var node = edits.Edit(id)!;
             var key = isLeaf ? leafKey : KnownName.Kids;
@@ -488,7 +489,8 @@ internal static class PdfTreeEditing
             var capacity = isLeaf ? MaxNodeEntries * PairLength : MaxNodeEntries;
             if (items.Count <= capacity)
             {
-                return;
+                splitting = false;
+                continue;
             }
 
             var right = SplitOff(edits, node, key, isLeaf);
@@ -496,7 +498,8 @@ internal static class PdfTreeEditing
             if (level == 0)
             {
                 PushDownRoot(edits, node, rightId, key);
-                return;
+                splitting = false;
+                continue;
             }
 
             level--;

@@ -256,7 +256,8 @@ internal static class RichTextReader
         }
 
         var length = 0;
-        while (true)
+        var reading = true;
+        while (reading)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (length == buffer.Length)
@@ -265,13 +266,11 @@ internal static class RichTextReader
             }
 
             var read = reader.ReadValueChunk(buffer, length, buffer.Length - length);
-            if (read == 0)
-            {
-                return length;
-            }
-
             length += read;
+            reading = read != 0;
         }
+
+        return length;
     }
 
     /// <summary>Replaces a pooled buffer with a larger one, keeping what it holds.</summary>

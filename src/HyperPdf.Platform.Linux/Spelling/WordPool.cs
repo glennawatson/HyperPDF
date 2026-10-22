@@ -242,21 +242,19 @@ internal sealed class WordPool : IDisposable
     {
         var mask = slots - 1;
         var slot = string.GetHashCode(word, StringComparison.OrdinalIgnoreCase) & mask;
-        while (true)
+        var entry = table[slot];
+        while (entry != 0)
         {
-            var entry = table[slot];
-            if (entry == 0)
-            {
-                return ~slot;
-            }
-
             if (Word(entry - 1).Equals(word, StringComparison.OrdinalIgnoreCase))
             {
                 return slot;
             }
 
             slot = (slot + 1) & mask;
+            entry = table[slot];
         }
+
+        return ~slot;
     }
 
     /// <summary>Moves each distinct word of the text to the front of the same array and records it.</summary>

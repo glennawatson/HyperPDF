@@ -84,22 +84,15 @@ internal static class ToUnicodeWriter
         var pending = new List<byte[]>();
         var inArray = false;
         var arrayItems = new List<byte[]>();
-        while (true)
+        var kind = lexer.Next();
+        while (kind != PdfTokenKind.EndOfData)
         {
-            var kind = lexer.Next();
-            if (kind == PdfTokenKind.EndOfData)
-            {
-                break;
-            }
-
             if (kind == PdfTokenKind.Keyword)
             {
                 mode = ChangeSection(lexer.Lexeme, mode);
                 pending.Clear();
-                continue;
             }
-
-            if (kind == PdfTokenKind.ArrayStart)
+            else if (kind == PdfTokenKind.ArrayStart)
             {
                 inArray = true;
                 arrayItems = [];
@@ -123,6 +116,8 @@ internal static class ToUnicodeWriter
                     Complete(mode, pending, chars, ranges, space, null);
                 }
             }
+
+            kind = lexer.Next();
         }
 
         return new(space, chars, ranges);
