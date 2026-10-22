@@ -60,13 +60,10 @@ public class HyperPdfExtGStateBenchmarks
 
         /// <summary>The <c>d</c> operator setting the same dash before every stroke, as map and drawing exports do.</summary>
         RepeatedDash = 5,
-
-        /// <summary>Small inline images drawn one after another.</summary>
-        InlineImages = 6,
     }
 
     /// <summary>Gets or sets the scenario.</summary>
-    [Params(Scenario.EveryKey, Scenario.TransferPaint, Scenario.OverprintPaint, Scenario.DefaultSpaces, Scenario.PlainPaint, Scenario.RepeatedDash, Scenario.InlineImages)]
+    [Params(Scenario.EveryKey, Scenario.TransferPaint, Scenario.OverprintPaint, Scenario.DefaultSpaces, Scenario.PlainPaint, Scenario.RepeatedDash)]
     public Scenario Case { get; set; }
 
     /// <summary>Gets the page resources: the graphics states, the colour spaces and the default spaces.</summary>
@@ -91,7 +88,6 @@ public class HyperPdfExtGStateBenchmarks
             Scenario.OverprintPaint => "/Mode1 gs 0 1 0 0 k 0 0 10 10 re f /Spot cs 1 sc 0 0 10 10 re f\n",
             Scenario.DefaultSpaces => "0.5 g 1 0 0 rg 0 0 0 1 k\n",
             Scenario.RepeatedDash => "[3 2] 0 d 0 0 m 10 10 l S\n",
-            Scenario.InlineImages => "q 10 0 0 10 0 0 cm BI /W 2 /H 2 /CS /G /BPC 8 ID abcd EI Q\n",
             _ =>"0.25 g 0 0 10 10 re f 1 0.5 0 RG 0 0 m 10 10 l S\n",
         };
         var content = new StringBuilder();

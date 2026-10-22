@@ -4263,5 +4263,10 @@
     "type": "System.Byte[]",
     "frame": "HyperPdfLibrary.Security.PdfSecurityHandler.DecryptAes",
     "reason": "The plain bytes are the returned data of the decrypt, which the caller keeps, so they cannot live in pooled storage."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Forms.Scripting.FormNumbers.Format",
+    "reason": "The formatted number is the returned text, which the caller keeps in the field."
   }
 ]
