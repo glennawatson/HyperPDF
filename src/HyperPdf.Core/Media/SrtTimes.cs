@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
-
 namespace HyperPdf.Core.Media;
 
 /// <summary>Reads the times of SubRip captions.</summary>
@@ -12,8 +10,11 @@ internal static class SrtTimes
     /// <summary>The marker between a caption's start and end times.</summary>
     private const string Arrow = "-->";
 
-    /// <summary>The number of parts in a time: hours, minutes and seconds.</summary>
-    private const int TimeParts = 3;
+    /// <summary>The largest value of a decimal digit.</summary>
+    private const int DigitMax = 9;
+
+    /// <summary>The base of a whole number's decimal digits.</summary>
+    private const int DigitBase = 10;
 
     /// <summary>The most hours a caption time may have, so a damaged value cannot overflow a time span.</summary>
     private const int MaxHours = 9_999;
@@ -45,7 +46,7 @@ internal static class SrtTimes
     {
         start = default;
         end = default;
-        var arrow = line.IndexOf(Arrow, StringComparison.Ordinal);
+        var arrow = line.IndexOf(Arrow);
         return arrow > 0 && TryReadTime(line[..arrow].Trim(), out start) && TryReadTime(FirstWord(line[(arrow + Arrow.Length)..].Trim()), out end);
     }
 
@@ -65,21 +66,65 @@ internal static class SrtTimes
     private static bool TryReadTime(ReadOnlySpan<char> text, out TimeSpan time)
     {
         time = default;
-        Span<Range> parts = stackalloc Range[TimeParts + 1];
-        if (text.Split(parts, ':') != TimeParts || !TryReadSeconds(text[parts[2]], out var seconds))
+
+        // Exactly two colons split the text into hours, minutes and seconds.
+        var first = text.IndexOf(':');
+        if (first < 0)
         {
             return false;
         }
 
-        if (!int.TryParse(text[parts[0]], NumberStyles.None, CultureInfo.InvariantCulture, out var hours)
-            || !int.TryParse(text[parts[1]], NumberStyles.None, CultureInfo.InvariantCulture, out var minutes)
-            || hours > MaxHours
-            || minutes > MaxClockPart)
+        var afterHours = text[(first + 1)..];
+        var second = afterHours.IndexOf(':');
+        if (second < 0)
+        {
+            return false;
+        }
+
+        var secondsText = afterHours[(second + 1)..];
+        if (secondsText.Contains(':') || !TryReadSeconds(secondsText, out var seconds))
+        {
+            return false;
+        }
+
+        if (!TryReadDigits(text[..first], out var hours) || !TryReadDigits(afterHours[..second], out var minutes) || hours > MaxHours || minutes > MaxClockPart)
         {
             return false;
         }
 
         time = TimeSpan.FromSeconds((hours * (double)SecondsPerHour) + (minutes * SecondsPerMinute) + seconds);
+        return true;
+    }
+
+    /// <summary>Reads a whole number written with the digits 0 to 9 and nothing else.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="value">Receives the number.</param>
+    /// <returns><see langword="true"/> when the text is one or more digits that fit an <see cref="int"/>.</returns>
+    private static bool TryReadDigits(ReadOnlySpan<char> text, out int value)
+    {
+        value = 0;
+        if (text.IsEmpty)
+        {
+            return false;
+        }
+
+        long total = 0;
+        foreach (var letter in text)
+        {
+            var digit = letter - '0';
+            if ((uint)digit > DigitMax)
+            {
+                return false;
+            }
+
+            total = (total * DigitBase) + digit;
+            if (total > int.MaxValue)
+            {
+                return false;
+            }
+        }
+
+        value = (int)total;
         return true;
     }
 
@@ -94,9 +139,9 @@ internal static class SrtTimes
         var whole = comma < 0 ? text : text[..comma];
         var fraction = comma < 0 ? default : text[(comma + 1)..];
         var millis = 0;
-        if (!int.TryParse(whole, NumberStyles.None, CultureInfo.InvariantCulture, out var wholeSeconds)
+        if (!TryReadDigits(whole, out var wholeSeconds)
             || wholeSeconds > MaxClockPart
-            || (!fraction.IsEmpty && !int.TryParse(fraction, NumberStyles.None, CultureInfo.InvariantCulture, out millis)))
+            || (!fraction.IsEmpty && !TryReadDigits(fraction, out millis)))
         {
             return false;
         }

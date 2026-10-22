@@ -11,4 +11,4 @@ namespace HyperPdf.Core.Media;
 /// <param name="End">When the caption goes away.</param>
 /// <param name="Text">The words, on one or more lines.</param>
 [DebuggerDisplay("CaptionCue: {Start} {Text}")]
-public sealed record CaptionCue(TimeSpan Start, TimeSpan End, string Text);
+public readonly record struct CaptionCue(TimeSpan Start, TimeSpan End, string Text);
