@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
@@ -56,16 +57,23 @@ internal static class PdfAClaimGuard
     /// <returns>What to do, or <see langword="null"/> when the file claims no level the standards define.</returns>
     /// <exception cref="PdfException">The claim must be removed, but the document's XMP packet cannot be edited.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    internal static PdfAClaimOutcome? CheckOutput(PdfObjectStore store, byte[] output, CancellationToken cancellationToken)
-    {
-        var report = ValidateOutput(store, output, cancellationToken);
-        if (report is null || report.Passed)
-        {
-            return report is null ? null : new PdfAClaimOutcome(new(report.Level, false, []), null);
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfAClaimOutcome? CheckOutput(PdfObjectStore store, byte[] output, CancellationToken cancellationToken) =>
+        Conclude(store, output, ValidateOutput(store, output, cancellationToken), cancellationToken);
 
-        return Finish(store, report, PdfAClaimRepairs.Repair(output, report.Level, cancellationToken));
-    }
+    /// <summary>
+    /// Checks a file against the PDF/A level it claims, using a document the caller has already opened from the same bytes, so
+    /// the file is not parsed again. The document also stands for the objects being written when the claim has to be removed.
+    /// </summary>
+    /// <param name="written">The output, opened.</param>
+    /// <param name="output">The bytes <paramref name="written"/> was opened from.</param>
+    /// <param name="cancellationToken">Stops the check.</param>
+    /// <returns>What to do, or <see langword="null"/> when the file claims no level the standards define.</returns>
+    /// <exception cref="PdfException">The claim must be removed, but the document's XMP packet cannot be edited.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfAClaimOutcome? CheckOutput(PdfDocument written, byte[] output, CancellationToken cancellationToken) =>
+        Conclude(written.Objects, output, ValidateOpened(written, cancellationToken), cancellationToken);
 
     /// <summary>
     /// Checks a file a writer is about to write against the PDF/A level it claims. A file that breaks a rule is repaired,
@@ -78,9 +86,48 @@ internal static class PdfAClaimGuard
     /// <returns>What to do, or <see langword="null"/> when the file claims no level the standards define.</returns>
     /// <exception cref="PdfException">The claim must be removed, but the document's XMP packet cannot be edited.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    internal static async ValueTask<PdfAClaimOutcome?> CheckOutputAsync(PdfObjectStore store, byte[] output, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ValueTask<PdfAClaimOutcome?> CheckOutputAsync(PdfObjectStore store, byte[] output, CancellationToken cancellationToken) =>
+        ConcludeAsync(store, output, ValidateOutput(store, output, cancellationToken), cancellationToken);
+
+    /// <summary>
+    /// Checks a file against the PDF/A level it claims, using a document the caller has already opened from the same bytes, and
+    /// repairing with the fonts embedded in the library.
+    /// </summary>
+    /// <param name="written">The output, opened.</param>
+    /// <param name="output">The bytes <paramref name="written"/> was opened from.</param>
+    /// <param name="cancellationToken">Stops the check.</param>
+    /// <returns>What to do, or <see langword="null"/> when the file claims no level the standards define.</returns>
+    /// <exception cref="PdfException">The claim must be removed, but the document's XMP packet cannot be edited.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ValueTask<PdfAClaimOutcome?> CheckOutputAsync(PdfDocument written, byte[] output, CancellationToken cancellationToken) =>
+        ConcludeAsync(written.Objects, output, ValidateOpened(written, cancellationToken), cancellationToken);
+
+    /// <summary>Settles a report: passed, repaired, or the claim removed.</summary>
+    /// <param name="store">The objects being written.</param>
+    /// <param name="output">The file the writer produced.</param>
+    /// <param name="report">The written file's report, or <see langword="null"/> when it claims nothing.</param>
+    /// <param name="cancellationToken">Stops the repair.</param>
+    /// <returns>What to do.</returns>
+    private static PdfAClaimOutcome? Conclude(PdfObjectStore store, byte[] output, PdfAValidationReport? report, CancellationToken cancellationToken)
     {
-        var report = ValidateOutput(store, output, cancellationToken);
+        if (report is null || report.Passed)
+        {
+            return report is null ? null : new PdfAClaimOutcome(new(report.Level, false, []), null);
+        }
+
+        return Finish(store, report, PdfAClaimRepairs.Repair(output, report.Level, cancellationToken));
+    }
+
+    /// <summary>Settles a report, repairing with the fonts embedded in the library.</summary>
+    /// <param name="store">The objects being written.</param>
+    /// <param name="output">The file the writer produced.</param>
+    /// <param name="report">The written file's report, or <see langword="null"/> when it claims nothing.</param>
+    /// <param name="cancellationToken">Stops the repair.</param>
+    /// <returns>What to do.</returns>
+    private static async ValueTask<PdfAClaimOutcome?> ConcludeAsync(PdfObjectStore store, byte[] output, PdfAValidationReport? report, CancellationToken cancellationToken)
+    {
         if (report is null || report.Passed)
         {
             return report is null ? null : new PdfAClaimOutcome(new(report.Level, false, []), null);
@@ -118,7 +165,7 @@ internal static class PdfAClaimGuard
         try
         {
             using var written = PdfDocumentReader.Open(output, null);
-            return PdfAValidator.ClaimedLevel(written) is { } claimed ? PdfAValidator.Validate(written, claimed, cancellationToken) : null;
+            return ValidateOpened(written, cancellationToken);
         }
         catch (PdfException exception) when (exception.Error == PdfError.Password)
         {
@@ -127,6 +174,13 @@ internal static class PdfAClaimGuard
             return PdfALevels.FromClaim(PdfAClaimReading.ReadClaim(store)) is { } level ? EncryptedReport(level) : null;
         }
     }
+
+    /// <summary>Validates an opened file against the level it claims.</summary>
+    /// <param name="written">The written file, opened.</param>
+    /// <param name="cancellationToken">Stops the check.</param>
+    /// <returns>The report, or <see langword="null"/> when the file claims no level the standards define.</returns>
+    private static PdfAValidationReport? ValidateOpened(PdfDocument written, CancellationToken cancellationToken) =>
+        PdfAValidator.ClaimedLevel(written) is { } claimed ? PdfAValidator.Validate(written, claimed, cancellationToken) : null;
 
     /// <summary>Builds the report of an encrypted file: it breaks the rule against encryption.</summary>
     /// <param name="level">The level the file claims.</param>
