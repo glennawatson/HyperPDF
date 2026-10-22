@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Globalization;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images;
@@ -135,7 +134,7 @@ public sealed class JpxConformanceTests
     private const int HighSample = 0xFE;
 
     /// <summary>The conformance files that need a feature outside what PDF uses, with the reason.</summary>
-    private static readonly FrozenDictionary<string, string> UnsupportedFiles = new Dictionary<string, string>(StringComparer.Ordinal)
+    private static readonly Dictionary<string, string> UnsupportedFiles = new(StringComparer.Ordinal)
     {
         ["mct1.j2k"] = "Part 2 multiple component transformation (MCT, MCC and MCO markers), which JPXDecode in PDF does not use",
         ["mct2.j2k"] = "Part 2 multiple component transformation (MCT, MCC and MCO markers), which JPXDecode in PDF does not use",
@@ -143,7 +142,7 @@ public sealed class JpxConformanceTests
         ["nlt1.j2k"] = "Part 2 non-linearity transformation (NLT marker), which JPXDecode in PDF does not use",
         ["float.jpx"] = "a pixel format box that reads the samples as half-float, which PDF does not use",
         ["reboxing.jpx"] = "two codestreams in fragment tables with cross-reference boxes, outside the JPX baseline PDF allows",
-    }.ToFrozenDictionary(StringComparer.Ordinal);
+    };
 
     /// <summary>The samples of the signed test image: -1, then 7.</summary>
     private static readonly int[] SignedSamples = [-1, 7];

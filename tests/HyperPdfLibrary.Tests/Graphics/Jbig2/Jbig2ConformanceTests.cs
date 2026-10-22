@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Globalization;
 using HyperPdfLibrary.Graphics.Images.Jbig2;
 using HyperPdfLibrary.Graphics.Images.Jbig2.Encoding;
@@ -25,7 +24,7 @@ public sealed class Jbig2ConformanceTests
     /// The pages whose coded data departs from the text of T.88, so a decoder that follows the text cannot reproduce the bitmap the
     /// data gives. Each is decoded without a comparison. The keys are the stream's file name and the page number.
     /// </summary>
-    private static readonly FrozenDictionary<string, string> DepartsFromText = new Dictionary<string, string>
+    private static readonly Dictionary<string, string> DepartsFromText = new()
     {
         ["codeStreamTest1_TT1.jb2 page 1"] =
             "Huffman symbol ID table (7.4.3.1.7): run code N means a code length of N in the text, but the stream decodes only when a run code's own prefix and N further bits form the code.",
@@ -38,7 +37,7 @@ public sealed class Jbig2ConformanceTests
             "Text region with SBREFINE = 1: the stream leaves out the instance T offset (IAIT, 6.4.9) and ignores STRIPT; it decodes exactly only with both changes.",
         ["codeStreamTest3_TT8.jb2 page 1"] =
             "Colour extension (COLEXTFLAG, region flags 0x08 and page flags 0x81) on top of the TT6 text region coding; ISO 32000-2 section 7.4.7 forbids colour extension in PDF.",
-    }.ToFrozenDictionary();
+    };
 
     /// <summary>Every page of every conformance stream decodes to the bitmap the conformance data gives for it, except those that depart from the text of T.88.</summary>
     /// <returns>A task.</returns>

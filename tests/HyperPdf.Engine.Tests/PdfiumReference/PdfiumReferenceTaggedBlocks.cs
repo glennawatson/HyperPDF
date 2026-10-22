@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Runtime.InteropServices;
 using HyperPdf.Core.Reading;
 
@@ -31,13 +30,14 @@ internal static unsafe partial class PdfiumReferenceTaggedBlocks
     private const int NumberedHeadingLength = 2;
 
     /// <summary>Types that only group other elements.</summary>
-    private static readonly FrozenSet<string> Groupings = new[]
-    {
+    private static readonly HashSet<string> Groupings =
+    [
+        with(StringComparer.Ordinal),
         "Document", "DocumentFragment", "Part", "Art", "Sect", "Div", "Aside", "L", "Table", "TR", "THead", "TBody", "TFoot", "TOC", "Index", "NonStruct", "Private", "Form",
-    }.ToFrozenSet(StringComparer.Ordinal);
+    ];
 
     /// <summary>Block types and what they read as.</summary>
-    private static readonly FrozenDictionary<string, ReadingBlockKind> BlockKinds = new Dictionary<string, ReadingBlockKind>(StringComparer.Ordinal)
+    private static readonly Dictionary<string, ReadingBlockKind> BlockKinds = new(StringComparer.Ordinal)
     {
         ["P"] = ReadingBlockKind.Paragraph,
         ["BlockQuote"] = ReadingBlockKind.Paragraph,
@@ -61,7 +61,7 @@ internal static unsafe partial class PdfiumReferenceTaggedBlocks
         ["FENote"] = ReadingBlockKind.Footnote,
         ["Figure"] = ReadingBlockKind.Figure,
         ["Formula"] = ReadingBlockKind.Figure,
-    }.ToFrozenDictionary(StringComparer.Ordinal);
+    };
 
     /// <summary>Reads a page's tagged blocks.</summary>
     /// <param name="document">The document.</param>

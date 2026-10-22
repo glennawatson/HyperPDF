@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Runtime.CompilerServices;
 
 namespace HyperPdf.Speech.English;
@@ -26,7 +25,7 @@ internal static class TitleWords
     private const int SaintLength = 3;
 
     /// <summary>Abbreviations said as words, matched with their full stop.</summary>
-    private static readonly FrozenDictionary<string, string> Abbreviations = new Dictionary<string, string>(StringComparer.Ordinal)
+    private static readonly Dictionary<string, string> Abbreviations = new(StringComparer.Ordinal)
     {
         ["Dr."] = "Doctor",
         ["Mr."] = "Mister",
@@ -74,10 +73,10 @@ internal static class TitleWords
         ["Oct."] = "October",
         ["Nov."] = "November",
         ["Dec."] = "December",
-    }.ToFrozenDictionary(StringComparer.Ordinal);
+    };
 
     /// <summary>Symbols said as words.</summary>
-    private static readonly FrozenDictionary<string, string> Symbols = new Dictionary<string, string>(StringComparer.Ordinal)
+    private static readonly Dictionary<string, string> Symbols = new(StringComparer.Ordinal)
     {
         ["±"] = " plus or minus ",
         ["×"] = " times ",
@@ -98,7 +97,7 @@ internal static class TitleWords
         ["w/o"] = " without ",
         ["w/"] = " with ",
         ["24/7"] = " twenty four seven ",
-    }.ToFrozenDictionary(StringComparer.Ordinal);
+    };
 
     /// <summary>Writes a comma and a space, for a table of contents leader.</summary>
     /// <param name="context">The leader and the spoken text it is replaced in.</param>

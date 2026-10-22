@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
-
 namespace HyperPdf.Speech.Kokoro;
 
 /// <summary>
@@ -16,7 +14,7 @@ internal static class KokoroVocabulary
     internal const long Pad = 0;
 
     /// <summary>The token ids by phoneme character.</summary>
-    private static readonly FrozenDictionary<char, long> Ids = new Dictionary<char, long>
+    private static readonly Dictionary<char, long> Ids = new()
     {
         [';'] = 1, [':'] = 2, [','] = 3, ['.'] = 4, ['!'] = 5, ['?'] = 6, ['\u2014'] = 9, ['\u2026'] = 10,
         ['"'] = 11, ['('] = 12, [')'] = 13, ['\u201C'] = 14, ['\u201D'] = 15, [' '] = 16, ['\u0303'] = 17, ['\u02A3'] = 18,
@@ -33,7 +31,7 @@ internal static class KokoroVocabulary
         ['\u028B'] = 136, ['\u028C'] = 138, ['\u0263'] = 139, ['\u0264'] = 140, ['\u03C7'] = 142, ['\u028E'] = 143, ['\u0292'] = 147, ['\u0294'] = 148,
         ['\u02C8'] = 156, ['\u02CC'] = 157, ['\u02D0'] = 158, ['\u02B0'] = 162, ['\u02B2'] = 164, ['\u2193'] = 169, ['\u2192'] = 171, ['\u2197'] = 172,
         ['\u2198'] = 173, ['\u1D7B'] = 177,
-    }.ToFrozenDictionary();
+    };
 
     /// <summary>Turns phonemes into token ids, dropping characters the model does not know.</summary>
     /// <param name="phonemes">The phonemes.</param>

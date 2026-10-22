@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -32,14 +31,14 @@ internal sealed class MeloSymbols
     private const string UnknownSymbol = "UNK";
 
     /// <summary>The ARPAbet phones MeloTTS reads stress from, as its English front end lists them.</summary>
-    private static readonly FrozenSet<string> Arpabet =
+    private static readonly HashSet<string> Arpabet = new(
         ("AA0 AA1 AA2 AE0 AE1 AE2 AH0 AH1 AH2 AO0 AO1 AO2 AW0 AW1 AW2 AY0 AY1 AY2 B CH D DH EH0 EH1 EH2 ER ER0 ER1 ER2 EY0 EY1 EY2 F G HH "
         + "IH IH0 IH1 IH2 IY0 IY1 IY2 JH K L M N NG OW0 OW1 OW2 OY0 OY1 OY2 P R S SH T TH UH0 UH1 UH2 UW0 UW1 UW2 V W Y Z ZH")
-        .Split(' ')
-        .ToFrozenSet(StringComparer.Ordinal);
+        .Split(' '),
+        StringComparer.Ordinal);
 
     /// <summary>The ids by symbol.</summary>
-    private readonly FrozenDictionary<string, int> _ids;
+    private readonly Dictionary<string, int> _ids;
 
     /// <summary>The symbols by id.</summary>
     private readonly string[] _names;
@@ -56,9 +55,9 @@ internal sealed class MeloSymbols
             _ = ids.TryAdd(symbols[i], i);
         }
 
-        _ids = ids.ToFrozenDictionary(StringComparer.Ordinal);
+        _ids = ids;
         _names = [.. symbols];
-        Speakers = speakers.ToFrozenDictionary(StringComparer.Ordinal);
+        Speakers = speakers;
         SampleRate = sampleRate;
         Unknown = _ids[UnknownSymbol];
     }
@@ -67,7 +66,7 @@ internal sealed class MeloSymbols
     internal int Count => _ids.Count;
 
     /// <summary>Gets the speaker ids by name, such as <c>EN-AU</c>.</summary>
-    internal FrozenDictionary<string, int> Speakers { get; }
+    internal Dictionary<string, int> Speakers { get; }
 
     /// <summary>Gets the sample rate in hertz.</summary>
     internal int SampleRate { get; }
