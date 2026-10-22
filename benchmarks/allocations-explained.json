@@ -4188,5 +4188,10 @@
     "type": "HyperPdf.Rendering.Skia.SkiaTileBatch",
     "frame": "HyperPdf.Benchmarks.TileBatchOperationBenchmarks.CompareUnchangedPageOperation",
     "reason": "The comparison builds the current frame's batch the same way a frame does; the compositor retains it, so it cannot be reused. The comparison itself allocates nothing."
+  },
+  {
+    "type": "HyperPdf.Rendering.Skia.SkiaTileBatch",
+    "frame": "HyperPdf.Benchmarks.SkiaTileBatchRenderBenchmarks.RenderBatch",
+    "reason": "A frame builds one batch object for the page and hands it to the compositor, which keeps it until the scene is gone, so it cannot be reused. Drawing the tiles allocates nothing."
   }
 ]
