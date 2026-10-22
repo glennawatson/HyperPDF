@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers.Binary;
+
 namespace HyperPdfLibrary.Graphics.Shadings;
 
 /// <summary>Reads big-endian bit fields of up to 32 bits from mesh shading data.</summary>
@@ -36,18 +38,32 @@ internal ref struct MeshBitReader
             return 0;
         }
 
-        ulong value = 0;
-        for (var i = 0; i < bits; i++)
-        {
-            var index = (int)(_position >> 3);
-            var bit = index < _data.Length ? (_data[index] >> (ByteBits - 1 - (int)(_position & (ByteBits - 1)))) & 1 : 0;
-            value = (value << 1) | (uint)bit;
-            _position++;
-        }
-
-        return (uint)value;
+        // The field lies within the eight bytes that start at its first byte, because it begins at most seven bits in and is at most 32 bits long.
+        var index = (int)(_position >> 3);
+        var window = index + sizeof(ulong) <= _data.Length ? BinaryPrimitives.ReadUInt64BigEndian(_data[index..]) : Window(index);
+        var shift = (sizeof(ulong) * ByteBits) - (int)(_position & (ByteBits - 1)) - bits;
+        _position += bits;
+        return (uint)((window >> shift) & ((1UL << bits) - 1));
     }
+
+    /// <summary>Skips bits.</summary>
+    /// <param name="bits">The bits to skip.</param>
+    internal void Skip(long bits) => _position += bits;
 
     /// <summary>Skips to the next byte boundary.</summary>
     internal void Align() => _position = (_position + ByteBits - 1) / ByteBits * ByteBits;
+
+    /// <summary>Gets eight bytes starting at an index near the end of the data, reading zeros past it.</summary>
+    /// <param name="index">The index of the first byte.</param>
+    /// <returns>The bytes, first byte most significant.</returns>
+    private readonly ulong Window(int index)
+    {
+        ulong window = 0;
+        for (var i = 0; i < sizeof(ulong); i++)
+        {
+            window = (window << ByteBits) | (index + i < _data.Length ? _data[index + i] : 0UL);
+        }
+
+        return window;
+    }
 }
