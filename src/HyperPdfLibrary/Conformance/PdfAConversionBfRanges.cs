@@ -2,8 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
-
 namespace HyperPdfLibrary.Conformance;
 
 /// <summary>
@@ -14,6 +12,15 @@ internal static class PdfAConversionBfRanges
 {
     /// <summary>The number of bits in a hex digit.</summary>
     private const int NibbleBits = 4;
+
+    /// <summary>The mask for the low four bits of a hex digit character, which hold the value of a digit or of a letter's offset.</summary>
+    private const int LowNibble = 0xF;
+
+    /// <summary>The shift that is one for a letter and zero for a digit.</summary>
+    private const int LetterBit = 6;
+
+    /// <summary>The amount a letter's low nibble is short of its value: A is 1 in its low nibble but 10 as a digit.</summary>
+    private const int LetterOffset = 9;
 
     /// <summary>The number of bits in a byte, which the last byte of a range may vary.</summary>
     private const int ByteBits = NibbleBits + NibbleBits;
@@ -123,6 +130,6 @@ internal static class PdfAConversionBfRanges
     private static int HexValue(byte value)
     {
         var digit = (char)value;
-        return char.IsAsciiHexDigit(digit) ? int.Parse(new ReadOnlySpan<char>(in digit), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture) : -1;
+        return char.IsAsciiHexDigit(digit) ? (digit & LowNibble) + ((digit >> LetterBit) * LetterOffset) : -1;
     }
 }

@@ -1,0 +1,85 @@
+<Project>
+  <PropertyGroup>
+    <!-- Libraries and tests build for .NET 10 (LTS) and .NET 11; the AOT app ships on .NET 11. -->
+    <LibraryTargetFrameworks>net10.0;net11.0</LibraryTargetFrameworks>
+    <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
+    <MinVerTagPrefix></MinVerTagPrefix>
+    <MinVerMinimumMajorMinor>0.1</MinVerMinimumMajorMinor>
+    <MinVerAutoIncrement>patch</MinVerAutoIncrement>
+    <MinVerDefaultPreReleaseIdentifiers>alpha.0</MinVerDefaultPreReleaseIdentifiers>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DebugType>embedded</DebugType>
+    <Authors>Glenn Watson</Authors>
+    <Company>Glenn Watson</Company>
+    <Product>HyperPDF</Product>
+    <Copyright>Copyright (c) 2026 Glenn Watson</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/glennawatson/HyperPDF</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Lets every OS build the Windows platform project and publish for Windows runtime identifiers. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors>nullable;CS4014</WarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <!-- Only HyperPdfLibrary ships as a NuGet package; it opts back in. -->
+    <IsPackable>false</IsPackable>
+
+    <IsTestProject Condition="'$(IsTestProject)' == ''">$([System.Text.RegularExpressions.Regex]::IsMatch('$(MSBuildProjectName)', '(^|\.)Tests$'))</IsTestProject>
+    <IsBenchmarkProject Condition="'$(IsBenchmarkProject)' == ''">$(MSBuildProjectName.EndsWith('Benchmarks'))</IsBenchmarkProject>
+  </PropertyGroup>
+
+  <!-- .NET 11 compiles async methods to runtime async state machines. -->
+  <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net11.0')) and '$(DisableRuntimeAsync)' != 'true'">
+    <Features>$(Features);runtime-async=on</Features>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <!-- Every shipped assembly must be trim and Native AOT safe. The Roslyn generator loads into the compiler as netstandard2.0. -->
+  <PropertyGroup Condition="'$(IsTestProject)' != 'true' and '$(IsBenchmarkProject)' != 'true' and '$(MSBuildProjectName)' != 'HyperPdf.Benchmarks.Generator'">
+    <IsAotCompatible>true</IsAotCompatible>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <ILLinkTreatWarningsAsErrors>true</ILLinkTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <TUnitImplicitUsings>true</TUnitImplicitUsings>
+    <TUnitAssertionsImplicitUsings>true</TUnitAssertionsImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsTestProject)' == 'true'">
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+    <None Include="$(MSBuildThisFileDirectory)testconfig.json">
+      <Link>$(AssemblyName).testconfig.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- System.Threading.Lock on .NET 9+. -->
+  <ItemGroup>
+    <Using Include="System.Threading.Lock" Alias="Lock" />
+  </ItemGroup>
+
+  <!-- Analyzer set shared with ReactiveUI. -->
+  <ItemGroup>
+    <PackageReference Include="MinVer" PrivateAssets="all" />
+    <PackageReference Include="StyleSharp.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="PerformanceSharp.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="SecuritySharp.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

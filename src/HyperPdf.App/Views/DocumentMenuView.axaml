@@ -21,6 +21,11 @@
             <Path Classes="icon add" Data="{StaticResource IconDocument}" />
           </MenuItem.Icon>
         </MenuItem>
+        <MenuItem x:Name="ExportPagesItem" views:ControlHelp.Text="{x:Static help:Descriptions.ExportPages}" Header="E_xport Pages as Pictures or Drawings…">
+          <MenuItem.Icon>
+            <Path Classes="icon add" Data="{StaticResource IconDocument}" />
+          </MenuItem.Icon>
+        </MenuItem>
         <Separator />
         <MenuItem x:Name="ProtectSignMenu" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectSignMenu}" Header="_Protect &amp; Sign">
           <MenuItem.Icon>

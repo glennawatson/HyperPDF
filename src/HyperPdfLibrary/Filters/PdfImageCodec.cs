@@ -21,4 +21,7 @@ public enum PdfImageCodec
 
     /// <summary>CCITT fax group 3 or 4 (CCITTFaxDecode).</summary>
     Ccitt = 4,
+
+    /// <summary>A filter this library does not know, so the stream's bytes cannot be turned into pixels.</summary>
+    Unknown = 5,
 }

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using Microsoft.Win32.SafeHandles;
 
 namespace HyperPdf.Platform.Windows;
@@ -81,6 +82,15 @@ internal static unsafe partial class NativeMethods
     /// <returns>Nonzero on success.</returns>
     [LibraryImport("user32.dll", EntryPoint = "SystemParametersInfoW")]
     internal static partial int SystemParametersInfo(uint action, uint value, void* data, uint flags);
+
+    /// <summary>Native <c>SystemParametersInfoW</c> for a setting that is a Boolean.</summary>
+    /// <param name="action">The setting, such as <c>SPI_GETSCREENREADER</c>.</param>
+    /// <param name="parameter">A number the setting may use.</param>
+    /// <param name="value">Receives the setting's value.</param>
+    /// <param name="flags">Whether to save a change; 0 when only reading.</param>
+    /// <returns>Nonzero on success.</returns>
+    [LibraryImport("user32.dll", EntryPoint = "SystemParametersInfoW")]
+    internal static partial int SystemParametersInfo(uint action, uint parameter, out int value, uint flags);
 
     /// <summary>Native <c>RegNotifyChangeKeyValue</c>.</summary>
     /// <param name="key">The key.</param>
@@ -231,4 +241,128 @@ internal static unsafe partial class NativeMethods
     /// <returns>Zero on success.</returns>
     [LibraryImport("kernel32.dll", EntryPoint = "GlobalFree")]
     internal static partial nint GlobalFree(nint memory);
+
+    /// <summary>Gets a COM pointer to an object's interface, for the native functions that take one. The caller must release the pointer.</summary>
+    /// <typeparam name="T">The COM interface.</typeparam>
+    /// <param name="provider">The object.</param>
+    /// <returns>The pointer, counted for the caller.</returns>
+    internal static nint ComPointerOf<T>(T provider)
+        where T : class
+    {
+        var pointer = ComInterfaceMarshaller<T>.ConvertToUnmanaged(provider);
+        return (nint)pointer;
+    }
+
+    /// <summary>Native <c>SetWindowSubclass</c>, which puts a procedure in front of a window's own, so it sees a message first.</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="procedure">The procedure.</param>
+    /// <param name="subclassId">A number that tells this subclass from others on the same procedure.</param>
+    /// <param name="referenceData">A value passed back to the procedure.</param>
+    /// <returns>Nonzero on success.</returns>
+    [LibraryImport("comctl32.dll", EntryPoint = "SetWindowSubclass")]
+    internal static partial int SetWindowSubclass(nint window, delegate* unmanaged<nint, uint, nuint, nint, nuint, nuint, nint> procedure, nuint subclassId, nuint referenceData);
+
+    /// <summary>Native <c>RemoveWindowSubclass</c>.</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="procedure">The procedure.</param>
+    /// <param name="subclassId">The number it was added with.</param>
+    /// <returns>Nonzero on success.</returns>
+    [LibraryImport("comctl32.dll", EntryPoint = "RemoveWindowSubclass")]
+    internal static partial int RemoveWindowSubclass(nint window, delegate* unmanaged<nint, uint, nuint, nint, nuint, nuint, nint> procedure, nuint subclassId);
+
+    /// <summary>Native <c>DefSubclassProc</c>, which passes a message on to the next procedure.</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="message">The message.</param>
+    /// <param name="wordParameter">The first parameter.</param>
+    /// <param name="longParameter">The second parameter.</param>
+    /// <returns>The result of the window's own procedure.</returns>
+    [LibraryImport("comctl32.dll", EntryPoint = "DefSubclassProc")]
+    internal static partial nint DefSubclassProc(nint window, uint message, nuint wordParameter, nint longParameter);
+
+    /// <summary>Native <c>UiaReturnRawElementProvider</c>, which answers a <c>WM_GETOBJECT</c> with a provider.</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="wordParameter">The message's first parameter.</param>
+    /// <param name="longParameter">The message's second parameter.</param>
+    /// <param name="provider">The provider's <c>IRawElementProviderSimple</c>, or null to disconnect the window's providers.</param>
+    /// <returns>The result to return from the message.</returns>
+    [LibraryImport("uiautomationcore.dll", EntryPoint = "UiaReturnRawElementProvider")]
+    internal static partial nint UiaReturnRawElementProvider(nint window, nuint wordParameter, nint longParameter, nint provider);
+
+    /// <summary>Native <c>UiaHostProviderFromHwnd</c>.</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="provider">Receives the provider UI Automation makes for the window.</param>
+    /// <returns>An HRESULT.</returns>
+    [LibraryImport("uiautomationcore.dll", EntryPoint = "UiaHostProviderFromHwnd")]
+    internal static partial int UiaHostProviderFromHwnd(nint window, out nint provider);
+
+    /// <summary>Native <c>UiaClientsAreListening</c>.</summary>
+    /// <returns>Nonzero when a client such as a screen reader has asked for events.</returns>
+    [LibraryImport("uiautomationcore.dll", EntryPoint = "UiaClientsAreListening")]
+    internal static partial int UiaClientsAreListening();
+
+    /// <summary>Native <c>UiaRaiseAutomationEvent</c>.</summary>
+    /// <param name="provider">The element's <c>IRawElementProviderSimple</c>.</param>
+    /// <param name="eventId">The event.</param>
+    /// <returns>An HRESULT.</returns>
+    [LibraryImport("uiautomationcore.dll", EntryPoint = "UiaRaiseAutomationEvent")]
+    internal static partial int UiaRaiseAutomationEvent(nint provider, int eventId);
+
+    /// <summary>Native <c>UiaRaiseAutomationPropertyChangedEvent</c>.</summary>
+    /// <param name="provider">The element's <c>IRawElementProviderSimple</c>.</param>
+    /// <param name="propertyId">The property.</param>
+    /// <param name="oldValue">The value before.</param>
+    /// <param name="newValue">The value after.</param>
+    /// <returns>An HRESULT.</returns>
+    [LibraryImport("uiautomationcore.dll", EntryPoint = "UiaRaiseAutomationPropertyChangedEvent")]
+    internal static partial int UiaRaiseAutomationPropertyChangedEvent(nint provider, int propertyId, Accessibility.Uia.ComVariant oldValue, Accessibility.Uia.ComVariant newValue);
+
+    /// <summary>Native <c>UiaRaiseStructureChangedEvent</c>.</summary>
+    /// <param name="provider">The element whose children changed.</param>
+    /// <param name="changeType">How they changed.</param>
+    /// <param name="runtimeId">A pointer to the runtime identifier of the changed child, or null.</param>
+    /// <param name="runtimeIdLength">The length of the identifier.</param>
+    /// <returns>An HRESULT.</returns>
+    [LibraryImport("uiautomationcore.dll", EntryPoint = "UiaRaiseStructureChangedEvent")]
+    internal static partial int UiaRaiseStructureChangedEvent(nint provider, int changeType, nint runtimeId, int runtimeIdLength);
+
+    /// <summary>Native <c>UiaGetReservedNotSupportedValue</c>, the value a provider returns for an attribute it does not support.</summary>
+    /// <param name="value">Receives the object.</param>
+    /// <returns>An HRESULT.</returns>
+    [LibraryImport("uiautomationcore.dll", EntryPoint = "UiaGetReservedNotSupportedValue")]
+    internal static partial int UiaGetReservedNotSupportedValue(out nint value);
+
+    /// <summary>Native <c>UiaDisconnectProvider</c>.</summary>
+    /// <param name="provider">The provider.</param>
+    /// <returns>An HRESULT.</returns>
+    [LibraryImport("uiautomationcore.dll", EntryPoint = "UiaDisconnectProvider")]
+    internal static partial int UiaDisconnectProvider(nint provider);
+
+    /// <summary>Native <c>SafeArrayCreateVector</c>.</summary>
+    /// <param name="type">The element type, such as <c>VT_I4</c>.</param>
+    /// <param name="lowerBound">The first index.</param>
+    /// <param name="count">The number of elements.</param>
+    /// <returns>The <c>SAFEARRAY</c>, or null.</returns>
+    [LibraryImport("oleaut32.dll", EntryPoint = "SafeArrayCreateVector")]
+    internal static partial nint SafeArrayCreateVector(ushort type, int lowerBound, uint count);
+
+    /// <summary>Native <c>SafeArrayAccessData</c>.</summary>
+    /// <param name="array">The array.</param>
+    /// <param name="data">Receives a pointer to the elements.</param>
+    /// <returns>An HRESULT.</returns>
+    [LibraryImport("oleaut32.dll", EntryPoint = "SafeArrayAccessData")]
+    internal static partial int SafeArrayAccessData(nint array, out void* data);
+
+    /// <summary>Native <c>SafeArrayUnaccessData</c>.</summary>
+    /// <param name="array">The array.</param>
+    /// <returns>An HRESULT.</returns>
+    [LibraryImport("oleaut32.dll", EntryPoint = "SafeArrayUnaccessData")]
+    internal static partial int SafeArrayUnaccessData(nint array);
+
+    /// <summary>Native <c>SafeArrayPutElement</c>.</summary>
+    /// <param name="array">The array.</param>
+    /// <param name="index">The index of the element.</param>
+    /// <param name="element">The element, which for an object array is the object's pointer.</param>
+    /// <returns>An HRESULT.</returns>
+    [LibraryImport("oleaut32.dll", EntryPoint = "SafeArrayPutElement")]
+    internal static partial int SafeArrayPutElement(nint array, int* index, void* element);
 }

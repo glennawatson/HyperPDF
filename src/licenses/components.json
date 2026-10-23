@@ -1,0 +1,207 @@
+[
+  {
+    "id": "unicode-ucd",
+    "name": "Unicode Character Database tables (Bidi_Class, Bidi_Mirroring_Glyph, decompositions)",
+    "version": "Unicode 18.0.0",
+    "origin": "Compact tables generated into HyperPdfLibrary by scripts/UnicodeTextTableGenerator.cs",
+    "licence": "Unicode-3.0",
+    "copyright": "Copyright 1991-2026 Unicode, Inc.",
+    "link": "https://www.unicode.org/Public/18.0.0/ucd/",
+    "textFile": "upstream/unicode-license.txt",
+    "licenceSource": "https://www.unicode.org/license.txt"
+  },
+  {
+    "id": "open-font-pack",
+    "name": "Open font pack (Arimo, Tinos, Cousine, Noto symbols and Noto Emoji)",
+    "version": "Google Fonts commits 62e55e586fc0c29d428ee47b7c359cd33143f93d (Tinos, Cousine, Noto), 89ade4fa7b7663aec69d3202d2eefd928e78c467 (Arimo) and Noto Emoji 2.048",
+    "origin": "Embedded in the library assembly; never downloaded",
+    "licence": "Apache-2.0 AND OFL-1.1",
+    "copyright": "Copyright the font authors; see the font notices.",
+    "link": "https://github.com/google/fonts",
+    "textFile": "../HyperPdfLibrary/Fonts/Data/Faces/LICENSE.txt"
+  },
+  {
+    "id": "adobe-cmaps",
+    "name": "Binary CMap resource pack (PDF.js)",
+    "version": "PDF.js f5e56f0",
+    "origin": "Downloaded individually on demand",
+    "licence": "BSD-3-Clause",
+    "copyright": "Copyright 1990-2009 Adobe Systems Incorporated. All rights reserved.",
+    "link": "https://github.com/mozilla/pdf.js/tree/master/external/bcmaps",
+    "textFile": "../HyperPdfLibrary/Fonts/Data/CMaps/LICENSE.txt"
+  },
+  {
+    "id": "ffmpeg",
+    "name": "FFmpeg libraries (libavutil, libswresample, libavcodec, libavformat, libswscale)",
+    "version": "8.1.3, LGPL shared build from BtbN/FFmpeg-Builds",
+    "origin": "Shipped in the ffmpeg folder beside the app; loaded to play sound and video. They are separate shared libraries, so you can replace them with your own build of the same major versions.",
+    "licence": "LGPL-3.0-or-later",
+    "copyright": "Copyright the FFmpeg developers.",
+    "link": "https://ffmpeg.org/legal.html",
+    "textFile": "upstream/ffmpeg.txt",
+    "licenceSource": "https://github.com/BtbN/FFmpeg-Builds/tree/46d899d7a0",
+    "sourceNote": "The source for this version is at https://ffmpeg.org/releases/ffmpeg-8.1.3.tar.xz. The build scripts and options are in the BtbN/FFmpeg-Builds repository; ffmpeg.json in this repository pins the exact build."
+  },
+  {
+    "id": "tessdata-fast",
+    "name": "Tesseract language data (tessdata_fast)",
+    "version": "4.1.0",
+    "origin": "English is bundled; other languages are downloaded when you turn this on",
+    "licence": "Apache-2.0",
+    "copyright": "Copyright the Tesseract OCR authors.",
+    "link": "https://github.com/tesseract-ocr/tessdata_fast/blob/4.1.0/LICENSE",
+    "textFile": "upstream/tessdata-fast.txt",
+    "licenceSource": "https://github.com/tesseract-ocr/tessdata_fast/blob/4.1.0/LICENSE",
+    "versionEvidence": "https://github.com/tesseract-ocr/tessdata_fast/tree/4.1.0"
+  },
+  {
+    "id": "kokoro",
+    "name": "Kokoro-82M speech model and voices",
+    "version": "Kokoro-82M v1.0; ONNX 1939ad2a8e416c0acfeecc08a694d14ef25f2231; voices-2",
+    "origin": "Downloaded when you turn this on",
+    "licence": "Apache-2.0",
+    "copyright": "Copyright hexgrad.",
+    "link": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/1939ad2a8e416c0acfeecc08a694d14ef25f2231/README.md",
+    "textFile": "upstream/kokoro.txt",
+    "licenceSource": "https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX/blob/1939ad2a8e416c0acfeecc08a694d14ef25f2231/README.md",
+    "sourceNote": "The pinned upstream model card declares Apache-2.0; the repository has no standalone LICENSE file. The licence text is Apache-2.0.",
+    "versionEvidence": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
+    "artifactSha256": {
+      "kokoro-af_bella.bin": "f69d836209b78eb8c66e75e3cda491e26ea838a3674257e9d4e5703cbaf55c8b",
+      "kokoro-af_heart.bin": "d583ccff3cdca2f7fae535cb998ac07e9fcb90f09737b9a41fa2734ec44a8f0b",
+      "kokoro-am_michael.bin": "1d1f21dd8da39c30705cd4c75d039d265e9bc4a2a93ed09bc9e1b1225eb95ba1",
+      "kokoro-bf_emma.bin": "669fe0647f9dd04fcab92f1439a40eeb4c8b4ab1f82e4996fe3d918ce4a63b73",
+      "kokoro-bm_george.bin": "c4b235a4c1f2cd3b939fed08b899ce9385638b763f7b73a59616c4fc9bd6c9bc",
+      "kokoro-model_uint8.onnx": "6607a397d77b8514065420b7c1e7320117f7aabfdb45ce15f0050c5b0fe75aea"
+    }
+  },
+  {
+    "id": "distilvit",
+    "name": "distilvit picture description model",
+    "version": "e78ec2faa49fb577dfcc39752eed18f5eaa264c9; vision-1",
+    "origin": "Downloaded when you turn this on",
+    "licence": "Apache-2.0",
+    "copyright": "Copyright Mozilla.",
+    "link": "https://huggingface.co/Mozilla/distilvit/blob/e78ec2faa49fb577dfcc39752eed18f5eaa264c9/README.md",
+    "textFile": "upstream/distilvit.txt",
+    "licenceSource": "https://huggingface.co/Mozilla/distilvit/blob/e78ec2faa49fb577dfcc39752eed18f5eaa264c9/README.md",
+    "sourceNote": "The pinned upstream model card declares Apache-2.0. The files are copied without change from that revision into this repository's vision-1 release, and downloaded from there.",
+    "versionEvidence": "https://github.com/glennawatson/HyperPDF/blob/main/src/HyperPdf.Vision/VisionRelease.cs",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/vision-1",
+    "fileSha256": {
+      "distilvit-encoder.onnx": "04622bdece4419687c8a07f4df0e8c1bea1db354fb6decde97bc0bf39f26bab2",
+      "distilvit-decoder.onnx": "8cda4a51db36003185beb5557cc379d0ad773d4efa9329e39793828b74d420f4",
+      "distilvit-vocab.json": "3ba3c3109ff33976c4bd966589c11ee14fcaa1f4c9e5e154c2ed7f99d80709e7",
+      "distilvit-generation.json": "4d34fb2d7ef7bb123f916c1f252971c2e077959235fd0c3676e21b5e3db4dfe7"
+    }
+  },
+  {
+    "id": "misaki",
+    "name": "Misaki pronunciation dictionaries (used with Kokoro)",
+    "version": "fba1236595f2d2bf21d414ba6e57d25256afada3; voices-2",
+    "origin": "Downloaded when you turn this on",
+    "licence": "Apache-2.0",
+    "copyright": "Copyright hexgrad.",
+    "link": "https://github.com/hexgrad/misaki/blob/fba1236595f2d2bf21d414ba6e57d25256afada3/LICENSE",
+    "textFile": "upstream/misaki.txt",
+    "licenceSource": "https://github.com/hexgrad/misaki/blob/fba1236595f2d2bf21d414ba6e57d25256afada3/LICENSE",
+    "versionEvidence": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
+    "artifactSha256": {
+      "misaki-gb_gold.json": "29e62f4b60261c88f7f3c2c7811ca3825978948090b72d2b27d565b729282f71",
+      "misaki-gb_silver.json": "48131e2d92ccc41655f4543e87e0f938e71463eb5a54be7f0693bb712ebb6bce",
+      "misaki-us_gold.json": "dc414872a49a28ae6c141463d502fd945f3b2fde040484fdc47d00cc4612686f",
+      "misaki-us_silver.json": "de8f67be911bb6c659187b4a65fd966b6a30e56350e0f790d763210b053ac475"
+    }
+  },
+  {
+    "id": "melotts",
+    "name": "MeloTTS-English speech model",
+    "version": "English export voices-2; code 209145371cff8fc3bd60d7be902ea69cbdb7965a",
+    "origin": "Downloaded when you turn this on",
+    "licence": "MIT",
+    "copyright": "Copyright (c) 2024 MyShell.ai",
+    "link": "https://github.com/myshell-ai/MeloTTS/blob/209145371cff8fc3bd60d7be902ea69cbdb7965a/LICENSE",
+    "textFile": "upstream/melotts.txt",
+    "licenceSource": "https://github.com/myshell-ai/MeloTTS/blob/209145371cff8fc3bd60d7be902ea69cbdb7965a/LICENSE",
+    "modelLicenceSource": "https://huggingface.co/myshell-ai/MeloTTS-English/blob/bb4fb7346d566d277ba8c8c7dbfdf6786139b8ef/README.md",
+    "sourceNote": "The model card declares MIT. The exporter fetched the checkpoint without a revision; its original upstream revision was not recorded. The voices-2 export and hashes identify the shipped files.",
+    "versionEvidence": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
+    "artifactSha256": {
+      "melo-en.json": "d93a30aceedcd4854c456baf1c57457c05c9e530161d54e591ef62a5fe9bd126",
+      "melo-en.onnx": "8e0246aa38588fd143af6562ebf2d2d9d92bbfc989b25770f61081ee182f66f5"
+    }
+  },
+  {
+    "id": "bert-base-uncased",
+    "name": "BERT base uncased, first ten layers (used with MeloTTS)",
+    "version": "First ten layers, uint8 ONNX export voices-2",
+    "origin": "Downloaded when you turn this on",
+    "licence": "Apache-2.0",
+    "copyright": "Copyright Google LLC.",
+    "link": "https://huggingface.co/google-bert/bert-base-uncased/blob/86b5e0934494bd15c9632b12f734a8a67f723594/LICENSE",
+    "textFile": "upstream/bert-base-uncased.txt",
+    "licenceSource": "https://huggingface.co/google-bert/bert-base-uncased/blob/86b5e0934494bd15c9632b12f734a8a67f723594/LICENSE",
+    "sourceNote": "Licence verified at upstream revision 86b5e0934494bd15c9632b12f734a8a67f723594. The exporter fetched the model without a revision; its original upstream revision was not recorded. The voices-2 export and hashes identify the shipped files.",
+    "versionEvidence": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
+    "artifactSha256": {
+      "bert-en-vocab.txt": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "bert-en.onnx": "eb44339cd9f71471955e906aff4145a976fa22e51b0e23668113d48cb2087184"
+    }
+  },
+  {
+    "id": "g2p-en",
+    "name": "g2p_en spelling-to-sound network (used with MeloTTS)",
+    "version": "g2p_en 2.1.0, checkpoint20.npz export voices-2",
+    "origin": "Downloaded when you turn this on",
+    "licence": "Apache-2.0",
+    "copyright": "Copyright Kyubyong Park and Jongseok Kim.",
+    "link": "https://github.com/Kyubyong/g2p/blob/c6439c274c42b9724a7fee1dc07ca6a4c68a0538/LICENSE.txt",
+    "textFile": "upstream/g2p-en.txt",
+    "licenceSource": "https://github.com/Kyubyong/g2p/blob/c6439c274c42b9724a7fee1dc07ca6a4c68a0538/LICENSE.txt",
+    "versionEvidence": "https://pypi.org/project/g2p-en/2.1.0/",
+    "sourceNote": "The checked-in text is LICENSE.txt from the 2.1.0 wheel, verified against upstream LICENSE.txt.",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
+    "artifactSha256": {
+      "g2p-en.bin": "9c0eff98ae7f6c69fde21dc4bf4849c0f28240527524ef2e87400e2a229c965d"
+    }
+  },
+  {
+    "id": "cmudict",
+    "name": "CMU Pronouncing Dictionary (used with MeloTTS)",
+    "version": "CMU 0.6 (MeloTTS 209145371cff8fc3bd60d7be902ea69cbdb7965a) plus NLTK CMU 0.7a; voices-2",
+    "origin": "Downloaded when you turn this on",
+    "licence": "LicenseRef-CMU-0.6 AND BSD-2-Clause",
+    "copyright": "Copyright 1998 Carnegie Mellon University; Copyright (C) 1993-2008 Carnegie Mellon University.",
+    "link": "https://github.com/myshell-ai/MeloTTS/blob/209145371cff8fc3bd60d7be902ea69cbdb7965a/melo/text/cmudict.rep",
+    "textFile": "upstream/cmudict.txt",
+    "licenceSource": "https://github.com/myshell-ai/MeloTTS/blob/209145371cff8fc3bd60d7be902ea69cbdb7965a/melo/text/cmudict.rep",
+    "additionalLicenceSource": "https://github.com/nltk/nltk_data/blob/5f09e470fe339e1a119dd174ca284129a3c7a5bb/packages/corpora/cmudict.zip (cmudict/README)",
+    "sourceNote": "The exporter merges MeloTTS CMU 0.6 with NLTK CMU 0.7a. The last NLTK corpus commit before release is 5f09e470fe339e1a119dd174ca284129a3c7a5bb; the export did not record that fetch revision. The voices-2 hash identifies the shipped merged lexicon.",
+    "versionEvidence": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/.github/workflows/voice-models.yml",
+    "exportSource": "https://github.com/glennawatson/HyperPDF/blob/c562ea6a10cf90fcc9c92fa99754586fbd3fe82f/tools/voice-models/export_melo.py",
+    "release": "https://github.com/glennawatson/HyperPDF/releases/tag/voices-2",
+    "artifactSha256": {
+      "melo-en-lexicon.txt": "e0f56092fca1721f9556ac7e9cab66cff2d4ec7b5afe5618036747c99513a823"
+    }
+  },
+  {
+    "id": "verapdf-profile-text",
+    "name": "veraPDF validation profile rule descriptions",
+    "version": "veraPDF-validation-profiles commit 070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8",
+    "origin": "Rule descriptions and clause numbers copied into HyperPdfLibrary's PDF/A rule table and its PDF/UA, tagged PDF, Well-Tagged PDF and WCAG standards rule table",
+    "licence": "CC-BY-4.0",
+    "copyright": "Copyright 2015 veraPDF Consortium.",
+    "link": "https://github.com/veraPDF/veraPDF-validation-profiles/tree/070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8/PDF_A",
+    "licenceSource": "https://github.com/veraPDF/veraPDF-validation-profiles/blob/070d39fdd8d31f1c94f0352f1b58a50f40d6c3c8/README.md",
+    "textFile": "upstream/verapdf-validation-profiles.txt"
+  }
+]

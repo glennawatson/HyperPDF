@@ -1,0 +1,38 @@
+<Solution>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/HyperPdf.Benchmarks/HyperPdf.Benchmarks.csproj" />
+    <Project Path="benchmarks/HyperPdf.Benchmarks.Generator/HyperPdf.Benchmarks.Generator.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="HyperPdfLibrary.Render.Skia/HyperPdfLibrary.Render.Skia.csproj" />
+    <Project Path="HyperPdfLibrary/HyperPdfLibrary.csproj" />
+    <Project Path="HyperPdf.App/HyperPdf.App.csproj" />
+    <Project Path="HyperPdf.Core/HyperPdf.Core.csproj" />
+    <Project Path="HyperPdf.ViewModels/HyperPdf.ViewModels.csproj" />
+    <Project Path="HyperPdf.Presentation/HyperPdf.Presentation.csproj" />
+    <Project Path="HyperPdf.Http/HyperPdf.Http.csproj" />
+    <Project Path="HyperPdf.Engine/HyperPdf.Engine.csproj" />
+    <Project Path="HyperPdf.Ocr/HyperPdf.Ocr.csproj" />
+    <Project Path="HyperPdf.Speech/HyperPdf.Speech.csproj" />
+    <Project Path="HyperPdf.Vision/HyperPdf.Vision.csproj" />
+    <Project Path="HyperPdf.AtSpiReplacement/HyperPdf.AtSpiReplacement.csproj" />
+    <Project Path="HyperPdf.Media/HyperPdf.Media.csproj" />
+    <Project Path="HyperPdf.Platform.Cups/HyperPdf.Platform.Cups.csproj" />
+    <Project Path="HyperPdf.Platform.Linux/HyperPdf.Platform.Linux.csproj" />
+    <Project Path="HyperPdf.Platform.MacOS/HyperPdf.Platform.MacOS.csproj" />
+    <Project Path="HyperPdf.Platform.Windows/HyperPdf.Platform.Windows.csproj" />
+    <Project Path="HyperPdf.Skia/HyperPdf.Skia.csproj" />
+    <Project Path="HyperPdf.Rendering.Skia/HyperPdf.Rendering.Skia.csproj" />
+    <Project Path="examples/HyperPdf.Examples.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" />
+    <Project Path="tests/HyperPdf.Engine.Tests/HyperPdf.Engine.Tests.csproj" />
+    <Project Path="tests/HyperPdf.App.Tests/HyperPdf.App.Tests.csproj" />
+    <Project Path="tests/HyperPdf.Core.Tests/HyperPdf.Core.Tests.csproj" />
+    <Project Path="tests/HyperPdf.Presentation.Tests/HyperPdf.Presentation.Tests.csproj" />
+    <Project Path="tests/HyperPdf.ViewModels.Tests/HyperPdf.ViewModels.Tests.csproj" />
+    <Project Path="tests/HyperPdf.Media.Tests/HyperPdf.Media.Tests.csproj" />
+    <Project Path="tests/HyperPdf.TestAssets/HyperPdf.TestAssets.csproj" />
+  </Folder>
+</Solution>

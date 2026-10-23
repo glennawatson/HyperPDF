@@ -44,6 +44,7 @@
     <ProjectReference Include="..\HyperPdf.Platform.MacOS\HyperPdf.Platform.MacOS.csproj" />
     <ProjectReference Include="..\HyperPdf.Platform.Windows\HyperPdf.Platform.Windows.csproj" />
     <ProjectReference Include="..\HyperPdf.Skia\HyperPdf.Skia.csproj" />
+    <ProjectReference Include="..\HyperPdf.AtSpiReplacement\HyperPdf.AtSpiReplacement.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -62,7 +63,7 @@
     <InternalsVisibleTo Include="HyperPdf.App.Tests" />
   </ItemGroup>
 
-  <!-- The LGPL FFmpeg libraries that play sound and video go in a folder beside the app. scripts/FetchFfmpeg.cs (run by scripts/Publish.cs) fills
+  <!-- The LGPL FFmpeg libraries that play sound and video go in a folder beside the app. src/tools/FetchFfmpeg.cs (run by src/tools/Publish.cs) fills
        artifacts/ffmpeg/<runtime>; a build with no runtime identifier, or before the fetch, ships none and the app falls back to FFmpeg programs. -->
   <PropertyGroup>
     <FfmpegDirectory Condition="'$(FfmpegDirectory)' == ''">$(MSBuildThisFileDirectory)..\..\artifacts\ffmpeg\$(RuntimeIdentifier)\</FfmpegDirectory>
@@ -76,7 +77,7 @@
     <NoticesResourceName>HyperPdf.ThirdPartyNotices.md</NoticesResourceName>
     <NoticesComponents>unicode-ucd;open-font-pack;adobe-cmaps;ffmpeg;tessdata-fast;kokoro;misaki;melotts;bert-base-uncased;g2p-en;cmudict;verapdf-profile-text</NoticesComponents>
   </PropertyGroup>
-  <Import Project="..\..\licenses\ThirdPartyNotices.targets" />
+  <Import Project="..\licenses\ThirdPartyNotices.targets" />
 
   <!-- The shipped Tesseract needs the Visual C++ runtime, which Windows does not always have, so it is deployed beside the app. -->
   <Target Name="CopyVisualCppRuntime" AfterTargets="Publish" Condition="$(RuntimeIdentifier.StartsWith('win-'))">

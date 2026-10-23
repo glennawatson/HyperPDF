@@ -23,7 +23,7 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "The veraPDF release scripts/InstallVeraPdf.cs installs for the PDF/A tests.",
+      "description": "The veraPDF release src/tools/InstallVeraPdf.cs installs for the PDF/A tests.",
       "managerFilePatterns": ["/^verapdf\\.json$/"],
       "matchStrings": ["\"version\":\\s*\"(?<currentValue>[^\"]+)\""],
       "depNameTemplate": "veraPDF/veraPDF-apps",
@@ -41,11 +41,6 @@
       "matchManagers": ["nuget"],
       "matchPackageNames": ["/^Avalonia(\\.|$)/"],
       "groupName": "Avalonia"
-    },
-    {
-      "matchManagers": ["nuget"],
-      "matchPackageNames": ["/^bblanchon\\.PDFium\\./"],
-      "groupName": "Test-only reference renderer"
     },
     {
       "matchManagers": ["nuget"],

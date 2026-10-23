@@ -25,4 +25,7 @@ public enum UnsupportedContent
 
     /// <summary>A PDF portfolio, whose files are listed under Attachments without the portfolio's own layout.</summary>
     Portfolio = 1 << 4,
+
+    /// <summary>Images packed in a way HyperPDF does not know, which show as grey boxes.</summary>
+    UnreadableImages = 1 << 5,
 }

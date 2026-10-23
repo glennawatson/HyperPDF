@@ -54,7 +54,7 @@ public sealed class PdfTagElement
     /// <summary>Adds a child element.</summary>
     /// <param name="child">The child.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void AddChild(PdfTagElement child) => _kids.Add(new(child, 0, default));
+    internal void AddChild(PdfTagElement child) => _kids.Add(new(child, 0, default, default));
 
     /// <summary>Adds a piece of marked content.</summary>
     /// <param name="page">The page the content is on.</param>
@@ -66,12 +66,26 @@ public sealed class PdfTagElement
             Page = page;
         }
 
-        _kids.Add(new(null, mcid, page));
+        _kids.Add(new(null, mcid, page, default));
     }
 
-    /// <summary>A child element or a piece of marked content.</summary>
-    /// <param name="Element">The child element, or <see langword="null"/> for marked content.</param>
-    /// <param name="Mcid">The marked content id, when <paramref name="Element"/> is <see langword="null"/>.</param>
-    /// <param name="Page">The page of the marked content.</param>
-    internal readonly record struct Kid(PdfTagElement? Element, int Mcid, PdfObjectId Page);
+    /// <summary>Adds a reference to an annotation, such as a link, that belongs to the element.</summary>
+    /// <param name="page">The page the annotation is on.</param>
+    /// <param name="annotation">The annotation's object.</param>
+    internal void AddAnnotation(PdfObjectId page, PdfObjectId annotation)
+    {
+        if (!Page.IsValid)
+        {
+            Page = page;
+        }
+
+        _kids.Add(new(null, 0, page, annotation));
+    }
+
+    /// <summary>A child element, a piece of marked content or a reference to an annotation.</summary>
+    /// <param name="Element">The child element, or <see langword="null"/> for marked content or an annotation.</param>
+    /// <param name="Mcid">The marked content id, when <paramref name="Element"/> is <see langword="null"/> and there is no annotation.</param>
+    /// <param name="Page">The page of the marked content or annotation.</param>
+    /// <param name="Annotation">The annotation's object, or an invalid id when the kid is not an annotation.</param>
+    internal readonly record struct Kid(PdfTagElement? Element, int Mcid, PdfObjectId Page, PdfObjectId Annotation);
 }

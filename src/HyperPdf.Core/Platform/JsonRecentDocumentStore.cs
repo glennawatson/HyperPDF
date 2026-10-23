@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Text.Json;
+using HyperPdf.Core.Diagnostics;
 
 namespace HyperPdf.Core.Platform;
 
@@ -142,11 +143,11 @@ public sealed class JsonRecentDocumentStore : IRecentDocumentStore
         }
         catch (IOException ex)
         {
-            Debug.WriteLine($"Could not save recent documents: {ex.Message}");
+            AppLog.Warning(ex, "Could not save recent documents.");
         }
         catch (UnauthorizedAccessException ex)
         {
-            Debug.WriteLine($"Could not save recent documents: {ex.Message}");
+            AppLog.Warning(ex, "Could not save recent documents.");
         }
     }
 }

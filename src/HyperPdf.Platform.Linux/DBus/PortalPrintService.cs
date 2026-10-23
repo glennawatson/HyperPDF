@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Core.Diagnostics;
 using Tmds.DBus.Protocol;
 
 namespace HyperPdf.Platform.Linux.DBus;
@@ -78,12 +79,12 @@ public sealed class PortalPrintService
         }
         catch (DBusErrorReplyException ex)
         {
-            Debug.WriteLine($"Print portal failed: {ex.Message}");
+            AppLog.Warning(ex, "Print portal failed.");
             return false;
         }
         catch (DBusConnectionException ex)
         {
-            Debug.WriteLine($"Print portal failed: {ex.Message}");
+            AppLog.Warning(ex, "Print portal failed.");
             return false;
         }
     }

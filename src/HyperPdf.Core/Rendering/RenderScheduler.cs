@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Documents;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Advanced;
@@ -604,7 +605,7 @@ public sealed class RenderScheduler : IDisposable
         }
         catch (Exception exception) when (IsRecoverable(exception))
         {
-            Debug.WriteLine($"Page preparation failed for {request.Key}: {exception.Message}");
+            AppLog.Warning(exception, $"Page preparation failed for {request.Key}.");
             Forget(request.Key, epoch);
         }
     }
@@ -706,7 +707,7 @@ public sealed class RenderScheduler : IDisposable
         catch (Exception ex) when (IsRecoverable(ex))
         {
             // A damaged file or a failed read must lose its tile, not the render thread and the process.
-            Debug.WriteLine($"Render failed for {request.Key}: {ex.Message}");
+            AppLog.Warning(ex, $"Render failed for {request.Key}.");
             surface?.Dispose();
             return false;
         }

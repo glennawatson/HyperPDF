@@ -6,6 +6,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using HyperPdf.Core.Ocr;
 
 namespace HyperPdf.Core.Forms.Detection;
 
@@ -15,42 +16,14 @@ namespace HyperPdf.Core.Forms.Detection;
 /// </summary>
 internal static class DarkPixels
 {
-    /// <summary>The weight of blue in luminance, out of 256.</summary>
-    private const int BlueWeight = 29;
-
-    /// <summary>The weight of green in luminance, out of 256.</summary>
-    private const int GreenWeight = 150;
-
-    /// <summary>The weight of red in luminance, out of 256.</summary>
-    private const int RedWeight = 77;
-
-    /// <summary>The shift dividing by the weights' total, 256.</summary>
-    private const int WeightShift = 8;
-
-    /// <summary>The bytes in a BGRA pixel.</summary>
-    private const int PixelBytes = 4;
-
-    /// <summary>The green byte of a BGRA pixel.</summary>
-    private const int GreenByte = 1;
-
-    /// <summary>The red byte of a BGRA pixel.</summary>
-    private const int RedByte = 2;
-
     /// <summary>Gets or sets a value indicating whether vector instructions are used; benchmarks and tests turn them off to compare.</summary>
     internal static bool UseVectors { get; set; } = true;
 
     /// <summary>Converts BGRA pixels to luminance.</summary>
     /// <param name="bgra">The pixels, four bytes each.</param>
     /// <param name="luma">Receives one byte per pixel.</param>
-    internal static void ToLuminance(ReadOnlySpan<byte> bgra, Span<byte> luma)
-    {
-        var count = Math.Min(bgra.Length / PixelBytes, luma.Length);
-        for (var i = 0; i < count; i++)
-        {
-            var at = i * PixelBytes;
-            luma[i] = (byte)(((bgra[at] * BlueWeight) + (bgra[at + GreenByte] * GreenWeight) + (bgra[at + RedByte] * RedWeight)) >> WeightShift);
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ToLuminance(ReadOnlySpan<byte> bgra, Span<byte> luma) => OcrRunner.ToGrey(bgra, luma);
 
     /// <summary>Appends the runs of dark pixels in a row at least a given length.</summary>
     /// <param name="row">The row's luminance.</param>

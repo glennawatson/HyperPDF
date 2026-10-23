@@ -45,4 +45,11 @@ public interface ICanvasHost
     /// <param name="before">The ease before.</param>
     /// <param name="after">The ease now.</param>
     void WheelZoomChanged(WheelZoomEase before, WheelZoomEase after);
+
+    /// <summary>Tells the toolkit a text selection drag started or ended, so it can follow its frames and scroll when the pointer leaves the view.</summary>
+    /// <param name="dragging">Whether a selection drag is now active.</param>
+    void SelectionDragChanged(bool dragging)
+    {
+        // A host with no frames to follow has nothing to start or stop, so most hosts leave this alone.
+    }
 }

@@ -32,6 +32,15 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     /// <summary>The status shown before anything has happened.</summary>
     private const string ReadyStatus = "Ready. Choose your settings, then Save a Copy.";
 
+    /// <summary>The bytes in a megabyte, for telling people how big the model is.</summary>
+    private const long BytesPerMegabyte = 1_000_000;
+
+    /// <summary>Half a megabyte, added before dividing so the size rounds to the nearest megabyte.</summary>
+    private const long HalfMegabyte = BytesPerMegabyte / 2;
+
+    /// <summary>How pictures are described, or <see langword="null"/> when the window offers no such choice.</summary>
+    private readonly PictureDescriptionSetup? _pictureDescription;
+
     /// <summary>The optimiser the open document provides.</summary>
     private readonly IDocumentOptimizer _optimizer;
 
@@ -55,11 +64,23 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     /// <param name="sourcePath">The path of the open document.</param>
     /// <param name="language">The language suggested for a document that has none, such as "en-AU".</param>
     public OptimizeCopyViewModel(IDocumentOptimizer optimizer, string sourcePath, string language)
+        : this(optimizer, sourcePath, language, null)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="OptimizeCopyViewModel"/> class that can describe pictures.</summary>
+    /// <param name="optimizer">The open document's optimiser.</param>
+    /// <param name="sourcePath">The path of the open document.</param>
+    /// <param name="language">The language suggested for a document that has none, such as "en-AU".</param>
+    /// <param name="pictureDescription">How pictures are described, or <see langword="null"/> when the window offers no such choice.</param>
+    public OptimizeCopyViewModel(IDocumentOptimizer optimizer, string sourcePath, string language, PictureDescriptionSetup? pictureDescription)
     {
         ArgumentNullException.ThrowIfNull(optimizer);
         ArgumentException.ThrowIfNullOrEmpty(sourcePath);
         _optimizer = optimizer;
         _sourcePath = sourcePath;
+        _pictureDescription = pictureDescription;
+        PictureDescriptionNote = DescribeModel(pictureDescription);
         FileName = Path.GetFileName(sourcePath);
         Language = language ?? string.Empty;
         SelectedPreset = Presets[1];
@@ -99,6 +120,19 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     /// <summary>Gets or sets a value indicating whether a reading structure is guessed for an untagged document.</summary>
     [Reactive]
     public partial bool AddInferredTags { get; set; }
+
+    /// <summary>Gets a value indicating whether the window can describe pictures, which it can when it was given a model to do it.</summary>
+    public bool CanDescribePictures => _pictureDescription is not null;
+
+    /// <summary>Gets what to tell people about describing pictures: that it runs on this computer and what it costs to start.</summary>
+    public string PictureDescriptionNote { get; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the pictures found while a reading structure is guessed are described by a model
+    /// on this computer, and the description is written as their alternate text. It needs the guessed structure to be on.
+    /// </summary>
+    [Reactive]
+    public partial bool DescribePictures { get; set; }
 
     /// <summary>Gets or sets a value indicating whether thumbnails, private data, unused resources and empty lists are removed.</summary>
     [Reactive]
@@ -141,6 +175,23 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _lifetime.Dispose();
+
+    /// <summary>Tells people what describing pictures costs: a one-off download, and that it runs on this computer.</summary>
+    /// <param name="setup">How pictures are described, or <see langword="null"/>.</param>
+    /// <returns>The note, or empty when pictures cannot be described.</returns>
+    private static string DescribeModel(PictureDescriptionSetup? setup)
+    {
+        if (setup is null)
+        {
+            return string.Empty;
+        }
+
+        var missing = setup.MissingBytes();
+        var megabytes = (missing + HalfMegabyte) / BytesPerMegabyte;
+        return missing > 0
+            ? string.Create(CultureInfo.CurrentCulture, $"Runs on this computer. The first time, it downloads about {megabytes} MB from this project's release.")
+            : "Runs on this computer. Nothing is sent anywhere.";
+    }
 
     /// <summary>Determines whether two paths name the same file.</summary>
     /// <param name="first">The first path.</param>
@@ -238,6 +289,14 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
 
         // Created here, on the UI thread, so each report is posted back to it.
         var progress = new Progress<OptimizeProgress>(ShowProgress);
+        var describer = DescribePictures && AddInferredTags && _pictureDescription is { } setup
+            ? await PrepareDescriberAsync(setup, cancellationToken).ConfigureAwait(true)
+            : null;
+        if (describer is not null)
+        {
+            settings = settings with { FigureDescriber = describer };
+        }
+
         try
         {
             OptimizeReport report;
@@ -257,6 +316,25 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
             TryDelete(temporary);
             throw;
         }
+        finally
+        {
+            (describer as IDisposable)?.Dispose();
+        }
+    }
+
+    /// <summary>Downloads the picture model when it is missing and creates the describer.</summary>
+    /// <param name="setup">How pictures are described.</param>
+    /// <param name="cancellationToken">A token that cancels the download.</param>
+    /// <returns>The describer.</returns>
+    private async Task<IFigureDescriber> PrepareDescriberAsync(PictureDescriptionSetup setup, CancellationToken cancellationToken)
+    {
+        if (setup.MissingBytes() > 0)
+        {
+            StatusText = "Downloading the picture model.";
+            await setup.Download(new Progress<double>(static _ => { }), cancellationToken).ConfigureAwait(true);
+        }
+
+        return setup.CreateDescriber();
     }
 
     /// <summary>Shows the progress of the run.</summary>

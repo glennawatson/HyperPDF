@@ -73,7 +73,7 @@ jobs:
         dotnet-versions: |
           11.x
     - name: Publish Native AOT
-      run: dotnet run --file scripts/Publish.cs -- "${{ matrix.rid }}" "-p:Version=${{ needs.version.outputs.version }}" "-p:MinVerVersionOverride=${{ needs.version.outputs.version }}"
+      run: dotnet run --file src/tools/Publish.cs -- "${{ matrix.rid }}" "-p:Version=${{ needs.version.outputs.version }}" "-p:MinVerVersionOverride=${{ needs.version.outputs.version }}"
     - name: Upload the published app
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
@@ -112,7 +112,7 @@ jobs:
         dotnet-versions: |
           11.x
     - name: Publish Native AOT
-      run: dotnet run --file scripts/Publish.cs -- "${{ matrix.rid }}" "-p:Version=${{ needs.version.outputs.version }}" "-p:MinVerVersionOverride=${{ needs.version.outputs.version }}"
+      run: dotnet run --file src/tools/Publish.cs -- "${{ matrix.rid }}" "-p:Version=${{ needs.version.outputs.version }}" "-p:MinVerVersionOverride=${{ needs.version.outputs.version }}"
     - name: Stage the installed tree
       run: |
         mkdir -p artifacts/stage/usr/lib artifacts/stage/usr/bin artifacts/stage/usr/share/licenses/hyperpdf
@@ -237,7 +237,7 @@ jobs:
         dotnet-versions: |
           11.x
     - name: Publish Native AOT
-      run: dotnet run --file scripts/Publish.cs -- "${{ matrix.rid }}" "-p:Version=${{ needs.version.outputs.version }}" "-p:MinVerVersionOverride=${{ needs.version.outputs.version }}"
+      run: dotnet run --file src/tools/Publish.cs -- "${{ matrix.rid }}" "-p:Version=${{ needs.version.outputs.version }}" "-p:MinVerVersionOverride=${{ needs.version.outputs.version }}"
     # The .noindex folder stops Spotlight holding files open while the image is built.
     - name: Lay out the app bundle
       uses: glennawatson/actions-common/.github/actions/macos-app-bundle@315788024be8e61daa4f2b957e6476746211b522 # main

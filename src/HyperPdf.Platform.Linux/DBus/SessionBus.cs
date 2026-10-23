@@ -9,11 +9,20 @@ namespace HyperPdf.Platform.Linux.DBus;
 /// <summary>Connects to the session bus.</summary>
 internal static class SessionBus
 {
+    /// <summary>The environment variable that holds the session bus address.</summary>
+    private const string SessionAddressVariable = "DBUS_SESSION_BUS_ADDRESS";
+
     /// <summary>Connects to the session bus, returning <see langword="null"/> when none is available.</summary>
     /// <returns>The connection, owned by the caller.</returns>
     internal static async Task<DBusConnection?> TryConnectAsync()
     {
-        var address = DBusAddress.Session;
+        // The library reads the variable once for the whole process, so a session that is started or changed later would not be seen.
+        var address = Environment.GetEnvironmentVariable(SessionAddressVariable);
+        if (string.IsNullOrEmpty(address))
+        {
+            address = DBusAddress.Session;
+        }
+
         if (string.IsNullOrEmpty(address))
         {
             return null;

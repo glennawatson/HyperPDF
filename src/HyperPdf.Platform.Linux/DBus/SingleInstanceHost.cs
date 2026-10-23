@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Platform;
 using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Signals;
@@ -108,7 +109,7 @@ public sealed class SingleInstanceHost : ISingleInstance
         }
         catch (DBusErrorReplyException ex)
         {
-            Debug.WriteLine($"Could not claim {AppIdentity.ApplicationId}: {ex.Message}");
+            AppLog.Warning(ex, $"Could not claim {AppIdentity.ApplicationId}.");
         }
 
         host.Dispose();

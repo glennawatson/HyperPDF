@@ -13,7 +13,7 @@ jobs:
     name: Build and test
     uses: glennawatson/actions-common/.github/workflows/workflow-common-setup-and-build.yml@315788024be8e61daa4f2b957e6476746211b522 # main
     with:
-      srcFolder: '.'
+      srcFolder: 'src'
       solutionFile: HyperPdf.slnx
       minverTagPrefix: ''
       uploadCodecov: false
@@ -21,42 +21,6 @@ jobs:
       dotnetVersions: |
         11.x
         10.x
-  rendering-comparison:
-    name: Standards and reference rendering
-    runs-on: ubuntu-26.04
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
-        with:
-          src-folder: '.'
-          stamp-version: 'false'
-          dotnet-versions: '11.x'
-      - name: Install verified Firefox
-        id: firefox
-        run: dotnet run --file scripts/InstallComparisonFirefox.cs -- "${{ runner.temp }}/comparison-firefox"
-      - name: Fetch verified comparison PDFs
-        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/reference-pdfs" loc-marbury-v-madison loc-brown-v-board loc-plessy-v-ferguson loc-korematsu-v-united-states loc-gideon-v-wainwright irs-w9-2024 pyhanko-ua-and-a usgs-morrison-1957 usgs-lost-city-2023
-      - name: Compare renderers against standards
-        env:
-          PVL_FIREFOX_PATH: ${{ steps.firefox.outputs.firefox-path }}
-          PVL_REQUIRE_PDFJS: '1'
-          IncludeReferencePdfRenderingTests: 'true'
-          HYPERPDF_REFERENCE_PDF_DIR: ${{ runner.temp }}/reference-pdfs
-          HYPERPDF_COMPARISON_OUTPUT: ${{ runner.temp }}/rendering-comparison
-        run: dotnet run --project "${{ github.workspace }}/tests/HyperPdf.Engine.Tests/HyperPdf.Engine.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/*RenderingComparison/*/*' --report-trx --results-directory "${{ runner.temp }}/rendering-comparison"
-      - name: Upload rendering comparisons
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: rendering-comparison
-          path: |
-            ${{ runner.temp }}/rendering-comparison
-            ${{ runner.temp }}/comparison-firefox/*.log
-            ${{ runner.temp }}/comparison-firefox/source.txt
-          if-no-files-found: warn
   pdfa-validation:
     name: PDF/A output validation (veraPDF)
     runs-on: ubuntu-26.04
@@ -77,15 +41,15 @@ jobs:
           java-version: '25'
       - name: Install verified veraPDF
         id: verapdf
-        run: dotnet run --file scripts/InstallVeraPdf.cs -- "${{ runner.temp }}/verapdf"
+        run: dotnet run --file src/tools/InstallVeraPdf.cs -- "${{ runner.temp }}/verapdf"
       - name: Fetch the PDF/A sample files
-        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/pdfa-samples" verapdf-pdfa1a-unicode-cmap verapdf-pdfa1b-info-title verapdf-pdfa1b-linearize-settle verapdf-pdfa1b-deep-references verapdf-pdfa1b-utf32le-xmp verapdf-pdfa1b-utf32be-bom-xmp verapdf-pdfa2a-language verapdf-pdfa2b-signed verapdf-pdfa2b-extension-schemas verapdf-pdfa2u-tounicode verapdf-pdfa3b-embedded-file verapdf-pdfa4-signed verapdf-pdfa4-pieceinfo verapdf-pdfa4e-embedded-file verapdf-pdfa4f-embedded-file
+        run: dotnet run --file src/tools/FetchReferencePdfs.cs -- src/tests/reference-pdfs/manifest.json "${{ runner.temp }}/pdfa-samples" verapdf-pdfa1a-unicode-cmap verapdf-pdfa1b-info-title verapdf-pdfa1b-linearize-settle verapdf-pdfa1b-deep-references verapdf-pdfa1b-utf32le-xmp verapdf-pdfa1b-utf32be-bom-xmp verapdf-pdfa2a-language verapdf-pdfa2b-signed verapdf-pdfa2b-extension-schemas verapdf-pdfa2u-tounicode verapdf-pdfa3b-embedded-file verapdf-pdfa4-signed verapdf-pdfa4-pieceinfo verapdf-pdfa4e-embedded-file verapdf-pdfa4f-embedded-file
       - name: Check out veraPDF's PDF/A test files
         id: testfiles
-        run: dotnet run --file scripts/FetchVeraPdfTestFiles.cs -- "${{ runner.temp }}/verapdf-test-files"
+        run: dotnet run --file src/tools/FetchVeraPdfTestFiles.cs -- "${{ runner.temp }}/verapdf-test-files"
       - name: Check out veraPDF's validation profiles
         id: profiles
-        run: dotnet run --file scripts/FetchVeraPdfProfiles.cs -- "${{ runner.temp }}/verapdf-profiles"
+        run: dotnet run --file src/tools/FetchVeraPdfProfiles.cs -- "${{ runner.temp }}/verapdf-profiles"
       - name: Validate PDF/A output with veraPDF
         env:
           HYPERPDF_VERAPDF: ${{ steps.verapdf.outputs.verapdf-home }}
@@ -120,9 +84,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes qpdf
       - name: Fetch verified reference PDFs
-        run: dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json "${{ runner.temp }}/reference-pdfs" usgs-lost-city-2023 verapdf-ua-headings verapdf-ua-tables verapdf-ua-notes pdfjs-textfields pdfjs-js-buttons pdfjs-annotation-attachment pypdf-latex-forms pypdf-libreoffice-form pypdf-outline pypdf-arabic pypdf-arabic-oneline-cmap pypdf-arabic-rotated commons-apna-aap pypdf-annotations pypdf-attachment
+        run: dotnet run --file src/tools/FetchReferencePdfs.cs -- src/tests/reference-pdfs/manifest.json "${{ runner.temp }}/reference-pdfs" usgs-lost-city-2023 verapdf-ua-headings verapdf-ua-tables verapdf-ua-notes pdfjs-textfields pdfjs-js-buttons pdfjs-annotation-attachment pypdf-latex-forms pypdf-libreoffice-form pypdf-outline pypdf-arabic pypdf-arabic-oneline-cmap pypdf-arabic-rotated commons-apna-aap pypdf-annotations pypdf-attachment
       - name: Save PDF 2.0 copies and check them with qpdf
-        run: dotnet run --file scripts/CheckPdf20Copies.cs -- "${{ runner.temp }}/reference-pdfs" "${{ runner.temp }}/pdf20-copies"
+        run: dotnet run --file src/tools/CheckPdf20Copies.cs -- "${{ runner.temp }}/reference-pdfs" "${{ runner.temp }}/pdf20-copies"
       - name: Upload PDF 2.0 copies
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

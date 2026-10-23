@@ -11,6 +11,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using HyperPdf.App.Accessibility;
 using HyperPdf.App.Controls;
 using HyperPdf.App.Rendering;
 using HyperPdf.App.Services;
@@ -167,6 +168,10 @@ public sealed class App : Application
         _lifetime.Add(services);
         _lifetime.Add(viewModel);
         _lifetime.Add(CommandFailures.ShowIn(viewModel.ReportFailure));
+        if (AccessibilityHost.Start(desktop) is { } accessibility)
+        {
+            _lifetime.Add(accessibility);
+        }
 
         // Both current values arrive synchronously on subscription, so the first frame is already themed.
         _lifetime.Add(services.Theme.SubscribeSafe(ApplyTheme, ErrorTrace.Write));

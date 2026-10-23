@@ -20,6 +20,10 @@
           <TextBox x:Name="LanguageBox" Grid.Column="1" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeLanguage}" PlaceholderText="for example en-AU" />
         </Grid>
         <CheckBox x:Name="TagsBox" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeTags}" Content="Add a reading structure (tags) when missing" />
+        <StackPanel x:Name="DescribePanel">
+          <CheckBox x:Name="DescribeBox" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeDescribePictures}" Content="Describe pictures for screen readers" />
+          <TextBlock x:Name="DescribeNote" TextWrapping="Wrap" />
+        </StackPanel>
         <CheckBox x:Name="CleanBox" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeCleanUp}" Content="Remove thumbnails and hidden extras" />
       </StackPanel>
     </ScrollViewer>

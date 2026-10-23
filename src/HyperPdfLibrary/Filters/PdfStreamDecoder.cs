@@ -12,6 +12,23 @@ namespace HyperPdfLibrary.Filters;
 /// <summary>Runs a stream's data through decryption and its filter chain, ping-ponging between two pooled buffers.</summary>
 internal static class PdfStreamDecoder
 {
+    /// <summary>Gets the byte filters this library applies, in full and abbreviated form; the image codecs are named by <see cref="ImageCodec"/>.</summary>
+    private static ReadOnlySpan<KnownName> ByteFilters =>
+    [
+        KnownName.FlateDecode,
+        KnownName.Fl,
+        KnownName.LZWDecode,
+        KnownName.LZW,
+        KnownName.ASCIIHexDecode,
+        KnownName.AHx,
+        KnownName.ASCII85Decode,
+        KnownName.A85,
+        KnownName.RunLengthDecode,
+        KnownName.RL,
+        KnownName.BrotliDecode,
+        KnownName.Crypt,
+    ];
+
     /// <summary>Decodes a stream.</summary>
     /// <param name="stream">The stream.</param>
     /// <param name="output">The buffer receiving the decoded data.</param>
@@ -120,6 +137,32 @@ internal static class PdfStreamDecoder
         KnownName.CCITTFaxDecode or KnownName.CCF => PdfImageCodec.Ccitt,
         _ => PdfImageCodec.None,
     };
+
+    /// <summary>Determines whether a filter chain names a filter this library does not know.</summary>
+    /// <param name="filters">The /Filter value: a name, an array of names, or null.</param>
+    /// <returns><see langword="true"/> when a filter within the limit is unknown.</returns>
+    internal static bool HasUnknownFilter(PdfValue filters)
+    {
+        if (filters.AsArray() is not { } array)
+        {
+            return filters.Kind == PdfKind.Name && !IsKnownFilter(filters.AsName());
+        }
+
+        for (var i = 0; i < Math.Min(array.Count, PdfLimits.MaxFilters); i++)
+        {
+            if (!IsKnownFilter(array.GetName(i)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Determines whether this library applies a filter, or hands its data to an image codec.</summary>
+    /// <param name="name">The filter name.</param>
+    /// <returns><see langword="true"/> for a filter this library knows.</returns>
+    internal static bool IsKnownFilter(PdfName name) => ByteFilters.Contains(name.ToKnownName()) || ImageCodec(name) != PdfImageCodec.None;
 
     /// <summary>Gets the output byte bound for this decoding operation.</summary>
     /// <param name="source">The context carrying the configured byte bound.</param>

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Ocr;
@@ -163,6 +164,9 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
     /// <summary>Gets how the app recognises text and fetches language packs; tests replace it with fakes.</summary>
     public OcrSetup Ocr { get; init; } = OcrSetup.CreateDefault();
 
+    /// <summary>Gets how pictures are described and the model fetched; tests replace it with fakes.</summary>
+    public PictureDescriptionSetup PictureDescription { get; init; } = PictureDescriptionSetup.CreateDefault();
+
     /// <summary>Gets how the spell checker is made; tests replace it with fakes.</summary>
     public Func<ISpellChecker> CreateSpellChecker { get; init; } = static () => NullSpellChecker.Instance;
 
@@ -289,11 +293,11 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
         }
         catch (IOException ex)
         {
-            Debug.WriteLine($"Could not save settings: {ex.Message}");
+            AppLog.Warning(ex, "Could not save settings.");
         }
         catch (UnauthorizedAccessException ex)
         {
-            Debug.WriteLine($"Could not save settings: {ex.Message}");
+            AppLog.Warning(ex, "Could not save settings.");
         }
     }
 
@@ -306,11 +310,11 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
         }
         catch (IOException ex)
         {
-            Debug.WriteLine($"Could not save signatures: {ex.Message}");
+            AppLog.Warning(ex, "Could not save signatures.");
         }
         catch (UnauthorizedAccessException ex)
         {
-            Debug.WriteLine($"Could not save signatures: {ex.Message}");
+            AppLog.Warning(ex, "Could not save signatures.");
         }
     }
 
@@ -326,6 +330,7 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
             Downloader.Dispose();
             Ocr.Dispose();
             Speech.Dispose();
+            PictureDescription.Dispose();
         }
     }
 

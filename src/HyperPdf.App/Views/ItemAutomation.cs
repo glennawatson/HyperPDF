@@ -61,8 +61,9 @@ internal static class ItemAutomation
         AutomationProperties.SetPositionInSet(container, args.Index + 1);
         AutomationProperties.SetSizeOfSet(container, count);
 
-        // Avalonia's Linux and macOS bridges drop the set position, so there it is spoken as the description.
-        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+        // Avalonia's macOS bridge drops the set position, so there it is spoken as the description. The Linux and Windows bridges are the
+        // app's own and send the position, so saying it again would be heard twice.
+        if (OperatingSystem.IsMacOS())
         {
             AutomationProperties.SetHelpText(container, ItemDescriptions.DescribePosition(item, args.Index, count));
         }

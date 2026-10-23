@@ -36,7 +36,7 @@ internal static class HyperPdfDocumentOptimization
         try
         {
             using var snapshot =HyperPdfOptimization.TakeSnapshot(self);
-            var options = OptimizeMapping.ToOptions(settings);
+            var options = OptimizeMapping.ToOptions(settings) with { FigureAltText = HyperPdfFigureDescription.CreateProvider(self, settings.FigureDescriber, cancellationToken) };
             var report = await PdfOptimizer.OptimizeSnapshotAsync(snapshot, destination, options, OptimizeMapping.ToProgress(progress), cancellationToken).ConfigureAwait(false);
             return OptimizeMapping.ToReport(report);
         }

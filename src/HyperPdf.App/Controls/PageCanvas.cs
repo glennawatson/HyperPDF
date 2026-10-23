@@ -91,6 +91,10 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     private static readonly DirectProperty<PageCanvas, TransitionRun> TransitionProperty =
         AvaloniaProperty.RegisterDirect<PageCanvas, TransitionRun>(nameof(Transition), static canvas => canvas.Transition);
 
+    /// <summary>Defines the <see cref="SelectionDrag"/> property.</summary>
+    private static readonly DirectProperty<PageCanvas, bool> SelectionDragProperty =
+        AvaloniaProperty.RegisterDirect<PageCanvas, bool>(nameof(SelectionDrag), static canvas => canvas.SelectionDrag);
+
     /// <summary>Puts the planned pages on an Avalonia drawing context, made when the first frame is drawn.</summary>
     private AvaloniaCanvasPainter? _painter;
 
@@ -139,6 +143,7 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
             disposables.Add(tabs.Follow(static tab => tab.PagePresentation.WhenChanged(static presentation => presentation.Current)).SubscribeSafe(this.StartTransition, ErrorTrace.Write));
             disposables.Add(this.TransitionFrames.SubscribeSafe(this.StepTransition, ErrorTrace.Write));
             disposables.Add(this.AutoScrollFrames(tabs).SubscribeSafe(_ => this.StepAutoScroll(), ErrorTrace.Write));
+            disposables.Add(this.SelectionDragFrames.SubscribeSafe(_ => this.StepSelectionDrag(), ErrorTrace.Write));
             disposables.Add(this.WhenChanged(static x => x.CurrentHitOutline)
                 .SubscribeSafe(outline => _currentHitPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), CurrentHitOutlineWidth) : null, ErrorTrace.Write));
 
@@ -283,6 +288,13 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     {
         get;
         set => SetAndRaise(TransitionProperty, ref field, value);
+    }
+
+    /// <summary>Gets a value indicating whether a text selection drag is under way, so its frames scroll the pages when the pointer leaves the view.</summary>
+    internal bool SelectionDrag
+    {
+        get;
+        private set => SetAndRaise(SelectionDragProperty, ref field, value);
     }
 
     /// <summary>Gets the brush behind the pages, which a page transition draws back to reveal the page.</summary>
@@ -574,6 +586,9 @@ public sealed class PageCanvas : Control, IActivatableView, ICanvasHost
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void ICanvasHost.WheelZoomChanged(WheelZoomEase before, WheelZoomEase after) => RaisePropertyChanged(WheelZoomProperty, before, after);
+
+    /// <inheritdoc/>
+    void ICanvasHost.SelectionDragChanged(bool dragging) => SelectionDrag = dragging;
 
     /// <inheritdoc/>
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

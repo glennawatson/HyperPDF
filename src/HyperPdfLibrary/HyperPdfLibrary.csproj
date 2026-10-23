@@ -46,7 +46,7 @@
 
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)../../docs/hyperpdf/PACKAGE-README.md" Pack="true" PackagePath="README.md" Visible="false" />
-    <None Include="$(MSBuildThisFileDirectory)../../HyperPDFViewerIcon.png" Pack="true" PackagePath="icon.png" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../../icons/HyperPDFViewerIcon.png" Pack="true" PackagePath="icon.png" Visible="false" />
     <None Include="Fonts\Data\CMaps\LICENSE.txt" Pack="true" PackagePath="CMaps-LICENSE.txt" Visible="false" />
     <None Include="Fonts\Data\Faces\LICENSE.txt" Pack="true" PackagePath="Faces-LICENSE.txt" Visible="false" />
   </ItemGroup>
@@ -71,7 +71,7 @@
     <NoticesResourceName>HyperPdfLibrary.ThirdPartyNotices.md</NoticesResourceName>
     <NoticesComponents>unicode-ucd;open-font-pack;adobe-cmaps;verapdf-profile-text</NoticesComponents>
   </PropertyGroup>
-  <Import Project="..\..\licenses\ThirdPartyNotices.targets" />
+  <Import Project="..\licenses\ThirdPartyNotices.targets" />
   <ItemGroup>
     <None Include="$(NoticesFile)" Pack="true" PackagePath="THIRD-PARTY-NOTICES.md" Visible="false" />
   </ItemGroup>

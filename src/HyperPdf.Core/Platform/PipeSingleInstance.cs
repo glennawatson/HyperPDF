@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.IO.Pipes;
 using System.Security.Cryptography;
 using System.Text;
+using HyperPdf.Core.Diagnostics;
 using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Signals;
 
@@ -230,7 +231,7 @@ public sealed class PipeSingleInstance : ISingleInstance
         }
         catch (IOException ex)
         {
-            Debug.WriteLine($"Single instance pipe could not be recreated: {ex.Message}");
+            AppLog.Warning(ex, "Single instance pipe could not be recreated.");
             return null;
         }
     }
@@ -266,7 +267,7 @@ public sealed class PipeSingleInstance : ISingleInstance
             }
             catch (IOException ex)
             {
-                Debug.WriteLine($"Single instance pipe failed: {ex.Message}");
+                AppLog.Warning(ex, "Single instance pipe failed.");
                 if (TryCreateServer(_name) is not { } replacement)
                 {
                     // Later launches open their own window rather than reaching this one.

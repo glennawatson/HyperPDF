@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\HyperPdf.Media\HyperPdf.Media.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Platform.Linux\HyperPdf.Platform.Linux.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Platform.Windows\HyperPdf.Platform.Windows.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Caps the tests running at once in this process, which shares a small CI runner with other test processes. -->
+    <Compile Include="..\HyperPdfLibrary.Tests\TestParallelLimit.cs" Link="TestParallelLimit.cs" />
+  </ItemGroup>
+</Project>

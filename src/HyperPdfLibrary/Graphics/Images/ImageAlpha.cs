@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Graphics.Colors;
 
@@ -13,8 +14,11 @@ internal static class ImageAlpha
     /// <summary>The bits in a byte.</summary>
     private const int ByteBits = 8;
 
-    /// <summary>The highest bit of a byte.</summary>
-    private const int HighBit = 0x80;
+    /// <summary>The pixels tested together for being fully opaque.</summary>
+    private const int OpaqueBlock = 64;
+
+    /// <summary>The entries in a stencil expansion table: one for each source byte.</summary>
+    private const int StencilTableSize = 256;
 
     /// <summary>The bias that makes the divide by 255 round to nearest.</summary>
     private const int RoundingBias = 128;
@@ -28,18 +32,59 @@ internal static class ImageAlpha
     /// <summary>The index of the alpha byte in a BGRA pixel.</summary>
     private const int AlphaIndex = 3;
 
+    /// <summary>Expands a source byte to eight coverage bytes where 1 bits paint.</summary>
+    private static readonly ulong[] StencilOnes = BuildStencilTable(true);
+
+    /// <summary>Expands a source byte to eight coverage bytes where 0 bits paint.</summary>
+    private static readonly ulong[] StencilZeros = BuildStencilTable(false);
+
     /// <summary>Expands one row of 1-bit stencil samples to coverage bytes.</summary>
     /// <param name="row">The packed row.</param>
     /// <param name="coverage">Receives 255 where the mask paints and 0 elsewhere.</param>
     /// <param name="paintOnes">Whether 1 bits paint (an inverted /Decode); otherwise 0 bits paint.</param>
     internal static void ExpandStencilRow(ReadOnlySpan<byte> row, Span<byte> coverage, bool paintOnes)
     {
-        var paintBit = paintOnes ? HighBit : 0;
-        for (var x = 0; x < coverage.Length; x++)
+        // Eight coverage bytes per source byte come from one table read, with the table chosen by which bit value paints.
+        var table = paintOnes ? StencilOnes : StencilZeros;
+        var whole = coverage.Length / ByteBits;
+        for (var i = 0; i < whole; i++)
         {
-            var bit = (row[x / ByteBits] << (x % ByteBits)) & HighBit;
-            coverage[x] = bit == paintBit ? (byte)PixelConverter.MaxByte : (byte)0;
+            BinaryPrimitives.WriteUInt64LittleEndian(coverage.Slice(i * ByteBits, ByteBits), table[row[i]]);
         }
+
+        var rest = coverage.Length - (whole * ByteBits);
+        if (rest == 0)
+        {
+            return;
+        }
+
+        Span<byte> last = stackalloc byte[ByteBits];
+        BinaryPrimitives.WriteUInt64LittleEndian(last, table[row[whole]]);
+        last[..rest].CopyTo(coverage[(whole * ByteBits)..]);
+    }
+
+    /// <summary>Builds the table that expands a source byte to eight coverage bytes, the first pixel in the lowest byte.</summary>
+    /// <param name="paintOnes">Whether 1 bits paint.</param>
+    /// <returns>The 256 entries.</returns>
+    internal static ulong[] BuildStencilTable(bool paintOnes)
+    {
+        var table = new ulong[StencilTableSize];
+        for (var value = 0; value < table.Length; value++)
+        {
+            ulong entry = 0;
+            for (var bit = 0; bit < ByteBits; bit++)
+            {
+                var set = ((value >> (ByteBits - 1 - bit)) & 1) == 1;
+                if (set == paintOnes)
+                {
+                    entry |= (ulong)PixelConverter.MaxByte << (bit * ByteBits);
+                }
+            }
+
+            table[value] = entry;
+        }
+
+        return table;
     }
 
     /// <summary>
@@ -127,15 +172,32 @@ internal static class ImageAlpha
     /// <param name="alpha">One alpha byte per pixel.</param>
     internal static void Multiply(Span<byte> bgra, ReadOnlySpan<byte> alpha)
     {
-        for (var p = 0; p < alpha.Length; p++)
+        // Masks are mostly opaque, so a block of pixels whose alpha is all 255 is skipped with one vectorised test.
+        for (var start = 0; start < alpha.Length; start += OpaqueBlock)
         {
-            var factor = alpha[p];
+            var block = alpha.Slice(start, Math.Min(OpaqueBlock, alpha.Length - start));
+            if (block.IndexOfAnyExcept((byte)PixelConverter.MaxByte) >= 0)
+            {
+                MultiplyBlock(bgra, block, start);
+            }
+        }
+    }
+
+    /// <summary>Multiplies the pixels of one block by their alpha.</summary>
+    /// <param name="bgra">The pixels of the whole image.</param>
+    /// <param name="block">The alpha of the block.</param>
+    /// <param name="start">The index of the block's first pixel.</param>
+    internal static void MultiplyBlock(Span<byte> bgra, ReadOnlySpan<byte> block, int start)
+    {
+        for (var p = 0; p < block.Length; p++)
+        {
+            var factor = block[p];
             if (factor == PixelConverter.MaxByte)
             {
                 continue;
             }
 
-            var pixel = bgra.Slice(p * PixelConverter.BytesPerPixel, PixelConverter.BytesPerPixel);
+            var pixel = bgra.Slice((start + p) * PixelConverter.BytesPerPixel, PixelConverter.BytesPerPixel);
             if (factor == 0)
             {
                 pixel.Clear();
