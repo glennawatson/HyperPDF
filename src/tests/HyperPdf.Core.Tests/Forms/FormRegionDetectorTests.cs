@@ -137,30 +137,28 @@ public sealed class FormRegionDetectorTests
     public async Task VectorAndScalarScansAgree()
     {
         var image = DrawForm();
-        var vector = Detect(image);
         var runs = new List<DarkRun>();
         DarkPixels.FindRuns(image.AsSpan(0, Width), 1, 1, 0, runs);
         var row = image.AsSpan((int)(Box.Top * Scale) * Width, Width);
-        var counts = new ushort[Width];
-        DarkPixels.CountColumns(row, byte.MaxValue, counts);
-        var scalarCounts = new ushort[Width];
         var scalarRuns = new List<DarkRun>();
-        DarkPixels.UseVectors = false;
-        List<FormRegion> scalar;
-        try
+        DarkPixels.FindRuns(row, byte.MaxValue, 1, 0, scalarRuns, false);
+        var agree = true;
+        for (var y = 0; y < image.Length / Width; y++)
         {
-            scalar = Detect(image);
-            DarkPixels.CountColumns(row, byte.MaxValue, scalarCounts);
-            DarkPixels.FindRuns(row, byte.MaxValue, 1, 0, scalarRuns);
-        }
-        finally
-        {
-            DarkPixels.UseVectors = true;
+            var line = image.AsSpan(y * Width, Width);
+            var vectorCounts = new ushort[Width];
+            var scalarCounts = new ushort[Width];
+            DarkPixels.CountColumns(line, byte.MaxValue, vectorCounts);
+            DarkPixels.CountColumns(line, byte.MaxValue, scalarCounts, false);
+            var vectorLine = new List<DarkRun>();
+            var scalarLine = new List<DarkRun>();
+            DarkPixels.FindRuns(line, byte.MaxValue, 1, y, vectorLine);
+            DarkPixels.FindRuns(line, byte.MaxValue, 1, y, scalarLine, false);
+            agree &= vectorCounts.AsSpan().SequenceEqual(scalarCounts) && vectorLine.SequenceEqual(scalarLine);
         }
 
-        await Assert.That(scalar).IsEquivalentTo(vector);
+        await Assert.That(agree).IsTrue();
         await Assert.That(runs.Count).IsEqualTo(0);
-        await Assert.That(counts).IsEquivalentTo(scalarCounts);
         DarkRun edge = new(0, (int)(Box.Left * Scale), (int)((Box.Right + 1) * Scale));
         await Assert.That(scalarRuns[0]).IsEqualTo(edge);
     }

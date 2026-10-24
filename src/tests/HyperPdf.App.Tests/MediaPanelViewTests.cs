@@ -2,12 +2,10 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using HyperPdf.App.Views;
-using HyperPdf.Core.Media;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
@@ -37,15 +35,9 @@ public sealed class MediaPanelViewTests
     [Test]
     public async Task DrawsThePictureAfterPlayIsPressed()
     {
-        var tools = MediaToolLocator.Find();
-        if (tools is null)
-        {
-            Skip.Test("FFmpeg is not installed on this computer.");
-        }
-
         using var test = new TestServices();
         var path = Path.Combine(test.Directory, "panel.pdf");
-        await File.WriteAllBytesAsync(path, TestPdf.CreateMediaDocument(await MakeClipAsync(tools!, test.Directory)));
+        await File.WriteAllBytesAsync(path, TestPdf.CreateMediaDocument(await ReadClipAsync()));
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [path]);
         var tab = main.SelectedTab!;
@@ -81,22 +73,7 @@ public sealed class MediaPanelViewTests
         }
     }
 
-    /// <summary>Makes a short video with FFmpeg.</summary>
-    /// <param name="tools">The FFmpeg programs.</param>
-    /// <param name="directory">The folder to write to.</param>
+    /// <summary>Reads the short H.264 video with sound that the test embeds in the document.</summary>
     /// <returns>The bytes of the video.</returns>
-    private static async Task<byte[]> MakeClipAsync(MediaTools tools, string directory)
-    {
-        var path = Path.Combine(directory, "made.mp4");
-        var start = new ProcessStartInfo(tools.Ffmpeg) { UseShellExecute = false, RedirectStandardError = true };
-        foreach (var argument in new[] { "-v", "error", "-f", "lavfi", "-i", "testsrc=duration=4:size=160x120:rate=10", "-c:v", "mpeg4", "-y", path })
-        {
-            start.ArgumentList.Add(argument);
-        }
-
-        using var process = Process.Start(start)!;
-        _ = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-        return await File.ReadAllBytesAsync(path);
-    }
+    private static Task<byte[]> ReadClipAsync() => File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "av-h264-aac-text.mp4"));
 }

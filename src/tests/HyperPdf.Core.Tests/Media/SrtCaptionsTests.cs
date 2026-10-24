@@ -42,6 +42,23 @@ public sealed class SrtCaptionsTests
         await Assert.That(cues[1].Text).IsEqualTo("World");
     }
 
+    /// <summary>Verifies WebVTT headers, notes, identifiers, hour-less times, settings and entities are read.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ReadsWebVttCaptions()
+    {
+        var cues = SrtCaptions.Parse(
+            "﻿WEBVTT - title\n\nNOTE a comment\n\nintro\n00:00.500 --> 00:01.500 align:start\nTom &amp; Jerry &lt;3 &bogus;\n\n"
+            + "00:01:02.250 --> 00:01:03.000\n<v Bob>World</v>\n");
+
+        await Assert.That(cues.Count).IsEqualTo(TwoCaptions);
+        await Assert.That(cues[0].Start).IsEqualTo(TimeSpan.FromSeconds(PointStart));
+        await Assert.That(cues[0].End).IsEqualTo(TimeSpan.FromSeconds(FirstEnd));
+        await Assert.That(cues[0].Text).IsEqualTo("Tom & Jerry <3 &bogus;");
+        await Assert.That(cues[1].Start).IsEqualTo(TimeSpan.FromSeconds(SecondStart));
+        await Assert.That(cues[1].Text).IsEqualTo("World");
+    }
+
     /// <summary>Verifies the caption at a moment includes its start and leaves out its end.</summary>
     /// <returns>A task.</returns>
     [Test]

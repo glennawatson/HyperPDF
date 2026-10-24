@@ -12,6 +12,9 @@ namespace HyperPdf.Core.Signatures.Signing;
 /// </summary>
 internal static class PdfRepair
 {
+    /// <summary>The <c>obj</c> keywords an object usually has: its header's and the one ending <c>endobj</c>.</summary>
+    private const int KeywordsPerObject = 2;
+
     /// <summary>Checks every in-use entry of a parsed structure points at the object it names.</summary>
     /// <param name="structure">The structure read from the cross-reference sections.</param>
     /// <returns><see langword="true"/> when the cross-reference information can be trusted.</returns>
@@ -41,24 +44,45 @@ internal static class PdfRepair
     /// <exception cref="InvalidDataException">No catalog can be found.</exception>
     internal static PdfStructure Rebuild(ReadOnlyMemory<byte> memory)
     {
-        var file = memory.Span;
-        var entries = new Dictionary<int, XrefEntry>();
-        var catalog = -1;
-        for (var i = 0; i < file.Length; i++)
+        var entries = ScanHeaders(memory.Span, out var catalog);
+        var structure = PdfReader.Structure(memory, entries, FindTrailer(memory.Span, catalog), -1, true);
+        AddCompressedObjects(structure);
+        return structure;
+    }
+
+    /// <summary>Finds every <c>N G obj</c> header in a file.</summary>
+    /// <param name="file">The file.</param>
+    /// <param name="catalog">Receives the number of the last object that is a catalog, or -1.</param>
+    /// <returns>Where each object starts, the last definition of each number.</returns>
+    internal static Dictionary<int, XrefEntry> ScanHeaders(ReadOnlySpan<byte> file, out int catalog)
+    {
+        // A count of the keywords is one vectorised pass; each object has an obj and, usually, an endobj, so half is a close first size.
+        var entries = new Dictionary<int, XrefEntry>((file.Count("obj"u8) / KeywordsPerObject) + 1);
+        catalog = -1;
+
+        // Every header ends in "obj", so a vectorised search finds the keywords and only the bytes before each are read.
+        var searched = 0;
+        while (searched < file.Length)
         {
-            if (!IsTokenStart(file, i) || ObjectNumberAt(file, i) is not (>= 0 and var number))
+            var found = file[searched..].IndexOf("obj"u8);
+            if (found < 0)
+            {
+                break;
+            }
+
+            var keyword = searched + found;
+            searched = keyword + "obj"u8.Length;
+            if (HeaderStartBefore(file, keyword) is not (>= 0 and var start) || ObjectNumberAt(file, start) is not (>= 0 and var number))
             {
                 continue;
             }
 
             // Later definitions replace earlier ones, as an incremental update would.
-            entries[number] = new(XrefEntry.InUse, i, 0);
-            catalog = IsType(file, i, "Catalog"u8) ? number : catalog;
+            entries[number] = new(XrefEntry.InUse, start, 0);
+            catalog = IsType(file, start, "Catalog"u8) ? number : catalog;
         }
 
-        var structure = PdfReader.Structure(memory, entries, FindTrailer(file, catalog), -1, true);
-        AddCompressedObjects(structure);
-        return structure;
+        return entries;
     }
 
     /// <summary>Finds the trailer: the last <c>trailer</c> dictionary naming a catalog, or one made for the catalog found.</summary>
@@ -140,6 +164,39 @@ internal static class PdfRepair
         index = index < 0 ? -1 : PdfSyntax.SkipSpace(file, index);
         var isHeader = index >= 0 && file[index..].StartsWith("obj"u8) && (index + "obj"u8.Length >= file.Length || !char.IsAsciiLetterOrDigit((char)file[index + "obj"u8.Length]));
         return isHeader && number <= int.MaxValue ? (int)number : -1;
+    }
+
+    /// <summary>Finds where the "number generation" before an <c>obj</c> keyword would start.</summary>
+    /// <param name="file">The file.</param>
+    /// <param name="keyword">The offset of the keyword.</param>
+    /// <returns>The offset of the object number, or -1 when digits, white space and digits do not precede the keyword.</returns>
+    private static int HeaderStartBefore(ReadOnlySpan<byte> file, int keyword)
+    {
+        var afterSpace = SkipBackwards(file, keyword - 1, false);
+        var beforeGeneration = SkipBackwards(file, afterSpace, true);
+        if (beforeGeneration == afterSpace || beforeGeneration < 0 || !PdfSyntax.IsSpace(file[beforeGeneration]))
+        {
+            return -1;
+        }
+
+        var afterNumber = SkipBackwards(file, beforeGeneration, false);
+        var beforeNumber = SkipBackwards(file, afterNumber, true);
+        return beforeNumber == afterNumber || !IsTokenStart(file, beforeNumber + 1) ? -1 : beforeNumber + 1;
+    }
+
+    /// <summary>Moves backwards over white space or over decimal digits.</summary>
+    /// <param name="file">The file.</param>
+    /// <param name="at">The offset to start at.</param>
+    /// <param name="digits"><see langword="true"/> to skip digits; <see langword="false"/> to skip white space.</param>
+    /// <returns>The offset of the first byte that is not skipped, or -1.</returns>
+    private static int SkipBackwards(ReadOnlySpan<byte> file, int at, bool digits)
+    {
+        while (at >= 0 && (digits ? char.IsAsciiDigit((char)file[at]) : PdfSyntax.IsSpace(file[at])))
+        {
+            at--;
+        }
+
+        return at;
     }
 
     /// <summary>Determines whether a number could start at an index: a digit after white space or a delimiter.</summary>

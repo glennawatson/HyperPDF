@@ -11,12 +11,12 @@ using HyperPdf.Ocr;
 namespace HyperPdf.ViewModels.Services;
 
 /// <summary>
-/// How the app recognises text: the Tesseract shipped with the app, the English data shipped beside it, where other
-/// downloaded languages live, and how they are downloaded.
+/// How the app recognises text: the managed recogniser built into the app, the English data shipped beside it, where
+/// other downloaded languages live, and how they are downloaded.
 /// </summary>
 /// <param name="LanguageDirectory">The folder holding downloaded language packs.</param>
 /// <param name="BundledLanguageDirectory">The folder holding the language data shipped with the app, or <see langword="null"/> when there is none.</param>
-/// <param name="IsEngineInstalled">Determines whether the Tesseract library can be loaded.</param>
+/// <param name="IsEngineInstalled">Determines whether the text recogniser can run on this computer.</param>
 /// <param name="FindLanguageData">Finds one folder holding every language in a setting such as <c>eng+deu</c>, given the pack folder; <see langword="null"/> when there is none.</param>
 /// <param name="CreateEngine">Creates the recogniser for a language setting, given the pack folder.</param>
 /// <param name="DownloadPacks">Downloads the missing packs into the given folder, reporting the fraction done.</param>
@@ -43,7 +43,7 @@ public sealed record OcrSetup(
     /// <summary>Gets the downloads and file facts owned by this setup.</summary>
     private OcrLanguagePackDownloader Downloads { get; init; } = new();
 
-    /// <summary>Creates the default setup: the Tesseract and English data shipped with the app, with other languages downloaded when needed.</summary>
+    /// <summary>Creates the default setup: the managed recogniser and English data shipped with the app, with other languages downloaded when needed.</summary>
     /// <returns>The setup.</returns>
     public static OcrSetup CreateDefault()
     {
@@ -51,10 +51,10 @@ public sealed record OcrSetup(
         var paths = new DataFilePaths();
         return new(
             DefaultLanguageDirectory,
-            TesseractEngine.BundledDataDirectory,
-            TesseractEngine.IsLibraryAvailable,
+            ManagedOcrEngine.BundledDataDirectory,
+            static () => true,
             paths.FindDirectory,
-            static (languages, directory) => new TesseractEngine(languages, directory),
+            static (languages, directory) => new ManagedOcrEngine(languages, directory),
             downloads.DownloadAsync) { Downloads = downloads, };
     }
 

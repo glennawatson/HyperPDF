@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using HyperPdfLibrary.Compat;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images;
@@ -12,6 +13,9 @@ namespace HyperPdfLibrary.ImageFiles;
 /// <summary>Reads the strips of a TIFF image: undoes their compression and predictor and unpacks their samples.</summary>
 internal static class TiffStrips
 {
+    /// <summary>The message for an image with fewer strips than its size needs.</summary>
+    private const string MissingStrips = "The TIFF lacks strips for its size.";
+
     /// <summary>The tag for the offsets of the strips.</summary>
     private const int TagStripOffsets = 273;
 
@@ -73,7 +77,7 @@ internal static class TiffStrips
         var perPlane = (info.Height + info.RowsPerStrip - 1) / info.RowsPerStrip;
         if (offsets.Length < perPlane * info.Planes)
         {
-            throw new InvalidDataException("The TIFF lacks strips for its size.");
+            throw new InvalidDataException(MissingStrips);
         }
 
         var samples = new ushort[(long)info.Width * info.Height * info.SamplesPerPixel];
@@ -98,6 +102,39 @@ internal static class TiffStrips
         return samples;
     }
 
+    /// <summary>Reads the bytes of an eight bits a sample image whose samples are stored pixel by pixel, strip after strip, with no per sample unpacking.</summary>
+    /// <param name="directory">The directory.</param>
+    /// <param name="info">What the tags say.</param>
+    /// <param name="cancellationToken">Cancels between strips.</param>
+    /// <returns>The samples, pixel by pixel, one byte each.</returns>
+    /// <exception cref="InvalidDataException">The strips are missing or damaged, or the compression is not one this reader handles.</exception>
+    internal static byte[] ReadBytes(TiffDirectory directory, in TiffInfo info, CancellationToken cancellationToken)
+    {
+        var offsets = directory.GetValues(TagStripOffsets, MaxStrips);
+        var counts = directory.GetValues(TagStripByteCounts, MaxStrips);
+        var perPlane = (info.Height + info.RowsPerStrip - 1) / info.RowsPerStrip;
+        if (offsets.Length < perPlane)
+        {
+            throw new InvalidDataException(MissingStrips);
+        }
+
+        var bytes = new byte[(long)info.RowBytes * info.Height];
+        for (var strip = 0; strip < perPlane; strip++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var firstRow = strip * info.RowsPerStrip;
+            var rows = Math.Min(info.RowsPerStrip, info.Height - firstRow);
+            var data = bytes.AsSpan(firstRow * info.RowBytes, info.RowBytes * rows);
+            DecompressInto(Slice(directory, offsets[strip], counts.Length > strip ? counts[strip] : 0), info, data, cancellationToken);
+            if (info.Predictor == HorizontalDifferencing)
+            {
+                Differentiate(data, rows, info, directory.IsLittleEndian);
+            }
+        }
+
+        return bytes;
+    }
+
     /// <summary>Reads a fax coded, one-bit image into packed rows where a set bit is white.</summary>
     /// <param name="directory">The directory.</param>
     /// <param name="info">What the tags say.</param>
@@ -111,7 +148,7 @@ internal static class TiffStrips
         var perPlane = (info.Height + info.RowsPerStrip - 1) / info.RowsPerStrip;
         if (offsets.Length < perPlane)
         {
-            throw new InvalidDataException("The TIFF lacks strips for its size.");
+            throw new InvalidDataException(MissingStrips);
         }
 
         var rowBytes = (info.Width + ByteBits - 1) / ByteBits;
@@ -196,7 +233,20 @@ internal static class TiffStrips
     /// <exception cref="InvalidDataException">The compression is not one this reader handles.</exception>
     private static byte[] Decompress(ReadOnlySpan<byte> strip, in TiffInfo info, int rows, CancellationToken cancellationToken)
     {
-        var expected = (long)info.RowBytes * rows;
+        var data = new byte[(long)info.RowBytes * rows];
+        DecompressInto(strip, info, data, cancellationToken);
+        return data;
+    }
+
+    /// <summary>Undoes a strip's compression into space the caller owns.</summary>
+    /// <param name="strip">The strip's bytes.</param>
+    /// <param name="info">What the tags say.</param>
+    /// <param name="data">Receives the rows, zero padded to their full size if the data was short.</param>
+    /// <param name="cancellationToken">Cancels the decompression.</param>
+    /// <exception cref="InvalidDataException">The compression is not one this reader handles.</exception>
+    private static void DecompressInto(ReadOnlySpan<byte> strip, in TiffInfo info, Span<byte> data, CancellationToken cancellationToken)
+    {
+        var expected = data.Length;
         var output = default(PooledBuffer);
         try
         {
@@ -204,7 +254,7 @@ internal static class TiffStrips
             {
                 case NoCompression:
                 {
-                    output.Write(strip[..(int)Math.Min(strip.Length, expected)]);
+                    output.Write(strip[..Math.Min(strip.Length, expected)]);
                     break;
                 }
 
@@ -232,14 +282,11 @@ internal static class TiffStrips
                 }
             }
 
-            var data = new byte[expected];
-            output.WrittenSpan[..(int)Math.Min(output.Length, expected)].CopyTo(data);
+            output.WrittenSpan[..Math.Min(output.Length, expected)].CopyTo(data);
             if (info.ReversedBits)
             {
                 ReverseBits(data);
             }
-
-            return data;
         }
         finally
         {
@@ -269,15 +316,22 @@ internal static class TiffStrips
     /// <param name="rows">The rows in the strip.</param>
     /// <param name="info">What the tags say.</param>
     /// <param name="littleEndian">Whether 16-bit samples are stored least significant byte first.</param>
-    private static void Differentiate(byte[] data, int rows, in TiffInfo info, bool littleEndian)
+    private static void Differentiate(Span<byte> data, int rows, in TiffInfo info, bool littleEndian)
     {
         var step = info.Separate ? 1 : info.SamplesPerPixel;
         for (var row = 0; row < rows; row++)
         {
-            var line = data.AsSpan(row * info.RowBytes, info.RowBytes);
+            var line = data.Slice(row * info.RowBytes, info.RowBytes);
             if (info.BitsPerSample == ByteBits)
             {
-                for (var i = step; i < line.Length; i++)
+                // Three and four sample pixels add the pixel to the left a vector at a time.
+                var i = step;
+                if (PixelLanes.Handles(step) && line.Length > step)
+                {
+                    i = PixelLanes.UndoSub(ref MemoryMarshal.GetReference(line), step, step, line.Length);
+                }
+
+                for (; i < line.Length; i++)
                 {
                     line[i] += line[i - step];
                 }

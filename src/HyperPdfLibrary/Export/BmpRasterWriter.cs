@@ -164,16 +164,21 @@ internal static class BmpRasterWriter
     /// <param name="row">The offset of the row's first sample.</param>
     private static void WriteColourRow(RasterByteWriter writer, RasterSamples samples, int row)
     {
-        var data = samples.Data;
-        for (var i = row; i < row + samples.RowBytes; i += samples.Channels)
+        var source = samples.Data.AsSpan(row, samples.RowBytes);
+        var target = writer.Buffer.AsSpan(writer.Position, samples.RowBytes);
+
+        // Whole groups of pixels are swapped a vector at a time; the few left over go one by one.
+        for (var i = RedBlueSwap.Swap(source, target, samples.Channels); i < source.Length; i += samples.Channels)
         {
-            writer.WriteByte(data[i + BlueOffset]);
-            writer.WriteByte(data[i + GreenOffset]);
-            writer.WriteByte(data[i]);
+            target[i] = source[i + BlueOffset];
+            target[i + GreenOffset] = source[i + GreenOffset];
+            target[i + BlueOffset] = source[i];
             if (samples.HasAlpha)
             {
-                writer.WriteByte(data[i + AlphaOffset]);
+                target[i + AlphaOffset] = source[i + AlphaOffset];
             }
         }
+
+        writer.Skip(samples.RowBytes);
     }
 }

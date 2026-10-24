@@ -9,7 +9,7 @@ using HyperPdf.TestAssets;
 
 namespace HyperPdf.Benchmarks;
 
-/// <summary>Measures <see cref="DocumentSearch.SearchAsync"/> over a 1,000 page document.</summary>
+/// <summary>Measures <c>DocumentSearch.SearchAsync</c> over a 1,000 page document.</summary>
 public class DocumentSearchAsyncBenchmarks
 {
     /// <summary>The number of pages searched.</summary>
@@ -44,6 +44,20 @@ public class DocumentSearchAsyncBenchmarks
     /// <returns>The number of hits.</returns>
     [Benchmark]
     public Task<int> SearchCommonTerm() => CountHitsAsync(CommonTerm);
+
+    /// <summary>Searches every page for a word found on every page, as a folder search does, without the rectangles of the hits.</summary>
+    /// <returns>The number of hits.</returns>
+    [Benchmark]
+    public async Task<int> SearchCommonTermWithoutBounds()
+    {
+        var hits = 0;
+        await foreach (var result in DocumentSearch.SearchAsync(_document.Document, CommonTerm, SearchOptions.None, StartPage, false, CancellationToken.None))
+        {
+            hits += result.Hits.Count;
+        }
+
+        return hits;
+    }
 
     /// <summary>Counts the hits of a search that starts partway through the document.</summary>
     /// <param name="query">The query.</param>

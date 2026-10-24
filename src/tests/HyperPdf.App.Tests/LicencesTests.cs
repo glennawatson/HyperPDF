@@ -31,12 +31,6 @@ public sealed class LicencesTests
     /// <summary>The diagnostic when restore output is missing.</summary>
     private const string MissingAssets = "The app's project.assets.json was not found.";
 
-    /// <summary>The package family supplying native OCR on each supported runtime.</summary>
-    private const string TesseractRuntimePrefix = "Tesseract.Native.runtime.";
-
-    /// <summary>The runtimes whose OCR packages are included in the shared notices resource.</summary>
-    private static readonly string[] TesseractRuntimes = ["linux-x64", "linux-arm64", "osx-arm64", "win-x64", "win-arm64"];
-
     /// <summary>The names of downloaded components whose upstream licences are verified.</summary>
     private static readonly string[] DownloadedPrefixes = ["Tesseract language", "Kokoro", "Misaki", "MeloTTS", "BERT", "g2p_en", "CMU"];
 
@@ -89,32 +83,9 @@ public sealed class LicencesTests
         await Assert.That(string.Join(", ", missing)).IsEqualTo(string.Empty);
     }
 
-    /// <summary>The shared notices cover native OCR packages for every supported app runtime.</summary>
-    /// <returns>A task.</returns>
-    [Test]
-    public async Task NoticesIncludeEverySupportedTesseractRuntime()
-    {
-        var assets = FindAssets();
-        if (assets is null)
-        {
-            Skip.Test(MissingAssets);
-        }
-
-        var restored = ShippedPackages(assets!).Single(static package => package.StartsWith(TesseractRuntimePrefix, StringComparison.OrdinalIgnoreCase));
-        var version = restored[(restored.IndexOf('/', StringComparison.Ordinal) + 1)..];
-        var listed = new LicenceNotices(typeof(AvaloniaRenderHead).Assembly).Load().AllEntries().ToDictionary(static entry => $"{entry.Name}/{entry.Version}", StringComparer.OrdinalIgnoreCase);
-        foreach (var runtime in TesseractRuntimes)
-        {
-            var package = $"{TesseractRuntimePrefix}{runtime}/{version}";
-            await Assert.That(listed.ContainsKey(package)).IsTrue();
-            await Assert.That(listed[package].Text).Contains("----- Library licence:");
-        }
-    }
-
     /// <summary>
-    /// Native binaries bundled inside a package (the Tesseract runtime packages carry Leptonica, libpng, libtiff, curl,
-    /// OpenSSL and others in a <c>licenses</c> folder) are exempt from the package-level allow list, but every one of
-    /// their licence texts must appear in that package's entry, so the Licences window shows them.
+    /// Native binaries bundled inside a package (in a <c>licenses</c> folder) are exempt from the package-level allow
+    /// list, but every one of their licence texts must appear in that package's entry, so the Licences window shows them.
     /// </summary>
     /// <returns>A task.</returns>
     [Test]
@@ -128,7 +99,6 @@ public sealed class LicencesTests
 
         var entries = new LicenceNotices(typeof(AvaloniaRenderHead).Assembly).Load().AllEntries().ToDictionary(static e => $"{e.Name}/{e.Version}", StringComparer.OrdinalIgnoreCase);
         var missing = new List<string>();
-        var bundles = 0;
         foreach (var (package, folder) in PackageFolders(assets!))
         {
             var licences = Path.Combine(folder, "licenses");
@@ -137,7 +107,6 @@ public sealed class LicencesTests
                 continue;
             }
 
-            bundles++;
             if (!entries.TryGetValue(package, out var entry))
             {
                 missing.Add($"{package}: package entry");
@@ -154,7 +123,6 @@ public sealed class LicencesTests
             }
         }
 
-        await Assert.That(bundles).IsGreaterThan(0);
         await Assert.That(string.Join(", ", missing)).IsEqualTo(string.Empty);
     }
 

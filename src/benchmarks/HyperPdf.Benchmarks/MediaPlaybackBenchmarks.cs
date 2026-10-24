@@ -23,26 +23,11 @@ public sealed class MediaPlaybackBenchmarks : IDisposable
     /// <summary>The height of the sample pictures.</summary>
     private const int PictureHeight = 120;
 
-    /// <summary>What <c>ffprobe</c> prints for a clip with a picture, sound and captions.</summary>
-    private const string ProbeText = "codec_type=video\nwidth=1920\nheight=1080\ncodec_type=audio\ncodec_type=subtitle\nwidth=N/A\nheight=N/A\nduration=612.480000\n";
-
-    /// <summary>The width ffprobe printed for the sample clip.</summary>
-    private const int ProbeWidth = 1920;
-
-    /// <summary>The height ffprobe printed for the sample clip.</summary>
-    private const int ProbeHeight = 1080;
-
     /// <summary>The seconds between the start of one caption and the next.</summary>
     private const int CueSpacing = 2;
 
     /// <summary>The seconds a caption shows.</summary>
     private const double CueLength = 1.5;
-
-    /// <summary>The start in seconds the decoder arguments are built for.</summary>
-    private const double VideoStart = 12.5;
-
-    /// <summary>The pictures each second the decoder arguments ask for.</summary>
-    private const int PicturesPerSecond = 15;
 
     /// <summary>The sample caption file.</summary>
     private string _captionText = string.Empty;
@@ -100,16 +85,6 @@ public sealed class MediaPlaybackBenchmarks : IDisposable
     /// <returns>The length of the words.</returns>
     [Benchmark]
     public int FindCaption() => SrtCaptions.TextAt(_cues, TimeSpan.FromSeconds((CueCount * CueSpacing) - 1)).Length;
-
-    /// <summary>Reads what ffprobe prints.</summary>
-    /// <returns>The width.</returns>
-    [Benchmark]
-    public int ParseProbe() => MediaProbe.Parse(ProbeText).Width;
-
-    /// <summary>Builds the arguments of the decoder.</summary>
-    /// <returns>The number of arguments.</returns>
-    [Benchmark]
-    public int BuildVideoArguments() => FfmpegArguments.Video("/tmp/clip.mp4", TimeSpan.FromSeconds(VideoStart), FfmpegArguments.Fit(ProbeWidth, ProbeHeight), PicturesPerSecond).Length;
 
     /// <summary>Reads a stream of pictures and copies the latest one out, as the view does for each picture.</summary>
     /// <returns>A task that completes with the number of pictures shown.</returns>

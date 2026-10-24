@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics;
 using HyperPdf.Core.Media;
 using HyperPdf.Media;
 using HyperPdf.TestAssets;
@@ -98,10 +97,10 @@ public sealed class DocumentMediaViewModelTests
         await Assert.That(launched is not null).IsEqualTo(agree);
     }
 
-    /// <summary>Without FFmpeg the player says how to get it, its buttons stay off, and saving still works.</summary>
+    /// <summary>When media cannot be played the player says so, its buttons stay off, and saving still works.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task PlayerExplainsAMissingFfmpeg()
+    public async Task PlayerExplainsThatMediaCannotBePlayed()
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
@@ -111,7 +110,7 @@ public sealed class DocumentMediaViewModelTests
         media.Selected = media.Items[ClipPosition];
 
         await Assert.That(media.Player.IsAvailable).IsFalse();
-        await Assert.That(media.Player.Status).Contains("could not be loaded");
+        await Assert.That(media.Player.Status).Contains("cannot be played");
         await Assert.That(await media.Player.PlayCommand.CanExecute.FirstAsync()).IsFalse();
         await Assert.That(media.SaveCommand is not null).IsTrue();
     }
@@ -121,17 +120,10 @@ public sealed class DocumentMediaViewModelTests
     [Test]
     public async Task PlaysTheChosenClipOnlyAfterPlayIsPressed()
     {
-        var tools = MediaToolLocator.Find();
         var playback = new MediaPlaybackFactory(static () => NullStreamingAudioOutput.Instance);
-        if (tools is null || !playback.IsAvailable)
-        {
-            Skip.Test("FFmpeg is not installed on this computer.");
-        }
-
         using var test = new TestServices();
-        var clip = await MakeClipAsync(tools!, test.Directory);
         using var main = new MainViewModel(test.Services);
-        var tab = await OpenAsync(test, main, TestPdf.CreateMediaDocument(clip));
+        var tab = await OpenAsync(test, main, TestPdf.CreateMediaDocument(await ReadClipAsync()));
         using var media = new DocumentMediaViewModel(tab, playback);
         media.Refresh();
 
@@ -161,17 +153,10 @@ public sealed class DocumentMediaViewModelTests
     [Test]
     public async Task MovingThePositionBarSeeks()
     {
-        var tools = MediaToolLocator.Find();
         var playback = new MediaPlaybackFactory(static () => NullStreamingAudioOutput.Instance);
-        if (tools is null || !playback.IsAvailable)
-        {
-            Skip.Test("FFmpeg is not installed on this computer.");
-        }
-
         using var test = new TestServices();
-        var clip = await MakeClipAsync(tools!, test.Directory);
         using var main = new MainViewModel(test.Services);
-        var tab = await OpenAsync(test, main, TestPdf.CreateMediaDocument(clip));
+        var tab = await OpenAsync(test, main, TestPdf.CreateMediaDocument(await ReadClipAsync()));
         using var media = new DocumentMediaViewModel(tab, playback);
         media.Refresh();
         media.Selected = media.Items[ClipPosition];
@@ -191,24 +176,9 @@ public sealed class DocumentMediaViewModelTests
         await Assert.That(await UiWait.UntilAsync(() => media.Player.State == MediaPlayerState.Paused)).IsTrue();
     }
 
-    /// <summary>Makes a short video with FFmpeg.</summary>
-    /// <param name="tools">The FFmpeg programs.</param>
-    /// <param name="directory">The folder to write to.</param>
+    /// <summary>Reads the short H.264 video with sound that the tests embed in documents.</summary>
     /// <returns>The bytes of the video.</returns>
-    private static async Task<byte[]> MakeClipAsync(MediaTools tools, string directory)
-    {
-        var path = Path.Combine(directory, "made.mp4");
-        var start = new ProcessStartInfo(tools.Ffmpeg) { UseShellExecute = false, RedirectStandardError = true };
-        foreach (var argument in new[] { "-v", "error", "-f", "lavfi", "-i", "testsrc=duration=2:size=160x120:rate=10", "-c:v", "mpeg4", "-y", path })
-        {
-            start.ArgumentList.Add(argument);
-        }
-
-        using var process = Process.Start(start)!;
-        _ = await process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync();
-        return await File.ReadAllBytesAsync(path);
-    }
+    private static Task<byte[]> ReadClipAsync() => File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "av-h264-aac-text.mp4"));
 
     /// <summary>Opens a document and waits for it to load.</summary>
     /// <param name="test">The services.</param>

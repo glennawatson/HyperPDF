@@ -121,7 +121,7 @@ public sealed class OcrLanguagePackTests
         await Assert.That(main.SelectedTab.Notice).IsEqualTo(TextRecognitionViewModel.Describe(1, 0, 1, false));
     }
 
-    /// <summary>English and a downloaded language are gathered into one folder, because Tesseract reads a run's languages from one place.</summary>
+    /// <summary>English and a downloaded language are gathered into one folder, because the recogniser reads a run's languages from one place.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task GathersShippedAndDownloadedLanguages()
@@ -140,7 +140,7 @@ public sealed class OcrLanguagePackTests
         await Assert.That(setup.PacksNeededFor(both, [])).IsEmpty();
     }
 
-    /// <summary>When Tesseract cannot start, the notice says so without asking the person to install anything.</summary>
+    /// <summary>When the recogniser cannot start, the notice says so without asking the person to install anything.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task NeverAsksToInstall()

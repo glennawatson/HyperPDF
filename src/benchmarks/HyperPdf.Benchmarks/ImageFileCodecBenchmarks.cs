@@ -50,6 +50,21 @@ public class ImageFileCodecBenchmarks
     /// <summary>A BMP.</summary>
     private byte[] _bmp = null!;
 
+    /// <summary>The page as raster samples with every pixel opaque.</summary>
+    private HyperPdfLibrary.Creation.PdfRasterImage _opaqueImage = null!;
+
+    /// <summary>A TIFF with alpha.</summary>
+    private byte[] _tiff = null!;
+
+    /// <summary>An opaque TIFF.</summary>
+    private byte[] _tiff24 = null!;
+
+    /// <summary>An 8-bit grey BMP with a palette.</summary>
+    private byte[] _bmp8 = null!;
+
+    /// <summary>A 24-bit BMP.</summary>
+    private byte[] _bmp24 = null!;
+
     /// <summary>Makes a gradient page that is opaque in its top half and translucent below.</summary>
     [GlobalSetup]
     public void Setup()
@@ -68,7 +83,50 @@ public class ImageFileCodecBenchmarks
         _image = PdfRasterFiles.FromPremultipliedBgra(_premultiplied, Width, Height);
         _png = PdfRasterFiles.Encode(_image, PdfRasterFileFormat.Png, CancellationToken.None);
         _bmp = PdfRasterFiles.Encode(_image, PdfRasterFileFormat.Bmp, CancellationToken.None);
+        var opaque = (byte[])_premultiplied.Clone();
+        for (var offset = AlphaOffset; offset < opaque.Length; offset += BytesPerPixel)
+        {
+            opaque[offset] = byte.MaxValue;
+        }
+
+        var grey = new byte[Width * Height];
+        for (var i = 0; i < grey.Length; i++)
+        {
+            grey[i] = _premultiplied[i * BytesPerPixel];
+        }
+
+        HyperPdfLibrary.Creation.PdfRasterImage greyImage = new(HyperPdfLibrary.Creation.PdfRasterFormat.Gray8, Width, Height, grey);
+        _bmp8 = PdfRasterFiles.Encode(greyImage, PdfRasterFileFormat.Bmp, CancellationToken.None);
+        _opaqueImage = PdfRasterFiles.FromPremultipliedBgra(opaque, Width, Height);
+        _tiff = PdfRasterFiles.Encode(_image, PdfRasterFileFormat.Tiff, CancellationToken.None);
+        _tiff24 = PdfRasterFiles.Encode(PdfRasterFiles.FromPremultipliedBgra(opaque, Width, Height), PdfRasterFileFormat.Tiff, CancellationToken.None);
+        _bmp24 = PdfRasterFiles.Encode(PdfRasterFiles.FromPremultipliedBgra(opaque, Width, Height), PdfRasterFileFormat.Bmp, CancellationToken.None);
     }
+
+    /// <summary>Encodes the opaque page as a 24-bit BMP.</summary>
+    /// <returns>The file length.</returns>
+    [Benchmark]
+    public int EncodeBmp24() => PdfRasterFiles.Encode(_opaqueImage, PdfRasterFileFormat.Bmp, CancellationToken.None).Length;
+
+    /// <summary>Decodes the TIFF of a page with alpha.</summary>
+    /// <returns>The pixel count.</returns>
+    [Benchmark]
+    public int DecodeTiff() => PdfImageFiles.Decode(_tiff, CancellationToken.None).Pixels.Length;
+
+    /// <summary>Decodes the TIFF of an opaque page.</summary>
+    /// <returns>The pixel count.</returns>
+    [Benchmark]
+    public int DecodeTiff24() => PdfImageFiles.Decode(_tiff24, CancellationToken.None).Pixels.Length;
+
+    /// <summary>Decodes the 8-bit palette BMP of a grey page.</summary>
+    /// <returns>The pixel count.</returns>
+    [Benchmark]
+    public int DecodeBmp8() => PdfImageFiles.Decode(_bmp8, CancellationToken.None).Pixels.Length;
+
+    /// <summary>Decodes the 24-bit BMP of an opaque page.</summary>
+    /// <returns>The pixel count.</returns>
+    [Benchmark]
+    public int DecodeBmp24() => PdfImageFiles.Decode(_bmp24, CancellationToken.None).Pixels.Length;
 
     /// <summary>Decodes the PNG.</summary>
     /// <returns>The pixel count.</returns>

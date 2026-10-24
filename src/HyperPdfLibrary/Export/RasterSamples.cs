@@ -72,8 +72,8 @@ internal sealed record RasterSamples(int Width, int Height, int Channels, byte[]
     /// <exception cref="ArgumentOutOfRangeException">The pixel format is not known.</exception>
     internal static RasterSamples From(PdfRasterImage image) => image.Format switch
     {
-        PdfRasterFormat.Gray8 => new(image.Width, image.Height, GreyChannels, Copy(image, GreyChannels)),
-        PdfRasterFormat.Rgb24 => new(image.Width, image.Height, RgbChannels, Copy(image, RgbChannels)),
+        PdfRasterFormat.Gray8 => new(image.Width, image.Height, GreyChannels, Share(image, GreyChannels)),
+        PdfRasterFormat.Rgb24 => new(image.Width, image.Height, RgbChannels, Share(image, RgbChannels)),
         PdfRasterFormat.Bgra32 => new(image.Width, image.Height, RgbaChannels, FromBgra(image)),
         PdfRasterFormat.Bilevel1 => new(image.Width, image.Height, GreyChannels, FromBilevel(image)),
         _ => throw new ArgumentOutOfRangeException(nameof(image), image.Format, "The pixel format is not known."),
@@ -150,6 +150,21 @@ internal sealed record RasterSamples(int Width, int Height, int Channels, byte[]
         }
 
         return new(Width, Height, RgbChannels, flat);
+    }
+
+    /// <summary>
+    /// Gets the pixels of a grey or red-green-blue image for the writers, which only read them: the image's own array when it
+    /// holds exactly the pixels, so a large page is not copied; otherwise a copy.
+    /// </summary>
+    /// <param name="image">The image.</param>
+    /// <param name="channels">The samples a pixel.</param>
+    /// <returns>The samples, which the caller must not change.</returns>
+    private static byte[] Share(PdfRasterImage image, int channels)
+    {
+        var length = image.Width * image.Height * channels;
+        return MemoryMarshal.TryGetArray(image.Pixels, out var segment) && segment.Offset == 0 && segment.Array!.Length == length
+            ? segment.Array
+            : Copy(image, channels);
     }
 
     /// <summary>Copies the pixels of a grey or red-green-blue image.</summary>

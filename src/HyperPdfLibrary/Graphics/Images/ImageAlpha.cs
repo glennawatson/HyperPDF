@@ -4,6 +4,7 @@
 
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
 using HyperPdfLibrary.Graphics.Colors;
 
 namespace HyperPdfLibrary.Graphics.Images;
@@ -97,20 +98,9 @@ internal static class ImageAlpha
     /// <param name="target">Receives the resampled plane.</param>
     /// <param name="width">The target width.</param>
     /// <param name="height">The target height.</param>
-    internal static void ResamplePlane(ReadOnlySpan<byte> source, int sourceWidth, int sourceHeight, Span<byte> target, int width, int height)
-    {
-        for (var y = 0; y < height; y++)
-        {
-            var rowLow = RangeStart(y, sourceHeight, height);
-            var rowHigh = RangeEnd(y, sourceHeight, height, rowLow);
-            for (var x = 0; x < width; x++)
-            {
-                var columnLow = RangeStart(x, sourceWidth, width);
-                var columnHigh = RangeEnd(x, sourceWidth, width, columnLow);
-                target[(y * width) + x] = Average(source, sourceWidth, columnLow, columnHigh, rowLow, rowHigh);
-            }
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ResamplePlane(ReadOnlySpan<byte> source, int sourceWidth, int sourceHeight, Span<byte> target, int width, int height) =>
+        PlaneResampler.Resample(source, sourceWidth, sourceHeight, target, width, height);
 
     /// <summary>Enlarges a BGRA image with bilinear interpolation between pixel centres.</summary>
     /// <param name="source">The source pixels.</param>
@@ -121,6 +111,12 @@ internal static class ImageAlpha
     /// <param name="height">The target height.</param>
     internal static void UpscaleBgra(ReadOnlySpan<byte> source, int sourceWidth, int sourceHeight, Span<byte> target, int width, int height)
     {
+        if (Vector128.IsHardwareAccelerated)
+        {
+            BgraUpscaler.Upscale(source, sourceWidth, sourceHeight, target, width, height);
+            return;
+        }
+
         for (var y = 0; y < height; y++)
         {
             var sourceY = Math.Max(((y + CenterOffset) * sourceHeight / height) - CenterOffset, 0);
@@ -209,53 +205,6 @@ internal static class ImageAlpha
                 pixel[i] = (byte)Divide255(pixel[i] * factor);
             }
         }
-    }
-
-    /// <summary>Gets the first source index a target index covers.</summary>
-    /// <param name="index">The target index.</param>
-    /// <param name="sourceSize">The source size.</param>
-    /// <param name="targetSize">The target size.</param>
-    /// <returns>The first source index.</returns>
-    private static int RangeStart(int index, int sourceSize, int targetSize) => targetSize < sourceSize
-        ? (int)((long)index * sourceSize / targetSize)
-        : (int)(((PairFactor * index) + 1L) * sourceSize / (PairFactor * (long)targetSize));
-
-    /// <summary>Gets one past the last source index a target index covers.</summary>
-    /// <param name="index">The target index.</param>
-    /// <param name="sourceSize">The source size.</param>
-    /// <param name="targetSize">The target size.</param>
-    /// <param name="start">The first source index.</param>
-    /// <returns>The end of the covered range, at least one pixel after <paramref name="start"/>.</returns>
-    private static int RangeEnd(int index, int sourceSize, int targetSize, int start) => targetSize < sourceSize
-        ? Math.Max(start + 1, (int)((long)(index + 1) * sourceSize / targetSize))
-        : start + 1;
-
-    /// <summary>Averages a block of a plane.</summary>
-    /// <param name="source">The plane.</param>
-    /// <param name="stride">The plane width.</param>
-    /// <param name="columnLow">The first column.</param>
-    /// <param name="columnHigh">One past the last column.</param>
-    /// <param name="rowLow">The first row.</param>
-    /// <param name="rowHigh">One past the last row.</param>
-    /// <returns>The rounded average.</returns>
-    private static byte Average(ReadOnlySpan<byte> source, int stride, int columnLow, int columnHigh, int rowLow, int rowHigh)
-    {
-        var count = (columnHigh - columnLow) * (rowHigh - rowLow);
-        if (count == 1)
-        {
-            return source[(rowLow * stride) + columnLow];
-        }
-
-        long sum = 0;
-        for (var row = rowLow; row < rowHigh; row++)
-        {
-            for (var column = columnLow; column < columnHigh; column++)
-            {
-                sum += source[(row * stride) + column];
-            }
-        }
-
-        return (byte)((sum + (count / PairFactor)) / count);
     }
 
     /// <summary>Interpolates between two values.</summary>

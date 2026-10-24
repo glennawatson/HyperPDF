@@ -1,5 +1,125 @@
 [
   {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Export.BmpRasterWriter.Write",
+    "reason": "The array is the bitmap file, the result handed to the caller, sized once from the header and the padded rows."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Export.RasterSamples.Copy",
+    "reason": "A picture with alpha is copied before its red and blue are swapped in place, because the swap must not change the caller's picture. Grey and RGB pictures share the caller's array instead."
+  },
+  {
+    "type": "HyperPdfLibrary.Export.RasterSamples",
+    "frame": "HyperPdfLibrary.Export.RasterSamples.From",
+    "reason": "The record holds the samples of one export and lives as long as that export."
+  },
+  {
+    "type": "HyperPdfLibrary.Export.RasterByteWriter",
+    "frame": "HyperPdfLibrary.Export.BmpRasterWriter.Write",
+    "reason": "The writer tracks the position in the file being built for this one export."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.ImageFiles.TiffFileDecoder.Decode",
+    "reason": "The file is copied once because the directory object that reads the tags and strips outlives the span the caller passed, and a class cannot hold a span. It is one copy for each decode."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.ImageFiles.TiffStrips.ReadBytes",
+    "reason": "The array holds the decoded samples, which for grey and RGB pictures are the picture's pixels, handed to the caller. Each strip decompresses straight into it."
+  },
+  {
+    "type": "HyperPdfLibrary.Creation.PdfRasterImage",
+    "frame": "HyperPdfLibrary.ImageFiles.TiffEightBit.Bgra",
+    "reason": "The picture is the result of the decode, handed to the caller with its pixels."
+  },
+  {
+    "type": "HyperPdfLibrary.ImageFiles.TiffDirectory",
+    "frame": "HyperPdfLibrary.ImageFiles.TiffFileDecoder.Decode",
+    "reason": "The directory reads the file's tags for this one decode."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.ImageFiles.TiffEntry][]",
+    "frame": "HyperPdfLibrary.ImageFiles.TiffDirectory..ctor",
+    "reason": "The table of the file's tags, a few hundred bytes made once for each decode."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.ImageFiles.TiffDirectory..ctor",
+    "reason": "The buckets of the tag table above."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdfLibrary.ImageFiles.TiffEntry]",
+    "frame": "HyperPdfLibrary.ImageFiles.TiffDirectory..ctor",
+    "reason": "The tag table itself, made once for each decode."
+  },
+  {
+    "type": "System.UInt32[]",
+    "frame": "HyperPdfLibrary.ImageFiles.TiffDirectory.GetValues",
+    "reason": "The values of one tag, such as the strip offsets and sizes, read once for each decode."
+  },
+  {
+    "type": "System.UInt32[]",
+    "frame": "HyperPdfLibrary.ImageFiles.TiffDirectory.GetValue",
+    "reason": "The values of one tag read while its value is looked up, a few bytes for each tag asked for."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.ImageFiles.BmpPixels.MapPalette",
+    "reason": "One array is the decoded pixels, the picture the caller keeps. The others are the 256 byte lookup tables made once for each decode, which is small next to the pixels and makes the per pixel work a single read."
+  },
+  {
+    "type": "HyperPdfLibrary.Creation.PdfRasterImage",
+    "frame": "HyperPdfLibrary.ImageFiles.BmpPixels.MapPalette",
+    "reason": "The picture is the result of the decode, handed to the caller with its pixels."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.ImageFiles.BmpPixels.FromMasks",
+    "reason": "The array holds the decoded pixels, which are the picture the caller receives and keeps."
+  },
+  {
+    "type": "HyperPdfLibrary.Creation.PdfRasterImage",
+    "frame": "HyperPdfLibrary.ImageFiles.BmpPixels.FromMasks",
+    "reason": "The picture is the result of the decode, handed to the caller with its pixels."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdf.Core.Signatures.Signing.XrefEntry][]",
+    "frame": "HyperPdf.Core.Signatures.Signing.PdfRepair.ScanHeaders",
+    "reason": "The table is the rebuilt cross-reference data, one entry for each object found, and the caller keeps it as the file's structure. It is sized once from a count of the obj keywords so it never grows."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Core.Signatures.Signing.PdfRepair.ScanHeaders",
+    "reason": "The buckets of the rebuilt table above, which are part of the returned structure."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdf.Core.Signatures.Signing.XrefEntry]",
+    "frame": "HyperPdf.Core.Signatures.Signing.PdfRepair.ScanHeaders",
+    "reason": "The rebuilt table, returned to the caller as the file's structure."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,System.Byte[]]",
+    "frame": "HyperPdf.Core.Signatures.Signing.PdfStructure..ctor",
+    "reason": "The structure's cache of decoded object streams, part of the structure returned by a rebuild."
+  },
+  {
+    "type": "HyperPdf.Core.Signatures.Signing.PdfStructure",
+    "frame": "HyperPdf.Core.Signatures.Signing.PdfReader.Structure",
+    "reason": "The structure is the result of a rebuild: the file, its entries and its trailer, which the caller keeps for signing."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Int32]",
+    "frame": "HyperPdf.Core.Signatures.Signing.PdfRepair.AddCompressedObjects",
+    "reason": "The numbers of the object streams found, collected once for each rebuild while the entries table is being added to."
+  },
+  {
+    "type": "HyperPdf.Engine.TextBoxFont",
+    "frame": "HyperPdf.Engine.TextBoxFonts.Resolve",
+    "reason": "The font is the result handed back to the caller, which keeps it for the text box being edited. It is made once for each edit, not for each frame, and no installed font is read again once a search has found that none covers the text."
+  },
+  {
     "type": "HyperPdfLibrary.Accessibility.PdfStandardsRuleResult[]",
     "frame": "HyperPdfLibrary.Accessibility.StandardsRuleEvaluator.Evaluate",
     "reason": "The array is the returned rule report's data, one result for each rule of the profile. The caller keeps it after the call, so it cannot live in pooled or stack storage."
@@ -3501,11 +3621,6 @@
   },
   {
     "type": "System.String",
-    "frame": "HyperPdf.Core.Media.FfmpegArguments.Seconds",
-    "reason": "The arguments are the strings and the array one process start needs. They are built when the reader presses Play or seeks, not for each picture."
-  },
-  {
-    "type": "System.String",
     "frame": "HyperPdf.Core.Media.SrtCaptions+CueReader.Close",
     "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
   },
@@ -3513,11 +3628,6 @@
     "type": "System.String",
     "frame": "HyperPdf.Core.Media.SrtCaptions.Parse",
     "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
-  },
-  {
-    "type": "System.String[]",
-    "frame": "HyperPdf.Core.Media.FfmpegArguments.Video",
-    "reason": "The arguments are the strings and the array one process start needs. They are built when the reader presses Play or seeks, not for each picture."
   },
   {
     "type": "System.Text.StringBuilder",
@@ -3530,149 +3640,19 @@
     "reason": "The captions, their words and the list that holds them are the result of reading a caption file once, when the media opens. A builder for the words of one caption is made once for each file and reused."
   },
   {
-    "type": "<>c__DisplayClass4_0",
-    "frame": "HyperPdf.Media.LibavMediaPlayer.OpenAsync",
-    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "<>c__DisplayClass8_0",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
-  },
-  {
     "type": "CallbackNode",
     "frame": "HyperPdf.Core.Media.MediaPlayerBase.TickAsync",
     "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
   },
   {
-    "type": "CallbackNode",
-    "frame": "HyperPdf.Media.LibavRun.PictureLoop",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "CallbackNode",
-    "frame": "HyperPdf.Media.LibavRun.SoundLoop",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "CancellationPromise`1[System.Threading.Tasks.VoidTaskResult]",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
-  },
-  {
-    "type": "DelegateWitness`1[HyperPdf.Core.Media.MediaSnapshot]",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
-  },
-  {
-    "type": "HyperPdf.Media.LibavAudioDecoder",
-    "frame": "HyperPdf.Media.LibavAudioDecoder.Create",
-    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "HyperPdf.Media.LibavCodec",
-    "frame": "HyperPdf.Media.LibavCodec.Open",
-    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "HyperPdf.Media.LibavFormat",
-    "frame": "HyperPdf.Media.LibavSource.Open",
-    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "HyperPdf.Media.LibavFrame",
-    "frame": "HyperPdf.Media.LibavAudioDecoder..ctor",
-    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "HyperPdf.Media.LibavFrame",
-    "frame": "HyperPdf.Media.LibavScaler..ctor",
-    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "HyperPdf.Media.LibavFrame",
-    "frame": "HyperPdf.Media.LibavVideoDecoder..ctor",
-    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "HyperPdf.Media.LibavPacket",
-    "frame": "HyperPdf.Media.LibavRun.Rent",
-    "reason": "A packet wrapper is made only when no used one is waiting, so a run makes as many as are in flight at once and then reuses them."
-  },
-  {
-    "type": "HyperPdf.Media.LibavScaler",
-    "frame": "HyperPdf.Media.LibavVideoDecoder..ctor",
-    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "HyperPdf.Media.LibavSource",
-    "frame": "HyperPdf.Media.LibavSource.Open",
-    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "Microsoft.Win32.SafeHandles.SafeWaitHandle",
-    "frame": "HyperPdf.Media.LibavRun.Execute",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "ProbeResult",
-    "frame": "HyperPdf.Media.LibavMediaPlayer.Probe",
-    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "ReactiveUI.Primitives.Advanced.SubscribeSafeWitness`1[HyperPdf.Core.Media.MediaSnapshot]",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
-  },
-  {
-    "type": "ReactiveUI.Primitives.Disposables.SingleReplaceableDisposable",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
-  },
-  {
     "type": "Registrations",
     "frame": "HyperPdf.Core.Media.MediaPlayerBase.TickAsync",
     "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
-  },
-  {
-    "type": "Registrations",
-    "frame": "HyperPdf.Media.LibavRun.PictureLoop",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "Registrations",
-    "frame": "HyperPdf.Media.LibavRun.SoundLoop",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "SignalSubscription[HyperPdf.Core.Media.MediaSnapshot]",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
-  },
-  {
-    "type": "Slot[HyperPdf.Media.LibavPacket][]",
-    "frame": "HyperPdf.Media.LibavRun..ctor",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "StartHelper",
-    "frame": "HyperPdf.Media.LibavMediaPlayer.RunOnThread",
-    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "StartHelper",
-    "frame": "HyperPdf.Media.LibavRun.Launch",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
   },
   {
     "type": "State",
     "frame": "HyperPdf.Core.Media.MediaPlayerBase.TickAsync",
     "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
-  },
-  {
-    "type": "System.Action`1[HyperPdf.Core.Media.MediaSnapshot]",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
   },
   {
     "type": "System.Byte[]",
@@ -3685,54 +3665,9 @@
     "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
   },
   {
-    "type": "System.Func`1[HyperPdf.Media.LibavMediaPlayer+ProbeResult]",
-    "frame": "HyperPdf.Media.LibavMediaPlayer.OpenAsync",
-    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "System.Object",
-    "frame": "HyperPdf.Media.LibavRun..ctor",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "System.Object[]",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks+<>c__DisplayClass8_0.<PlayClip>b__0",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
-  },
-  {
-    "type": "System.Object[]",
-    "frame": "HyperPdf.Media.LibavRun.SoundLoop",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "System.Object[]",
-    "frame": "HyperPdf.Media.LibavRun.Wait",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "System.Runtime.CompilerServices.Continuation",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.OpenClip",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
-  },
-  {
-    "type": "System.Runtime.CompilerServices.Continuation",
-    "frame": "HyperPdf.Media.LibavMediaPlayer.OpenAsync",
-    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "System.Runtime.CompilerServices.StrongBox`1[System.Boolean]",
-    "frame": "HyperPdf.Media.LibavRun..ctor",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
     "type": "System.Threading.CancellationTokenSource",
     "frame": "HyperPdf.Core.Media.MediaPlayerBase.StartRunLocked",
     "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
-  },
-  {
-    "type": "System.Threading.CancellationTokenSource",
-    "frame": "HyperPdf.Media.LibavRun..ctor",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
   },
   {
     "type": "System.Threading.Lock",
@@ -3740,54 +3675,9 @@
     "reason": "Two picture buffers and a lock for one player, made when the media opens. Every picture reuses them."
   },
   {
-    "type": "System.Threading.ManualResetEvent",
-    "frame": "HyperPdf.Media.LibavRun.Execute",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
     "type": "System.Threading.PeriodicTimer",
     "frame": "HyperPdf.Core.Media.MediaPlayerBase.TickAsync",
     "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
-  },
-  {
-    "type": "System.Threading.SemaphoreSlim",
-    "frame": "HyperPdf.Media.LibavRun..ctor",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "System.Threading.Tasks.Task",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
-  },
-  {
-    "type": "System.Threading.Tasks.TaskCompletionSource",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
-  },
-  {
-    "type": "System.Threading.Tasks.Task`1[System.String]",
-    "frame": "HyperPdf.Media.LibavMediaPlayer.RunOnThread",
-    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "System.Threading.Thread",
-    "frame": "HyperPdf.Media.LibavMediaPlayer.RunOnThread",
-    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "System.Threading.Thread",
-    "frame": "HyperPdf.Media.LibavRun.Launch",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "System.Threading.ThreadStart",
-    "frame": "HyperPdf.Media.LibavRun.Execute",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "System.Threading.TimerQueueTimer",
-    "frame": "HyperPdf.Benchmarks.LibavPlaybackBenchmarks.PlayClip",
-    "reason": "The benchmark waits for the clip to end with a task and a subscription, which is the harness and not the player."
   },
   {
     "type": "System.Threading.TimerQueueTimer",
@@ -3800,69 +3690,9 @@
     "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
   },
   {
-    "type": "WaitableObject",
-    "frame": "HyperPdf.Media.LibavRun.Execute",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
     "type": "HyperPdf.Core.Media.FramePump",
     "frame": "HyperPdf.Core.Media.MediaPlayerBase.Opened",
     "reason": "The clock that reports the position, the cancellation source and the caption list are made once for each run or file opened, not for a picture."
-  },
-  {
-    "type": "HyperPdf.Media.LibavVideoDecoder",
-    "frame": "HyperPdf.Media.LibavVideoDecoder.Create",
-    "reason": "Each wrapper owns one native FFmpeg object (file, decoder, converter or frame) and frees it when disposed. They are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "HyperPdf.Media.PlaybackClock",
-    "frame": "HyperPdf.Media.LibavMediaPlayer.PlayAsync",
-    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "RunRequest",
-    "frame": "HyperPdf.Media.LibavMediaPlayer.PlayAsync",
-    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "Slot[HyperPdf.Media.LibavPacket][]",
-    "frame": "HyperPdf.Media.LibavRun.Hand",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "System.Collections.Concurrent.BlockingCollection`1[HyperPdf.Media.LibavPacket]",
-    "frame": "HyperPdf.Media.LibavRun..ctor",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "System.Collections.Concurrent.ConcurrentQueueSegment`1[HyperPdf.Media.LibavPacket]",
-    "frame": "HyperPdf.Media.LibavRun..ctor",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "System.Collections.Concurrent.ConcurrentQueueSegment`1[HyperPdf.Media.LibavPacket]",
-    "frame": "HyperPdf.Media.LibavRun.Hand",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "System.Collections.Concurrent.ConcurrentQueue`1[HyperPdf.Media.LibavPacket]",
-    "frame": "HyperPdf.Media.LibavRun..ctor",
-    "reason": "The packet queues, threads, wait handles and cancellation registrations of one run. They are made once when the reader presses Play or seeks, never for a packet or picture."
-  },
-  {
-    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Media.CaptionCue]",
-    "frame": "HyperPdf.Media.LibavMediaPlayer.Probe",
-    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
-  },
-  {
-    "type": "System.String",
-    "frame": "HyperPdf.Core.Media.FfmpegArguments.Video",
-    "reason": "The arguments are the strings and the array one process start needs. They are built when the reader presses Play or seeks, not for each picture."
-  },
-  {
-    "type": "System.Threading.Tasks.Task`1[HyperPdf.Media.LibavMediaPlayer+ProbeResult]",
-    "frame": "HyperPdf.Media.LibavMediaPlayer.OpenAsync",
-    "reason": "Opening a file reads it on a pool thread and starting a run starts a thread of its own, because FFmpeg blocks. These objects are made once for each file opened or run started, never for a packet or picture."
   },
   {
     "type": "Entry[System.Int32,HyperPdfLibrary.Objects.PdfStream][]",
@@ -4268,5 +4098,250 @@
     "type": "System.String",
     "frame": "HyperPdf.Core.Forms.Scripting.FormNumbers.Format",
     "reason": "The formatted number is the returned text, which the caller keeps in the field."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.OpusDecoder..ctor",
+    "reason": "The decoder owns the overlap, history and output buffers of one stream. They are made once when the stream opens and reused by every packet."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.OpusDecoder.Create",
+    "reason": "The decoder object and its header are made once when the stream opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.OpusFrameDecoder..ctor",
+    "reason": "The frame decoder owns the scratch buffers that every packet of the stream reuses. They are made once when the stream opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.CeltDecoder..ctor",
+    "reason": "The CELT layer owns its energy history, overlap buffers and workspace for one stream. They are made once when the stream opens and every frame reuses them."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.CeltFrame..ctor",
+    "reason": "The frame state holds the band energies, allocation and shape arrays that every frame of the stream overwrites."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.CeltMdct..ctor",
+    "reason": "The transform plans and window are made once for the stream and shared by every frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.CeltInverseFft",
+    "reason": "Each FFT size has a plan with its twiddles and factor list, made once when the stream opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.CeltEnergyState..ctor",
+    "reason": "The previous band energies are kept between frames, so they belong to the stream."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.CeltSynthesisWorkspace..ctor",
+    "reason": "The synthesis scratch space is made once for the stream and reused by every frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.SilkDecoder..ctor",
+    "reason": "The SILK layer owns its channels, stereo state and resamplers for one stream. They are made once when the stream opens and every frame reuses them."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.SilkChannel..ctor",
+    "reason": "A channel keeps its filter history and gain state between frames, so it belongs to the stream."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.SilkStereo..ctor",
+    "reason": "The stereo predictor history is kept between frames, so it belongs to the stream."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.SilkPlcState..ctor",
+    "reason": "The loss concealment state is kept between frames, so it belongs to the stream."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.SilkCngState..ctor",
+    "reason": "The comfort noise state is kept between frames, so it belongs to the stream."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.SilkFrameParameters..ctor",
+    "reason": "The frame parameter arrays are overwritten by every frame and made once for the stream."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.SilkIndices..ctor",
+    "reason": "The index arrays are overwritten by every frame and made once for the stream."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.SilkSynthesisScratch..ctor",
+    "reason": "The synthesis scratch space is made once for the stream and reused by every frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.SilkChannel.GetResampler",
+    "reason": "A resampler is made the first time a channel meets a rate and kept for the rest of the stream."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.OpusHead.TryFamilyZero",
+    "reason": "The header is the parsed result of the stream's first packet and lives as long as the decoder."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Aac.AacDecoder..ctor",
+    "reason": "The decoder owns its channel states, sample buffers and filterbank for one stream. They are made once when the stream opens and every frame reuses them."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Aac.AacDecoder.Create",
+    "reason": "The decoder is made once for a stream."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Aac.AacConfig.Parse",
+    "reason": "The parsed config is read once from the track's configuration and lives as long as the decoder."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Aac.AacChannel..ctor",
+    "reason": "A channel owns the spectrum, quantised values, side information arrays and overlap that every frame overwrites or carries on from."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Aac.AacFilterbank..ctor",
+    "reason": "The filterbank owns its transforms and working buffers, made once for the stream."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Dsp.InverseMdct",
+    "reason": "A transform owns its twiddle tables and working buffers for one block size, made once when the decoder is made."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Containers.FileWindow..ctor",
+    "reason": "The window owns the buffer a container reads the file through, made once when a container starts to read a file."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.MediaContainers.Open",
+    "reason": "The container objects and their tracks are made when a file opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.HyperPdfAacDecodeBenchmarks.OpenCount",
+    "reason": "The benchmark opens a file, which makes the container objects."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Ogg.OggContainer.TryOpen",
+    "reason": "Probing for an Ogg file reads its first page and makes the objects of a container that is kept only when the file is one."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Ogg.OggPacketReader..ctor",
+    "reason": "The packet reader owns the buffers that join the pieces of a packet, made once for a file."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Mp4.Mp4Container.Build",
+    "reason": "Opening a file reads its movie box and lists every sample of every track, which makes the arrays that seeking and reading use."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Mp4.Mp4Container.BucketByTrack",
+    "reason": "The per-track lists of samples are made once when a file opens, for seeking."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Mp4.Mp4Movie.ReadTrack",
+    "reason": "Each track of the movie box makes its track record when the file opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Mp4.Mp4SampleEntries",
+    "reason": "The decoder configuration of a track is copied out of the movie box once when the file opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Mp4.Mp4SampleList",
+    "reason": "The sample list is a set of arrays sized to the file's samples, made and put in file order once when the file opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Matroska.MatroskaContainer..ctor",
+    "reason": "The container owns the arrays its tracks, time shifts and seeking use, made once when the file opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Matroska.MatroskaContainer.TryOpen",
+    "reason": "Opening makes the container object once the file is found to be Matroska."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Matroska.MatroskaContainer.ReadLayout",
+    "reason": "Opening reads the layout of the file: the tracks, the segment information and the clusters."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Matroska.MatroskaLayoutBuilder",
+    "reason": "Opening collects the layout of the file in lists that live as long as the container."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Matroska.MatroskaTracks",
+    "reason": "Each track entry makes its track record and configuration bytes once when the file opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Matroska.MatroskaTrackFields.Read",
+    "reason": "The fields of a track entry are collected once when the file opens and turned into the track."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Benchmarks.HyperPdfMatroskaBenchmarks.Open",
+    "reason": "The benchmark builds the path of the file it opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.MediaTrack.<Clone>",
+    "reason": "A sound track is copied once when the file opens, to add the number of samples its decoder drops at the start."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Matroska.Ebml.ReadString",
+    "reason": "The codec name and document type are read once when the file opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Mp4.Mp4TrackInfo",
+    "reason": "A track record is copied once when the file opens, to add the defaults the movie extends box gives its samples."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Mp4.Mp4TopLevel.List",
+    "reason": "The list of the file's top level boxes is made once when the file opens."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Codecs.Opus.SilkResampler",
+    "reason": "The resampler keeps its filter history between frames, so it belongs to the stream."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Ocr.Layout.WordBuilder.Add",
+    "reason": "The text of each recognised word is a new string, because the word is the result handed to the caller. There is one for each word on the page, none for any step of the network."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Ocr.Layout.PageReader.ReadLine",
+    "reason": "The text of each recognised word is a new string, because the word is the result handed to the caller. There is one for each word on the page, none for any step of the network."
   }
 ]

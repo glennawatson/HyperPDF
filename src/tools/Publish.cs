@@ -46,18 +46,6 @@ Console.CancelKeyPress += (_, e) =>
     cancellation.Cancel();
 };
 
-// The FFmpeg libraries that play sound and video go beside the app. A runtime with no build (exit status 3) ships without them.
-const int NoFfmpegBuild = 3;
-
-var ffmpeg = Path.Combine(root, ArtifactsFolder, "ffmpeg", rid);
-
-var fetched = await ScriptProcess.RunAsync(ScriptProcess.Dotnet, ["run", "--file", Path.Combine(root, "src", "tools", "FetchFfmpeg.cs"), "--", rid, ffmpeg], root, cancellation.Token);
-
-if (fetched is not (0 or NoFfmpegBuild))
-{
-    return fetched;
-}
-
 string[] arguments = [
     "publish",
     Path.Combine(root, "src", "HyperPdf.App", "HyperPdf.App.csproj"),

@@ -33,6 +33,11 @@ internal static class TiffFileDecoder
             return new(PdfRasterFormat.Bilevel1, info.Width, info.Height, TiffStrips.ReadFax(directory, info, cancellationToken));
         }
 
+        if (TiffEightBit.Handles(info))
+        {
+            return TiffEightBit.Convert(info, TiffStrips.ReadBytes(directory, info, cancellationToken), directory.GetValues(TagColorMap, MaxColorMapValues));
+        }
+
         var samples = TiffStrips.ReadSamples(directory, info, cancellationToken);
         return TiffPixels.Convert(info, samples, directory.GetValues(TagColorMap, MaxColorMapValues));
     }

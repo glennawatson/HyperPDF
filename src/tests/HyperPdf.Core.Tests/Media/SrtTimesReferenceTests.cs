@@ -23,6 +23,9 @@ public sealed class SrtTimesReferenceTests
     /// <summary>The parts of a time: hours, minutes and seconds.</summary>
     private const int TimeParts = 3;
 
+    /// <summary>The parts of a WebVTT time that leaves the hours off: minutes and seconds.</summary>
+    private const int WebVttParts = 2;
+
     /// <summary>The most minutes or seconds a time may have in one part.</summary>
     private const int MaxClockPart = 99;
 
@@ -118,7 +121,15 @@ public sealed class SrtTimesReferenceTests
     {
         time = default;
         Span<Range> parts = stackalloc Range[TimeParts + 1];
-        if (text.Split(parts, ':') != TimeParts || !ReferenceSeconds(text[parts[2]], out var seconds))
+        var count = text.Split(parts, ':');
+
+        // WebVTT leaves the hours off: minutes and seconds only.
+        if (count == WebVttParts)
+        {
+            return ReferenceShortTime(text[parts[0]], text[parts[1]], out time);
+        }
+
+        if (count != TimeParts || !ReferenceSeconds(text[parts[2]], out var seconds))
         {
             return false;
         }
@@ -132,6 +143,23 @@ public sealed class SrtTimesReferenceTests
         }
 
         time = TimeSpan.FromSeconds((hours * (double)SecondsPerHour) + (minutes * SecondsPerMinute) + seconds);
+        return true;
+    }
+
+    /// <summary>Reads a WebVTT time that has no hours with the general number parser.</summary>
+    /// <param name="minutesText">The minutes.</param>
+    /// <param name="secondsText">The seconds with an optional fraction.</param>
+    /// <param name="time">Receives the time.</param>
+    /// <returns>Whether the text is a time.</returns>
+    private static bool ReferenceShortTime(ReadOnlySpan<char> minutesText, ReadOnlySpan<char> secondsText, out TimeSpan time)
+    {
+        time = default;
+        if (!int.TryParse(minutesText, NumberStyles.None, CultureInfo.InvariantCulture, out var minutes) || minutes > MaxClockPart || !ReferenceSeconds(secondsText, out var seconds))
+        {
+            return false;
+        }
+
+        time = TimeSpan.FromSeconds((minutes * SecondsPerMinute) + seconds);
         return true;
     }
 

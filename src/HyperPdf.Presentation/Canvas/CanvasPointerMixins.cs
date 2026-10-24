@@ -95,8 +95,7 @@ public static class CanvasPointerMixins
                 return fx;
             }
 
-            var clickable = state.HitTestLink(hover) is not null || state.IsOverField(hover) || state.IsOverCommentTrigger(hover);
-            fx.Cursor = PointerRouting.GetHoverCursor(state.IsOverText(hover), clickable);
+            fx.Cursor = state.GetHoverCursor(hover);
             return fx;
         }
 

@@ -10,7 +10,6 @@ Each entry point targets .NET 11. Files named `*Builder.cs`, `ScriptProcess.cs` 
 | Read existing allocation or CPU traces | `AllocationAudit.cs`, `CpuAudit.cs` |
 | Name the source line behind each allocation or CPU sample | Set `HYPERPDF_SYMBOLS` to the folder of the built benchmark assemblies, which embed their PDB files, before `AuditAllocations.cs` or `AllocationAudit.cs` to see `File.cs:line` after each site. For CPU, run the benchmark project with `--cpu-lines --artifacts <folder>` (it traces samples from start-up with the JIT line map instead of BenchmarkDotNet's profiler), then `CpuAudit.cs <folder>` lists the busiest lines. The sampler stops threads at GC safepoints, so a line is where the thread was stopped and can sit a little after the code that cost the time; a profile with `Thread.PollGCWorker` high in it needs reading with that in mind. |
 | Publish Native AOT and separate debug symbols | `Publish.cs <runtime identifier> [publish arguments]` |
-| Fetch the FFmpeg libraries for a runtime (`Publish.cs` runs this; the build is pinned in `src/ffmpeg.json`) | `FetchFfmpeg.cs <runtime identifier> <folder>` |
 | Install a published Linux build and desktop integration | `InstallLinux.cs [--prefix directory] [--from directory]` |
 | Check screen reader access on a private Linux display and D-Bus session | `CheckScreenReader.cs [--wayland] <app path> [minimum controls]` |
 | Write the accessibility check PDF or walk an existing AT-SPI tree | `AccessibilityCheck.cs` |

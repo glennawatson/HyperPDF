@@ -71,16 +71,21 @@ internal static class TgaRasterWriter
     /// <param name="samples">The image.</param>
     private static void WriteColour(RasterByteWriter writer, RasterSamples samples)
     {
-        var data = samples.Data;
-        for (var i = 0; i < data.Length; i += samples.Channels)
+        var source = samples.Data.AsSpan();
+        var target = writer.Buffer.AsSpan(writer.Position, source.Length);
+
+        // Whole groups of pixels are swapped a vector at a time; the few left over go one by one.
+        for (var i = RedBlueSwap.Swap(source, target, samples.Channels); i < source.Length; i += samples.Channels)
         {
-            writer.WriteByte(data[i + BlueOffset]);
-            writer.WriteByte(data[i + GreenOffset]);
-            writer.WriteByte(data[i]);
+            target[i] = source[i + BlueOffset];
+            target[i + GreenOffset] = source[i + GreenOffset];
+            target[i + BlueOffset] = source[i];
             if (samples.HasAlpha)
             {
-                writer.WriteByte(data[i + AlphaOffset]);
+                target[i + AlphaOffset] = source[i + AlphaOffset];
             }
         }
+
+        writer.Skip(source.Length);
     }
 }

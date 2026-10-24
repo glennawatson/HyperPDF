@@ -1,13 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
-    <UsesTesseractNative>true</UsesTesseractNative>
+    <UsesRecognitionData>true</UsesRecognitionData>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
     <ProjectReference Include="..\..\HyperPdf.App\HyperPdf.App.csproj" />
     <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- A short H.264 video with AAC sound and text, made by an independent encoder, which the media tests put in documents. -->
+    <None Include="..\HyperPdf.Codecs.Tests\Fixtures\av-h264-aac-text.mp4" Link="Fixtures\av-h264-aac-text.mp4" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

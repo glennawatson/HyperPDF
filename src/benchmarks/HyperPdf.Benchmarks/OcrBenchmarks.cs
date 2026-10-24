@@ -13,7 +13,7 @@ namespace HyperPdf.Benchmarks;
 
 /// <summary>
 /// Measures the parts of text recognition that can run repeatedly on one document: converting a rendered strip to
-/// greyscale, recognising a scanned page with Tesseract, and skipping a page that already has text. Allocations are
+/// greyscale, recognising a scanned page with the managed recogniser, and skipping a page that already has text. Allocations are
 /// checked from the EventPipe trace.
 /// </summary>
 public class OcrBenchmarks
@@ -31,7 +31,7 @@ public class OcrBenchmarks
     private readonly List<OcrWord> _words = [];
 
     /// <summary>The recogniser.</summary>
-    private TesseractEngine _engine = null!;
+    private ManagedOcrEngine _engine = null!;
 
     /// <summary>A document with text.</summary>
     private BenchmarkPdfDocument _text = null!;
@@ -51,7 +51,7 @@ public class OcrBenchmarks
     /// <summary>The scan height in pixels.</summary>
     private int _height;
 
-    /// <summary>Renders the test page at scanning resolution and starts Tesseract.</summary>
+    /// <summary>Renders the test page at scanning resolution and starts the recogniser.</summary>
     [GlobalSetup]
     public void Setup()
     {
@@ -69,7 +69,7 @@ public class OcrBenchmarks
         _engine.Recognize(_grey, _width, _height, ScanScale, _words);
     }
 
-    /// <summary>Closes the document and Tesseract.</summary>
+    /// <summary>Closes the document and the recogniser.</summary>
     [GlobalCleanup]
     public void Cleanup()
     {

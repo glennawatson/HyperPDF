@@ -1,8 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\..\HyperPdf.Media\HyperPdf.Media.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Core\HyperPdf.Core.csproj" />
@@ -11,7 +7,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Short files made by independent encoders: AAC sound alone, pictures with sound and text, and H.265 pictures alone. -->
+    <None Include="..\HyperPdf.Codecs.Tests\Fixtures\aac-lc-stereo-44100.m4a" Link="Fixtures\aac-lc-stereo-44100.m4a" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\HyperPdf.Codecs.Tests\Fixtures\av-h264-aac-text.mp4" Link="Fixtures\av-h264-aac-text.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\HyperPdf.Codecs.Tests\Fixtures\h265-b.mp4" Link="Fixtures\h265-b.mp4" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Caps the tests running at once in this process, which shares a small CI runner with other test processes. -->
     <Compile Include="..\HyperPdfLibrary.Tests\TestParallelLimit.cs" Link="TestParallelLimit.cs" />
+    <!-- Builds WAVE files in memory. -->
+    <Compile Include="..\HyperPdf.Codecs.Tests\WaveFile.cs" Link="WaveFile.cs" />
   </ItemGroup>
 </Project>

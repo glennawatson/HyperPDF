@@ -12,7 +12,6 @@
     <RoslynCommonAnalyzersVersion>5.1.4</RoslynCommonAnalyzersVersion>
     <SkiaVersion>4.153.1</SkiaVersion>
     <HarfBuzzVersion>14.2.1.301</HarfBuzzVersion>
-    <TesseractNativeVersion>5.5.2.200</TesseractNativeVersion>
   </PropertyGroup>
 
   <ItemGroup Label="UI">
@@ -42,16 +41,6 @@
     <PackageVersion Include="ReactiveUI.SourceGenerators" Version="4.2.0" />
   </ItemGroup>
 
-  <!-- Native Tesseract 5.5.2 and Leptonica 1.87, built from source with vcpkg in GitHub Actions by
-       github.com/jbtule/tesseract-nuget-platforms (Apache-2.0). One package per runtime, like Skia's native assets. -->
-  <ItemGroup Label="Text recognition (Tesseract)">
-    <PackageVersion Include="Tesseract.Native.runtime.linux-x64" Version="$(TesseractNativeVersion)" />
-    <PackageVersion Include="Tesseract.Native.runtime.linux-arm64" Version="$(TesseractNativeVersion)" />
-    <PackageVersion Include="Tesseract.Native.runtime.osx-arm64" Version="$(TesseractNativeVersion)" />
-    <PackageVersion Include="Tesseract.Native.runtime.win-x64" Version="$(TesseractNativeVersion)" />
-    <PackageVersion Include="Tesseract.Native.runtime.win-arm64" Version="$(TesseractNativeVersion)" />
-  </ItemGroup>
-
   <ItemGroup Label="Platform / HTTP">
     <PackageVersion Include="Tmds.DBus.Protocol" Version="0.95.1" />
     <PackageVersion Include="SkiaSharp" Version="$(SkiaVersion)" />
@@ -64,8 +53,6 @@
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="$(SkiaVersion)" />
     <PackageVersion Include="Refit" Version="16.4.0" />
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
-    <PackageVersion Include="FFmpeg.AutoGen.Abstractions" Version="9.0.1.1" />
-    <PackageVersion Include="FFmpeg.AutoGen.Bindings.DynamicallyLinked" Version="9.0.1.1" />
   </ItemGroup>
 
   <ItemGroup Label="Testing">

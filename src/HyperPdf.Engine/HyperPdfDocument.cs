@@ -203,6 +203,10 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public PageSize GetPageSize(int page) => Volatile.Read(ref _pageSizes)[page];
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public DocumentMetadata GetMetadata() => HyperPdfNavigation.GetMetadata(this);
 
     /// <inheritdoc/>

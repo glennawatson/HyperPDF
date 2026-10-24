@@ -30,7 +30,7 @@ public sealed class PulseStreamingAudioOutputTests
     /// <summary>The least the write may take: the server holds about a fifth of a second, so the rest has to be waited for.</summary>
     private const double LeastSeconds = 0.6;
 
-    /// <summary>The fewest pictures a three second clip at ten pictures a second shows when none is dropped.</summary>
+    /// <summary>The fewest pictures the 30 picture test clip shows when few are dropped.</summary>
     private const int FewestPictures = 24;
 
     /// <summary>How long to wait for the clip to end, in seconds.</summary>
@@ -68,7 +68,7 @@ public sealed class PulseStreamingAudioOutputTests
         await Assert.That(output.Latency).IsEqualTo(TimeSpan.Zero);
     }
 
-    /// <summary>Verifies a clip with silent sound and a picture plays to its end through the real sound server, with all of it written and the pictures shown.</summary>
+    /// <summary>Verifies a clip with sound and a picture plays to its end through the real sound server, with the pictures shown.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task PlaysAClipThroughTheRealOutput()
@@ -85,10 +85,8 @@ public sealed class PulseStreamingAudioOutputTests
         }
 
         probe.Close();
-        using var clips = ClipFolder.Create();
-        var path = await clips.MakeAsync("full.mp4", true, true, false);
-        using var player = new LibavMediaPlayer(static () => new PulseStreamingAudioOutput(), false);
-        _ = await player.OpenAsync(path, CancellationToken.None);
+        using var player = new ManagedMediaPlayer(static () => new PulseStreamingAudioOutput(), false);
+        _ = await player.OpenAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "av-h264-aac-text.mp4"), CancellationToken.None);
         var ended = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var subscription = player.Changes.SubscribeSafe(
             snapshot =>

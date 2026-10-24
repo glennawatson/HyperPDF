@@ -29,7 +29,7 @@ public class OcrWriteBenchmarks
     private readonly List<OcrWord> _words = [];
 
     /// <summary>The recogniser.</summary>
-    private TesseractEngine _engine = null!;
+    private ManagedOcrEngine _engine = null!;
 
     /// <summary>The scanned page as a PDF.</summary>
     private byte[] _scan = [];
@@ -66,7 +66,7 @@ public class OcrWriteBenchmarks
     [IterationCleanup]
     public void CloseScan() => _document?.Dispose();
 
-    /// <summary>Closes Tesseract.</summary>
+    /// <summary>Closes the recogniser.</summary>
     [GlobalCleanup]
     public void Cleanup() => _engine.Dispose();
 

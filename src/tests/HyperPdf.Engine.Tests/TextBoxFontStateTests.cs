@@ -13,6 +13,9 @@ public sealed class TextBoxFontStateTests
     /// <summary>The built-in face used by this test.</summary>
     private const string Helvetica = "Helvetica";
 
+    /// <summary>The family of the faces made up for the miss tests.</summary>
+    private const string TestFamily = "Family";
+
     /// <summary>One engine shares its font cache while separate engines keep independent caches.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -32,6 +35,36 @@ public sealed class TextBoxFontStateTests
         var separateShaper = StandardTextShaper.For(separate.Editor.FontState, Helvetica, false, false);
         await Assert.That(ReferenceEquals(sharedShaper, reusedShaper)).IsTrue();
         await Assert.That(ReferenceEquals(sharedShaper, separateShaper)).IsFalse();
+    }
+
+    /// <summary>A face found to lack a character is not read again for text with that character, but is for other text.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task FaceThatLacksACharacterIsNotReadAgain()
+    {
+        var state = new TextBoxFontState(new(static () => FontCatalog.Empty));
+        var face = new FontFace(TestFamily, "Regular", "missing.ttf", 0);
+        var other = new FontFace(TestFamily, "Bold", "other.ttf", 0);
+
+        state.NoteLacks(face, '͸');
+
+        await Assert.That(state.KnownToLack(face, "abc͸")).IsTrue();
+        await Assert.That(state.KnownToLack(face, "abc")).IsFalse();
+        await Assert.That(state.KnownToLack(other, "abc͸")).IsFalse();
+    }
+
+    /// <summary>A face whose file cannot be used is skipped for every text.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task UnreadableFaceIsSkippedForAnyText()
+    {
+        var state = new TextBoxFontState(new(static () => FontCatalog.Empty));
+        var face = new FontFace(TestFamily, "Regular", "missing.ttf", 0);
+
+        state.NoteUnreadable(face);
+
+        await Assert.That(state.KnownToLack(face, "abc")).IsTrue();
+        await Assert.That(state.KnownToLack(face, string.Empty)).IsTrue();
     }
 
     /// <summary>An engine uses the host's registered catalog for its documents.</summary>

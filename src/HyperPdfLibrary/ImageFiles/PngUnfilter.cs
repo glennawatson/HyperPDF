@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Numerics;
+using System.Runtime.InteropServices;
+using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.ImageFiles;
 
@@ -72,7 +74,14 @@ internal static class PngUnfilter
     /// <param name="bytesPerPixel">The bytes to the pixel on the left.</param>
     private static void UnSub(Span<byte> line, int bytesPerPixel)
     {
-        for (var i = bytesPerPixel; i < line.Length; i++)
+        ref var current = ref MemoryMarshal.GetReference(line);
+        var i = bytesPerPixel;
+        if (PixelLanes.Handles(bytesPerPixel) && i < line.Length)
+        {
+            i = PixelLanes.UndoSub(ref current, bytesPerPixel, i, line.Length);
+        }
+
+        for (; i < line.Length; i++)
         {
             line[i] += line[i - bytesPerPixel];
         }
@@ -111,7 +120,13 @@ internal static class PngUnfilter
             line[i] += (byte)(prior[i] >> 1);
         }
 
-        for (var i = head; i < line.Length; i++)
+        var next = head;
+        if (PixelLanes.Handles(bytesPerPixel) && head < line.Length)
+        {
+            next = PixelLanes.UndoAverage(ref MemoryMarshal.GetReference(line), ref MemoryMarshal.GetReference(prior), bytesPerPixel, head, line.Length);
+        }
+
+        for (var i = next; i < line.Length; i++)
         {
             line[i] += (byte)((line[i - bytesPerPixel] + prior[i]) >> 1);
         }
@@ -123,35 +138,7 @@ internal static class PngUnfilter
     /// <param name="bytesPerPixel">The bytes to the pixel on the left.</param>
     private static void UnPaeth(Span<byte> line, ReadOnlySpan<byte> prior, int bytesPerPixel)
     {
-        // The first pixel has no left or upper-left neighbour, so the predictor is the byte above.
-        var head = Math.Min(bytesPerPixel, line.Length);
-        for (var i = 0; i < head; i++)
-        {
-            line[i] += prior[i];
-        }
-
-        for (var i = head; i < line.Length; i++)
-        {
-            line[i] += Predict(line[i - bytesPerPixel], prior[i], prior[i - bytesPerPixel]);
-        }
-    }
-
-    /// <summary>Gets the Paeth predictor: whichever of the left, upper and upper left bytes is nearest to left + upper - upper left.</summary>
-    /// <param name="left">The byte to the left.</param>
-    /// <param name="upper">The byte above.</param>
-    /// <param name="upperLeft">The byte above and to the left.</param>
-    /// <returns>The prediction.</returns>
-    private static byte Predict(int left, int upper, int upperLeft)
-    {
-        var estimate = left + upper - upperLeft;
-        var distanceLeft = Math.Abs(estimate - left);
-        var distanceUpper = Math.Abs(estimate - upper);
-        var distanceUpperLeft = Math.Abs(estimate - upperLeft);
-        if (distanceLeft <= distanceUpper && distanceLeft <= distanceUpperLeft)
-        {
-            return (byte)left;
-        }
-
-        return (byte)(distanceUpper <= distanceUpperLeft ? upper : upperLeft);
+        // A row is a few kilobytes at most, so the callers' per-row loops are where cancellation is checked.
+        PaethDecoder.Undo(line, prior, bytesPerPixel, CancellationToken.None);
     }
 }

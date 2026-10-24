@@ -21,6 +21,39 @@ jobs:
       dotnetVersions: |
         11.x
         10.x
+  tests:
+    name: Tests (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            os: ubuntu-latest
+          - name: Linux arm64
+            os: ubuntu-24.04-arm
+          - name: Windows x64
+            os: windows-latest
+          - name: Windows arm64
+            os: windows-11-arm
+          - name: macOS arm64
+            os: macos-latest
+          - name: macOS x64
+            os: macos-15-intel
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Setup .NET
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
+        with:
+          src-folder: 'src'
+          stamp-version: 'false'
+          dotnet-versions: |
+            11.x
+            10.x
+      - name: Test on net10.0 and net11.0
+        run: dotnet test --solution src/HyperPdf.slnx -c Release -v q --nologo
   pdfa-validation:
     name: PDF/A output validation (veraPDF)
     runs-on: ubuntu-26.04
@@ -31,7 +64,7 @@ jobs:
       - name: Setup .NET
         uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
         with:
-          src-folder: '.'
+          src-folder: 'src'
           stamp-version: 'false'
           dotnet-versions: '11.x'
       - name: Setup Java for veraPDF
@@ -58,7 +91,7 @@ jobs:
           HYPERPDF_VERAPDF_TEST_FILES: ${{ steps.testfiles.outputs.test-files-dir }}
           HYPERPDF_VERAPDF_PROFILES: ${{ steps.profiles.outputs.profiles-dir }}
           HYPERPDF_PDFA_OUTPUT: ${{ runner.temp }}/pdfa-output
-        run: dotnet run --project "${{ github.workspace }}/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*' --report-trx --results-directory "${{ runner.temp }}/pdfa-output"
+        run: dotnet run --project "${{ github.workspace }}/src/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*' --report-trx --results-directory "${{ runner.temp }}/pdfa-output"
       - name: Upload PDF/A outputs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
@@ -76,7 +109,7 @@ jobs:
       - name: Setup .NET
         uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
         with:
-          src-folder: '.'
+          src-folder: 'src'
           stamp-version: 'false'
           dotnet-versions: '11.x'
       - name: Install qpdf

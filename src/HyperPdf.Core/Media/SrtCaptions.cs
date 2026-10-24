@@ -3,12 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
 namespace HyperPdf.Core.Media;
 
-/// <summary>Reads captions in the SubRip (<c>.srt</c>) format that <c>ffmpeg</c> writes.</summary>
+/// <summary>Reads captions in the SubRip (<c>.srt</c>) and WebVTT (<c>.vtt</c>) formats.</summary>
 public static class SrtCaptions
 {
     /// <summary>The most captions kept, so a damaged or hostile file cannot fill memory.</summary>
@@ -23,7 +24,7 @@ public static class SrtCaptions
     public static List<CaptionCue> Parse(ReadOnlySpan<char> text)
     {
         // A caption takes at least three lines, and counting one character is a single vectorised pass, so the first buffer is sized for the most captions there can be.
-        var reader = new CueReader(Math.Min((text.Count('\n') / MinimumCueLines) + 1, MaxCues));
+        var reader = new CueReader(Math.Min((text.Count('\n') / MinimumCueLines) + 1, MaxCues), text.TrimStart('﻿').StartsWith("WEBVTT", StringComparison.Ordinal));
         foreach (var line in text.EnumerateLines())
         {
             reader.Read(line.Trim());
@@ -31,6 +32,25 @@ public static class SrtCaptions
 
         reader.Close();
         return reader.ToList();
+    }
+
+    /// <summary>Takes the words out of one caption's text: without markup tags, one line to a line, and for WebVTT with character references turned into characters.</summary>
+    /// <param name="markup">The caption's text.</param>
+    /// <param name="webVtt">Whether the text is WebVTT, whose text writes &amp;, &lt; and &gt; as entities.</param>
+    /// <returns>The words, trimmed; empty when the caption has none.</returns>
+    public static string PlainText(ReadOnlySpan<char> markup, bool webVtt)
+    {
+        var reader = new CueReader(1, webVtt);
+        foreach (var line in markup.EnumerateLines())
+        {
+            var trimmed = line.Trim();
+            if (!trimmed.IsEmpty)
+            {
+                reader.AddCaptionLine(trimmed);
+            }
+        }
+
+        return reader.TakeWords();
     }
 
     /// <summary>Finds the caption shown at a moment.</summary>
@@ -55,8 +75,12 @@ public static class SrtCaptions
 
     /// <summary>Collects captions one line at a time into a pooled buffer, so the list that is returned is exactly the size of the result.</summary>
     /// <param name="capacity">The captions the first buffer holds.</param>
-    private sealed class CueReader(int capacity)
+    /// <param name="webVtt">Whether the text is WebVTT, whose cue text writes &amp;, &lt; and &gt; as entities.</param>
+    private sealed class CueReader(int capacity, bool webVtt)
     {
+        /// <summary>The farthest the semicolon of a character reference can be from its ampersand, as in <c>&amp;nbsp;</c>.</summary>
+        private const int LongestReference = 5;
+
         /// <summary>The longest caption kept, in characters.</summary>
         private const int MaxTextLength = 2_000;
 
@@ -93,6 +117,21 @@ public static class SrtCaptions
             ArrayPool<CaptionCue>.Shared.Return(_cues, true);
             _cues = [];
             return list;
+        }
+
+        /// <summary>Adds a line of a caption that is read outside a file, such as the text of one packet.</summary>
+        /// <param name="line">The trimmed line.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void AddCaptionLine(ReadOnlySpan<char> line) => AddWords(line);
+
+        /// <summary>Gives the words collected so far and frees the buffer.</summary>
+        /// <returns>The words.</returns>
+        internal string TakeWords()
+        {
+            var words = _words.ToString();
+            ArrayPool<CaptionCue>.Shared.Return(_cues, true);
+            _cues = [];
+            return words;
         }
 
         /// <summary>Reads one trimmed line.</summary>
@@ -133,6 +172,25 @@ public static class SrtCaptions
             _ = _words.Clear();
             _open = false;
             _inTag = false;
+        }
+
+        /// <summary>Turns the name of a WebVTT character reference into its character.</summary>
+        /// <param name="name">The name between the ampersand and the semicolon.</param>
+        /// <param name="decoded">Receives the character.</param>
+        /// <returns><see langword="true"/> when the name is one WebVTT defines.</returns>
+        private static bool TryDecode(ReadOnlySpan<char> name, out char decoded)
+        {
+            decoded = name switch
+            {
+                "amp" => '&',
+                "lt" => '<',
+                "gt" => '>',
+                "lrm" => '‎',
+                "rlm" => '‏',
+                "nbsp" => ' ',
+                _ => '\0',
+            };
+            return decoded != '\0';
         }
 
         /// <summary>Moves the captions to a larger buffer, for files that have fewer lines to a caption than the first guess allowed for.</summary>
@@ -186,9 +244,48 @@ public static class SrtCaptions
         private void Keep(ReadOnlySpan<char> text)
         {
             var room = MaxTextLength - _words.Length;
-            if (room > 0)
+            if (room <= 0)
             {
-                _ = _words.Append(text[..Math.Min(room, text.Length)]);
+                return;
+            }
+
+            var kept = text[..Math.Min(room, text.Length)];
+            if (webVtt && kept.Contains('&'))
+            {
+                AppendDecoded(kept);
+            }
+            else
+            {
+                _ = _words.Append(kept);
+            }
+        }
+
+        /// <summary>Appends text with WebVTT character references turned into the characters they stand for.</summary>
+        /// <param name="text">The text.</param>
+        private void AppendDecoded(ReadOnlySpan<char> text)
+        {
+            while (!text.IsEmpty)
+            {
+                var ampersand = text.IndexOf('&');
+                if (ampersand < 0)
+                {
+                    _ = _words.Append(text);
+                    return;
+                }
+
+                _ = _words.Append(text[..ampersand]);
+                text = text[ampersand..];
+                var end = text.IndexOf(';');
+                if (end is > 0 and <= LongestReference && TryDecode(text[1..end], out var decoded))
+                {
+                    _ = _words.Append(decoded);
+                    text = text[(end + 1)..];
+                }
+                else
+                {
+                    _ = _words.Append('&');
+                    text = text[1..];
+                }
             }
         }
     }

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\HyperPdf.Codecs\HyperPdf.Codecs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Short FLAC files made by an independent encoder; the MD5 of the sound is inside each. -->
+    <None Include="Fixtures\*.flac" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\*.mp3" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\*.ogg" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\*.opus" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\*.m4a" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\*.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\*.aac" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\*.mkv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures\*.webm" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The SHA-256 of every picture an independent decoder gave for a video file, one line each. -->
+    <None Include="Fixtures\*.sha256" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Caps the tests running at once in this process, which shares a small CI runner with other test processes. -->
+    <Compile Include="..\HyperPdfLibrary.Tests\TestParallelLimit.cs" Link="TestParallelLimit.cs" />
+    <!-- A random number generator with a fixed seed, so a failing test can be run again. -->
+    <Compile Include="..\HyperPdfLibrary.Tests\Robustness\SeededRandom.cs" Link="SeededRandom.cs" />
+  </ItemGroup>
+</Project>

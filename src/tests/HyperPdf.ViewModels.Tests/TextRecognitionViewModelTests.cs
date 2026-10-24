@@ -6,7 +6,6 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Ocr;
 using HyperPdf.Engine;
-using HyperPdf.Ocr;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
@@ -31,7 +30,7 @@ public sealed class TextRecognitionViewModelTests
     public async Task RecognisesScannedTab()
     {
         using var test = new TestServices();
-        RequireTesseract(test);
+        RequireEngine(test);
         var path = Path.Combine(test.Directory, "scan.pdf");
         await File.WriteAllBytesAsync(path, CreateScan(test.CreateDocument("source.pdf", 1)));
         using var main = new MainViewModel(test.Services);
@@ -49,15 +48,15 @@ public sealed class TextRecognitionViewModelTests
     }
 
     /// <summary>
-    /// Verifies a fresh profile, with nothing downloaded, recognises English with the Tesseract and English data shipped
-    /// in the app's own folder, never a system copy.
+    /// Verifies a fresh profile, with nothing downloaded, recognises English with the managed recogniser and the English
+    /// data shipped in the app's own folder, and loads no native text recognition library.
     /// </summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task FreshProfileRecognisesEnglishWithShippedTesseract()
+    public async Task FreshProfileRecognisesEnglishWithShippedData()
     {
         using var test = new TestServices();
-        RequireTesseract(test);
+        RequireEngine(test);
         var packs = test.Services.Ocr.LanguageDirectory;
         var path = Path.Combine(test.Directory, "fresh.pdf");
         await File.WriteAllBytesAsync(path, CreateScan(test.CreateDocument("fresh-source.pdf", 1)));
@@ -67,17 +66,12 @@ public sealed class TextRecognitionViewModelTests
 
         _ = await tab.TextRecognition.RecognizeCommand.Execute().ToTask();
 
-        var bundled = TesseractEngine.BundledLibraryPath ?? string.Empty;
-        await Assert.That(bundled).StartsWith(AppContext.BaseDirectory);
-        await Assert.That(TesseractEngine.LibraryPath).IsEqualTo(bundled);
         await Assert.That(test.Services.Ocr.BundledLanguageDirectory).IsEqualTo(Path.Combine(AppContext.BaseDirectory, "tessdata"));
         await Assert.That(Directory.Exists(packs) ? Directory.GetFiles(packs) : []).IsEmpty();
         await Assert.That(tab.TextRecognition.IsLanguageBarOpen).IsFalse();
         await Assert.That(tab.TryGetDocument()!.GetCharacterCount(0)).IsGreaterThan(0);
         await Assert.That(tab.Notice).IsEqualTo(TextRecognitionViewModel.Describe(1, 0, 1, false));
-        var loaded = await LoadedTesseractFilesAsync();
-        await Assert.That(loaded.Count > 0 || !OperatingSystem.IsLinux()).IsTrue();
-        await Assert.That(loaded.TrueForAll(line => line.EndsWith(bundled, StringComparison.Ordinal))).IsTrue();
+        await Assert.That(await LoadedNativeRecognitionFilesAsync()).IsEmpty();
     }
 
     /// <summary>Verifies a document that already has text is left alone, with a plain explanation.</summary>
@@ -86,7 +80,7 @@ public sealed class TextRecognitionViewModelTests
     public async Task LeavesTextDocumentAlone()
     {
         using var test = new TestServices();
-        RequireTesseract(test);
+        RequireEngine(test);
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("text.pdf", TextPages)]);
         var tab = main.SelectedTab!;
@@ -107,29 +101,21 @@ public sealed class TextRecognitionViewModelTests
         await Assert.That(TextRecognitionViewModel.Describe(0, 1, TextPages, false)).IsEqualTo("No text was found on the scanned pages.");
     }
 
-    /// <summary>Checks Tesseract starts, skipping the test only on runtimes the app ships no Tesseract for.</summary>
+    /// <summary>Checks the text recogniser starts with the English data shipped beside the tests.</summary>
     /// <param name="test">The services.</param>
-    /// <exception cref="InvalidOperationException">The shipped Tesseract did not start.</exception>
-    /// <exception cref="TUnit.Core.Exceptions.SkipTestException">No Tesseract ships for this runtime.</exception>
-    private static void RequireTesseract(TestServices test)
+    /// <exception cref="InvalidOperationException">The shipped recogniser did not start.</exception>
+    private static void RequireEngine(TestServices test)
     {
         using var engine = test.Services.CreateOcrEngine();
-        if (engine.IsAvailable)
+        if (!engine.IsAvailable)
         {
-            return;
+            throw new InvalidOperationException($"The text recogniser did not start: {engine.Status}.");
         }
-
-        if (TesseractEngine.BundledLibraryPath is { } bundled)
-        {
-            throw new InvalidOperationException($"The shipped Tesseract at {bundled} did not start: {engine.Status}.");
-        }
-
-        throw new TUnit.Core.Exceptions.SkipTestException("No Tesseract ships for this runtime.");
     }
 
-    /// <summary>Lists the Tesseract files the process has loaded, from its own memory map on Linux.</summary>
-    /// <returns>The map lines naming Tesseract; empty on other systems.</returns>
-    private static async Task<List<string>> LoadedTesseractFilesAsync()
+    /// <summary>Lists the native text recognition libraries the process has loaded, from its own memory map on Linux.</summary>
+    /// <returns>The map lines naming one; empty on other systems.</returns>
+    private static async Task<List<string>> LoadedNativeRecognitionFilesAsync()
     {
         if (!OperatingSystem.IsLinux())
         {

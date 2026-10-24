@@ -11,8 +11,7 @@
 using HyperPdf.Scripts;
 
 // Rebuilds every checked-in notices file (src/licenses/notices/*.md) from the restored NuGet graph, so a package bump never
-// needs a hand edit. The app's notices cover every supported Tesseract runtime, so the app is restored once per runtime into
-// its own assets file. With --push, a changed result is committed to the current branch, pushed, and CI is started again for
+// needs a hand edit. With --push, a changed result is committed to the current branch, pushed, and CI is started again for
 // that branch, because a push made with the workflow token does not start CI by itself.
 // Usage: dotnet run --file src/tools/RefreshThirdPartyNotices.cs -- [--push]
 const int TimeoutMinutes = 20;
@@ -22,8 +21,6 @@ const string AppProject = "src/HyperPdf.App/HyperPdf.App.csproj";
 const string CommitMessage = "chore(deps): refresh third-party notices";
 
 const string CiWorkflow = "ci.yml";
-
-string[] tesseractRuntimes = ["linux-x64", "linux-arm64", "osx-arm64", "win-x64", "win-arm64"];
 
 string[] libraryProjects = ["src/HyperPdfLibrary/HyperPdfLibrary.csproj", "src/HyperPdfLibrary.Render.Skia/HyperPdfLibrary.Render.Skia.csproj"];
 
@@ -39,10 +36,10 @@ var token = cancellation.Token;
 
 try
 {
-    var status = await GenerateAsync(AppProject, "HyperPDF", tesseractRuntimes);
+    var status = await GenerateAsync(AppProject, "HyperPDF");
     foreach (var project in libraryProjects)
     {
-        status = status == 0 ? await GenerateAsync(project, Path.GetFileNameWithoutExtension(project), [string.Empty]) : status;
+        status = status == 0 ? await GenerateAsync(project, Path.GetFileNameWithoutExtension(project)) : status;
     }
 
     return status == 0 && push ? await PushAsync() : status;
@@ -55,33 +52,23 @@ finally
     }
 }
 
-// Restores a project once per runtime, keeps a copy of each assets file, then writes the project's notices from the copies.
-// The assets file stays in its default place: moving it with a global MSBuildProjectExtensionsPath would also move every
-// referenced project's file to the same path.
-async Task<int> GenerateAsync(string project, string name, string[] runtimes)
+// Restores a project, keeps a copy of its assets file, then writes the project's notices from the copy. The assets file
+// stays in its default place: moving it with a global MSBuildProjectExtensionsPath would also move every referenced
+// project's file to the same path.
+async Task<int> GenerateAsync(string project, string name)
 {
     var projectPath = Path.Combine(root, project);
     var assetsFile = (await ScriptProcess.CaptureAsync(ScriptProcess.Dotnet, ["msbuild", projectPath, "-getProperty:ProjectAssetsFile", "-nologo"], root, token)).Trim();
-    var assets = new List<string>();
-    foreach (var runtime in runtimes)
+    var restored = await ScriptProcess.RunAsync(ScriptProcess.Dotnet, ["restore", projectPath, "-v", "q", "--nologo"], root, token);
+    if (restored != 0)
     {
-        var restore = new List<string> { "restore", projectPath, "-v", "q", "--nologo" };
-        if (runtime.Length > 0)
-        {
-            restore.Add($"-p:TesseractRuntimeIdentifier={runtime}");
-        }
-
-        var restored = await ScriptProcess.RunAsync(ScriptProcess.Dotnet, restore, root, token);
-        if (restored != 0)
-        {
-            return restored;
-        }
-
-        var copy = Path.Combine(scratch, Path.GetFileNameWithoutExtension(project), runtime, "project.assets.json");
-        _ = Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
-        File.Copy(assetsFile, copy, true);
-        assets.Add(copy);
+        return restored;
     }
+
+    var copy = Path.Combine(scratch, Path.GetFileNameWithoutExtension(project), "project.assets.json");
+    _ = Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
+    File.Copy(assetsFile, copy, true);
+    string[] assets = [copy];
 
     var components = (await ScriptProcess.CaptureAsync(ScriptProcess.Dotnet, ["msbuild", projectPath, "-getProperty:NoticesComponents", "-nologo"], root, token)).Trim();
     var generate = new List<string>

@@ -394,7 +394,7 @@ internal ref partial struct JpegDecoder
         }
         else if (_maxHorizontal == DoubleSampling * component.HorizontalSampling)
         {
-            for (var x = 0; x < destination.Length; x++)
+            for (var x = JpegUpsample.Double(source, destination); x < destination.Length; x++)
             {
                 destination[x] = source[x >> 1];
             }

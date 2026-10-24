@@ -112,7 +112,7 @@ internal static class HyperPdfDocumentPageFileExport
         Stream destination,
         CancellationToken cancellationToken)
     {
-        var size = self.GetPageSizes()[page];
+        var size = self.GetPageSize(page);
         var scale = dpi / PointsPerInch;
         var width = Math.Max(1, (int)MathF.Ceiling(size.Width * scale));
         var height = Math.Max(1, (int)MathF.Ceiling(size.Height * scale));

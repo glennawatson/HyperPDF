@@ -54,6 +54,20 @@ public class HyperPdfPageSizeBenchmarks
         return _engine.PageCount;
     }
 
+    /// <summary>Reads one page's size at a time by copying every size, the way callers did before <c>GetPageSize</c>.</summary>
+    /// <returns>The sum of the widths.</returns>
+    [Benchmark(Baseline = true)]
+    public double ReadSizeOfEachPageByCopyingAll()
+    {
+        var sum = 0.0;
+        for (var i = 0; i < OcrPages; i++)
+        {
+            sum += _engine.GetPageSizes()[i].Width;
+        }
+
+        return sum;
+    }
+
     /// <summary>Reads one page's size at a time, as the OCR loop does.</summary>
     /// <returns>The sum of the widths.</returns>
     [Benchmark]
@@ -62,7 +76,7 @@ public class HyperPdfPageSizeBenchmarks
         var sum = 0.0;
         for (var i = 0; i < OcrPages; i++)
         {
-            sum += _engine.GetPageSizes()[i].Width;
+            sum += _engine.GetPageSize(i).Width;
         }
 
         return sum;

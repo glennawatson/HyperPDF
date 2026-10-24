@@ -67,8 +67,8 @@ public sealed class PredictorEncoderTests
     /// <summary>The component counts tried.</summary>
     private static readonly int[] ColorCounts = [1, 2, 3, 4, 5];
 
-    /// <summary>The widths tried, around byte and word edges.</summary>
-    private static readonly int[] Widths = [1, 2, 3, 7, 8, 9, 31, 64, 100];
+    /// <summary>The widths tried, around byte and word edges and past the chunk the decoder checks cancellation at.</summary>
+    private static readonly int[] Widths = [1, 2, 3, 7, 8, 9, 31, 64, 100, 1_501, 2_051];
 
     /// <summary>A rising ramp of 8-bit samples.</summary>
     private static readonly byte[] Ramp = [10, 20, 30, 40, 50, 60];
