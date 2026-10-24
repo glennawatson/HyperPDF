@@ -63,7 +63,7 @@ public sealed class ManagedMediaPlayerTests
     /// <summary>The fewest of those pictures a run must show when none is far behind the sound.</summary>
     private const int FewestShown = 24;
 
-    /// <summary>The fewest pictures of the H.265 test file a run must show. The player drops a picture that is late, and the first ones are late on a slow runner while the decoder warms up, so only a shown picture is required.</summary>
+    /// <summary>The fewest pictures of the H.265 test file a run must show; a slow runner drops the first ones as late.</summary>
     private const int FewestHevcShown = 1;
 
     /// <summary>The most pictures a run at reduced motion shows in the two second clip.</summary>

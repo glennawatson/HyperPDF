@@ -262,7 +262,7 @@ internal sealed class ManagedRun(ManagedRunOptions options, CancellationToken ca
         var waited = Stopwatch.GetTimestamp();
         while (sound.Output.Latency > TimeSpan.Zero && Stopwatch.GetElapsedTime(waited).TotalSeconds < MaxDrain)
         {
-            if (cancellationToken.WaitHandle.WaitOne(DrainPoll))
+            if (Stopped(TimeSpan.FromMilliseconds(DrainPoll)))
             {
                 return false;
             }
@@ -382,12 +382,27 @@ internal sealed class ManagedRun(ManagedRunOptions options, CancellationToken ca
     {
         for (var delay = time - options.Clock.Seconds; delay > 0; delay = time - options.Clock.Seconds)
         {
-            if (cancellationToken.WaitHandle.WaitOne(TimeSpan.FromSeconds(Math.Min(delay, MaxSleep))))
+            if (Stopped(TimeSpan.FromSeconds(Math.Min(delay, MaxSleep))))
             {
                 return false;
             }
         }
 
         return !cancellationToken.IsCancellationRequested;
+    }
+
+    /// <summary>Waits for the run to be stopped, for at most a time.</summary>
+    /// <param name="timeout">The longest to wait.</param>
+    /// <returns><see langword="true"/> when the run was stopped, including when its owner has already let go of the token's source.</returns>
+    private bool Stopped(TimeSpan timeout)
+    {
+        try
+        {
+            return cancellationToken.WaitHandle.WaitOne(timeout);
+        }
+        catch (ObjectDisposedException)
+        {
+            return true;
+        }
     }
 }
