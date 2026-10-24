@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace HyperPdfLibrary.Text;
 
@@ -138,21 +137,8 @@ internal static class TextNormalization
     /// <returns>The index of the first such character, or -1.</returns>
     private static int IndexOfAtOrAbove(ReadOnlySpan<char> chars, char limit)
     {
-        // Every limit is above ASCII, so plain ASCII text, which most pages are, is skipped by a vectorised check.
-        if (Ascii.IsValid(chars))
-        {
-            return -1;
-        }
-
-        for (var i = 0; i < chars.Length; i++)
-        {
-            if (chars[i] >= limit)
-            {
-                return i;
-            }
-        }
-
-        return -1;
+        // Vectorised: the first character outside 0 to limit - 1 is the first at or above the limit.
+        return chars.IndexOfAnyExceptInRange((char)0, (char)(limit - 1));
     }
 
     /// <summary>Sorts one run of combining marks by combining class with an insertion sort, which is stable and the runs are short.</summary>

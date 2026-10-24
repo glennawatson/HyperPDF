@@ -6,6 +6,7 @@ using System.Globalization;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Archiving;
 using HyperPdf.Core.Documents;
+using HyperPdf.Core.Exporting;
 using HyperPdf.Core.Flattening;
 using HyperPdf.Core.Optimizing;
 using HyperPdf.Core.Protection;
@@ -34,7 +35,7 @@ internal static class TabCopyActions
         "Save Optimised Copy… (needs the HyperPDF engine)",
         static document => DocumentFeature<IDocumentOptimizer>.Get(document) is not null,
         static tab => DocumentFeature<IDocumentOptimizer>.Get(tab.TryGetDocument()) is { } optimizer
-            ? new(optimizer, tab.FilePath, CultureInfo.CurrentUICulture.Name)
+            ? new(optimizer, tab.FilePath, CultureInfo.CurrentUICulture.Name, tab.Services.PictureDescription)
             : null);
 
     /// <summary>Gets saving a PDF/A copy, for engines that can write one.</summary>
@@ -57,6 +58,15 @@ internal static class TabCopyActions
         "Save Flattened Copy… (needs the HyperPDF engine)",
         static document => DocumentFeature<IFlattenCopyWriter>.Get(document) is not null,
         static tab => DocumentFeature<IFlattenCopyWriter>.Get(tab.TryGetDocument()) is { } writer ? new(writer, tab.FilePath) : null);
+
+    /// <summary>Gets exporting pages as picture files or vector drawings, for engines that can write them.</summary>
+    internal static TabCopyActionSpec<ExportPagesViewModel> ExportPages { get; } = new(
+        "E_xport Pages as Pictures or Drawings…",
+        "Export Pages as Pictures or Drawings… (needs the HyperPDF engine)",
+        static document => DocumentFeature<IPageFileExporter>.Get(document) is not null,
+        static tab => DocumentFeature<IPageFileExporter>.Get(tab.TryGetDocument()) is { } exporter && tab.Source.PageCount > 0
+            ? new(exporter, tab.FilePath, tab.Source.PageCount, tab.CurrentPageIndex)
+            : null);
 
     /// <summary>Gets saving a copy with a password and permissions, for engines that can write one.</summary>
     internal static TabCopyActionSpec<ProtectViewModel> Protect { get; } = new(
@@ -146,7 +156,7 @@ internal static class TabCopyActions
             && DocumentFeature<IPdf20CopyWriter>.Get(document) is { } pdf20
             && DocumentFeature<IFlattenCopyWriter>.Get(document) is { } flatten
             ? new(
-                new(optimizer, tab.FilePath, CultureInfo.CurrentUICulture.Name),
+                new(optimizer, tab.FilePath, CultureInfo.CurrentUICulture.Name, tab.Services.PictureDescription),
                 new(archive, tab.FilePath),
                 new(pdf20, tab.FilePath),
                 new(flatten, tab.FilePath),

@@ -324,6 +324,13 @@ internal static class ContentText
     /// <param name = "raw">The string's bytes between its delimiters.</param>
     internal static void ShowEncoded(ContentInterpreter self, bool hex, ReadOnlySpan<byte> raw)
     {
+        // A literal with no escape and no carriage return is already its own value, so it is shown without being copied.
+        if (!hex && PdfStringDecoder.IsPlainLiteral(raw))
+        {
+            ContentText.ShowBytes(self, raw);
+            return;
+        }
+
         byte[]? rented = null;
         Span<byte> buffer = raw.Length <= ContentText.StackStringBytes ? stackalloc byte[ContentText.StackStringBytes] : (rented = ArrayPool<byte>.Shared.Rent(raw.Length));
         try

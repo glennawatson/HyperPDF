@@ -205,6 +205,21 @@ internal ref struct ContentReader
     private void ReadComposite(PdfTokenKind kind)
     {
         var start = kind == PdfTokenKind.ArrayStart ? _lexer.Position : _lexer.LexemeStart;
+        if (kind == PdfTokenKind.ArrayStart && ArrayScanner.TryFindEnd(_content, start, out var close))
+        {
+            _lexer.Position = close + 1;
+            Push(new(ContentOperandKind.Array, 0, default, start, close - start));
+            return;
+        }
+
+        ReadCompositeByTokens(kind, start);
+    }
+
+    /// <summary>Records an array or dictionary as a range by reading every token in it.</summary>
+    /// <param name="kind">The opening token.</param>
+    /// <param name="start">The offset the range starts at.</param>
+    private void ReadCompositeByTokens(PdfTokenKind kind, int start)
+    {
         var depth = 1;
         var end = _content.Length;
         while (depth > 0)

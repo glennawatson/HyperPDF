@@ -123,7 +123,7 @@ public static class FolderSearch
         using (document)
         {
             var found = new List<FolderSearchMatch>();
-            await foreach (var page in DocumentSearch.SearchAsync(document, query, options, 0, cancellationToken).ConfigureAwait(false))
+            await foreach (var page in DocumentSearch.SearchAsync(document, query, options, 0, false, cancellationToken).ConfigureAwait(false))
             {
                 foreach (var hit in page.Hits)
                 {

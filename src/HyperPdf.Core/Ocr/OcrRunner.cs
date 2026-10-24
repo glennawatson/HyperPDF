@@ -54,6 +54,18 @@ public static class OcrRunner
     /// <summary>The pixels in one vector of 32 bit lanes.</summary>
     private const int LanePixels = 8;
 
+    /// <summary>The pixels in one lane of a 128 bit vector.</summary>
+    private const int HalfLanePixels = 4;
+
+    /// <summary>The pixels converted in one step with 128 bit vectors.</summary>
+    private const int HalfBlockPixels = HalfLanePixels * 4;
+
+    /// <summary>The offset of the third lane in a block converted with 128 bit vectors.</summary>
+    private const int HalfThirdLane = HalfLanePixels * 2;
+
+    /// <summary>The offset of the fourth lane in a block converted with 128 bit vectors.</summary>
+    private const int HalfFourthLane = HalfLanePixels * 3;
+
     /// <summary>The first pixel of the third vector in a step.</summary>
     private const int ThirdLane = LanePixels * 2;
 
@@ -71,6 +83,9 @@ public static class OcrRunner
 
     /// <summary>Masks one channel in each lane.</summary>
     private static readonly Vector256<uint> ChannelLanes = Vector256.Create(0xFFU);
+
+    /// <summary>The mask that keeps one channel of each of four pixels.</summary>
+    private static readonly Vector128<uint> ChannelLanes128 = Vector128.Create(0xFFU);
 
     /// <summary>Recognises one page and writes its words onto it.</summary>
     /// <param name="document">The document.</param>
@@ -183,7 +198,7 @@ public static class OcrRunner
             return OcrPageStatus.AlreadyHasText;
         }
 
-        var size = document.GetPageSizes()[pageIndex];
+        var size = document.GetPageSize(pageIndex);
         var scale = GetScale(size);
         var width = Math.Max(1, (int)MathF.Ceiling(size.Width * scale));
         var height = Math.Max(1, (int)MathF.Ceiling(size.Height * scale));
@@ -224,12 +239,35 @@ public static class OcrRunner
             }
         }
 
+        if (i == 0 && Vector128.IsHardwareAccelerated && BitConverter.IsLittleEndian)
+        {
+            // Processors with 128 bit vectors only (such as ARM) take 16 pixels a step.
+            var pixels = MemoryMarshal.Cast<byte, uint>(bgra);
+            for (; i <= count - HalfBlockPixels; i += HalfBlockPixels)
+            {
+                var low = Vector128.Narrow(Luma(Vector128.Create(pixels.Slice(i, HalfLanePixels))), Luma(Vector128.Create(pixels.Slice(i + HalfLanePixels, HalfLanePixels))));
+                var high = Vector128.Narrow(
+                    Luma(Vector128.Create(pixels.Slice(i + HalfThirdLane, HalfLanePixels))),
+                    Luma(Vector128.Create(pixels.Slice(i + HalfFourthLane, HalfLanePixels))));
+                Vector128.Narrow(low, high).CopyTo(grey.Slice(i, HalfBlockPixels));
+            }
+        }
+
         for (; i < count; i++)
         {
             var pixel = bgra.Slice(i * BytesPerPixel, BytesPerPixel);
             grey[i] = (byte)(((pixel[0] * BlueWeight) + (pixel[GreenOffset] * GreenWeight) + (pixel[RedOffset] * RedWeight)) >> WeightShift);
         }
     }
+
+    /// <summary>Computes the luma of four little endian BGRA pixels.</summary>
+    /// <param name="pixels">The pixels as 0xAARRGGBB.</param>
+    /// <returns>The luma of each, from 0 to 255.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector128<uint> Luma(Vector128<uint> pixels) =>
+        (((pixels & ChannelLanes128) * BlueWeight)
+            + (((pixels >> GreenShift) & ChannelLanes128) * GreenWeight)
+            + (((pixels >> RedShift) & ChannelLanes128) * RedWeight)) >> WeightShift;
 
     /// <summary>Computes the luma of eight little endian BGRA pixels.</summary>
     /// <param name="pixels">The pixels as 0xAARRGGBB.</param>

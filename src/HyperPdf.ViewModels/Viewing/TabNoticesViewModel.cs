@@ -141,7 +141,7 @@ public sealed partial class TabNoticesViewModel : ReactiveObject
         }
 
         // Once a page has shown every kind a page can hold, the rest of the pages cannot add anything.
-        const UnsupportedContent pageKinds = UnsupportedContent.Multimedia | UnsupportedContent.ThreeD | UnsupportedContent.JavaScript;
+        const UnsupportedContent pageKinds = UnsupportedContent.Multimedia | UnsupportedContent.ThreeD | UnsupportedContent.JavaScript | UnsupportedContent.UnreadableImages;
         for (var page = 0; page < pages && !document.IsDisposed && (content & pageKinds) != pageKinds; page++)
         {
             content |= check.CheckPage(page);

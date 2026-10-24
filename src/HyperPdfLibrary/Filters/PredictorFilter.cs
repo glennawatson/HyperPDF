@@ -260,11 +260,12 @@ internal static class PredictorFilter
             Unsafe.Add(ref current, i) += (byte)(Unsafe.Add(ref above, i) >> 1);
         }
 
+        var lanes = PixelLanes.Handles(pixelBytes);
         for (var start = head; start < row.Length; start += ChunkLength)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var end = Math.Min(start + ChunkLength, row.Length);
-            for (var i = start; i < end; i++)
+            for (var i = lanes ? PixelLanes.UndoAverage(ref current, ref above, pixelBytes, start, end) : start; i < end; i++)
             {
                 Unsafe.Add(ref current, i) += (byte)((Unsafe.Add(ref current, i - pixelBytes) + Unsafe.Add(ref above, i)) >> 1);
             }
@@ -278,14 +279,14 @@ internal static class PredictorFilter
     /// <param name="cancellationToken">Cancels this operation.</param>
     private static void Paeth(Span<byte> row, ReadOnlySpan<byte> previous, int pixelBytes, CancellationToken cancellationToken)
     {
-        for (var i = 0; i < row.Length; i++)
+        // With nothing above, the predictor is always the byte to the left, which is the Sub filter.
+        if (previous.IsEmpty)
         {
-            CheckCancellation(i, cancellationToken);
-            var left = i >= pixelBytes ? row[i - pixelBytes] : 0;
-            var up = previous.IsEmpty ? 0 : previous[i];
-            var upLeft = i >= pixelBytes && !previous.IsEmpty ? previous[i - pixelBytes] : 0;
-            row[i] = (byte)(row[i] + PaethPredict(left, up, upLeft));
+            AddLeft(row, pixelBytes, cancellationToken);
+            return;
         }
+
+        PaethDecoder.Undo(row, previous, pixelBytes, cancellationToken);
     }
 
     /// <summary>Adds the byte a stride earlier to each byte from the stride on, in place: the Sub filter and TIFF Predictor 2 at eight bits.</summary>
@@ -295,35 +296,16 @@ internal static class PredictorFilter
     private static void AddLeft(Span<byte> row, int stride, CancellationToken cancellationToken)
     {
         ref var current = ref MemoryMarshal.GetReference(row);
+        var lanes = PixelLanes.Handles(stride);
         for (var start = stride; start < row.Length; start += ChunkLength)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var end = Math.Min(start + ChunkLength, row.Length);
-            for (var i = start; i < end; i++)
+            for (var i = lanes ? PixelLanes.UndoSub(ref current, stride, start, end) : start; i < end; i++)
             {
                 Unsafe.Add(ref current, i) += Unsafe.Add(ref current, i - stride);
             }
         }
-    }
-
-    /// <summary>Chooses the Paeth predictor.</summary>
-    /// <param name="left">The byte to the left.</param>
-    /// <param name="up">The byte above.</param>
-    /// <param name="upLeft">The byte above and to the left.</param>
-    /// <returns>The prediction.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static int PaethPredict(int left, int up, int upLeft)
-    {
-        var estimate = left + up - upLeft;
-        var toLeft = Math.Abs(estimate - left);
-        var toUp = Math.Abs(estimate - up);
-        var toUpLeft = Math.Abs(estimate - upLeft);
-        if (toLeft <= toUp && toLeft <= toUpLeft)
-        {
-            return left;
-        }
-
-        return toUp <= toUpLeft ? up : upLeft;
     }
 
     /// <summary>Undoes the TIFF horizontal differencing predictor, including a truncated last row.</summary>

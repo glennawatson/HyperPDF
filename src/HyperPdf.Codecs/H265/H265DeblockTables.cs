@@ -1,0 +1,47 @@
+// Copyright (c) 2026 Glenn Watson. All rights reserved.
+// Glenn Watson licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
+using System.Runtime.CompilerServices;
+
+namespace HyperPdf.Codecs.H265;
+
+/// <summary>The threshold tables of the deblocking filter (Table 8-12).</summary>
+internal static class H265DeblockTables
+{
+    /// <summary>The largest index of the beta table.</summary>
+    internal const int MaxBetaIndex = 51;
+
+    /// <summary>The largest index of the clipping table.</summary>
+    internal const int MaxTcIndex = 53;
+
+    /// <summary>Gets beta' for the indices 0 to 51.</summary>
+    private static ReadOnlySpan<byte> Beta =>
+    [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x14, 0x16, 0x18,
+        0x1A, 0x1C, 0x1E, 0x20, 0x22, 0x24, 0x26, 0x28, 0x2A, 0x2C, 0x2E, 0x30, 0x32, 0x34, 0x36, 0x38,
+        0x3A, 0x3C, 0x3E, 0x40,
+    ];
+
+    /// <summary>Gets tc' for the indices 0 to 53.</summary>
+    private static ReadOnlySpan<byte> Tc =>
+    [
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x02, 0x02, 0x03,
+        0x03, 0x03, 0x03, 0x04, 0x04, 0x04, 0x05, 0x05, 0x06, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0D,
+        0x0E, 0x10, 0x12, 0x14, 0x16, 0x18,
+    ];
+
+    /// <summary>Gets beta' for a clipped index.</summary>
+    /// <param name="index">The index, from 0 to 51.</param>
+    /// <returns>The value.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int BetaOf(int index) => Beta[index];
+
+    /// <summary>Gets tc' for a clipped index.</summary>
+    /// <param name="index">The index, from 0 to 53.</param>
+    /// <returns>The value.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int TcOf(int index) => Tc[index];
+}

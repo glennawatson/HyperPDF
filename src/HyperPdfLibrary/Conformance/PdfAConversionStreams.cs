@@ -75,22 +75,21 @@ internal static class PdfAConversionStreams
     /// <summary>Lists a /Filter value's filters.</summary>
     /// <param name="filter">A name or an array of names.</param>
     /// <returns>The filters.</returns>
-    private static List<KnownName> Filters(PdfValue filter)
+    private static KnownName[] Filters(PdfValue filter)
     {
-        var list = new List<KnownName>();
         if (filter.AsArray() is { } chain)
         {
-            for (var i = 0; i < chain.Count; i++)
+            var names = new KnownName[chain.Count];
+            for (var i = 0; i < names.Length; i++)
             {
-                list.Add(chain.GetName(i).ToKnownName());
+                names[i] = chain.GetName(i).ToKnownName();
             }
-        }
-        else if (filter.Kind == PdfKind.Name)
-        {
-            list.Add(filter.AsName().ToKnownName());
+
+            return names;
         }
 
-        return list;
+        // Most streams have no filter or one, so the common cases allocate no list.
+        return filter.Kind == PdfKind.Name ? [filter.AsName().ToKnownName()] : [];
     }
 
     /// <summary>Decodes the general filters of a stream and compresses the result with Flate, keeping any image codec.</summary>

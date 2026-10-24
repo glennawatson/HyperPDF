@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <UsesRecognitionData>true</UsesRecognitionData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\HyperPdf.Ocr\HyperPdf.Ocr.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Engine\HyperPdf.Engine.csproj" />
+    <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Caps the tests running at once in this process, which shares a small CI runner with other test processes. -->
+    <Compile Include="..\HyperPdfLibrary.Tests\TestParallelLimit.cs" Link="TestParallelLimit.cs" />
+    <!-- A random number generator with a fixed seed, so a failing test can be run again. -->
+    <Compile Include="..\HyperPdfLibrary.Tests\Robustness\SeededRandom.cs" Link="SeededRandom.cs" />
+  </ItemGroup>
+</Project>

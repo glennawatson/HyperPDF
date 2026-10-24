@@ -40,6 +40,9 @@ public sealed class PdfTagTree
     /// <summary>The pages that have marked content, in the order they were first used.</summary>
     private readonly List<PageEntry> _pages = [];
 
+    /// <summary>The parent tree's entries, pages with marked content and annotations with a structure element, in key order.</summary>
+    private readonly List<ParentEntry> _entries = [];
+
     /// <summary>The document.</summary>
     private readonly IPdfObjectSink _sink;
 
@@ -48,6 +51,9 @@ public sealed class PdfTagTree
 
     /// <summary>The marked-content pages by object, allocated when content is first added.</summary>
     private Dictionary<PdfObjectId, PageEntry>? _pageByObject;
+
+    /// <summary>The next key to give a page or an annotation in the parent tree.</summary>
+    private int _nextKey;
 
     /// <summary>The PDF 2.0 namespace object, reserved on promotion when the creator allows both namespaces.</summary>
     private PdfObjectId _namespaceId;
@@ -186,15 +192,34 @@ public sealed class PdfTagTree
         var pages = _pageByObject ??= [];
         if (!pages.TryGetValue(page, out var entry))
         {
-            entry = new(_pages.Count);
+            var pageKey = _nextKey;
+            _nextKey++;
+            entry = new(pageKey);
             pages.Add(page, entry);
             _pages.Add(entry);
+            _entries.Add(new(entry.Key, entry, null));
         }
 
         var mcid = entry.Elements.Count;
         entry.Elements.Add(element);
         element.AddContent(page, mcid);
         return mcid;
+    }
+
+    /// <summary>Makes an annotation, such as a link, a child of a structure element.</summary>
+    /// <param name="element">The element, usually a <c>Link</c>.</param>
+    /// <param name="page">The page the annotation is on.</param>
+    /// <param name="annotation">The annotation's object.</param>
+    /// <returns>The key to write as the annotation's <c>/StructParent</c>.</returns>
+    /// <exception cref="InvalidOperationException">The tree is finished.</exception>
+    internal int AddAnnotation(PdfTagElement element, PdfObjectId page, PdfObjectId annotation)
+    {
+        ThrowIfFinished();
+        element.AddAnnotation(page, annotation);
+        var key = _nextKey;
+        _nextKey++;
+        _entries.Add(new(key, null, element));
+        return key;
     }
 
     /// <summary>Gets the parent tree key of a page that has marked content.</summary>
@@ -284,11 +309,20 @@ public sealed class PdfTagTree
     /// <param name="element">The element.</param>
     /// <param name="kid">The child.</param>
     /// <returns>A reference to a child element, a marked content id, or a marked content reference when the content is on another page.</returns>
-    private PdfValue CreateKid(PdfTagElement element, PdfTagElement.Kid kid)
+    private PdfValue CreateKid(PdfTagElement element, in PdfTagElement.Kid kid)
     {
         if (kid.Element is { } child)
         {
             return PdfValue.FromReference(child.Id);
+        }
+
+        if (kid.Annotation.IsValid)
+        {
+            var objectReference = new PdfDictionary(_sink.Owner, ElementEntries);
+            objectReference.Set(KnownName.Type, PdfValue.FromName(_sink.Names.Intern("OBJR")));
+            objectReference.Set(KnownName.Pg, PdfValue.FromReference(kid.Page));
+            objectReference.Set(_sink.Names.Intern("Obj"), PdfValue.FromReference(kid.Annotation));
+            return PdfValue.FromDictionary(objectReference);
         }
 
         if (kid.Page == element.Page)
@@ -323,7 +357,7 @@ public sealed class PdfTagTree
         root.Set(KnownName.Type, PdfValue.FromName(KnownName.StructTreeRoot));
         root.Set(KnownName.K, PdfValue.FromReference(Root.Id));
         root.Set(KnownName.ParentTree, PdfValue.FromReference(WriteParentTree()));
-        root.Set(KnownName.ParentTreeNextKey, PdfValue.FromInteger(_pages.Count));
+        root.Set(KnownName.ParentTreeNextKey, PdfValue.FromInteger(_nextKey));
         if (roleMap is not null)
         {
             root.Set(KnownName.RoleMap, PdfValue.FromDictionary(roleMap));
@@ -381,21 +415,21 @@ public sealed class PdfTagTree
     private PdfObjectId WriteParentTree()
     {
         var leaves = new List<PdfObjectId>();
-        for (var start = 0; start < _pages.Count; start += LeafPairs)
+        for (var start = 0; start < _entries.Count; start += LeafPairs)
         {
-            var count = Math.Min(LeafPairs, _pages.Count - start);
+            var count = Math.Min(LeafPairs, _entries.Count - start);
             var nums = new PdfArray(_sink.Owner, count * PairLength);
             for (var i = start; i < start + count; i++)
             {
-                nums.Add(PdfValue.FromInteger(_pages[i].Key));
-                nums.Add(PdfValue.FromReference(WriteContentArray(_pages[i])));
+                nums.Add(PdfValue.FromInteger(_entries[i].Key));
+                nums.Add(PdfValue.FromReference(_entries[i].Page is { } page ? WriteContentArray(page) : _entries[i].Element!.Id));
             }
 
             var leaf = new PdfDictionary(_sink.Owner, ElementEntries);
             leaf.Set(KnownName.Nums, PdfValue.FromArray(nums));
-            if (_pages.Count > LeafPairs)
+            if (_entries.Count > LeafPairs)
             {
-                leaf.Set(KnownName.Limits, PdfValue.FromArray(PdfArray.FromNumbers(_sink.Owner, [_pages[start].Key, _pages[start + count - 1].Key])));
+                leaf.Set(KnownName.Limits, PdfValue.FromArray(PdfArray.FromNumbers(_sink.Owner, [_entries[start].Key, _entries[start + count - 1].Key])));
             }
 
             leaves.Add(_sink.Add(PdfValue.FromDictionary(leaf)));
@@ -444,4 +478,10 @@ public sealed class PdfTagTree
         /// <summary>Gets the element of each marked content id.</summary>
         internal List<PdfTagElement> Elements { get; } = [];
     }
+
+    /// <summary>An entry of the parent tree: a page with marked content, or an annotation with the element it belongs to.</summary>
+    /// <param name="Key">The key.</param>
+    /// <param name="Page">The page, or <see langword="null"/> for an annotation.</param>
+    /// <param name="Element">The element an annotation belongs to, or <see langword="null"/> for a page.</param>
+    private sealed record ParentEntry(int Key, PageEntry? Page, PdfTagElement? Element);
 }

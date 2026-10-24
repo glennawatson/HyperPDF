@@ -78,7 +78,8 @@ internal static class SrtTimes
         var second = afterHours.IndexOf(':');
         if (second < 0)
         {
-            return false;
+            // WebVTT may leave the hours off: minutes, seconds and a fraction.
+            return TryReadShortTime(text[..first], afterHours, out time);
         }
 
         var secondsText = afterHours[(second + 1)..];
@@ -93,6 +94,23 @@ internal static class SrtTimes
         }
 
         time = TimeSpan.FromSeconds((hours * (double)SecondsPerHour) + (minutes * SecondsPerMinute) + seconds);
+        return true;
+    }
+
+    /// <summary>Reads a WebVTT time that has no hours.</summary>
+    /// <param name="minutesText">The minutes.</param>
+    /// <param name="secondsText">The seconds with their fraction.</param>
+    /// <param name="time">Receives the time.</param>
+    /// <returns><see langword="true"/> when the text is a time.</returns>
+    private static bool TryReadShortTime(ReadOnlySpan<char> minutesText, ReadOnlySpan<char> secondsText, out TimeSpan time)
+    {
+        time = default;
+        if (!TryReadDigits(minutesText, out var minutes) || minutes > MaxClockPart || !TryReadSeconds(secondsText, out var seconds))
+        {
+            return false;
+        }
+
+        time = TimeSpan.FromSeconds((minutes * SecondsPerMinute) + seconds);
         return true;
     }
 

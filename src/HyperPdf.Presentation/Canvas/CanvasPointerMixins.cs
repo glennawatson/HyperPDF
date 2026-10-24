@@ -91,12 +91,11 @@ public static class CanvasPointerMixins
 
             if (state.Tools.Selecting)
             {
-                state.ExtendSelectionTo(move.Position);
+                state.DragSelectionTo(move.Position, move.InScroller);
                 return fx;
             }
 
-            var clickable = state.HitTestLink(hover) is not null || state.IsOverField(hover) || state.IsOverCommentTrigger(hover);
-            fx.Cursor = PointerRouting.GetHoverCursor(state.IsOverText(hover), clickable);
+            fx.Cursor = state.GetHoverCursor(hover);
             return fx;
         }
 
@@ -443,16 +442,28 @@ public static class CanvasPointerMixins
 
             var tools = state.Tools;
             tools.PressedLink = state.HitTestLink(press.Position);
-            state.ClearSelection();
+            var extend = (press.Modifiers & ViewerModifiers.Shift) != ViewerModifiers.None;
+
+            // Shift keeps the selection and moves its end, so a block started pages earlier grows to the click.
+            if (!extend)
+            {
+                state.ClearSelection();
+            }
+
             if (tools.PressedLink is not null || !state.TryHitTestCharacter(press.Position, out var page, out var character))
             {
                 return;
             }
 
             var picked = new CharacterPosition(page, character);
-            state.Selection.Begin(picked);
-            state.Caret = picked;
-            tools.Selecting = true;
+            if (extend && state.ExtendSelectionFromAnchor(picked, press.Position, press.InScroller))
+            {
+                fx.Capture = true;
+                fx.Handled = true;
+                return;
+            }
+
+            state.BeginSelectionDrag(picked, press.Position, press.InScroller);
             fx.Capture = true;
             fx.Handled = true;
         }
@@ -572,7 +583,7 @@ public static class CanvasPointerMixins
             var tools = state.Tools;
             if (tools.Selecting)
             {
-                tools.Selecting = false;
+                state.EndSelectionDrag();
                 state.ApplyMarkupTool();
             }
 

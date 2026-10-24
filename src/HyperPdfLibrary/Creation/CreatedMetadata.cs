@@ -49,6 +49,9 @@ internal static class CreatedMetadata
     /// <summary>The entries of a metadata stream dictionary.</summary>
     private const int MetadataEntries = 3;
 
+    /// <summary>The keys of the information dictionary that the document options set, which custom entries cannot use.</summary>
+    private static readonly string[] StandardInfoKeys = ["Title", "Author", "Subject", "Keywords", "Creator", "Producer", "CreationDate", "ModDate", "Trapped"];
+
     /// <summary>The writer settings, shared because a writer only reads them.</summary>
     private static readonly XmlWriterSettings WriterSettings = new() { Encoding = new UTF8Encoding(false), OmitXmlDeclaration = true, Indent = true };
 
@@ -69,6 +72,7 @@ internal static class CreatedMetadata
         Span<byte> date = stackalloc byte[DateBufferLength];
         var length = PdfDate.Format(created, date);
         info.Set(KnownName.CreationDate, PdfValue.FromString(date[..length].ToArray()));
+        AddCustomInfo(sink, info, options.CustomInfo);
         return sink.Add(PdfValue.FromDictionary(info));
     }
 
@@ -84,6 +88,30 @@ internal static class CreatedMetadata
         dictionary.Set(KnownName.Type, PdfValue.FromName(KnownName.Metadata));
         dictionary.Set(KnownName.Subtype, PdfValue.FromName(sink.Names.Intern("XML")));
         return sink.Add(PdfValue.FromStream(new(dictionary, WritePacket(options, created, claimedPart))));
+    }
+
+    /// <summary>Adds the custom entries of the information dictionary.</summary>
+    /// <param name="sink">The document.</param>
+    /// <param name="info">The information dictionary.</param>
+    /// <param name="custom">The custom entries, or <see langword="null"/> for none.</param>
+    /// <exception cref="ArgumentException">A key is empty, has a character a name cannot hold, or is one of the standard keys.</exception>
+    private static void AddCustomInfo(IPdfObjectSink sink, PdfDictionary info, IReadOnlyDictionary<string, string>? custom)
+    {
+        if (custom is null)
+        {
+            return;
+        }
+
+        foreach (var (key, value) in custom)
+        {
+            ArgumentException.ThrowIfNullOrEmpty(key);
+            if (StandardInfoKeys.Contains(key, StringComparer.Ordinal) || key.AsSpan().ContainsAnyExceptInRange('!', '~') || key.AsSpan().ContainsAny("()<>[]{}/%#"))
+            {
+                throw new ArgumentException($"'{key}' cannot be used as a custom document information key.", nameof(custom));
+            }
+
+            SetText(info, sink.Names.Intern(key), value);
+        }
     }
 
     /// <summary>Sets a text string entry when there is text.</summary>

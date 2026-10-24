@@ -36,10 +36,10 @@
   <PropertyGroup>
     <NoticesResourceName>HyperPdfLibrary.Render.Skia.ThirdPartyNotices.md</NoticesResourceName>
   </PropertyGroup>
-  <Import Project="../../licenses/ThirdPartyNotices.targets" />
+  <Import Project="../licenses/ThirdPartyNotices.targets" />
   <ItemGroup>
     <None Include="$(NoticesFile)" Pack="true" PackagePath="THIRD-PARTY-NOTICES.md" Visible="false" />
     <None Include="$(MSBuildThisFileDirectory)../../docs/hyperpdf/PACKAGE-README.md" Pack="true" PackagePath="README.md" Visible="false" />
-    <None Include="$(MSBuildThisFileDirectory)../../HyperPDFViewerIcon.png" Pack="true" PackagePath="icon.png" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../../icons/HyperPDFViewerIcon.png" Pack="true" PackagePath="icon.png" Visible="false" />
   </ItemGroup>
 </Project>

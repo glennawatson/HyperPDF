@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Colors;
 using HyperPdfLibrary.Graphics.Images.Jbig2;
@@ -235,6 +236,11 @@ public static class PdfImageDecoder
         }
 
         var header = ForRole(read, role, compact, dictionary, colors.Rendering);
+        if (role == ImageRole.Image && PdfStreamDecoder.HasUnknownFilter(dictionary.Get(KnownName.Filter)))
+        {
+            return Unreadable(image, header);
+        }
+
         var buffer = default(PooledBuffer);
         try
         {
@@ -400,6 +406,21 @@ public static class PdfImageDecoder
         }
 
         return new(header.Width, header.Height, coverage, true, header.Interpolate, PdfImageCodec.None) { IsPinned = pinned };
+    }
+
+    /// <summary>Makes the result for an image whose filter this library does not know: its bytes are not pixels, so none are drawn from them.</summary>
+    /// <param name="image">The image stream.</param>
+    /// <param name="header">The image header.</param>
+    /// <returns>An image with no pixels, whose <see cref="PdfImageData.UnsupportedCodec"/> is <see cref="PdfImageCodec.Unknown"/>.</returns>
+    private static PdfImageData Unreadable(PdfStream image, in ImageHeader header)
+    {
+        PdfOpenContext.Report(
+            image.Dictionary.Owner?.Context,
+            PdfDiagnosticCode.UnknownFilter,
+            "An image uses a filter this library does not know, so it is drawn as a placeholder.",
+            image.Id.Number,
+            -1);
+        return new(header.Width, header.Height, [], false, false, PdfImageCodec.Unknown);
     }
 
     /// <summary>Determines whether an image gets a soft mask or stencil mask stream, which need BGRA pixels to multiply into.</summary>

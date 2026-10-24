@@ -34,6 +34,12 @@ internal sealed class DuplicateFinder
     /// <summary>The objects that may be merged, by old number, in the order they were reached.</summary>
     private readonly List<int> _candidates = [];
 
+    /// <summary>The streams whose length no other candidate stream has, which cannot have a duplicate and are never read or hashed.</summary>
+    private readonly HashSet<int> _lonely = [];
+
+    /// <summary>How many candidate streams have each length; kept to reuse its table.</summary>
+    private readonly Dictionary<int, int> _lengthCounts = [];
+
     /// <summary>The digest of each candidate stream's data, by old number.</summary>
     private readonly Dictionary<int, ContentHash> _dataHashes = [];
 
@@ -81,6 +87,7 @@ internal sealed class DuplicateFinder
                 }
             }
 
+            finder.FindLonelyStreams();
             for (var pass = 0; pass < MaxPasses && finder.MergePass(cancellationToken); pass++)
             {
                 // Each pass lets objects that refer to merged objects merge in turn.
@@ -105,6 +112,7 @@ internal sealed class DuplicateFinder
         }
 
         _candidates.Clear();
+        _lonely.Clear();
         _dataHashes.Clear();
         _seen.Clear();
         _store = null;
@@ -211,6 +219,38 @@ internal sealed class DuplicateFinder
         }
     }
 
+    /// <summary>
+    /// Marks the candidate streams whose raw length is shared by no other candidate stream, so their data is never read and
+    /// hashed. Equal data has equal length, but only when nothing is encrypted: an encrypted stream's length is not its data's.
+    /// </summary>
+    private void FindLonelyStreams()
+    {
+        _lengthCounts.Clear();
+        foreach (var number in _candidates)
+        {
+            if (StoreReading.GetObject(_store!, new(number, 0)).AsStream() is not { } stream)
+            {
+                continue;
+            }
+
+            if (stream.IsEncrypted)
+            {
+                _lengthCounts.Clear();
+                return;
+            }
+
+            _lengthCounts[stream.RawLength] = _lengthCounts.GetValueOrDefault(stream.RawLength) + 1;
+        }
+
+        foreach (var number in _candidates)
+        {
+            if (StoreReading.GetObject(_store!, new(number, 0)).AsStream() is { } stream && _lengthCounts[stream.RawLength] == 1)
+            {
+                _ = _lonely.Add(number);
+            }
+        }
+    }
+
     /// <summary>Runs one pass: hashes every candidate not yet merged and merges equal ones into the first.</summary>
     /// <param name="cancellationToken">Stops the search.</param>
     /// <returns><see langword="true"/> when anything merged.</returns>
@@ -221,7 +261,7 @@ internal sealed class DuplicateFinder
         foreach (var number in _candidates)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (_aliases[number] > 0)
+            if (_aliases[number] > 0 || _lonely.Contains(number))
             {
                 continue;
             }

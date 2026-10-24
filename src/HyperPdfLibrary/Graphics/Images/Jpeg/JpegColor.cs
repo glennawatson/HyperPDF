@@ -97,7 +97,7 @@ internal static class JpegColor
         var luma = rows[..width];
         var blue = rows.Slice(width, width);
         var red = rows.Slice(CrRow * width, width);
-        for (var x = 0; x < width; x++)
+        for (var x = JpegColorVectors.YccToRgb(luma, blue, red, width, destination); x < width; x++)
         {
             ConvertPixel(luma[x], blue[x], red[x], destination.Slice(x * ThreeComponents, ThreeComponents));
         }

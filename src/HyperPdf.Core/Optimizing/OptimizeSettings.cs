@@ -17,4 +17,10 @@ public sealed record OptimizeSettings(OptimizePreset Preset, bool FixAccessibili
 {
     /// <summary>Gets the settings used when the user changes nothing: balanced, with the accessibility entries filled in.</summary>
     public static OptimizeSettings Default { get; } = new(OptimizePreset.Balanced, true, null, false, false);
+
+    /// <summary>
+    /// Gets the describer that writes alternate text for the figures found when tags are inferred, or <see langword="null"/>
+    /// to leave them without. It only matters when <see cref="AddInferredTags"/> is on.
+    /// </summary>
+    public IFigureDescriber? FigureDescriber { get; init; }
 }

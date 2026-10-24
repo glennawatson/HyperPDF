@@ -47,6 +47,34 @@ internal static class PageRecorder
         return Finish(device, out bytes, out images);
     }
 
+    /// <summary>Runs the page content through a device that draws as it goes, at full resolution.</summary>
+    /// <param name="cache">The document's caches.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="printing">Whether optional content follows print usage.</param>
+    /// <param name="device">The device the page is drawn on, in viewer space.</param>
+    /// <param name="cancellationToken">Cancels the run between operators.</param>
+    internal static void PlayContent(PdfRenderCache cache, PdfPage page, bool printing, IContentDevice device, CancellationToken cancellationToken)
+    {
+        using var interpreter = ContentInterpreter.Rent(cache, device, 0, float.PositiveInfinity, cancellationToken);
+        interpreter.Printing = printing;
+        interpreter.ZoomClass = OptionalContentZoom.NoZoom;
+        ContentExecution.RunPage(interpreter, page);
+    }
+
+    /// <summary>Runs the annotation appearances through a device that draws as it goes, at full resolution.</summary>
+    /// <param name="cache">The document's caches.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="printing">Whether the page is for printing.</param>
+    /// <param name="device">The device the annotations are drawn on, in viewer space.</param>
+    /// <param name="cancellationToken">Cancels the run between operators.</param>
+    internal static void PlayAnnotations(PdfRenderCache cache, PdfPage page, bool printing, IContentDevice device, CancellationToken cancellationToken)
+    {
+        using var interpreter = ContentInterpreter.Rent(cache, device, 0, float.PositiveInfinity, cancellationToken);
+        interpreter.Printing = printing;
+        interpreter.ZoomClass = OptionalContentZoom.NoZoom;
+        DrawPass(new(cache, interpreter, page, printing), page.Dictionary.GetArray(KnownName.Annots));
+    }
+
     /// <summary>Ends a recording and measures what the picture keeps alive.</summary>
     /// <param name = "device">The recording device.</param>
     /// <param name = "bytes">Receives the picture's own bytes, without the images it drew.</param>

@@ -133,7 +133,7 @@ public static class CanvasKeyMixins
 
             if (key == ViewerKey.A && modifiers == ViewerModifiers.Control)
             {
-                state.SelectAllOnPage(tab);
+                state.SelectAllText(tab);
                 return true;
             }
 

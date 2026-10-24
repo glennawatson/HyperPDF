@@ -33,6 +33,9 @@ public sealed partial class DocumentMenuView : ReactiveUI.Avalonia.ReactiveUserC
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Archive.Interaction).ShowDialogOver(this, static copy => new ArchiveCopyWindow { ViewModel = copy }));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Pdf20.Interaction).ShowDialogOver(this, static copy => new Pdf20CopyWindow { ViewModel = copy }));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Flatten.Interaction).ShowDialogOver(this, static copy => new FlattenCopyWindow { ViewModel = copy }));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.Copies.ExportPages.RunCommand, static v => v.ExportPagesItem));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.ExportPages.MenuText, static v => v.ExportPagesItem.Header));
+            disposables.Add(this.WhenChanged(static v => v.ViewModel!.Copies.ExportPages.Interaction).ShowDialogOver(this, static copy => new ExportPagesWindow { ViewModel = copy }));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Copies.Protect.RunCommand, static v => v.ProtectItem));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Copies.Protect.MenuText, static v => v.ProtectItem.Header));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Copies.Protect.Interaction).ShowDialogOver(this, static copy => new ProtectWindow { ViewModel = copy }));

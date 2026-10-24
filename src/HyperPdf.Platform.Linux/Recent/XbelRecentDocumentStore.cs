@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
+using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Platform;
 
 namespace HyperPdf.Platform.Linux.Recent;
@@ -404,11 +405,11 @@ public sealed class XbelRecentDocumentStore : IRecentDocumentStore
         }
         catch (IOException ex)
         {
-            Debug.WriteLine($"Could not update {FilePath}: {ex.Message}");
+            AppLog.Warning(ex, $"Could not update {FilePath}.");
         }
         catch (UnauthorizedAccessException ex)
         {
-            Debug.WriteLine($"Could not update {FilePath}: {ex.Message}");
+            AppLog.Warning(ex, $"Could not update {FilePath}.");
         }
     }
 }

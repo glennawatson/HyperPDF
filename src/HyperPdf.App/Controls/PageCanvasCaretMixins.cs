@@ -22,12 +22,12 @@ internal static class PageCanvasCaretMixins
         internal IObservable<KeyEventArgs> DocumentKeys => canvas.KeyDowns
             .WhereWith(canvas, static (c, e) => c.TryHandleDocumentKey(e));
 
-        /// <summary>Selects all the text on the page shown, as Ctrl+A does; the caret moves to its end.</summary>
+        /// <summary>Selects all the text of the document, as Ctrl+A does; the caret moves to its end.</summary>
         internal void SelectAllText()
         {
             if (canvas.Tab is { } tab)
             {
-                canvas.State.SelectAllOnPage(tab);
+                canvas.State.SelectAllText(tab);
             }
         }
 

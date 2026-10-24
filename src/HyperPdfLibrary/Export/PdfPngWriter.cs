@@ -99,6 +99,37 @@ internal static class PdfPngWriter
         }
     }
 
+    /// <summary>Encodes straight-alpha samples as a PNG file.</summary>
+    /// <param name="samples">The samples: grey, red-green-blue, or red-green-blue-alpha.</param>
+    /// <returns>The file's bytes.</returns>
+    internal static byte[] Encode(RasterSamples samples)
+    {
+        var type = samples.Channels switch
+        {
+            RasterSamples.GreyChannels => GreyType,
+            RasterSamples.RgbChannels => RgbType,
+            _ => RgbaType,
+        };
+
+        var stride = samples.RowBytes;
+        var rows = new byte[(stride + 1) * samples.Height];
+        for (var y = 0; y < samples.Height; y++)
+        {
+            samples.Data.AsSpan(y * stride, stride).CopyTo(rows.AsSpan((y * (stride + 1)) + 1));
+        }
+
+        var data = default(PooledBuffer);
+        try
+        {
+            ZLibCodec.Compress(rows, PdfCompressionLevel.Fastest, ref data);
+            return Assemble(samples.Width, samples.Height, type, data.WrittenSpan);
+        }
+        finally
+        {
+            data.Dispose();
+        }
+    }
+
     /// <summary>Chooses the PNG colour type for an image.</summary>
     /// <param name="image">The image.</param>
     /// <returns>The colour type and the channels per pixel.</returns>

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Description>Text recognition for HyperPDF through Tesseract's C API (source-generated interop, AOT safe). Tesseract is Apache-2.0; it is loaded from the system or the app directory.</Description>
+    <Description>Text recognition for HyperPDF in managed code: it reads the recurrent networks stored in Tesseract's language data files (Apache-2.0), finds the lines of text on a page and reports the words.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -9,5 +9,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+    <InternalsVisibleTo Include="HyperPdf.Ocr.Tests" />
   </ItemGroup>
 </Project>

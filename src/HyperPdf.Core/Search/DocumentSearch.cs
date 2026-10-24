@@ -21,11 +21,23 @@ public static class DocumentSearch
     /// <param name="startPage">The page to start from.</param>
     /// <param name="cancellationToken">Cancels the search.</param>
     /// <returns>Pages with at least one hit, in search order.</returns>
-    public static IAsyncEnumerable<SearchPageResult> SearchAsync(IDocument document, string query, SearchOptions options, int startPage, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static IAsyncEnumerable<SearchPageResult> SearchAsync(IDocument document, string query, SearchOptions options, int startPage, CancellationToken cancellationToken) =>
+        SearchAsync(document, query, options, startPage, true, cancellationToken);
+
+    /// <summary>Searches every page, starting at <paramref name="startPage"/> and wrapping around, optionally without working out where each hit lies on the page.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="query">The text to find.</param>
+    /// <param name="options">The search options.</param>
+    /// <param name="startPage">The page to start from.</param>
+    /// <param name="includeBounds">Whether each hit carries the rectangles it covers; a caller that reads only the matches leaves them out.</param>
+    /// <param name="cancellationToken">Cancels the search.</param>
+    /// <returns>Pages with at least one hit, in search order.</returns>
+    public static IAsyncEnumerable<SearchPageResult> SearchAsync(IDocument document, string query, SearchOptions options, int startPage, bool includeBounds, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(query);
-        return SearchCoreAsync(document, query, options, startPage, cancellationToken);
+        return SearchCoreAsync(document, query, options, startPage, includeBounds, cancellationToken);
     }
 
     /// <summary>Searches one page.</summary>
@@ -34,7 +46,17 @@ public static class DocumentSearch
     /// <param name="options">The options.</param>
     /// <param name="page">The page.</param>
     /// <returns>The result, or <see langword="null"/> when nothing matched or the document closed.</returns>
-    public static SearchPageResult? SearchPage(IDocument document, string query, SearchOptions options, int page)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static SearchPageResult? SearchPage(IDocument document, string query, SearchOptions options, int page) => SearchPage(document, query, options, page, true);
+
+    /// <summary>Searches one page, optionally without working out where each hit lies on the page.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="query">The query.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="includeBounds">Whether each hit carries the rectangles it covers.</param>
+    /// <returns>The result, or <see langword="null"/> when nothing matched or the document closed.</returns>
+    public static SearchPageResult? SearchPage(IDocument document, string query, SearchOptions options, int page, bool includeBounds)
     {
         ArgumentNullException.ThrowIfNull(document);
         if (document.IsDisposed)
@@ -55,7 +77,11 @@ public static class DocumentSearch
         {
             bounds.Clear();
             var match = matches[i];
-            document.GetTextBounds(page, match.Start, match.Length, bounds);
+            if (includeBounds)
+            {
+                document.GetTextBounds(page, match.Start, match.Length, bounds);
+            }
+
             hits[i] = new(match, [.. bounds]);
         }
 
@@ -67,6 +93,7 @@ public static class DocumentSearch
     /// <param name="query">The text to find.</param>
     /// <param name="options">The search options.</param>
     /// <param name="startPage">The page to start from.</param>
+    /// <param name="includeBounds">Whether each hit carries the rectangles it covers.</param>
     /// <param name="cancellationToken">Cancels the search.</param>
     /// <returns>Pages with at least one hit.</returns>
     private static async IAsyncEnumerable<SearchPageResult> SearchCoreAsync(
@@ -74,6 +101,7 @@ public static class DocumentSearch
         string query,
         SearchOptions options,
         int startPage,
+        bool includeBounds,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         if (query.Length == 0 || document.PageCount == 0)
@@ -96,7 +124,7 @@ public static class DocumentSearch
                 cancellationToken.ThrowIfCancellationRequested();
                 while (next < pageCount && inFlight.Count < window)
                 {
-                    inFlight.Enqueue(StartPage(document, query, options, (startPage + next) % pageCount, source.Token));
+                    inFlight.Enqueue(StartPage(document, query, options, (startPage + next) % pageCount, includeBounds, source.Token));
                     next++;
                 }
 
@@ -120,16 +148,17 @@ public static class DocumentSearch
     /// <param name="query">The query.</param>
     /// <param name="options">The options.</param>
     /// <param name="page">The page.</param>
+    /// <param name="includeBounds">Whether each hit carries the rectangles it covers.</param>
     /// <param name="cancellationToken">Cancels the page.</param>
     /// <returns>A task giving the page result, or <see langword="null"/> when nothing matched.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Task<SearchPageResult?> StartPage(IDocument document, string query, SearchOptions options, int page, CancellationToken cancellationToken) =>
+    private static Task<SearchPageResult?> StartPage(IDocument document, string query, SearchOptions options, int page, bool includeBounds, CancellationToken cancellationToken) =>
         Task.Run(
             async () =>
             {
                 await document.PreparePageAsync(page, cancellationToken).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
-                return SearchPage(document, query, options, page);
+                return SearchPage(document, query, options, page, includeBounds);
             },
             cancellationToken);
 

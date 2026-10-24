@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Stands in for Avalonia's own AT-SPI server, which the X11 backend always starts. HyperPDF serves screen readers through HyperPdf.Platform.Linux instead, so this assembly does nothing.</Description>
+    <AssemblyName>Avalonia.FreeDesktop.AtSpi</AssemblyName>
+    <PackageId>HyperPdf.AtSpiReplacement</PackageId>
+    <RootNamespace>Avalonia.FreeDesktop.AtSpi</RootNamespace>
+    <!-- Avalonia.X11 asks for exactly this version, so the app's own version numbering is switched off for this assembly. -->
+    <MinVerSkip>true</MinVerSkip>
+    <Version>$(AvaloniaVersion)</Version>
+    <AssemblyVersion>$(AvaloniaVersion).0</AssemblyVersion>
+    <FileVersion>$(AvaloniaVersion).0</FileVersion>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.App.Tests" />
+  </ItemGroup>
+</Project>

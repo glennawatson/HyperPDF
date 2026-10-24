@@ -8,9 +8,8 @@ namespace HyperPdf.Core.Licences;
 public static class LicenceAllowList
 {
     /// <summary>
-    /// The SPDX ids allowed: MIT, BSD, Apache-2.0, OFL-1.1, Zlib, ISC, Unicode, MS-PL, CC-BY-4.0 for data that needs
-    /// only attribution, such as the veraPDF rule descriptions, and LGPL-3.0-or-later for the FFmpeg shared libraries,
-    /// which are separate files beside the app that a reader can replace.
+    /// The SPDX ids allowed: MIT, BSD, Apache-2.0, OFL-1.1, Zlib, ISC, Unicode, MS-PL, and CC-BY-4.0 for data that needs
+    /// only attribution, such as the veraPDF rule descriptions.
     /// </summary>
     private static readonly HashSet<string> Allowed =
     [
@@ -26,7 +25,6 @@ public static class LicenceAllowList
         "Unicode-3.0",
         "Unicode-DFS-2016",
         "MS-PL",
-        "LGPL-3.0-or-later",
     ];
 
     /// <summary>Gets the allowed SPDX ids.</summary>

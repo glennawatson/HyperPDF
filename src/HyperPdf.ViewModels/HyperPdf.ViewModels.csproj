@@ -10,6 +10,7 @@
     <ProjectReference Include="..\HyperPdf.Ocr\HyperPdf.Ocr.csproj" />
     <ProjectReference Include="..\HyperPdf.Http\HyperPdf.Http.csproj" />
     <ProjectReference Include="..\HyperPdf.Speech\HyperPdf.Speech.csproj" />
+    <ProjectReference Include="..\HyperPdf.Vision\HyperPdf.Vision.csproj" />
     <ProjectReference Include="..\HyperPdf.Media\HyperPdf.Media.csproj" />
   </ItemGroup>
 

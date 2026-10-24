@@ -1,16 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Description>Sound and video playback for HyperPDF through the FFmpeg libraries shipped with the app. The sound clock drives the picture, so the two stay together.</Description>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Description>Sound and video playback for HyperPDF with decoders written in C#. The sound clock drives the picture, so the two stay together.</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="FFmpeg.AutoGen.Abstractions" />
-    <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLinked" />
+    <ProjectReference Include="..\HyperPdf.Codecs\HyperPdf.Codecs.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Automation.Peers;
+using HyperPdf.App.Accessibility;
 using HyperPdf.App.Views;
 using HyperPdf.Core.Reading;
 
@@ -17,7 +18,7 @@ namespace HyperPdf.App.Controls;
 /// by structure in the main view as it does in Focus Mode.
 /// </summary>
 [DebuggerDisplay("ReadingBlockAutomationPeer: {_block.Kind}: {_block.Text}")]
-internal sealed class ReadingBlockAutomationPeer : AutomationPeer
+internal sealed class ReadingBlockAutomationPeer : AutomationPeer, ISetMember
 {
     /// <summary>The page canvas' peer, which gives the block its place on the screen.</summary>
     private readonly PageCanvasAutomationPeer _owner;
@@ -53,6 +54,12 @@ internal sealed class ReadingBlockAutomationPeer : AutomationPeer
         _positionInList = positionInList;
         _listSize = listSize;
     }
+
+    /// <inheritdoc/>
+    public int PositionInSet => _positionInList;
+
+    /// <inheritdoc/>
+    public int SetSize => _listSize;
 
     /// <summary>Gets the block this peer describes.</summary>
     internal ReadingBlock Block => _block;

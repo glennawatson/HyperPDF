@@ -129,7 +129,8 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
 
         foreach (var field in FieldsOn(filler, page))
         {
-            if (!field.IsReadOnly && !_scriptReadOnly.Contains(field.Name) && field.Kind != FormFieldKind.Unknown && field.Bounds.Contains(point))
+            // The bounds test is the cheap one and rejects almost every field, so the name is only hashed for a field under the point.
+            if (field.Bounds.Contains(point) && !field.IsReadOnly && field.Kind != FormFieldKind.Unknown && !_scriptReadOnly.Contains(field.Name))
             {
                 return field;
             }

@@ -10,12 +10,9 @@ public enum OcrEngineStatus
     /// <summary>The recogniser and its language data are ready.</summary>
     Ready = 0,
 
-    /// <summary>The native Tesseract library was not found on this computer.</summary>
-    LibraryMissing = 1,
-
     /// <summary>The language data for one or more chosen languages was not found.</summary>
-    LanguageMissing = 2,
+    LanguageMissing = 1,
 
-    /// <summary>Tesseract was found but could not start, for example because it is too old or its data is damaged.</summary>
-    StartFailed = 3,
+    /// <summary>The language data was found but could not be used, for example because it is damaged or of a kind the recogniser does not read.</summary>
+    StartFailed = 2,
 }

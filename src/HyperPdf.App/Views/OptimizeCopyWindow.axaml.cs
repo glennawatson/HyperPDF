@@ -34,6 +34,11 @@ public sealed partial class OptimizeCopyWindow : ReactiveUI.Avalonia.ReactiveWin
             disposables.Add(this.Bind(ViewModel, static vm => vm.FixAccessibility, static v => v.FixBox.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Language, static v => v.LanguageBox.Text, static text => text, static text => text ?? string.Empty));
             disposables.Add(this.Bind(ViewModel, static vm => vm.AddInferredTags, static v => v.TagsBox.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.Bind(ViewModel, static vm => vm.DescribePictures, static v => v.DescribeBox.IsChecked, static on => on, static on => on == true));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.PictureDescriptionNote, static v => v.DescribeNote.Text));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.CanDescribePictures, static v => v.DescribePanel.IsVisible));
+            disposables.Add(this.WhenChanged(static v => v.ViewModel!.AddInferredTags, static v => v.ViewModel!.IsRunning, static (tags, running) => tags && !running)
+                .BindTo(this, static v => v.DescribeBox.IsEnabled));
             disposables.Add(this.Bind(ViewModel, static vm => vm.CleanUp, static v => v.CleanBox.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.PresetList.IsEnabled, static running => !running));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.FixBox.IsEnabled, static running => !running));

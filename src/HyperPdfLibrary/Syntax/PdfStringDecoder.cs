@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
+
 namespace HyperPdfLibrary.Syntax;
 
 /// <summary>Unescapes literal strings, hexadecimal strings and names.</summary>
@@ -57,7 +59,28 @@ internal static class PdfStringDecoder
     /// <param name="raw">The bytes between the angle brackets.</param>
     /// <param name="destination">The buffer, at least half as long as <paramref name="raw"/>, rounded up.</param>
     /// <returns>The number of bytes written.</returns>
-    internal static int DecodeHex(ReadOnlySpan<byte> raw, Span<byte> destination)
+    internal static int DecodeHex(ReadOnlySpan<byte> raw, Span<byte> destination) =>
+        TryDecodeCleanHex(raw, destination, out var written) ? written : DecodeHexSlowly(raw, destination);
+
+    /// <summary>Decodes a hexadecimal string that is an even run of digits with the vectorised decoder.</summary>
+    /// <param name="raw">The bytes between the angle brackets.</param>
+    /// <param name="destination">The buffer.</param>
+    /// <param name="written">The number of bytes written.</param>
+    /// <returns><see langword="false"/> when the string has white space, another byte or an odd final digit.</returns>
+    internal static bool TryDecodeCleanHex(ReadOnlySpan<byte> raw, Span<byte> destination, out int written)
+    {
+        // A clean even run of digits is the usual case for fonts that show text as hex.
+        written = 0;
+        return (raw.Length & 1) == 0
+            && raw.IndexOfAnyExcept(PdfCharacters.HexDigits) < 0
+            && Convert.FromHexString(raw, destination, out _, out written) == OperationStatus.Done;
+    }
+
+    /// <summary>Decodes a hexadecimal string one digit at a time, ignoring white space.</summary>
+    /// <param name="raw">The bytes between the angle brackets.</param>
+    /// <param name="destination">The buffer.</param>
+    /// <returns>The number of bytes written.</returns>
+    internal static int DecodeHexSlowly(ReadOnlySpan<byte> raw, Span<byte> destination)
     {
         var written = 0;
         var high = PdfCharacters.NotHex;

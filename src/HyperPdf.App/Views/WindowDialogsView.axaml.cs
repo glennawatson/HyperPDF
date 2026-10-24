@@ -6,6 +6,7 @@ using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using HyperPdf.App.Controls;
+using HyperPdf.Core.Documents;
 using HyperPdf.ViewModels;
 using ReactiveUI;
 using ReactiveUI.Primitives;
@@ -21,6 +22,9 @@ public sealed partial class WindowDialogsView : ReactiveUI.Avalonia.ReactiveUser
 {
     /// <summary>The PDF file type filter.</summary>
     private static readonly FilePickerFileType PdfFileType = new("PDF documents") { Patterns = ["*.pdf", "*.PDF"], MimeTypes = ["application/pdf"] };
+
+    /// <summary>The picture file type filter: pictures open as one page documents.</summary>
+    private static readonly FilePickerFileType PictureFileType = new("Pictures") { Patterns = [.. PictureFiles.Patterns] };
 
     /// <summary>The Search in Folder window, while it is open.</summary>
     private FolderSearchWindow? _folderSearch;
@@ -49,7 +53,7 @@ public sealed partial class WindowDialogsView : ReactiveUI.Avalonia.ReactiveUser
     /// <returns>A task.</returns>
     private async Task OpenFilesAsync(IInteractionContext<RxVoid, IReadOnlyList<string>> context)
     {
-        var files = await Owner.StorageProvider.OpenFilePickerAsync(new() { Title = "Open Document", AllowMultiple = true, FileTypeFilter = [PdfFileType, FilePickerFileTypes.All] });
+        var files = await Owner.StorageProvider.OpenFilePickerAsync(new() { Title = "Open Document", AllowMultiple = true, FileTypeFilter = [PdfFileType, PictureFileType, FilePickerFileTypes.All] });
         context.SetOutput(files.LocalPaths);
     }
 

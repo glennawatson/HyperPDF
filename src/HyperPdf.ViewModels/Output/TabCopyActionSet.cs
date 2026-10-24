@@ -29,12 +29,13 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable
         Archive = new(owner, TabCopyActions.Archive);
         Pdf20 = new(owner, TabCopyActions.Pdf20);
         Flatten = new(owner, TabCopyActions.Flatten);
+        ExportPages = new(owner, TabCopyActions.ExportPages);
         Protect = new(owner, TabCopyActions.Protect);
         Unprotect = new(owner, TabCopyActions.Unprotect);
         Redact = new(owner, TabCopyActions.Redact);
         Validation = new(owner, TabCopyActions.Validation);
         ExternalSign = new(owner, TabCopyActions.ExternalSign);
-        _subscriptions = [SaveCopy, Optimize, Archive, Pdf20, Flatten, Protect, Unprotect, Redact, Validation, ExternalSign];
+        _subscriptions = [SaveCopy, Optimize, Archive, Pdf20, Flatten, ExportPages, Protect, Unprotect, Redact, Validation, ExternalSign];
     }
 
     /// <summary>Gets saving a copy in a chosen format, for engines that can write copies.</summary>
@@ -51,6 +52,9 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable
 
     /// <summary>Gets saving a flattened copy, for engines that can write one.</summary>
     public TabCopyAction<FlattenCopyViewModel> Flatten { get; }
+
+    /// <summary>Gets exporting pages as picture files or vector drawings, for engines that can write them.</summary>
+    public TabCopyAction<ExportPagesViewModel> ExportPages { get; }
 
     /// <summary>Gets saving a copy with a password and permissions, for engines that can write one.</summary>
     public TabCopyAction<ProtectViewModel> Protect { get; }
@@ -80,6 +84,7 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable
         closed |= Archive.CloseWindow();
         closed |= Pdf20.CloseWindow();
         closed |= Flatten.CloseWindow();
+        closed |= ExportPages.CloseWindow();
         closed |= Protect.CloseWindow();
         closed |= Unprotect.CloseWindow();
         closed |= Redact.CloseWindow();
@@ -97,6 +102,7 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable
         Archive.Refresh(document);
         Pdf20.Refresh(document);
         Flatten.Refresh(document);
+        ExportPages.Refresh(document);
         Protect.Refresh(document);
         Unprotect.Refresh(document);
         Redact.Refresh(document);

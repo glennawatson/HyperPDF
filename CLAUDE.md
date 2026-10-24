@@ -8,9 +8,9 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 
 - Low allocations and low execution time are core requirements. Back every code change with relevant BenchmarkDotNet measurements. Compare baseline and change under the same conditions. Prefer the lowest measured cost that preserves correctness and access.
 - Do not judge performance from source code or subjective impressions. Overlapping timing error bars are inconclusive. Every feature needs a benchmark.
-- Measure allocations with EventPipe and `scripts/AllocationAudit.cs`. Never use `MemoryDiagnoser`. Remove every measured allocation. Explain one in `benchmarks/allocations-explained.json` only after removing it has been exhausted or removing it shows a dramatic time penalty. The render hot path must not allocate. The UI and ReactiveUI work is the exception: this app is a ReactiveUI technology demo, so the small allocations that ReactiveUI.Primitives observables, operators and the generated `Events()` streams make when wiring and raising UI events are allowed. Do not remove them by dropping back to `+=`, Avalonia observable helpers or hand-written handlers. Explain them in `benchmarks/allocations-explained.json` as ReactiveUI event wiring, name the chain, and still remove any allocation in that code that is not part of the Primitives or `Events()` machinery itself (for example boxing, closures that a `static` lambda avoids, or per-event collections).
+- Measure allocations with EventPipe and `src/tools/AllocationAudit.cs`. Never use `MemoryDiagnoser`. Remove every measured allocation. Explain one in `src/benchmarks/allocations-explained.json` only after removing it has been exhausted or removing it shows a dramatic time penalty. The render hot path must not allocate. The UI and ReactiveUI work is the exception: this app is a ReactiveUI technology demo, so the small allocations that ReactiveUI.Primitives observables, operators and the generated `Events()` streams make when wiring and raising UI events are allowed. Do not remove them by dropping back to `+=`, Avalonia observable helpers or hand-written handlers. Explain them in `src/benchmarks/allocations-explained.json` as ReactiveUI event wiring, name the chain, and still remove any allocation in that code that is not part of the Primitives or `Events()` machinery itself (for example boxing, closures that a `static` lambda avoids, or per-event collections).
 - Look for fast paths that avoid the computation in the first place (early exits, caches, skipping unchanged work) before optimising the computation itself. Then consider SIMD and the GPU.
-- Run benchmarks and allocation audits as one set. Pass every filter to one invocation (`dotnet run --file scripts/AuditAllocations.cs -- '*A*' '*B*'`, or BenchmarkDotNet's `--filter '*A*' '*B*'`) so the build and the run happen once; never loop over families with a separate `dotnet run` each.
+- Run benchmarks and allocation audits as one set. Pass every filter to one invocation (`dotnet run --file src/tools/AuditAllocations.cs -- '*A*' '*B*'`, or BenchmarkDotNet's `--filter '*A*' '*B*'`) so the build and the run happen once; never loop over families with a separate `dotnet run` each.
 
 ## Implementation
 
@@ -49,6 +49,7 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
   - Braced switch sections.
   - Run `dotnet format analyzers --diagnostics <ids>` for mechanical fixes.
 - Keep native resources owned and disposed.
+- The library is managed C#. One native library is accepted for now: Skia. Sound and video are decoded by the C# decoders in `src/HyperPdf.Codecs`; `src/HyperPdf.Media/Native` uses the H.264 and H.265 decoder the system provides (Media Foundation on Windows, VideoToolbox on macOS, VA-API graphics hardware on Linux) for large pictures and falls back to the C# decoder; the owner approved the VA-API and `libc` open/close bindings in `Native/VaApi/NativeMethods.cs`. Text is recognised by the C# recogniser in `src/HyperPdf.Ocr`, which reads the networks in Tesseract's language data files. The only Skia P/Invokes are for parts SkiaSharp does not expose, and they live in `src/HyperPdf.Skia/NativeMethods.cs`. Operating system bindings (CUPS, PulseAudio, the Windows and macOS shell, audio and spelling) already have their own `NativeMethods.cs`; leave them where they are. Ask the owner before adding any other native library or P/Invoke, and keep each in a `NativeMethods` class.
 
 ## HyperPdfLibrary
 
@@ -71,7 +72,7 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
   - `src/HyperPdf.Presentation` — Toolkit-neutral UI mechanics between the view models and a head: the input vocabulary (`ViewerKey`, `ViewerModifiers`, `ViewerButtons`, `ViewerCursor`), key and pointer routing, and the page canvas state (layout, scrolling, page by page, wheel and pinch zoom, panning, caret, annotation moving and drawing, position reports, and the frame plan that decides which tiles are drawn and asked for) that works through `ICanvasHost` and `ITilePainter`. It must not reference Avalonia or any other toolkit and holds no PDF viewing logic of its own; UI state such as scroll offsets and zoom easing lives here, never in a view model. A head (Avalonia today, WebAssembly or MAUI later) implements `ICanvasHost` and `ITilePainter`, converts its own key, pointer and cursor types, and paints what the plan says. Text selection is `TextSelection` in `HyperPdf.ViewModels`.
   - `src/HyperPdf.Rendering.Skia` — Skia tile surfaces with no Avalonia dependency: the GPU-prepared tile, the page tone shader, GPU availability and image retirement, and `SkiaBitmapRenderSurface`, the software tile the GPU tile falls back to and draws itself. `SkiaTileBatch` owns a page's tiles and draws them onto the canvas a head gives it through `SkiaTileTarget`; the head only passes the factory through a delegate and hands over its canvas (Avalonia's `GpuTileBatchOperation` is that adapter over its Skia lease).
   - `src/HyperPdf.App` — Avalonia + ReactiveUI render head (`Views/`, `Controls/`, `Rendering/`): XAML, code-behind events and Avalonia drawing only. Put viewing logic that does not need Avalonia in `HyperPdf.ViewModels`, and UI mechanics that do not need Avalonia in `HyperPdf.Presentation`.
-  - `tests/HyperPdf.ViewModels.Tests` — View model tests with a fake render head and no Avalonia. `tests/HyperPdf.Presentation.Tests` tests key and pointer routing and the canvas state through a fake `ICanvasHost`. `tests/HyperPdf.App.Tests` keeps the headless UI tests and links the shared fakes from them.
+  - `src/tests/HyperPdf.ViewModels.Tests` — View model tests with a fake render head and no Avalonia. `src/tests/HyperPdf.Presentation.Tests` tests key and pointer routing and the canvas state through a fake `ICanvasHost`. `src/tests/HyperPdf.App.Tests` keeps the headless UI tests and links the shared fakes from them.
 - Read leniently, write strictly. Open and recover malformed files where possible, but every file the library writes must conform to ISO 32000 (and to any PDF/A or PDF/UA level the file claims). Saving fixes what can be fixed in the parts it writes, such as wrong `/Length`, broken cross-reference data, missing required keys and invalid boxes. The viewer tells the user in plain words when a file was damaged and repaired on open, and what saving will fix. Never add a feature that needs non-conforming output.
 - Never copy from a PDF engine.
 - Tests, committed scripts and docs never contain paths or assumptions specific to one machine (home folders, installed fonts, tools or profiles, local clones). Optional inputs come from an environment variable or PATH and skip with a reason when absent.
@@ -84,9 +85,9 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 
 ## Verification
 
-Native AOT publishing needs a native compiler and zlib development files. Run the app with `dotnet run -f net11.0 --project src/HyperPdf.App -- some.pdf`; install a Linux build with `dotnet run --file scripts/InstallLinux.cs --`. Keep `README.md` for end users only; build, test and contributor notes belong here.
+Native AOT publishing needs a native compiler and zlib development files. Run the app with `dotnet run -f net11.0 --project src/HyperPdf.App -- some.pdf`; install a Linux build with `dotnet run --file src/tools/InstallLinux.cs --`. Keep `README.md` for end users only; build, test and contributor notes belong here.
 
-Always pass `-v q --nologo` (and `--no-restore` after the first build) to `dotnet build` and `dotnet test` to avoid console log bloat. Always filter tests to the single class or method being worked on (`--treenode-filter`) rather than running the full test suite until final verification. Never read raw `.pdf` fixtures, `.ttf.z` fonts, `verapdf-results.tsv`, `PdfARules.tsv`, `Fonts/Data/*Data.cs`, `licenses/notices/*`, or full `benchmarks/allocations-explained.json` into context—query specific lines with `git grep` or `rg`.
+Always pass `-v q --nologo` (and `--no-restore` after the first build) to `dotnet build` and `dotnet test` to avoid console log bloat. Always filter tests to the single class or method being worked on (`--treenode-filter`) rather than running the full test suite until final verification. Never read raw `.pdf` fixtures, `.ttf.z` fonts, `verapdf-results.tsv`, `PdfARules.tsv`, `Fonts/Data/*Data.cs`, `src/licenses/notices/*`, or full `src/benchmarks/allocations-explained.json` into context—query specific lines with `git grep` or `rg`.
 
 ```console
 dotnet build HyperPdf.slnx -v q --nologo
@@ -94,9 +95,9 @@ dotnet test --solution HyperPdf.slnx -v q --nologo
 # one test project or filtered test, from the repo root; runner flags go after --; never --no-build
 dotnet test --project "$PWD/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -v q --nologo --no-restore -- --treenode-filter '/*/*/ClassName/*'
 dotnet test --project "$PWD/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -v q --nologo --no-restore -- --treenode-filter '/*/*/ClassName/MethodName'
-dotnet run -c Release -f net11.0 --project benchmarks/HyperPdf.Benchmarks -- --filter '*RelevantBenchmark*'
-dotnet run --file scripts/AuditAllocations.cs -- '*RelevantBenchmark*'
-dotnet run --file scripts/Publish.cs -- linux-x64
+dotnet run -c Release -f net11.0 --project src/benchmarks/HyperPdf.Benchmarks -- --filter '*RelevantBenchmark*'
+dotnet run --file src/tools/AuditAllocations.cs -- '*RelevantBenchmark*'
+dotnet run --file src/tools/Publish.cs -- linux-x64
 ```
 
 ### PDF/A output
@@ -104,17 +105,17 @@ dotnet run --file scripts/Publish.cs -- linux-x64
 Every change to a writer, editor or the optimiser must keep PDF/A output valid. The `HyperPdfLibrary.Tests.Conformance.VeraPdf` tests check generated files and veraPDF's sample PDFs with veraPDF, which runs as a separate Java (11+) process and is never linked or shipped. They skip without veraPDF; CI's `PDF/A output validation (veraPDF)` job requires it.
 
 ```console
-dotnet run --file scripts/InstallVeraPdf.cs -- ~/.cache/hyperpdf/verapdf
-dotnet run --file scripts/FetchReferencePdfs.cs -- tests/reference-pdfs/manifest.json ~/.cache/hyperpdf/pdfa-samples <the verapdf-pdfa* ids in the manifest>
-dotnet run --file scripts/FetchVeraPdfTestFiles.cs -- ~/.cache/hyperpdf/verapdf-test-files
+dotnet run --file src/tools/InstallVeraPdf.cs -- ~/.cache/hyperpdf/verapdf
+dotnet run --file src/tools/FetchReferencePdfs.cs -- src/tests/reference-pdfs/manifest.json ~/.cache/hyperpdf/pdfa-samples <the verapdf-pdfa* ids in the manifest>
+dotnet run --file src/tools/FetchVeraPdfTestFiles.cs -- ~/.cache/hyperpdf/verapdf-test-files
 HYPERPDF_VERAPDF=~/.cache/hyperpdf/verapdf HYPERPDF_PDFA_SAMPLES=~/.cache/hyperpdf/pdfa-samples \
   HYPERPDF_VERAPDF_TEST_FILES=~/.cache/hyperpdf/verapdf-test-files \
   dotnet test --project "$PWD/../tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*'
 ```
 
-The installer reads the release from `verapdf.json`, which Renovate updates; the same file pins the commit of veraPDF's PDF/A test files. Set `HYPERPDF_PDFA_OUTPUT` to keep the files the tests write. CI lists the sample ids in `.github/workflows/ci.yml`.
+The installer reads the release from `src/verapdf.json`, which Renovate updates; the same file pins the commit of veraPDF's PDF/A test files. Set `HYPERPDF_PDFA_OUTPUT` to keep the files the tests write. CI lists the sample ids in `.github/workflows/ci.yml`.
 
-`PdfAValidator` must give veraPDF's pass or fail for every rule it checks on every one of veraPDF's PDF/A test files; `PdfAValidatorAgreementTests` compares it with `tests/HyperPdfLibrary.Tests/Conformance/VeraPdf/Data/verapdf-results.tsv`. After a veraPDF update or a new test file commit, record that file again with `dotnet run --file scripts/RecordVeraPdfResults.cs -- <test files folder> <verapdf home> <that file>`. A rule joins a checker's `Rules` list only when it agrees on all of veraPDF's PDF/A test files.
+`PdfAValidator` must give veraPDF's pass or fail for every rule it checks on every one of veraPDF's PDF/A test files; `PdfAValidatorAgreementTests` compares it with `src/tests/HyperPdfLibrary.Tests/Conformance/VeraPdf/Data/verapdf-results.tsv`. After a veraPDF update or a new test file commit, record that file again with `dotnet run --file src/tools/RecordVeraPdfResults.cs -- <test files folder> <verapdf home> <that file>`. A rule joins a checker's `Rules` list only when it agrees on all of veraPDF's PDF/A test files.
 
 Warnings are failures. Verify all affected frameworks, saved output and user-visible behaviour. TUnit uses Microsoft.Testing.Platform; runner arguments follow `--`. With SDK 11, use absolute paths for `--project`. UI tests and benchmarks run headless. Set `HYPERPDF_SCREENSHOTS` to save UI frames.
 

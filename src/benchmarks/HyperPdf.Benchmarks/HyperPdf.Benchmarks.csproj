@@ -1,0 +1,169 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <Description>Allocation and throughput benchmarks for HyperPDF.</Description>
+    <UsesRecognitionData>true</UsesRecognitionData>
+  </PropertyGroup>
+
+  <!-- The layout benchmarks use the page measurement cache and the layout reuse when Core has them, so one definition measures the baseline too. -->
+  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.Core\Layout\PageFitExtentsCache.cs')">
+    <DefineConstants>$(DefineConstants);HYPERPDF_FIT_EXTENTS_CACHE</DefineConstants>
+  </PropertyGroup>
+
+  <!-- Newer refs keep the view models and the toolkit-free Skia tiles in their own projects; a baseline ref keeps them in the app, so the sources are linked from there. -->
+  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.ViewModels\HyperPdf.ViewModels.csproj')">
+    <DefineConstants>$(DefineConstants);HYPERPDF_VIEWMODELS_PROJECT</DefineConstants>
+    <ViewModelsProject>true</ViewModelsProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Skia\HyperPdf.Skia.csproj" />
+    <ProjectReference Condition="'$(ViewModelsProject)' == 'true'" Include="..\..\HyperPdf.Rendering.Skia\HyperPdf.Rendering.Skia.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Platform.Cups\HyperPdf.Platform.Cups.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Platform.Linux\HyperPdf.Platform.Linux.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Engine\HyperPdf.Engine.csproj" />
+    <ProjectReference Include="..\..\HyperPdfLibrary\HyperPdfLibrary.csproj" />
+    <ProjectReference Include="..\..\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Ocr\HyperPdf.Ocr.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Speech\HyperPdf.Speech.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Http\HyperPdf.Http.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Media\HyperPdf.Media.csproj" />
+    <ProjectReference Include="..\..\tests\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
+  </ItemGroup>
+
+  <!-- The batched tile operation, the zoom label and the single-walk page removal exist only on newer refs; a baseline ref lacks them, so their benchmarks compile only where the sources are. -->
+  <PropertyGroup Condition="$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\HyperPdf.Core\Rendering\TileCache.cs').Contains('int otherDocumentId'))">
+    <DefineConstants>$(DefineConstants);HYPERPDF_REMOVE_PAGE_PAIR</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(ViewModelsProject)' != 'true' and Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\TileDraw.cs')">
+    <Compile Include="..\..\HyperPdf.App\Rendering\TileDraw.cs" Link="TileBatch\TileDraw.cs" />
+    <Compile Include="..\..\HyperPdf.App\Rendering\GpuTileBatchOperation.cs" Link="TileBatch\GpuTileBatchOperation.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ViewModelsProject)' != 'true' and !Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\TileDraw.cs')">
+    <Compile Remove="TileBatchOperationBenchmarks.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="!$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\tests\HyperPdf.TestAssets\TestPdf.cs').Contains('CreateTextFilled'))">
+    <Compile Remove="SelectionRectsBenchmarks.cs" />
+  </ItemGroup>
+
+  <!-- Newer refs have the toolkit-neutral presentation layer, which brings the view models, so their sources are referenced and not linked. -->
+  <ItemGroup Condition="'$(ViewModelsProject)' == 'true'">
+    <ProjectReference Include="..\..\HyperPdf.Presentation\HyperPdf.Presentation.csproj" />
+
+    <!-- The view model tests' services with a fake render head, so a benchmark can open a document in a tab without a window. -->
+    <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\TestServices.cs" Link="ViewModelSupport\TestServices.cs" />
+    <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\TestHeads.cs" Link="ViewModelSupport\TestHeads.cs" />
+    <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\TestWait.cs" Link="ViewModelSupport\TestWait.cs" />
+    <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\Fake*.cs" Link="ViewModelSupport\%(Filename)%(Extension)" />
+    <Compile Include="..\..\tests\HyperPdf.Core.Tests\Fakes\*.cs" Link="ViewModelSupport\Fakes\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ViewModelsProject)' != 'true'">
+    <Compile Remove="CanvasMathBenchmarks.cs" />
+    <Compile Remove="CanvasStateBenchmarks.cs" />
+    <Compile Remove="TextSelectionBenchmarks.cs" />
+    <Compile Remove="CanvasRenderBenchmarks.cs" />
+    <Compile Remove="BenchmarkCanvasHost.cs" />
+    <Compile Include="..\..\HyperPdf.App\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
+    <Compile Include="..\..\HyperPdf.App\ViewModels\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
+    <Compile Include="..\..\HyperPdf.App\ViewModels\AnnotationNames.cs" Link="AnnotationNames.cs" />
+    <Compile Include="..\..\HyperPdf.App\Rendering\GpuPreparedRenderSurface.cs" Link="TileBatch\GpuPreparedRenderSurface.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\GpuPreparedRenderSurface.cs')" />
+    <Compile Include="..\..\HyperPdf.App\Rendering\GpuAvailability.cs" Link="TileBatch\GpuAvailability.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\GpuAvailability.cs')" />
+    <Compile Include="..\..\HyperPdf.App\Rendering\TileRenderingEventSource.cs" Link="TileBatch\TileRenderingEventSource.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\TileRenderingEventSource.cs')" />
+    <Compile Include="..\..\HyperPdf.App\Rendering\GpuPageTone.cs" Link="GpuPageTone.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\GpuPageTone.cs')" />
+    <Compile Include="..\..\HyperPdf.App\ViewModels\ZoomLabel.cs" Link="ZoomLabel.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\ViewModels\ZoomLabel.cs')" />
+  </ItemGroup>
+
+  <!-- Lists the benchmarks for the allocation harness, so no reflection finds or calls them. -->
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Benchmarks.Generator\HyperPdf.Benchmarks.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="ReactiveUI.Avalonia" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ViewModelsProject)' == 'true'">
+    <Using Include="HyperPdf.ViewModels.Services" />
+    <Using Include="HyperPdf.ViewModels.Rendering" />
+    <Using Include="HyperPdf.Rendering.Skia" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(ViewModelsProject)' != 'true'">
+    <Using Include="HyperPdf.App.Services" />
+    <Using Include="HyperPdf.App.Rendering" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\HyperPdf.App\Services\DesktopBackend.cs" Link="DesktopBackend.cs" />
+    <Compile Include="..\..\HyperPdf.App\Views\FocusAnnouncementRepair.cs" Link="FocusAnnouncementRepair.cs" />
+    <Compile Include="..\..\HyperPdf.App\Controls\FocusArrival.cs" Link="FocusArrival.cs" />
+    <Compile Include="..\..\HyperPdf.App\Controls\FocusArrivalMixins.cs" Link="FocusArrivalMixins.cs" />
+    <!-- Short Opus files coded by each layer, which the audio decoding benchmarks decode. -->
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\opus-stereo-music.opus" Link="Fixtures\opus-stereo-music.opus" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\silk-mono-wb-20ms.opus" Link="Fixtures\silk-mono-wb-20ms.opus" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\opus-mono-voip.opus" Link="Fixtures\opus-mono-voip.opus" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\aac-lc-stereo-44100.m4a" Link="Fixtures\aac-lc-stereo-44100.m4a" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\aac-lc-noise-24k.m4a" Link="Fixtures\aac-lc-noise-24k.m4a" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\av-h264-aac-text.mp4" Link="Fixtures\av-h264-aac-text.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\aac-lc-stereo-fragmented.mp4" Link="Fixtures\aac-lc-stereo-fragmented.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\av-h264-aac-text.mkv" Link="Fixtures\av-h264-aac-text.mkv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h264-intra-baseline.mp4" Link="Fixtures\h264-intra-baseline.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h264-intra-cabac.mp4" Link="Fixtures\h264-intra-cabac.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Predicted H.264 and H.265 files, which the video decoding benchmarks decode. -->
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h264-p-cabac.mp4" Link="Fixtures\h264-p-cabac.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h264-b-cabac-deblock.mp4" Link="Fixtures\h264-b-cabac-deblock.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h265-intra.mp4" Link="Fixtures\h265-intra.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h265-p.mp4" Link="Fixtures\h265-p.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h265-b.mp4" Link="Fixtures\h265-b.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h265-loop-filters-ctu32.mp4" Link="Fixtures\h265-loop-filters-ctu32.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The JPEG 2000 test encoder,which re-encodes a corpus page as HTJ2K for the high-throughput benchmarks. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\Jpx\JpxTest*.cs" Link="Jpx\%(Filename)%(Extension)" />
+    <Compile Include="..\..\tools\JpxHtTableBuilder.cs" Link="Jpx\JpxHtTableBuilder.cs" />
+    <EmbeddedResource Include="..\..\HyperPdfLibrary\Graphics\Images\Jpx\Data\T814CxtVlc.txt" LogicalName="T814CxtVlc.txt" />
+    <!-- The two page book with a form, outline, destinations, labels, layer and embedded file that the page copy benchmarks copy. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Editing\CarryTestDocuments.cs" Link="CarryTestDocuments.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Rendering\RenderTestPdf.cs" Link="RenderTestPdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PublicKeyPdf.cs" Link="Security\PublicKeyPdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PublicKeyCipher.cs" Link="Security\PublicKeyCipher.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\EcdhRecipients.cs" Link="Security\EcdhRecipients.cs" />
+    <!-- The AES-GCM test file builder, written from ISO/TS 32003 without library code. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\AesGcmPdf.cs" Link="Security\AesGcmPdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\AesGcmLayout.cs" Link="Security\AesGcmLayout.cs" />
+    <!-- The PDF MAC (ISO/TS 32004) test file builder, written from the standard without library code. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\MacPdf.cs" Link="Security\MacPdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\MacToken.cs" Link="Security\MacToken.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\MacDer.cs" Link="Security\MacDer.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\MacProtection.cs" Link="Security\MacProtection.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Security\PdfBytes.cs" Link="Security\PdfBytes.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Syntax\RawPdf.cs" Link="Syntax\RawPdf.cs" />
+    <EmbeddedResource Include="..\..\tests\HyperPdfLibrary.Tests\Security\Data\*" LogicalName="HyperPdfLibrary.Tests.Security.Ecdh.%(Filename)%(Extension)" />
+    <!-- OpenSSL's SHA-3 and SHAKE256 signatures, which the signature validation benchmarks check. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Signatures\Sha3Signatures.cs" Link="Signatures\Sha3Signatures.cs" />
+    <EmbeddedResource Include="..\..\tests\HyperPdfLibrary.Tests\Signatures\Data\*" LogicalName="HyperPdfLibrary.Tests.Signatures.Sha3.%(Filename)%(Extension)" />
+    <!-- OpenSSL's elliptic-curve and EdDSA signatures, which the elliptic-curve validation benchmarks check. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Signatures\EcSignatures.cs" Link="Signatures\EcSignatures.cs" />
+    <EmbeddedResource Include="..\..\tests\HyperPdfLibrary.Tests\Signatures\EcData\*" LogicalName="HyperPdfLibrary.Tests.Signatures.Ec.%(Filename)%(Extension)" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Robustness\LinearizedDocuments.cs" Link="LinearizedDocuments.cs" />
+    <!-- Valid PDF/A files, so the conformant save benchmarks measure a claim that is kept rather than repaired. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\PdfAFixtures.cs" Link="Conformance\PdfAFixtures.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\PdfAFixtureLevel.cs" Link="Conformance\PdfAFixtureLevel.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\PdfAFixtureImage.cs" Link="Conformance\PdfAFixtureImage.cs" />
+    <!-- A repeatable pseudo-random generator for the generated samples of the encoder benchmarks. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Filters\SampleRandom.cs" Link="Filters\SampleRandom.cs" />
+    <!-- The 1.x samples the PDF 2.0 copy benchmark converts. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Pdf20\Pdf20TestPdf.cs" Link="Pdf20\Pdf20TestPdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Conformance\ConformancePdf.cs" Link="Conformance\ConformancePdf.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\IccTestProfileBuilder.cs" Link="Graphics\IccTestProfileBuilder.cs" />
+    <!-- The documented CMYK ink-model profiles ('mft2' and 'mAB ') that the colour benchmarks convert through. -->
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\IccCmykFixture.cs" Link="Graphics\IccCmykFixture.cs" />
+    <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\IccReference.cs" Link="Graphics\IccReference.cs" />
+  </ItemGroup>
+</Project>

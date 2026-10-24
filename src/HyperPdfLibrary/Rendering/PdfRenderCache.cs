@@ -381,6 +381,12 @@ internal sealed class PdfRenderCache
             return null;
         }
 
+        if (data.UnsupportedCodec == PdfImageCodec.Unknown)
+        {
+            // A filter nobody here knows: show that an image is missing rather than noise made from its bytes.
+            return state.Cache.ToRenderImage(ImagePlaceholder.Create()) is { } placeholder ? new ImageEntry(placeholder, false, true) : null;
+        }
+
         if (data.UnsupportedCodec != PdfImageCodec.None)
         {
             var image = state.Cache.Document.DrawingServices.UnsupportedImageDecoder?.Invoke(key.Stream, state.CancellationToken);

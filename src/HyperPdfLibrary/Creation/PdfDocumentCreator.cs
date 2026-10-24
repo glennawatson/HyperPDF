@@ -9,6 +9,7 @@ using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Fonts.Embedding;
+using HyperPdfLibrary.ImageFiles;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
 
@@ -24,7 +25,7 @@ namespace HyperPdfLibrary.Creation;
 public sealed class PdfDocumentCreator
 {
     /// <summary>The entries of a page dictionary.</summary>
-    private const int PageEntries = 8;
+    private const int PageEntries = 9;
 
     /// <summary>The bundled font families consulted in order for automatic backup glyph resolution.</summary>
     private static readonly PdfBundledFontFamily[] DefaultFallbackFamilies =
@@ -197,6 +198,25 @@ public sealed class PdfDocumentCreator
         return PdfImageWriter.AddRaster(_builder, image, options, cancellationToken);
     }
 
+    /// <summary>
+    /// Adds a picture file as an image: a JPEG keeps its bytes, and a PNG, GIF, BMP or TIFF is decoded and stored losslessly,
+    /// with its transparency as a soft mask and a one-bit picture fax coded.
+    /// </summary>
+    /// <param name="file">The picture file's bytes.</param>
+    /// <param name="cancellationToken">Cancels the decode and the encoding between their steps.</param>
+    /// <returns>The image.</returns>
+    /// <exception cref="NotSupportedException">The bytes are not a JPEG, PNG, GIF, BMP or TIFF picture.</exception>
+    /// <exception cref="InvalidDataException">The picture is damaged, or uses a feature or size this library does not read.</exception>
+    /// <exception cref="InvalidOperationException">The document is finished.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public PdfCreatedImage AddImageFile(ReadOnlySpan<byte> file, CancellationToken cancellationToken)
+    {
+        ThrowIfFinished();
+        return PdfImageFiles.Detect(file) == PdfImageFileFormat.Jpeg
+            ? PdfImageWriter.AddJpeg(_builder, file, PdfImageOptions.Default)
+            : PdfImageWriter.AddRaster(_builder, PdfImageFiles.Decode(file, cancellationToken), PdfImageOptions.Default, cancellationToken);
+    }
+
     /// <summary>Starts a page.</summary>
     /// <param name="width">The page width in points.</param>
     /// <param name="height">The page height in points.</param>
@@ -334,7 +354,8 @@ public sealed class PdfDocumentCreator
     /// <param name="height">The page height.</param>
     /// <param name="resources">The page's resources, or <see langword="null"/> when nothing was added to them.</param>
     /// <param name="content">The content stream's bytes.</param>
-    internal void CompletePage(PdfObjectId page, float width, float height, PdfPageResources? resources, byte[] content)
+    /// <param name="annotations">The page's annotations, or <see langword="null"/> for none.</param>
+    internal void CompletePage(PdfObjectId page, float width, float height, PdfPageResources? resources, byte[] content, List<PdfObjectId>? annotations)
     {
         ThrowIfFinished();
         var owner = _builder.Owner;
@@ -343,6 +364,17 @@ public sealed class PdfDocumentCreator
         dictionary.Set(KnownName.Resources, PdfValue.FromDictionary(resources?.ToDictionary() ?? new PdfDictionary(owner)));
         var stream = new PdfStream(new(owner), content);
         dictionary.Set(KnownName.Contents, PdfValue.FromReference(_builder.Add(PdfValue.FromStream(stream))));
+        if (annotations is { Count: > 0 })
+        {
+            var annots = new PdfArray(owner, annotations.Count);
+            foreach (var annotation in annotations)
+            {
+                annots.Add(PdfValue.FromReference(annotation));
+            }
+
+            dictionary.Set(_builder.Names.Intern("Annots"), PdfValue.FromArray(annots));
+        }
+
         if (Tags is not null)
         {
             dictionary.Set(KnownName.Tabs, PdfValue.FromName(_builder.Names.Intern("S")));

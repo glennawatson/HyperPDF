@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\HyperPdfLibrary\HyperPdfLibrary.csproj" Aliases="global,PdfLibrary" />
+    <ProjectReference Include="..\..\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
+    <ProjectReference Include="..\..\examples\HyperPdf.Examples.csproj" />
+    <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
+  </ItemGroup>
+
+  <!-- The HT table generator's builder is shared with the tests, which rebuild the decoder's tables from the T.814 rows
+       and the test encoder reads the same rows. -->
+  <ItemGroup>
+    <Compile Include="..\..\tools\JpxHtTableBuilder.cs" Link="Graphics\Jpx\JpxHtTableBuilder.cs" />
+    <Compile Include="..\..\tools\KnownNameTableBuilder.cs" Link="Syntax\KnownNameTableBuilder.cs" />
+    <EmbeddedResource Include="..\..\HyperPdfLibrary\Objects\KnownName.cs" LogicalName="KnownName.cs" />
+    <EmbeddedResource Include="..\..\HyperPdfLibrary\Objects\KnownNameSpellings.cs" LogicalName="KnownNameSpellings.cs" />
+    <EmbeddedResource Include="..\..\HyperPdfLibrary\Graphics\Images\Jpx\Data\T814CxtVlc.txt" LogicalName="T814CxtVlc.txt" />
+    <EmbeddedResource Include="..\..\HyperPdfLibrary\Graphics\Images\Jpx\JpxHtTables.cs" LogicalName="JpxHtTables.cs" />
+  </ItemGroup>
+
+  <!-- The run-length code words of ITU-T T.4 tables 2, 3a and 3b, read by Optimizing/T4RunCodes.cs to check the CCITT encoder and decoder. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Optimizing\Data\T4RunCodes.txt" LogicalName="HyperPdfLibrary.Tests.T4RunCodes.txt" />
+  </ItemGroup>
+
+  <!-- veraPDF's results for its PDF/A test files, recorded by src/tools/RecordVeraPdfResults.cs, for the validator agreement test. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Conformance\VeraPdf\Data\verapdf-results.tsv" LogicalName="HyperPdfLibrary.Tests.VeraPdfRecordedResults.tsv" />
+    <EmbeddedResource Include="Conformance\VeraPdf\Data\verapdf-ua-results.tsv" LogicalName="HyperPdfLibrary.Tests.VeraPdfUaRecordedResults.tsv" />
+  </ItemGroup>
+
+  <!-- The allowed errors of the T.803 decoder conformance tests, for Graphics/Jpx/JpxConformanceTests.cs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Graphics\Jpx\Data\conformance-tolerances.tsv" LogicalName="HyperPdfLibrary.Tests.JpxConformanceTolerances.tsv" />
+  </ItemGroup>
+
+  <!-- OpenSSL's ECDH recipient envelopes and their test-only keys, read by Security/EcdhRecipients.cs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Security\Data\*" LogicalName="HyperPdfLibrary.Tests.Security.Ecdh.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- Small PNG, GIF, BMP and TIFF pictures made with ImageMagick, read by ImageFiles/ImageFileTests.cs. The pictures are 4 by 2 pixels (red, lime, blue, white; black, grey, yellow, cyan) unless the test says otherwise. -->
+  <ItemGroup>
+    <EmbeddedResource Include="ImageFiles\Data\*" LogicalName="HyperPdfLibrary.Tests.ImageFiles.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- OpenSSL's SHA-3 and SHAKE256 signatures over one prepared file, read by Signatures/Sha3Signatures.cs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Signatures\Data\*" LogicalName="HyperPdfLibrary.Tests.Signatures.Sha3.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- OpenSSL's elliptic-curve and EdDSA signatures over the same prepared file, read by Signatures/EcSignatures.cs. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Signatures\EcData\*" LogicalName="HyperPdfLibrary.Tests.Signatures.Ec.%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

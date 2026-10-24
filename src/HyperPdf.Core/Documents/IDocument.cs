@@ -31,6 +31,11 @@ public interface IDocument : IDisposable
     /// <returns>The page sizes, indexed by page.</returns>
     PageSize[] GetPageSizes();
 
+    /// <summary>Gets the size of one page, in points, without loading the page or copying the other sizes.</summary>
+    /// <param name="page">The zero-based page index.</param>
+    /// <returns>The page size.</returns>
+    PageSize GetPageSize(int page) => GetPageSizes()[page];
+
     /// <summary>Gets the document metadata.</summary>
     /// <returns>The metadata.</returns>
     DocumentMetadata GetMetadata();
