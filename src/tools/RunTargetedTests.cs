@@ -1,6 +1,6 @@
 #!/usr/bin/env -S dotnet run --file
 #:property TargetFramework=net11.0
-#:include ../scripts/ScriptProcess.cs
+#:include ScriptProcess.cs
 
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.

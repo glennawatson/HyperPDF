@@ -53,7 +53,8 @@ jobs:
             11.x
             10.x
       - name: Test on net10.0 and net11.0
-        run: dotnet test --solution src/HyperPdf.slnx -c Release -v q --nologo
+        working-directory: src
+        run: dotnet test --solution HyperPdf.slnx -c Release -v q --nologo
   pdfa-validation:
     name: PDF/A output validation (veraPDF)
     runs-on: ubuntu-26.04
