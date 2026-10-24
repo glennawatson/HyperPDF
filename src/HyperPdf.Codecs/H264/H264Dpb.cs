@@ -46,6 +46,9 @@ internal sealed class H264Dpb
     /// <summary>Gets the number of reference frames.</summary>
     internal int Count => _frames.Count;
 
+    /// <summary>Gets the frames marked as used for reference, short-term and long-term.</summary>
+    internal IReadOnlyList<H264RefPicture> Frames => _frames;
+
     /// <summary>Finds whether a picture is still kept for reference.</summary>
     /// <param name="picture">The picture.</param>
     /// <returns><see langword="true"/> when a later picture may refer to it.</returns>

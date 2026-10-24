@@ -156,7 +156,9 @@ internal static class H265SliceHeaderReader
         var count = sps.ShortTermSets.Count;
         if (!reader.ReadBit())
         {
-            return H265ShortTermRpsReader.Read(ref reader, count, count, sps.ShortTermSets);
+            var start = reader.BitPosition;
+            var set = H265ShortTermRpsReader.Read(ref reader, count, count, sps.ShortTermSets);
+            return set with { HeaderBits = (int)(reader.BitPosition - start) };
         }
 
         var index = count > 1 ? (int)reader.Read(BitHelpers.CeilLog2(count)) : 0;

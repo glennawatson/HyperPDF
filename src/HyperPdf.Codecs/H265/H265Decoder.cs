@@ -2,8 +2,10 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace HyperPdf.Codecs.H265;
 
@@ -50,6 +52,18 @@ public sealed class H265Decoder : VideoDecoder
     /// <summary>The pictures made so far, which are decoded into again once the buffer no longer holds them.</summary>
     private readonly List<H265Picture> _pool = [];
 
+    /// <summary>The hardware that reconstructs the pictures, or <see langword="null"/> when they are reconstructed here.</summary>
+    private readonly IH265Hardware? _hardware;
+
+    /// <summary>The slice segments of the picture being decoded, for the hardware.</summary>
+    private readonly List<H265HardwareSlice> _hardwareSlices = [];
+
+    /// <summary>The NAL units of the slice segments of the picture being decoded, for the hardware.</summary>
+    private readonly ArrayBufferWriter<byte> _hardwareBytes = new();
+
+    /// <summary>The pictures that hold a hardware surface.</summary>
+    private readonly List<H265Picture> _live = [];
+
     /// <summary>The decoded picture buffer.</summary>
     private readonly H265Dpb _dpb = new();
 
@@ -93,39 +107,20 @@ public sealed class H265Decoder : VideoDecoder
     /// <param name="width">The width in pixels.</param>
     /// <param name="height">The height in pixels.</param>
     /// <param name="lengthSize">The bytes of the length in front of each NAL unit.</param>
-    private H265Decoder(int width, int height, int lengthSize)
-        : base(width, height) => _lengthSize = lengthSize;
+    /// <param name="hardware">The hardware that reconstructs the pictures, or <see langword="null"/> to reconstruct them here.</param>
+    private H265Decoder(int width, int height, int lengthSize, IH265Hardware? hardware)
+        : base(width, height)
+    {
+        _lengthSize = lengthSize;
+        _hardware = hardware;
+    }
 
     /// <summary>Makes a decoder for an H.265 track.</summary>
     /// <param name="track">The track, whose configuration is the HEVC decoder configuration record.</param>
     /// <returns>The decoder.</returns>
     /// <exception cref="NotSupportedException">The stream uses a feature this decoder does not read.</exception>
-    public static H265Decoder Create(MediaTrack track)
-    {
-        ArgumentNullException.ThrowIfNull(track);
-        var data = track.Configuration.Span;
-        if (data.Length < ArraysAt)
-        {
-            throw new NotSupportedException("The H.265 track has no configuration record.");
-        }
-
-        var sets = new H265ParameterSets();
-        try
-        {
-            AddConfiguredSets(data, sets);
-        }
-        catch (InvalidDataException exception)
-        {
-            throw new NotSupportedException("The H.265 configuration is damaged.", exception);
-        }
-
-        var sps = sets.FirstSps() ?? throw new NotSupportedException("The H.265 configuration has no sequence parameter set.");
-        H265Support.Check(sps);
-        var shown = H265FrameConverter.ShownSize(sps);
-        var decoder = new H265Decoder(shown.Width, shown.Height, (data[LengthSizeAt] & LengthSizeMask) + 1);
-        AddConfiguredSets(data, decoder._sets);
-        return decoder;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static H265Decoder Create(MediaTrack track) => Make(track, null);
 
     /// <inheritdoc/>
     public override void Decode(MediaPacket packet, List<VideoFrame> output)
@@ -160,10 +155,48 @@ public sealed class H265Decoder : VideoDecoder
     {
         _context = null;
         _lastIndependent = null;
+        _hardwareSlices.Clear();
+        _hardwareBytes.ResetWrittenCount();
         _dpb.Clear();
         _poc.Reset();
         _expectNewSequence = true;
         _skipRasl = false;
+    }
+
+    /// <summary>Makes a decoder for an H.265 track that leaves the reconstruction of pictures to hardware.</summary>
+    /// <param name="track">The track, whose configuration is the HEVC decoder configuration record.</param>
+    /// <param name="hardware">The hardware.</param>
+    /// <returns>The decoder.</returns>
+    /// <exception cref="NotSupportedException">The stream uses a feature this decoder does not read.</exception>
+    internal static H265Decoder CreateForHardware(MediaTrack track, IH265Hardware hardware)
+    {
+        ArgumentNullException.ThrowIfNull(hardware);
+        return Make(track, hardware);
+    }
+
+    /// <summary>Reads the first sequence parameter set of a track's configuration record.</summary>
+    /// <param name="track">The track, whose configuration is the HEVC decoder configuration record.</param>
+    /// <returns>The set, or <see langword="null"/> when the configuration cannot be read.</returns>
+    internal static H265Sps? ReadFirstSps(MediaTrack track)
+    {
+        ArgumentNullException.ThrowIfNull(track);
+        var data = track.Configuration.Span;
+        if (data.Length < ArraysAt)
+        {
+            return null;
+        }
+
+        var sets = new H265ParameterSets();
+        try
+        {
+            AddConfiguredSets(data, sets);
+        }
+        catch (InvalidDataException)
+        {
+            return null;
+        }
+
+        return sets.FirstSps();
     }
 
     /// <summary>Finds how many pictures a track's sequence lets come before another in decoding order and after it in output order.</summary>
@@ -194,6 +227,38 @@ public sealed class H265Decoder : VideoDecoder
     /// <inheritdoc/>
     protected override void Dispose(bool disposing)
     {
+    }
+
+    /// <summary>Makes a decoder for an H.265 track.</summary>
+    /// <param name="track">The track, whose configuration is the HEVC decoder configuration record.</param>
+    /// <param name="hardware">The hardware that reconstructs the pictures, or <see langword="null"/>.</param>
+    /// <returns>The decoder.</returns>
+    /// <exception cref="NotSupportedException">The stream uses a feature this decoder does not read.</exception>
+    private static H265Decoder Make(MediaTrack track, IH265Hardware? hardware)
+    {
+        ArgumentNullException.ThrowIfNull(track);
+        var data = track.Configuration.Span;
+        if (data.Length < ArraysAt)
+        {
+            throw new NotSupportedException("The H.265 track has no configuration record.");
+        }
+
+        var sets = new H265ParameterSets();
+        try
+        {
+            AddConfiguredSets(data, sets);
+        }
+        catch (InvalidDataException exception)
+        {
+            throw new NotSupportedException("The H.265 configuration is damaged.", exception);
+        }
+
+        var sps = sets.FirstSps() ?? throw new NotSupportedException("The H.265 configuration has no sequence parameter set.");
+        H265Support.Check(sps);
+        var shown = H265FrameConverter.ShownSize(sps);
+        var decoder = new H265Decoder(shown.Width, shown.Height, (data[LengthSizeAt] & LengthSizeMask) + 1, hardware);
+        AddConfiguredSets(data, decoder._sets);
+        return decoder;
     }
 
     /// <summary>Reads the parameter sets in a decoder configuration record.</summary>
@@ -331,7 +396,52 @@ public sealed class H265Decoder : VideoDecoder
         _context.Header = header;
         H265RefListBuilder.Build(_context, _refSet);
         _context.SliceIndex = _context.Picture.SliceRefs.Count - 1;
-        H265SliceDecoder.Decode(rbsp, _context);
+        if (_hardware is null)
+        {
+            H265SliceDecoder.Decode(rbsp, _context);
+            return;
+        }
+
+        KeepForHardware(nal, header, _context);
+    }
+
+    /// <summary>Keeps a slice segment, with the reference lists built for it, until the picture is complete and goes to the hardware.</summary>
+    /// <param name="nal">The NAL unit including its header.</param>
+    /// <param name="header">The slice segment header.</param>
+    /// <param name="context">The context, whose reference lists belong to this segment.</param>
+    private void KeepForHardware(ReadOnlySpan<byte> nal, H265SliceHeader header, H265SliceContext context)
+    {
+        var offset = _hardwareBytes.WrittenCount;
+        _hardwareBytes.Write(nal);
+        _hardwareSlices.Add(new(header, [.. context.RefList0], [.. context.RefList1], offset, nal.Length));
+    }
+
+    /// <summary>Gives the hardware the slices of the finished picture and keeps the frame it returns until the picture is output.</summary>
+    /// <param name="context">The context of the picture.</param>
+    private void DecodeOnHardware(H265SliceContext context)
+    {
+        var picture = context.Picture;
+        var shown = H265FrameConverter.ShownSize(context.Sps);
+        var frame = RentFrame(shown.Width, shown.Height, picture.Time);
+        _hardware!.Decode(new(picture, context.Sps, context.Pps, _refSet, _dpb.Pictures, _hardwareSlices, _hardwareBytes.WrittenMemory), frame);
+        picture.HardwareFrame = frame;
+        _hardwareSlices.Clear();
+        _hardwareBytes.ResetWrittenCount();
+    }
+
+    /// <summary>Gives back the surface of every picture that is no longer a reference, because its frame was read when it was decoded.</summary>
+    private void ReleaseSurfaces()
+    {
+        for (var i = _live.Count - 1; i >= 0; i--)
+        {
+            if (_live[i].ReferenceState != H265Picture.Unused && _dpb.Pictures.Contains(_live[i]))
+            {
+                continue;
+            }
+
+            _hardware!.ReturnSurface(_live[i].Surface);
+            _live.RemoveAt(i);
+        }
     }
 
     /// <summary>Starts a picture: works out its order count and reference pictures, and releases pictures from the buffer.</summary>
@@ -373,14 +483,24 @@ public sealed class H265Decoder : VideoDecoder
         _refSet = H265RpsDerivation.Derive(_dpb, sps, header, poc, H265Nal.IsIdr(type), missing => MakeMissing(sps, pps, missing));
         _dpb.RemoveUnused();
         MakeRoom(sps, output);
+        BeginPicture(header, new(sps, pps), poc);
+        return true;
+    }
+
+    /// <summary>Makes the picture about to be decoded and the context to decode it in.</summary>
+    /// <param name="header">The header of the picture's first slice segment.</param>
+    /// <param name="sets">The parameter sets the picture uses.</param>
+    /// <param name="poc">The picture order count.</param>
+    private void BeginPicture(H265SliceHeader header, H265ParameterPair sets, int poc)
+    {
+        var (sps, pps) = sets;
         var layout = LayoutFor(sps, pps);
-        var picture = RentPicture(sps, layout);
+        var picture = _hardware is null ? RentPicture(sps, layout) : NewHardwarePicture(sps);
         picture.Poc = poc;
         picture.Time = _time;
         picture.Sps = sps;
         picture.NeededForOutput = header.PicOutput;
         _context = MakeContext(sps, pps, layout, picture);
-        return true;
     }
 
     /// <summary>Makes the context for decoding a picture, giving it the work areas the decoder keeps.</summary>
@@ -429,6 +549,25 @@ public sealed class H265Decoder : VideoDecoder
         return created;
     }
 
+    /// <summary>Makes a picture whose samples live in a hardware surface, first giving back the surfaces nothing refers to any more.</summary>
+    /// <param name="sps">The sequence parameter set.</param>
+    /// <returns>The picture.</returns>
+    private H265Picture NewHardwarePicture(H265Sps sps)
+    {
+        ReleaseSurfaces();
+        return CreateHardwarePicture(sps);
+    }
+
+    /// <summary>Makes a picture whose samples live in a hardware surface.</summary>
+    /// <param name="sps">The sequence parameter set.</param>
+    /// <returns>The picture.</returns>
+    private H265Picture CreateHardwarePicture(H265Sps sps)
+    {
+        var picture = new H265Picture(sps) { Surface = _hardware!.RentSurface() };
+        _live.Add(picture);
+        return picture;
+    }
+
     /// <summary>Handles the pictures still in the buffer when a new coded video sequence starts.</summary>
     /// <param name="header">The header of the first slice segment of the new sequence.</param>
     /// <param name="output">Receives frames that become ready.</param>
@@ -466,6 +605,13 @@ public sealed class H265Decoder : VideoDecoder
             return;
         }
 
+        if (picture.HardwareFrame is { } frame)
+        {
+            picture.HardwareFrame = null;
+            output.Add(frame);
+            return;
+        }
+
         var shown = H265FrameConverter.ShownSize(sps);
         output.Add(H265FrameConverter.Convert(picture, sps, RentFrame(shown.Width, shown.Height, picture.Time)));
     }
@@ -491,7 +637,15 @@ public sealed class H265Decoder : VideoDecoder
         }
 
         _context = null;
-        H265LoopFilter.Apply(context);
+        if (_hardware is null)
+        {
+            H265LoopFilter.Apply(context);
+        }
+        else
+        {
+            DecodeOnHardware(context);
+        }
+
         var picture = context.Picture;
         picture.ReferenceState = 1;
         picture.LatencyCount = 0;
@@ -531,6 +685,16 @@ public sealed class H265Decoder : VideoDecoder
     /// <returns>The picture.</returns>
     private H265Picture MakeMissing(H265Sps sps, H265Pps pps, int poc)
     {
+        if (_hardware is not null)
+        {
+            var stand = CreateHardwarePicture(sps);
+            stand.Poc = poc;
+            stand.Sps = sps;
+            stand.ReferenceState = 1;
+            stand.IsGenerated = true;
+            return stand;
+        }
+
         var picture = new H265Picture(sps, LayoutFor(sps, pps)) { Poc = poc, Sps = sps, ReferenceState = 1, IsGenerated = true };
         Array.Fill(picture.Luma, (ushort)(1 << (sps.BitDepthLuma - 1)));
         Array.Fill(picture.Cb, (ushort)(1 << (sps.BitDepthChroma - 1)));

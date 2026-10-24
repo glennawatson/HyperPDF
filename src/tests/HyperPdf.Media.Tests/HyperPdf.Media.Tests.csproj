@@ -10,7 +10,7 @@
     <!-- Short files made by independent encoders: AAC sound alone, pictures with sound and text, and H.265 pictures alone. -->
     <None Include="..\HyperPdf.Codecs.Tests\Fixtures\aac-lc-stereo-44100.m4a" Link="Fixtures\aac-lc-stereo-44100.m4a" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\HyperPdf.Codecs.Tests\Fixtures\av-h264-aac-text.mp4" Link="Fixtures\av-h264-aac-text.mp4" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\HyperPdf.Codecs.Tests\Fixtures\h265-b.mp4" Link="Fixtures\h265-b.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\HyperPdf.Codecs.Tests\Fixtures\h26*.mp4" Link="Fixtures\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

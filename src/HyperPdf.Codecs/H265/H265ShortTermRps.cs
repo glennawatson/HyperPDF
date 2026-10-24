@@ -11,6 +11,9 @@ namespace HyperPdf.Codecs.H265;
 /// <param name="UsedS1">Whether the current picture refers to each later picture.</param>
 internal sealed record H265ShortTermRps(int[] DeltaPocS0, bool[] UsedS0, int[] DeltaPocS1, bool[] UsedS1)
 {
+    /// <summary>Gets the bits the set took in a slice segment header when it was written there rather than picked from the sequence parameter set, or 0.</summary>
+    internal int HeaderBits { get; init; }
+
     /// <summary>Gets the pictures in the set.</summary>
     internal int Count => DeltaPocS0.Length + DeltaPocS1.Length;
 

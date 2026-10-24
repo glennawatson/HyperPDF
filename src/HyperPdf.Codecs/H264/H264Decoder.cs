@@ -167,6 +167,34 @@ public sealed class H264Decoder : VideoDecoder
         _dpb.Clear();
     }
 
+    /// <summary>Reads the parameter sets of a track's configuration record.</summary>
+    /// <param name="track">The track, whose configuration is the AVC decoder configuration record.</param>
+    /// <param name="lengthSize">Receives the bytes of the length in front of each NAL unit.</param>
+    /// <returns>The sets, or <see langword="null"/> when the configuration cannot be read.</returns>
+    internal static H264ParameterSets? ReadSets(MediaTrack track, out int lengthSize)
+    {
+        ArgumentNullException.ThrowIfNull(track);
+        var data = track.Configuration.Span;
+        lengthSize = 0;
+        if (data.Length < SetsAt)
+        {
+            return null;
+        }
+
+        var sets = new H264ParameterSets();
+        try
+        {
+            AddConfiguredSets(data, sets);
+        }
+        catch (InvalidDataException)
+        {
+            return null;
+        }
+
+        lengthSize = (data[LengthSizeAt] & LengthSizeMask) + 1;
+        return sets;
+    }
+
     /// <summary>Finds how many pictures a track's sequence lets come before another in decoding order and after it in output order.</summary>
     /// <param name="track">The track, whose configuration is the AVC decoder configuration record.</param>
     /// <returns>The number of pictures, or -1 when the configuration cannot be read.</returns>

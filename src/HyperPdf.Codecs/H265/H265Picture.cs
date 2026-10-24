@@ -55,6 +55,28 @@ internal sealed class H265Picture
     /// <summary>The reference state of a picture used for long-term reference.</summary>
     internal const int LongTerm = 2;
 
+    /// <summary>Initializes a new instance of the <see cref="H265Picture"/> class for a picture whose samples live in a hardware decoder, so nothing is kept here but its identity.</summary>
+    /// <param name="sps">The sequence parameter set the picture uses.</param>
+    internal H265Picture(H265Sps sps)
+    {
+        Width = sps.Width;
+        Height = sps.Height;
+        Luma = [];
+        Cb = [];
+        Cr = [];
+        Kind = [];
+        Flags = [];
+        IntraMode = [];
+        CtDepth = [];
+        QpY = [];
+        Motion = [];
+        SliceOfCtb = [];
+        Sao = [];
+        HeaderOfCtb = [];
+        RefsIndexOfCtb = [];
+        SliceRefs = [];
+    }
+
     /// <summary>Initializes a new instance of the <see cref="H265Picture"/> class.</summary>
     /// <param name="sps">The sequence parameter set the picture uses.</param>
     /// <param name="layout">The layout of the picture.</param>
@@ -147,6 +169,12 @@ internal sealed class H265Picture
 
     /// <summary>Gets or sets when the picture is shown, in seconds.</summary>
     internal double Time { get; set; }
+
+    /// <summary>Gets or sets the surface a hardware decoder holds this picture in.</summary>
+    internal uint Surface { get; set; }
+
+    /// <summary>Gets or sets the frame a hardware decoder produced for this picture, until it is output.</summary>
+    internal VideoFrame? HardwareFrame { get; set; }
 
     /// <summary>Gets or sets the picture order count.</summary>
     internal int Poc { get; set; }

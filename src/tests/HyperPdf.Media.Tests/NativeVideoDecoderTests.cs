@@ -19,17 +19,63 @@ public sealed class NativeVideoDecoderTests
     /// <summary>The number of samples that may differ between the two decoders: none, because H.264 and H.265 decoding is exact.</summary>
     private const int AllowedDifferences = 0;
 
+    /// <summary>The fixtures: H.264 files that exercise intra, predicted and bi-predicted pictures, weights and loop filters, then H.265 files that do the same.</summary>
+    private static readonly string[] FixtureNames =
+    [
+        H264File,
+        "h264-intra-baseline.mp4",
+        "h264-p-cabac.mp4",
+        "h264-p-cabac-weighted.mp4",
+        "h264-p-cavlc-multiref.mp4",
+        "h264-p-cavlc-partitions.mp4",
+        "h264-b-cabac-deblock.mp4",
+        "h264-b-cavlc-pyramid.mp4",
+        "h264-b-cavlc-implicit.mp4",
+        "h264-b-cavlc-temporal.mp4",
+        "h264-b-cabac-spatial.mp4",
+        "h264-high-intra-cabac.mp4",
+        "h264-high-p-cabac.mp4",
+        "h264-deblock-offsets.mp4",
+        H265File,
+        "h265-intra.mp4",
+        "h265-p.mp4",
+        "h265-p-multiref.mp4",
+        "h265-p-asymmetric.mp4",
+        "h265-p-no-temporal-mvp.mp4",
+        "h265-b-pyramid.mp4",
+        "h265-b-weighted.mp4",
+        "h265-b-long-term.mp4",
+        "h265-cropped.mp4",
+        "h265-ctu16.mp4",
+        "h265-wavefront.mp4",
+        "h265-intra-wavefront.mp4",
+        "h265-dqp.mp4",
+        "h265-transform-skip.mp4",
+        "h265-lossless.mp4",
+        "h265-sao-only.mp4",
+        "h265-deblock-only.mp4",
+        "h265-loop-filters-ctu32.mp4",
+        "h265-loop-filters-ctu16-b.mp4",
+        "h265-deblock-offsets-ctu16.mp4",
+        "h265-deblock-negative-offsets-ctu16.mp4",
+        "h265-intra-ctu32.mp4",
+        "h265-intra-constrained.mp4",
+    ];
+
+    /// <summary>Gets the fixtures as test cases.</summary>
+    /// <returns>The cases.</returns>
+    public static IEnumerable<Func<string>> Files() => FixtureNames.Select(static name => (Func<string>)(() => name));
+
     /// <summary>The decoder of this system gives the pictures the C# decoder gives, in the same order and with the same samples.</summary>
     /// <param name="file">The fixture.</param>
     /// <returns>A task.</returns>
     /// <exception cref="InvalidDataException">The fixture did not open.</exception>
     /// <exception cref="NotSupportedException">The C# decoders do not read the fixture.</exception>
     [Test]
-    [Arguments(H264File)]
-    [Arguments(H265File)]
+    [MethodDataSource(nameof(Files))]
     public async Task SystemDecoderMatchesTheManagedDecoder(string file)
     {
-        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
+        if (!OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux())
         {
             Skip.Test("This system has no decoder for the test to compare.");
         }

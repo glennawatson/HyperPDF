@@ -127,6 +127,9 @@ internal sealed class H264Picture
     /// <summary>Gets the size of the vertical list 0 motion vector difference of each 4x4 block of each macroblock, limited to 255.</summary>
     internal byte[] MvdY => Field0.MvdY;
 
+    /// <summary>Gets or sets the surface a hardware decoder holds this picture in, for a picture whose samples are not kept here.</summary>
+    internal uint Surface { get; set; }
+
     /// <summary>Gets or sets the identity of this frame among the frames of the stream.</summary>
     internal int Uid { get; set; }
 
