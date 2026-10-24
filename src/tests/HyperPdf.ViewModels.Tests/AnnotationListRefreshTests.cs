@@ -100,7 +100,7 @@ public sealed class AnnotationListRefreshTests
         annotations.FilterText = "zzz-not-there";
         using var timeout = new CancellationTokenSource(FilterWaitMilliseconds);
         using var poll = new PeriodicTimer(PollInterval);
-        while (annotations.VisibleItems.Count != 0 && !timeout.IsCancellationRequested)
+        while ((annotations.VisibleItems.Count != 0 || !annotations.NoMatches) && !timeout.IsCancellationRequested)
         {
             _ = await poll.WaitForNextTickAsync(CancellationToken.None);
         }
