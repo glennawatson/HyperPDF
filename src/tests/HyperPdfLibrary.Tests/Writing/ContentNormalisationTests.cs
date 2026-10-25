@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
 using System.Text;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
@@ -14,6 +15,12 @@ namespace HyperPdfLibrary.Tests.Writing;
 /// <summary>Tests that page content normalisation joins content streams and moves large inline images out, and that pages draw the same.</summary>
 public sealed class ContentNormalisationTests
 {
+    /// <summary>The bytes in a rendered pixel: red, green, blue and alpha.</summary>
+    private const int BytesPerPixel = 4;
+
+    /// <summary>The differing pixels a failure lists.</summary>
+    private const int SampleCount = 6;
+
     /// <summary>The number of content streams the sample page starts with.</summary>
     private const int SourceStreams = 3;
 
@@ -189,40 +196,74 @@ public sealed class ContentNormalisationTests
 
         await Assert.That(expected.IsNear(ImageCentre, ImageCentre, Rgb.White, 0)).IsFalse();
         await Assert.That(actual.Width).IsEqualTo(expected.Width);
-        var difference = Compare(expected.Pixels, actual.Pixels);
-        var summary = $"{difference.Bytes} of {expected.Pixels.Length} bytes differ, by up to {difference.Largest}; the first is at byte {difference.First}.";
-        await Assert.That(difference.Bytes).IsEqualTo(0).Because(summary);
+        var difference = Compare(expected.Pixels, actual.Pixels, expected.Width);
+        await Assert.That(difference.Pixels).IsEqualTo(0).Because(difference.Details);
     }
 
-    /// <summary>Counts how the bytes of two renderings differ, so a failure says how far apart they are.</summary>
+    /// <summary>Measures how two renderings differ, so a failure says where and by how much.</summary>
     /// <param name="expected">The first rendering's bytes.</param>
     /// <param name="actual">The second rendering's bytes.</param>
+    /// <param name="width">The width of the renderings in pixels.</param>
     /// <returns>The differences; a length that differs counts every byte of the longer rendering.</returns>
-    private static PixelDifference Compare(byte[] expected, byte[] actual)
+    private static PixelDifference Compare(byte[] expected, byte[] actual, int width)
     {
-        var shared = Math.Min(expected.Length, actual.Length);
-        var count = Math.Abs(expected.Length - actual.Length);
+        var shared = Math.Min(expected.Length, actual.Length) / BytesPerPixel;
+        var count = Math.Abs(expected.Length - actual.Length) / BytesPerPixel;
         var largest = 0;
-        var first = -1;
-        for (var i = 0; i < shared; i++)
+        var box = new PixelBox(int.MaxValue, int.MaxValue, -1, -1);
+        var samples = new StringBuilder();
+        var sampled = 0;
+        for (var pixel = 0; pixel < shared; pixel++)
         {
-            var gap = Math.Abs(expected[i] - actual[i]);
+            var gap = LargestGap(expected, actual, pixel * BytesPerPixel);
             if (gap == 0)
             {
                 continue;
             }
 
+            var x = pixel % width;
+            var y = pixel / width;
             count++;
             largest = Math.Max(largest, gap);
-            first = first < 0 ? i : first;
+            box = new(Math.Min(box.Left, x), Math.Min(box.Top, y), Math.Max(box.Right, x), Math.Max(box.Bottom, y));
+            if (sampled >= SampleCount)
+            {
+                continue;
+            }
+
+            var at = pixel * BytesPerPixel;
+            _ = samples.Append(CultureInfo.InvariantCulture, $" ({x},{y}) {Convert.ToHexString(expected.AsSpan(at, BytesPerPixel))}/{Convert.ToHexString(actual.AsSpan(at, BytesPerPixel))}");
+            sampled++;
         }
 
-        return new(count, largest, first);
+        return new(count, $"{count} pixels differ, by up to {largest}, within x {box.Left}-{box.Right} and y {box.Top}-{box.Bottom}; first pixels (expected/actual):{samples}");
+    }
+
+    /// <summary>Finds the largest difference between the bytes of one pixel in two renderings.</summary>
+    /// <param name="expected">The first rendering's bytes.</param>
+    /// <param name="actual">The second rendering's bytes.</param>
+    /// <param name="at">The position of the pixel's first byte.</param>
+    /// <returns>The largest difference, or 0 when the pixels are the same.</returns>
+    private static int LargestGap(byte[] expected, byte[] actual, int at)
+    {
+        var largest = 0;
+        for (var i = 0; i < BytesPerPixel; i++)
+        {
+            largest = Math.Max(largest, Math.Abs(expected[at + i] - actual[at + i]));
+        }
+
+        return largest;
     }
 
     /// <summary>How two renderings differ.</summary>
-    /// <param name="Bytes">The number of bytes that differ.</param>
-    /// <param name="Largest">The largest difference of one byte.</param>
-    /// <param name="First">The position of the first byte that differs, or -1.</param>
-    private readonly record struct PixelDifference(int Bytes, int Largest, int First);
+    /// <param name="Pixels">The number of pixels that differ.</param>
+    /// <param name="Details">Where and by how much, in words.</param>
+    private readonly record struct PixelDifference(int Pixels, string Details);
+
+    /// <summary>The smallest box around some pixels.</summary>
+    /// <param name="Left">The left column.</param>
+    /// <param name="Top">The top row.</param>
+    /// <param name="Right">The right column.</param>
+    /// <param name="Bottom">The bottom row.</param>
+    private readonly record struct PixelBox(int Left, int Top, int Right, int Bottom);
 }
