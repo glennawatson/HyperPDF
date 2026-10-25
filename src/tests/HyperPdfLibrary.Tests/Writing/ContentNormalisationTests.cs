@@ -18,9 +18,6 @@ public sealed class ContentNormalisationTests
     /// <summary>The bytes in a rendered pixel: red, green, blue and alpha.</summary>
     private const int BytesPerPixel = 4;
 
-    /// <summary>The colour bytes in a pixel.</summary>
-    private const int RgbBytes = 3;
-
     /// <summary>The differing pixels a failure lists.</summary>
     private const int SampleCount = 6;
 
@@ -211,44 +208,7 @@ public sealed class ContentNormalisationTests
         RenderCheck.Save(expected, "normalisation-inline");
         RenderCheck.Save(actual, "normalisation-externalised");
         var detail = $"{difference.Details} Drawing the first file again differs in {again.Pixels} pixels, the second in {againChanged.Pixels}.";
-        await Assert.That(difference.Pixels).IsEqualTo(0).Because($"{detail} {Describe(before, after)}");
-    }
-
-    /// <summary>Temporary: says whether the first image's decoded bytes survived externalising.</summary>
-    /// <param name="before">The first file.</param>
-    /// <param name="after">The second file.</param>
-    /// <returns>The description.</returns>
-    private static string Describe(byte[] before, byte[] after)
-    {
-        const string Marker = "/CS /G ID ";
-        const int Peek = 16;
-        using var source = PdfDocumentReader.Open(before, null);
-        using var saved = PdfDocumentReader.Open(after, null);
-        var contents = PageDictionary(source).Get(KnownName.Contents).AsArray()!;
-        var content = new StringBuilder();
-        for (var i = 0; i < contents.Count; i++)
-        {
-            _ = content.Append(Encoding.Latin1.GetString(contents.Get(i).AsStream()!.DecodeToArray()));
-        }
-
-        var text = content.ToString();
-        var start = text.IndexOf(Marker, StringComparison.Ordinal) + Marker.Length;
-        var inline = Encoding.Latin1.GetBytes(text[start..(start + (WriterControlSamples.ImageSide * WriterControlSamples.ImageSide))]);
-        var images = PageDictionary(saved).GetDictionary(KnownName.Resources)!.GetDictionary(KnownName.XObject)!;
-        var decoded = images.GetStream(images.GetKeyAt(0))!.DecodeToArray();
-        var picture = HyperPdfLibrary.Graphics.Images.PdfImageDecoder.Decode(images.GetStream(images.GetKeyAt(0))!);
-        var mismatch = -1;
-        for (var i = 0; picture is not null && i < inline.Length && mismatch < 0; i++)
-        {
-            mismatch = picture.Pixels.AsSpan(i * BytesPerPixel, RgbBytes).IndexOfAnyExcept(inline[i]) < 0 ? -1 : i;
-        }
-
-        var pictureState = picture is null ? "null" : $"{picture.Width}x{picture.Height} len={picture.Pixels.Length} firstMismatch={mismatch} gray={picture.IsGray}";
-        return pictureState + " " + string.Create(
-            CultureInfo.InvariantCulture,
-            $"arch={System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture} same={inline.AsSpan().SequenceEqual(decoded)} "
-            + $"inlineLen={inline.Length} decodedLen={decoded.Length} "
-            + $"inline={Convert.ToHexString(inline.AsSpan(0, Peek))} decoded={Convert.ToHexString(decoded.AsSpan(0, Peek))}");
+        await Assert.That(difference.Pixels).IsEqualTo(0).Because(detail);
     }
 
     /// <summary>Measures how two renderings differ, so a failure says where and by how much.</summary>

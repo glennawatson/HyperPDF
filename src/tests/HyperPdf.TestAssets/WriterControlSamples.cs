@@ -77,7 +77,9 @@ public static class WriterControlSamples
         var gray = Latin1(HighBytes(ref seed, side * side));
         var compressed = Latin1(Compress(Bytes(ref seed, side * side * RgbBytes), CompressionLevel.Optimal));
         var named = Latin1(HighBytes(ref seed, side * side * RgbBytes));
-        var second = $"q 100 0 0 100 50 50 cm\nBI /W {side} /H {side} /BPC 8 /CS /G ID {gray}\nEI Q\n";
+
+        // Drawn at its own size: an enlarged copy puts sample positions on pixel edges, where Skia's gray and colour pipelines round differently on Windows arm64.
+        var second = $"q 80 0 0 80 60 60 cm\nBI /W {side} /H {side} /BPC 8 /CS /G ID {gray}\nEI Q\n";
         var third = $"q 60 0 0 60 120 120 cm\nBI /W {side} /H {side} /BPC 8 /CS /RGB /F /Fl ID {compressed}\nEI Q\n"
             + BlueRectangle
             + $"q 40 0 0 40 10 150 cm\nBI /W {side} /H {side} /BPC 8 /CS /Cs1 ID {named}\nEI Q\n";
