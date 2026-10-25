@@ -59,6 +59,9 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     /// <summary>The pages chosen, reused between rebuilds.</summary>
     private readonly List<int> _chosen = [];
 
+    /// <summary>Makes a finished build replace the sheets as one step.</summary>
+    private readonly Lock _show = new();
+
     /// <summary>Whether the reader chose the system print dialog, so listing the printers does not change the choice.</summary>
     private bool _systemDialogChosen;
 
@@ -426,13 +429,27 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
         var pages = _chosen.ToArray();
         var layout = CurrentLayout();
         var path = await Task.Run(() => Build(exporter, pages, layout), CancellationToken.None).ConfigureAwait(true);
-        if (cancellationToken.IsCancellationRequested)
+        lock (_show)
         {
-            // A newer build replaced this one, or the window closed.
-            Delete(path);
-            return RxVoid.Default;
+            // Builds that finish on different threads must not mix their sheets: without a UI thread to run them one at a time,
+            // two could add their sheets to the same list.
+            if (cancellationToken.IsCancellationRequested)
+            {
+                // A newer build replaced this one, or the window closed.
+                Delete(path);
+                return RxVoid.Default;
+            }
+
+            Show(path);
         }
 
+        return RxVoid.Default;
+    }
+
+    /// <summary>Shows the sheets of a finished build in place of the ones before.</summary>
+    /// <param name="path">The built file, or <see langword="null"/> when the build failed.</param>
+    private void Show(string? path)
+    {
         // The build stays marked as running until the sheets, summary and validity are all set, so nobody who waits for it to end
         // sees the sheets of the build before, or none, with the new settings.
         var selected = SelectedSheetIndex;
@@ -442,7 +459,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
             IsValid = false;
             Summary = "Could not prepare the pages";
             IsBuilding = false;
-            return RxVoid.Default;
+            return;
         }
 
         var preview = new PrintPreviewFile(_services.Engine.Open(path, null), path);
@@ -457,7 +474,6 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
         Summary = DescribeSheets(sizes.Length);
         IsValid = true;
         IsBuilding = false;
-        return RxVoid.Default;
     }
 
     /// <summary>Takes the sheets away and lets the preview go, which closes its document and deletes its file unless it was handed over.</summary>

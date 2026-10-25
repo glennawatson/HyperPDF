@@ -18,6 +18,9 @@ public sealed class ContentNormalisationTests
     /// <summary>The bytes in a rendered pixel: red, green, blue and alpha.</summary>
     private const int BytesPerPixel = 4;
 
+    /// <summary>The colour bytes in a pixel.</summary>
+    private const int RgbBytes = 3;
+
     /// <summary>The differing pixels a failure lists.</summary>
     private const int SampleCount = 6;
 
@@ -205,6 +208,8 @@ public sealed class ContentNormalisationTests
         // Drawing the same file again says whether the renderer repeats itself, which tells a changed file from an unsteady renderer.
         var again = Compare(expected.Pixels, original.RenderPage().Pixels, expected.Width);
         var againChanged = Compare(actual.Pixels, changed.RenderPage().Pixels, expected.Width);
+        RenderCheck.Save(expected, "normalisation-inline");
+        RenderCheck.Save(actual, "normalisation-externalised");
         var detail = $"{difference.Details} Drawing the first file again differs in {again.Pixels} pixels, the second in {againChanged.Pixels}.";
         await Assert.That(difference.Pixels).IsEqualTo(0).Because($"{detail} {Describe(before, after)}");
     }
@@ -231,7 +236,15 @@ public sealed class ContentNormalisationTests
         var inline = Encoding.Latin1.GetBytes(text[start..(start + (WriterControlSamples.ImageSide * WriterControlSamples.ImageSide))]);
         var images = PageDictionary(saved).GetDictionary(KnownName.Resources)!.GetDictionary(KnownName.XObject)!;
         var decoded = images.GetStream(images.GetKeyAt(0))!.DecodeToArray();
-        return string.Create(
+        var picture = HyperPdfLibrary.Graphics.Images.PdfImageDecoder.Decode(images.GetStream(images.GetKeyAt(0))!);
+        var mismatch = -1;
+        for (var i = 0; picture is not null && i < inline.Length && mismatch < 0; i++)
+        {
+            mismatch = picture.Pixels.AsSpan(i * BytesPerPixel, RgbBytes).IndexOfAnyExcept(inline[i]) < 0 ? -1 : i;
+        }
+
+        var pictureState = picture is null ? "null" : $"{picture.Width}x{picture.Height} len={picture.Pixels.Length} firstMismatch={mismatch} gray={picture.IsGray}";
+        return pictureState + " " + string.Create(
             CultureInfo.InvariantCulture,
             $"arch={System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture} same={inline.AsSpan().SequenceEqual(decoded)} "
             + $"inlineLen={inline.Length} decodedLen={decoded.Length} "

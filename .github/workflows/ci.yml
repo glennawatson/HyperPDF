@@ -55,6 +55,13 @@ jobs:
       - name: Test on net10.0 and net11.0
         working-directory: src
         run: dotnet test --solution HyperPdf.slnx -c Release -v q --nologo
+      - name: Upload failed renderings
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: render-failures-${{ matrix.name }}
+          path: src/tests/**/render-failures
+          if-no-files-found: ignore
   pdfa-validation:
     name: PDF/A output validation (veraPDF)
     runs-on: ubuntu-26.04
