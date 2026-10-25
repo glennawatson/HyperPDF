@@ -323,9 +323,11 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Gets a history command label.</summary>
     /// <param name="label">The edit label.</param>
-    /// <param name="prefix">The command name.</param>
+    /// <param name="command">The command name, used alone when there is no edit.</param>
+    /// <param name="withLabel">The command name with the edit's place in it, so each language orders the words itself.</param>
     /// <returns>The command label.</returns>
-    private static string GetHistoryText(string? label, string prefix) => label is null ? prefix : $"{prefix} {label}";
+    private static string GetHistoryText(string? label, string command, string withLabel) =>
+        label is null ? command : UiText.Format(withLabel, UiText.Get(label));
 
     /// <summary>Checks whether an operation failure can be shown as a user notice.</summary>
     /// <param name="exception">The operation failure.</param>
@@ -674,8 +676,8 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <param name="selected">The selected page count.</param>
     private void RefreshLabelsAndStatus(IPageManager? manager, int selected)
     {
-        UndoText = GetHistoryText(manager?.UndoLabel, UiText.Get("Undo"));
-        RedoText = GetHistoryText(manager?.RedoLabel, UiText.Get("Redo"));
+        UndoText = GetHistoryText(manager?.UndoLabel, UiText.Get("Undo"), "Undo {0}");
+        RedoText = GetHistoryText(manager?.RedoLabel, UiText.Get("Redo"), "Redo {0}");
         Status = GetStatus(manager, selected);
     }
 

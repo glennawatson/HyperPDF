@@ -1347,6 +1347,9 @@
   <data name="Darkest" xml:space="preserve">
     <value>الأشد قتامة</value>
   </data>
+  <data name="Delete pages" xml:space="preserve">
+    <value>حذف الصفحات</value>
+  </data>
   <data name="Delete removes it" xml:space="preserve">
     <value>يحذفه Delete</value>
   </data>
@@ -1559,6 +1562,9 @@
   </data>
   <data name="Drop PDF files here, or choose them from a folder." xml:space="preserve">
     <value>أفلت ملفات PDF هنا، أو اخترها من مجلد.</value>
+  </data>
+  <data name="Duplicate pages" xml:space="preserve">
+    <value>تكرار الصفحات</value>
   </data>
   <data name="Duplicate selected pages" xml:space="preserve">
     <value>تكرار الصفحات المحددة</value>
@@ -2028,6 +2034,9 @@
   <data name="Image" xml:space="preserve">
     <value>صورة</value>
   </data>
+  <data name="Import form data" xml:space="preserve">
+    <value>استيراد بيانات النموذج</value>
+  </data>
   <data name="Imported {0} {1} from {2}." xml:space="preserve">
     <value>استُورد {0} {1} من {2}.</value>
   </data>
@@ -2060,6 +2069,9 @@
   </data>
   <data name="Insert or Merge PDFs" xml:space="preserve">
     <value>إدراج ملفات PDF أو دمجها</value>
+  </data>
+  <data name="Insert pages" xml:space="preserve">
+    <value>إدراج صفحات</value>
   </data>
   <data name="Insertion point" xml:space="preserve">
     <value>نقطة الإدراج</value>
@@ -2501,6 +2513,9 @@
   </data>
   <data name="Move on by itself when presenting" xml:space="preserve">
     <value>الانتقال تلقائياً أثناء العرض</value>
+  </data>
+  <data name="Move pages" xml:space="preserve">
+    <value>نقل الصفحات</value>
   </data>
   <data name="Move selected pages earlier" xml:space="preserve">
     <value>نقل الصفحات المحددة إلى موضع سابق</value>
@@ -3411,6 +3426,9 @@
   <data name="Redo page edit" xml:space="preserve">
     <value>إعادة تحرير الصفحة</value>
   </data>
+  <data name="Redo {0}" xml:space="preserve">
+    <value>إعادة: {0}</value>
+  </data>
   <data name="Reduced" xml:space="preserve">
     <value>مخفّض</value>
   </data>
@@ -3605,6 +3623,9 @@
   </data>
   <data name="Rotate clockwise" xml:space="preserve">
     <value>تدوير مع عقارب الساعة</value>
+  </data>
+  <data name="Rotate pages" xml:space="preserve">
+    <value>تدوير الصفحات</value>
   </data>
   <data name="Rotate selected pages anticlockwise" xml:space="preserve">
     <value>تدوير الصفحات المحددة عكس عقارب الساعة</value>
@@ -4154,6 +4175,9 @@
   </data>
   <data name="Sidebar" xml:space="preserve">
     <value>الشريط الجانبي</value>
+  </data>
+  <data name="Sign" xml:space="preserve">
+    <value>توقيع</value>
   </data>
   <data name="Sign a copy of the document with your digital certificate, a .p12 or .pfx file." xml:space="preserve">
     <value>توقيع نسخة من المستند بشهادتك الرقمية، وهي ملف .p12 أو .pfx.</value>
@@ -5330,6 +5354,9 @@
   </data>
   <data name="Undo your last annotation change: adding, deleting, moving, colour, style, note or reply. Shortcut: Ctrl+Z" xml:space="preserve">
     <value>تراجع عن آخر تغيير في التعليقات التوضيحية: إضافة أو حذف أو نقل أو لون أو نمط أو ملاحظة أو رد. الاختصار: Ctrl+Z</value>
+  </data>
+  <data name="Undo {0}" xml:space="preserve">
+    <value>تراجع: {0}</value>
   </data>
   <data name="Unknown author" xml:space="preserve">
     <value>مؤلف غير معروف</value>

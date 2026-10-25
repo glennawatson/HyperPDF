@@ -1,0 +1,11 @@
+{
+  "Undo {0}": "Rückgängig: {0}",
+  "Redo {0}": "Wiederholen: {0}",
+  "Delete pages": "Seiten löschen",
+  "Rotate pages": "Seiten drehen",
+  "Move pages": "Seiten verschieben",
+  "Duplicate pages": "Seiten duplizieren",
+  "Insert pages": "Seiten einfügen",
+  "Import form data": "Formulardaten importieren",
+  "Sign": "Signieren"
+}

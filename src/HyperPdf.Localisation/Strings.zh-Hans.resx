@@ -1347,6 +1347,9 @@
   <data name="Darkest" xml:space="preserve">
     <value>最深</value>
   </data>
+  <data name="Delete pages" xml:space="preserve">
+    <value>删除页面</value>
+  </data>
   <data name="Delete removes it" xml:space="preserve">
     <value>Delete 删除</value>
   </data>
@@ -1559,6 +1562,9 @@
   </data>
   <data name="Drop PDF files here, or choose them from a folder." xml:space="preserve">
     <value>将 PDF 文件拖放到此处，或从文件夹中选择。</value>
+  </data>
+  <data name="Duplicate pages" xml:space="preserve">
+    <value>复制页面</value>
   </data>
   <data name="Duplicate selected pages" xml:space="preserve">
     <value>复制所选页面</value>
@@ -2028,6 +2034,9 @@
   <data name="Image" xml:space="preserve">
     <value>图片</value>
   </data>
+  <data name="Import form data" xml:space="preserve">
+    <value>导入表单数据</value>
+  </data>
   <data name="Imported {0} {1} from {2}." xml:space="preserve">
     <value>已从 {2} 导入 {0} {1}。</value>
   </data>
@@ -2060,6 +2069,9 @@
   </data>
   <data name="Insert or Merge PDFs" xml:space="preserve">
     <value>插入或合并 PDF</value>
+  </data>
+  <data name="Insert pages" xml:space="preserve">
+    <value>插入页面</value>
   </data>
   <data name="Insertion point" xml:space="preserve">
     <value>插入点</value>
@@ -2501,6 +2513,9 @@
   </data>
   <data name="Move on by itself when presenting" xml:space="preserve">
     <value>演示时自动前进</value>
+  </data>
+  <data name="Move pages" xml:space="preserve">
+    <value>移动页面</value>
   </data>
   <data name="Move selected pages earlier" xml:space="preserve">
     <value>将所选页面前移</value>
@@ -3411,6 +3426,9 @@
   <data name="Redo page edit" xml:space="preserve">
     <value>重做页面编辑</value>
   </data>
+  <data name="Redo {0}" xml:space="preserve">
+    <value>重做：{0}</value>
+  </data>
   <data name="Reduced" xml:space="preserve">
     <value>减少</value>
   </data>
@@ -3605,6 +3623,9 @@
   </data>
   <data name="Rotate clockwise" xml:space="preserve">
     <value>顺时针旋转</value>
+  </data>
+  <data name="Rotate pages" xml:space="preserve">
+    <value>旋转页面</value>
   </data>
   <data name="Rotate selected pages anticlockwise" xml:space="preserve">
     <value>逆时针旋转所选页面</value>
@@ -4154,6 +4175,9 @@
   </data>
   <data name="Sidebar" xml:space="preserve">
     <value>侧边栏</value>
+  </data>
+  <data name="Sign" xml:space="preserve">
+    <value>签名</value>
   </data>
   <data name="Sign a copy of the document with your digital certificate, a .p12 or .pfx file." xml:space="preserve">
     <value>使用数字证书（.p12 或 .pfx 文件）签署文档副本。</value>
@@ -5330,6 +5354,9 @@
   </data>
   <data name="Undo your last annotation change: adding, deleting, moving, colour, style, note or reply. Shortcut: Ctrl+Z" xml:space="preserve">
     <value>撤销最近的注释更改：添加、删除、移动、颜色、样式、便笺或回复。快捷键：Ctrl+Z</value>
+  </data>
+  <data name="Undo {0}" xml:space="preserve">
+    <value>撤销：{0}</value>
   </data>
   <data name="Unknown author" xml:space="preserve">
     <value>未知作者</value>

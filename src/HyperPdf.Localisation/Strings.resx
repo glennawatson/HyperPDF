@@ -1347,6 +1347,9 @@
   <data name="Darkest" xml:space="preserve">
     <value>Darkest</value>
   </data>
+  <data name="Delete pages" xml:space="preserve">
+    <value>Delete pages</value>
+  </data>
   <data name="Delete removes it" xml:space="preserve">
     <value>Delete removes it</value>
   </data>
@@ -1559,6 +1562,9 @@
   </data>
   <data name="Drop PDF files here, or choose them from a folder." xml:space="preserve">
     <value>Drop PDF files here, or choose them from a folder.</value>
+  </data>
+  <data name="Duplicate pages" xml:space="preserve">
+    <value>Duplicate pages</value>
   </data>
   <data name="Duplicate selected pages" xml:space="preserve">
     <value>Duplicate selected pages</value>
@@ -2028,6 +2034,9 @@
   <data name="Image" xml:space="preserve">
     <value>Image</value>
   </data>
+  <data name="Import form data" xml:space="preserve">
+    <value>Import form data</value>
+  </data>
   <data name="Imported {0} {1} from {2}." xml:space="preserve">
     <value>Imported {0} {1} from {2}.</value>
   </data>
@@ -2060,6 +2069,9 @@
   </data>
   <data name="Insert or Merge PDFs" xml:space="preserve">
     <value>Insert or Merge PDFs</value>
+  </data>
+  <data name="Insert pages" xml:space="preserve">
+    <value>Insert pages</value>
   </data>
   <data name="Insertion point" xml:space="preserve">
     <value>Insertion point</value>
@@ -2501,6 +2513,9 @@
   </data>
   <data name="Move on by itself when presenting" xml:space="preserve">
     <value>Move on by itself when presenting</value>
+  </data>
+  <data name="Move pages" xml:space="preserve">
+    <value>Move pages</value>
   </data>
   <data name="Move selected pages earlier" xml:space="preserve">
     <value>Move selected pages earlier</value>
@@ -3411,6 +3426,9 @@
   <data name="Redo page edit" xml:space="preserve">
     <value>Redo page edit</value>
   </data>
+  <data name="Redo {0}" xml:space="preserve">
+    <value>Redo {0}</value>
+  </data>
   <data name="Reduced" xml:space="preserve">
     <value>Reduced</value>
   </data>
@@ -3605,6 +3623,9 @@
   </data>
   <data name="Rotate clockwise" xml:space="preserve">
     <value>Rotate clockwise</value>
+  </data>
+  <data name="Rotate pages" xml:space="preserve">
+    <value>Rotate pages</value>
   </data>
   <data name="Rotate selected pages anticlockwise" xml:space="preserve">
     <value>Rotate selected pages anticlockwise</value>
@@ -4154,6 +4175,9 @@
   </data>
   <data name="Sidebar" xml:space="preserve">
     <value>Sidebar</value>
+  </data>
+  <data name="Sign" xml:space="preserve">
+    <value>Sign</value>
   </data>
   <data name="Sign a copy of the document with your digital certificate, a .p12 or .pfx file." xml:space="preserve">
     <value>Sign a copy of the document with your digital certificate, a .p12 or .pfx file.</value>
@@ -5330,6 +5354,9 @@
   </data>
   <data name="Undo your last annotation change: adding, deleting, moving, colour, style, note or reply. Shortcut: Ctrl+Z" xml:space="preserve">
     <value>Undo your last annotation change: adding, deleting, moving, colour, style, note or reply. Shortcut: Ctrl+Z</value>
+  </data>
+  <data name="Undo {0}" xml:space="preserve">
+    <value>Undo {0}</value>
   </data>
   <data name="Unknown author" xml:space="preserve">
     <value>Unknown author</value>
