@@ -9,9 +9,9 @@ using TUnit.Core.Interfaces;
 namespace HyperPdfLibrary.Tests;
 
 /// <summary>
-/// Caps how many tests of one test process run at once. TUnit's default is four tests per processor, and CI runs several
-/// test processes side by side on a runner with four cores. Many tests spin threads or run browsers, and on Windows that
-/// many runnable threads starved tests until their time limits passed.
+/// Caps how many tests of one test process run at once. The test driver already runs several test processes on CI;
+/// rendering, decoding and browser tests also start their own threads. Keep those tests sequential inside each CI
+/// process so the process-level and test-level limits do not multiply the runner's CPU budget.
 /// </summary>
 internal sealed class TestParallelLimit : IParallelLimit
 {
@@ -19,5 +19,7 @@ internal sealed class TestParallelLimit : IParallelLimit
     private const int TestsPerProcessor = 2;
 
     /// <summary>Gets the most tests of this process that run at the same time.</summary>
-    public int Limit => Math.Max(1, Environment.ProcessorCount * TestsPerProcessor);
+    public int Limit => string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase)
+        ? 1
+        : Math.Max(1, Environment.ProcessorCount * TestsPerProcessor);
 }
