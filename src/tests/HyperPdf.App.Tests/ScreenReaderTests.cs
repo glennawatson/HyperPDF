@@ -27,6 +27,9 @@ public sealed class ScreenReaderTests
     /// <summary>The zero based index of the third page.</summary>
     private const int ThirdPage = 2;
 
+    /// <summary>The name of the second page.</summary>
+    private const string SecondPageName = "Page 2 of 3";
+
     /// <summary>The page count of a long document, for descriptions.</summary>
     private const int LongDocument = 40;
 
@@ -189,9 +192,45 @@ public sealed class ScreenReaderTests
             tab.GoToPage(1);
             await Assert.That(await UiWait.UntilAsync(() => tab.CurrentPageIndex == 1)).IsTrue();
 
-            await Assert.That(peer.GetName()).IsEqualTo("Page 2 of 3");
-            await Assert.That(announced).Contains("Page 2 of 3");
+            await Assert.That(peer.GetName()).IsEqualTo(SecondPageName);
+            await Assert.That(await UiWait.UntilAsync(() => announced.Contains(SecondPageName))).IsTrue();
             await Assert.That(value.Value).Contains(TestPdf.Sentence);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>Pages passed in a quick scroll are not announced; only the page the reader settles on is.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PassingPagesAreNotAnnounced()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(FileName, Pages)]);
+        var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
+        window.Show();
+        try
+        {
+            var view = await FindDocumentViewAsync(window);
+            var canvas = view.GetVisualDescendants().OfType<PageCanvas>().Single();
+            var peer = ControlAutomationPeer.CreatePeerForElement(canvas);
+            var tab = main.SelectedTab!;
+            var announced = new List<string?>();
+            using var names = Signal.FromEvent<EventHandler<AutomationPropertyChangedEventArgs>, AutomationPropertyChangedEventArgs>(
+                    static next => (_, e) => next(e),
+                    handler => peer.PropertyChanged += handler,
+                    handler => peer.PropertyChanged -= handler)
+                .Where(static args => args.Property == AutomationElementIdentifiers.NameProperty)
+                .SubscribeSafe(args => announced.Add(args.NewValue as string), static _ => { });
+
+            tab.ReportPosition(new(1, 0), 1);
+            tab.ReportPosition(new(ThirdPage, 0), ThirdPage);
+
+            await Assert.That(await UiWait.UntilAsync(() => announced.Contains("Page 3 of 3"))).IsTrue();
+            await Assert.That(announced).DoesNotContain(SecondPageName);
         }
         finally
         {

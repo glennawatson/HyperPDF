@@ -192,6 +192,16 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Refresh() => SelectPages(SelectedPages);
 
+    /// <summary>Selects the page of the thumbnail the reader has settled on, unless the reader has picked several pages or that page is already selected.</summary>
+    /// <param name="thumbnail">The thumbnail, or <see langword="null"/> when there is none.</param>
+    public void Follow(ThumbnailItemViewModel? thumbnail)
+    {
+        if (thumbnail is not null && SelectedPages.Count <= 1 && !(SelectedPages.Count == 1 && SelectedPages[0] == thumbnail.PageIndex))
+        {
+            SelectPages([thumbnail.PageIndex]);
+        }
+    }
+
     /// <summary>Moves the selected pages to an index in the document after removing the selection.</summary>
     /// <param name="destination">The destination index after removal.</param>
     /// <returns>A task completing after the move.</returns>

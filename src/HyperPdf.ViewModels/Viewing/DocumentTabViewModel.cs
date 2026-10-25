@@ -41,6 +41,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <summary>Percent multiplier.</summary>
     private const double Percent = 100;
 
+    /// <summary>How long the current page must stay put before the thumbnail follows it.</summary>
+    private static readonly TimeSpan ThumbnailDelay = TimeSpan.FromMilliseconds(100);
+
     /// <summary>The services.</summary>
     private readonly AppServices _services;
 
@@ -125,9 +128,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         _canGoForward = this.WhenChanged(static vm => vm.CanGoForward);
         Notices = new(source);
 
-        // Closing the tab first closes the windows saving a copy, then stops the tab's own work, such as text
-        // recognition and form actions, and its selected work, and lets go of the tiles; the parts made later are
-        // released after these.
+        // Closing the tab first closes the windows saving a copy, then stops its own work (text recognition, form
+        // actions, selected work) and lets go of the tiles; the parts made later are released after these.
         var lifetime = new CancellationDisposable();
         LifetimeToken = lifetime.Token;
         _subscriptions.Add(Scope.Create(CloseCopyWindows));
@@ -147,6 +149,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
 
         // The first value of each property is its current state, which needs no reaction.
         _subscriptions.Add(this.WhenChanged(static x => x.CurrentPageIndex).Skip(1).SubscribeSafe(FollowCurrentPage, ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.CurrentPageIndex).Skip(1).Throttle(ThumbnailDelay, RxSchedulers.MainThreadScheduler).SubscribeSafe(SelectThumbnailOf, ErrorTrace.Write));
 
         // The annotation list is read again each time its panel opens.
         _subscriptions.Add(this.WhenChanged(static x => x.SidebarMode).Skip(1).SubscribeSafe(_ => ShowSidebarPane(), ErrorTrace.Write));
@@ -159,11 +162,13 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
 
         // Picking a bookmark goes to it, unless the bookmark is being selected as part of an edit. The filter reads the
         // tab's own flag: a constructor cannot hand 'this' to a state-passing operator.
-        _subscriptions.Add(
-            this.WhenChanged(static x => x.SelectedOutlineItem).Skip(1).KeepNotNull().Where(_ => !_keepingOutlineSelection).SubscribeSafe(item => Navigate(item.Target), ErrorTrace.Write));
-        _isTextFormatShownHelper = this.WhenChanged(static vm => vm.Annotations.IsAnnotating, static vm => vm.FillAndSign.IsActive, static (annotating, filling) => annotating || filling)
-            .ToProperty(this, static vm => vm.IsTextFormatShown);
-        _subscriptions.Add(_isTextFormatShownHelper);
+        _subscriptions.Add(this.WhenChanged(static x => x.SelectedOutlineItem)
+            .Skip(1)
+            .KeepNotNull()
+            .Where(_ => !_keepingOutlineSelection)
+            .SubscribeSafe(item => Navigate(item.Target), ErrorTrace.Write));
+        _subscriptions.Add(_isTextFormatShownHelper = this.WhenChanged(static vm => vm.Annotations.IsAnnotating, static vm => vm.FillAndSign.IsActive, static (a, f) => a || f)
+            .ToProperty(this, static vm => vm.IsTextFormatShown));
 
         // Each part that draws on the pages keeps its latest change. The changed tiles are dropped before the version
         // moves on, so views that redraw for the new version never draw a tile from before the change.
@@ -1325,21 +1330,26 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     private void ShowSidebarPane() => TabSidebarPane.Show(this);
 
     /// <summary>
-    /// Follows the current page: updates the page box, selects the page's thumbnail, shows its separation and checks
-    /// for repairs. Forms and layers follow the page themselves.
+    /// Follows the current page: updates the page box, shows its separation and checks for repairs. Forms and layers
+    /// follow the page themselves, and the thumbnail follows once the page settles.
     /// </summary>
     /// <param name="pageIndex">The current page.</param>
     private void FollowCurrentPage(int pageIndex)
     {
         PageEntry = GetPageDisplay(pageIndex);
-        SelectedThumbnail = pageIndex >= 0 && pageIndex < Thumbnails.Count ? Thumbnails[pageIndex] : null;
-        if (PagesInUse is { SelectedPages.Count: <= 1 } pages && SelectedThumbnail is not null && !(pages.SelectedPages.Count == 1 && pages.SelectedPages[0] == pageIndex))
-        {
-            pages.SelectPages([pageIndex]);
-        }
-
         Separations.ShowPage(pageIndex);
         CheckRepairsOfOpenDocument();
+    }
+
+    /// <summary>
+    /// Selects the thumbnail of the page the reader has settled on. Selecting it scrolls the strip, which rebuilds the strip's
+    /// items after a long jump, so a fast scroll or scrollbar drag, which changes the page every few milliseconds, waits.
+    /// </summary>
+    /// <param name="pageIndex">The page.</param>
+    private void SelectThumbnailOf(int pageIndex)
+    {
+        SelectedThumbnail = pageIndex >= 0 && pageIndex < Thumbnails.Count ? Thumbnails[pageIndex] : null;
+        PagesInUse?.Follow(SelectedThumbnail);
     }
 
     /// <summary>Drops the tiles a page change made stale, so they are drawn again, and notes whether the document now has unsaved changes.</summary>

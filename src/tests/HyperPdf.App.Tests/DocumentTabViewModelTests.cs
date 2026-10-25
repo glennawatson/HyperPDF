@@ -102,6 +102,28 @@ public sealed class DocumentTabViewModelTests
         await Assert.That(tab.PageEntry).IsEqualTo("1");
     }
 
+    /// <summary>The page box follows each page change at once, and the sidebar thumbnail follows once the page has settled.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ThumbnailFollowsOnceThePageSettles()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument(DocumentName, Pages)]);
+        var tab = main.SelectedTab!;
+        await Assert.That(await UiWait.UntilAsync(() => tab.IsLoaded)).IsTrue();
+        var before = tab.SelectedThumbnail;
+
+        for (var page = 1; page < Pages; page++)
+        {
+            tab.ReportPosition(new(page, 0), page);
+        }
+
+        await Assert.That(tab.PageEntry).IsEqualTo(Pages.ToString(System.Globalization.CultureInfo.CurrentCulture));
+        await Assert.That(tab.SelectedThumbnail).IsEqualTo(before);
+        await Assert.That(await UiWait.UntilAsync(() => tab.SelectedThumbnail?.PageIndex == Pages - 1)).IsTrue();
+    }
+
     /// <summary>A certificate-encrypted tab asks for a file and retries with the typed credential.</summary>
     /// <returns>A task.</returns>
     [Test]

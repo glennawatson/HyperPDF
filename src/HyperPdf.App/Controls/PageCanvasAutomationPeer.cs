@@ -11,6 +11,7 @@ using Avalonia.Automation.Provider;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Reading;
+using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Signals;
@@ -24,6 +25,9 @@ namespace HyperPdf.App.Controls;
 [DebuggerDisplay("PageCanvasAutomationPeer: {GetName()}")]
 internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValueProvider
 {
+    /// <summary>How long the page must stay put before the new page is announced.</summary>
+    private static readonly TimeSpan AnnounceDelay = TimeSpan.FromMilliseconds(150);
+
     /// <summary>The page the cached text belongs to, or -1 when nothing is cached.</summary>
     private int _textPage = -1;
 
@@ -62,6 +66,10 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
             .SwitchMap(static tab => tab is null
                 ? Signal.Return(RxVoid.Default)
                 : Signal.Merge(tab.WhenChanged(static x => x.CurrentPageIndex).AsVoid, tab.WhenChanged(static x => x.PageCount).AsVoid))
+
+            // A fast scroll changes the page every few milliseconds; announcing each one would read out pages the reader
+            // passed, and each announcement reads the page's text, so it waits until the page has settled.
+            .Throttle(AnnounceDelay, RxSchedulers.MainThreadScheduler)
 
             // The steps read the peer's own name: a constructor cannot hand 'this' to a state-passing operator.
             .Select(_ => GetName())
