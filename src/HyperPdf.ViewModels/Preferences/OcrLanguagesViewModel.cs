@@ -65,10 +65,10 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
     /// <summary>Gets every language offered, English first, created when first read.</summary>
     public IReadOnlyList<OcrLanguageItemViewModel> Items => field ??= CreateItems();
 
-    /// <summary>Gets a value indicating whether the Tesseract library was found on this computer.</summary>
+    /// <summary>Gets a value indicating whether the text recogniser can run on this computer.</summary>
     public bool IsEngineInstalled { get; }
 
-    /// <summary>Gets a note on where packs come from and where they are kept, or how to install Tesseract when it is missing.</summary>
+    /// <summary>Gets a note on where packs come from and where they are kept, or that the recogniser could not start.</summary>
     public string Note { get; }
 
     /// <summary>Gets a value indicating whether a pack is downloading.</summary>

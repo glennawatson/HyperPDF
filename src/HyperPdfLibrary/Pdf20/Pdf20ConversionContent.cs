@@ -146,6 +146,13 @@ internal static class Pdf20ConversionContent
         try
         {
             _ = stream.Decode(ref decoded, session.CancellationToken);
+
+            // The F operator needs an F byte, and most streams have none, so they are neither copied nor read.
+            if (decoded.WrittenSpan.IndexOf((byte)'F') < 0)
+            {
+                return false;
+            }
+
             var content = decoded.WrittenSpan.ToArray();
             if (!ReplaceFill(content, session.Store.Names))
             {

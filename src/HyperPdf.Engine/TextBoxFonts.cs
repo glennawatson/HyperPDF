@@ -73,6 +73,25 @@ internal static class TextBoxFonts
         return true;
     }
 
+    /// <summary>Orders the faces of a catalog for a style: those in the wanted weight and slant first, then the wanted weight, then the wanted slant.</summary>
+    /// <param name="catalog">The installed fonts.</param>
+    /// <param name="bold">Whether bold is wanted.</param>
+    /// <param name="italic">Whether italic is wanted.</param>
+    /// <returns>The faces in the order to try them.</returns>
+    internal static FontFace[] Rank(FontCatalog catalog, bool bold, bool italic)
+    {
+        var faces = new FontFace[catalog.Faces.Count];
+        var ranks = new int[faces.Length];
+        for (var index = 0; index < faces.Length; index++)
+        {
+            faces[index] = catalog.Faces[index];
+            ranks[index] = (faces[index].IsBold == bold ? 0 : WeightMismatch) + (faces[index].IsItalic == italic ? 0 : 1);
+        }
+
+        Array.Sort(ranks, faces);
+        return faces;
+    }
+
     /// <summary>Gets the built in font closest to a format's family, judged by the installed face when there is one.</summary>
     /// <param name="state">The viewer engine's reusable font state.</param>
     /// <param name="catalog">The installed fonts.</param>
@@ -156,9 +175,7 @@ internal static class TextBoxFonts
     /// <returns>The first face with every character, or <see langword="null"/>.</returns>
     private static FontProgram? Search(TextBoxFontState state, FontCatalog catalog, string text, TextFormat format)
     {
-        var faces = new List<FontFace>(catalog.Faces);
-        faces.Sort((a, b) => Rank(a, format).CompareTo(Rank(b, format)));
-        foreach (var face in faces)
+        foreach (var face in state.RankedFaces(catalog, format.IsBold, format.IsItalic))
         {
             if (ReadCovering(state, face, text) is { } program)
             {
@@ -168,13 +185,6 @@ internal static class TextBoxFonts
 
         return null;
     }
-
-    /// <summary>Ranks a face for a format; lower is tried first.</summary>
-    /// <param name="face">The face.</param>
-    /// <param name="format">The format.</param>
-    /// <returns>The rank.</returns>
-    private static int Rank(FontFace face, TextFormat format) =>
-        (face.IsBold == format.IsBold ? 0 : WeightMismatch) + (face.IsItalic == format.IsItalic ? 0 : 1);
 
     /// <summary>Reads a face, without retaining an unselected one, to see whether it has every character.</summary>
     /// <param name="state">The engine's retained font programs.</param>
@@ -188,24 +198,65 @@ internal static class TextBoxFonts
             return Covers(retained, text) ? retained : null;
         }
 
+        if (state.KnownToLack(face, text))
+        {
+            return null;
+        }
+
         try
         {
             var file = new FileInfo(face.Path);
             if (!file.Exists || file.Length > MaxFileBytes)
             {
+                state.NoteUnreadable(face);
                 return null;
             }
 
             var program = FontProgram.FromBytes(face, File.ReadAllBytes(face.Path));
-            return program is not null && Covers(program, text) ? program : null;
+            return program is not null && CoversOrNote(state, program, text) ? program : null;
         }
         catch (IOException)
         {
+            state.NoteUnreadable(face);
             return null;
         }
         catch (UnauthorizedAccessException)
         {
+            state.NoteUnreadable(face);
             return null;
         }
+    }
+
+    /// <summary>Checks that a font has every character of some text, remembering the first it lacks.</summary>
+    /// <param name="state">The engine's retained font programs.</param>
+    /// <param name="program">The font.</param>
+    /// <param name="text">The text.</param>
+    /// <returns><see langword="true"/> when it has them all.</returns>
+    private static bool CoversOrNote(TextBoxFontState state, FontProgram program, string text)
+    {
+        var missing = FirstMissing(program, text);
+        if (missing >= 0)
+        {
+            state.NoteLacks(program.Face, missing);
+        }
+
+        return missing < 0;
+    }
+
+    /// <summary>Finds the first character of some text that a font has no glyph for, white space aside.</summary>
+    /// <param name="program">The font.</param>
+    /// <param name="text">The text.</param>
+    /// <returns>The code point, or -1 when the font has them all.</returns>
+    private static int FirstMissing(FontProgram program, string text)
+    {
+        foreach (var rune in text.EnumerateRunes())
+        {
+            if (!Rune.IsWhiteSpace(rune) && !Rune.IsControl(rune) && program.GlyphFor(rune.Value) == 0)
+            {
+                return rune.Value;
+            }
+        }
+
+        return -1;
     }
 }

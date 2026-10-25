@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Platform;
 using Tmds.DBus.Protocol;
 
@@ -44,7 +45,7 @@ public sealed class DBusFileManagerLauncher : IFileManagerLauncher
         }
         catch (DBusErrorReplyException ex)
         {
-            Debug.WriteLine($"ShowItems failed: {ex.Message}");
+            AppLog.Warning(ex, "ShowItems failed.");
             return false;
         }
     }

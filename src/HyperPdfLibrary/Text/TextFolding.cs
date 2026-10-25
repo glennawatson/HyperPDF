@@ -24,6 +24,9 @@ internal static class TextFolding
     /// <summary>The offset between a fullwidth ASCII variant (U+FF01 to U+FF5E) and its ASCII character.</summary>
     private const int FullwidthOffset = 0xFEE0;
 
+    /// <summary>The highest ASCII character.</summary>
+    private const int HighestAscii = 0x7F;
+
     /// <summary>The first fullwidth ASCII variant.</summary>
     private const char FullwidthFirst = (char)0xFF01;
 
@@ -155,19 +158,31 @@ internal static class TextFolding
 
         var compatibility = (options & PdfTextSearchOptions.FoldCompatibility) != 0;
         Span<char> parts = stackalloc char[TextUnicodeData.LongestCompatibility];
-        for (var i = 0; i < text.Length; i++)
+        var position = 0;
+        while (position < text.Length)
         {
-            var written = TextNormalization.Decompose(text[i], compatibility, parts);
+            // Pages are mostly ASCII with a few special characters, so each run of ASCII is folded in one call.
+            var nonAscii = text[position..].IndexOfAnyExceptInRange((char)0, (char)HighestAscii);
+            var asciiLength = nonAscii < 0 ? text.Length - position : nonAscii;
+            if (asciiLength > 0)
+            {
+                writer.AddAsciiRun(text.Slice(position, asciiLength), options, position);
+                position += asciiLength;
+                continue;
+            }
+
+            var written = TextNormalization.Decompose(text[position], compatibility, parts);
             if (written == 0)
             {
-                writer.Add(text[i], options, i);
-                continue;
+                writer.Add(text[position], options, position);
             }
 
             for (var part = 0; part < written; part++)
             {
-                writer.Add(parts[part], options, i);
+                writer.Add(parts[part], options, position);
             }
+
+            position++;
         }
 
         writer.Reorder();
@@ -277,18 +292,39 @@ internal static class TextFolding
         /// </summary>
         /// <param name="text">The ASCII text.</param>
         /// <param name="options">The search options.</param>
-        internal void AddAscii(ReadOnlySpan<char> text, PdfTextSearchOptions options)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void AddAscii(ReadOnlySpan<char> text, PdfTextSearchOptions options) => AddAsciiRun(text, options, 0);
+
+        /// <summary>Appends a run of ASCII characters that starts at a given index of the source text; each folds to one character.</summary>
+        /// <param name="run">The ASCII characters.</param>
+        /// <param name="options">The search options.</param>
+        /// <param name="source">The index of the run's first character in the text.</param>
+        internal void AddAsciiRun(ReadOnlySpan<char> run, PdfTextSearchOptions options, int source)
         {
+            var destination = _chars.Slice(Count, run.Length);
             if ((options & PdfTextSearchOptions.MatchCase) != 0)
             {
-                text.CopyTo(_chars);
+                run.CopyTo(destination);
             }
             else
             {
-                _ = Ascii.ToLower(text, _chars, out _);
+                _ = Ascii.ToLower(run, destination, out _);
             }
 
-            Count = text.Length;
+            if (_map is null && source != Count)
+            {
+                _map = IdentityMap(_capacity, Count);
+            }
+
+            if (_map is not null)
+            {
+                for (var i = 0; i < run.Length; i++)
+                {
+                    _map[Count + i] = source + i;
+                }
+            }
+
+            Count += run.Length;
         }
 
         /// <summary>Puts the combining marks of the written characters in canonical order.</summary>

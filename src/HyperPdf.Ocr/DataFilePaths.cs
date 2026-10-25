@@ -35,7 +35,7 @@ public sealed class DataFilePaths
     /// <param name="packDirectory">The downloaded language folder, or null.</param>
     /// <returns>The folder, or null when none holds every language.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public string? FindDirectory(string language, string? packDirectory) => TesseractEngine.FindDataDirectory(language, packDirectory, this);
+    public string? FindDirectory(string language, string? packDirectory) => ManagedOcrEngine.FindDataDirectory(language, packDirectory, this);
 
     /// <summary>Gets the path of a language's data file in a folder.</summary>
     /// <param name="directory">The folder.</param>

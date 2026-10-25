@@ -14,6 +14,9 @@ public static class PdfDocumentContent
     /// <summary>The most /Parent steps followed to find a field's inherited actions.</summary>
     internal const int MaxFieldDepth = 32;
 
+    /// <summary>The levels of forms inside forms that are searched for unreadable images.</summary>
+    private const int MaxFormLevels = 2;
+
     /// <summary>The array elements in one name tree pair: the name and its value.</summary>
     private const int NamePairLength = 2;
 
@@ -101,6 +104,16 @@ cancellationToken);
 
         return content;
     }
+
+    /// <summary>
+    /// Determines whether a page draws an image packed with a filter this library does not know, so it can only show a
+    /// placeholder. It looks at the images in the page's resources and in the forms those draw, a few levels down.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <returns><see langword="true"/> when such an image is found; <see langword="false"/> for a page that does not exist.</returns>
+    public static bool HasUnreadableImages(PdfDocument document, int pageIndex) =>
+        (uint)pageIndex < (uint)document.PageCount && PdfDocumentContent.HasUnreadableImages(PdfDocumentPages.GetPage(document, pageIndex).Resources, MaxFormLevels);
 
     /// <summary>Appends the JavaScript of the keystroke, format, validate and calculate actions of a page's form fields.</summary>
     /// <param name="document">The document.</param>
@@ -268,6 +281,37 @@ cancellationToken);
         await load.ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         return PdfDocumentContent.ScanAnnotations(document, pageIndex);
+    }
+
+    /// <summary>Looks through a resource dictionary's images, and the forms it draws, for one with an unknown filter.</summary>
+    /// <param name="resources">The resources, or <see langword="null"/>.</param>
+    /// <param name="levels">How many more levels of forms to search.</param>
+    /// <returns><see langword="true"/> when an image with an unknown filter is found.</returns>
+    private static bool HasUnreadableImages(PdfDictionary? resources, int levels)
+    {
+        if (resources?.GetDictionary(KnownName.XObject) is not { } xobjects)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < xobjects.Count; i++)
+        {
+            if (xobjects.Get(xobjects.GetKeyAt(i)).AsStream() is not { } stream)
+            {
+                continue;
+            }
+
+            var subtype = stream.Dictionary.GetName(KnownName.Subtype);
+            var unreadable = subtype.Is(KnownName.Image)
+                ? PdfStreamDecoder.HasUnknownFilter(stream.Dictionary.Get(KnownName.Filter))
+                : levels > 0 && subtype.Is(KnownName.Form) && PdfDocumentContent.HasUnreadableImages(stream.Dictionary.GetDictionary(KnownName.Resources), levels - 1);
+            if (unreadable)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Says what a annotation subtype needs.</summary>

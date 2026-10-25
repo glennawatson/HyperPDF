@@ -2,7 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers.Binary;
 using System.Numerics;
+using System.Runtime.Intrinsics;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images;
 using HyperPdfLibrary.Objects;
@@ -37,6 +39,18 @@ internal static class BilevelEncoder
     /// <summary>The entries of the CCITT parameters.</summary>
     private const int ParameterCount = 4;
 
+    /// <summary>Reverses the order of the first eight lanes and of the last eight.</summary>
+    private static readonly Vector128<byte> ReverseEachEight =
+        Vector128.Create((byte)0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00, 0x0F, 0x0E, 0x0D, 0x0C, 0x0B, 0x0A, 0x09, 0x08);
+
+    /// <summary>Copies the first byte into the first eight lanes and the second into the last eight.</summary>
+    private static readonly Vector128<byte> SpreadTwoBytes =
+        Vector128.Create((byte)0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01);
+
+    /// <summary>The bit of a byte that each lane of a group of eight stands for, from pixel 0 down to pixel 7.</summary>
+    private static readonly Vector128<byte> EachPixelsBit =
+        Vector128.Create((byte)0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01, 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01);
+
     /// <summary>Determines whether 8-bit samples are all 0 or 255.</summary>
     /// <param name="samples">The samples.</param>
     /// <returns><see langword="true"/> when the image is black and white only.</returns>
@@ -54,15 +68,7 @@ internal static class BilevelEncoder
         target[..(stride * height)].Clear();
         for (var y = 0; y < height; y++)
         {
-            var row = samples.Slice(y * width, width);
-            var line = target.Slice(y * stride, stride);
-            for (var x = 0; x < width; x++)
-            {
-                if (row[x] >= WhiteFrom)
-                {
-                    line[x >> ByteShift] |= (byte)(1 << (BitMask - (x & BitMask)));
-                }
-            }
+            PackRow(samples.Slice(y * width, width), target.Slice(y * stride, stride));
         }
 
         packed.Advance(stride * height);
@@ -79,12 +85,7 @@ internal static class BilevelEncoder
         var target = samples.GetSpan(width * height);
         for (var y = 0; y < height; y++)
         {
-            var line = rows.Slice(y * stride, stride);
-            var row = target.Slice(y * width, width);
-            for (var x = 0; x < width; x++)
-            {
-                row[x] = (line[x >> ByteShift] & (1 << (BitMask - (x & BitMask)))) != 0 ? White : (byte)0;
-            }
+            UnpackRow(rows.Slice(y * stride, stride), target.Slice(y * width, width));
         }
 
         samples.Advance(width * height);
@@ -226,5 +227,52 @@ internal static class BilevelEncoder
         }
 
         return count;
+    }
+
+    /// <summary>Packs one row. A sample is white when its top bit is set, so the top bits of 16 samples are the mask of 16 pixels once the first eight are put in reverse order.</summary>
+    /// <param name="row">The samples of the row.</param>
+    /// <param name="line">The cleared bytes of the packed row.</param>
+    private static void PackRow(ReadOnlySpan<byte> row, Span<byte> line)
+    {
+        var x = 0;
+        if (Vector128.IsHardwareAccelerated)
+        {
+            for (; x + Vector128<byte>.Count <= row.Length; x += Vector128<byte>.Count)
+            {
+                // Pixel 0 is the top bit of its byte, so each group of eight lanes is reversed before the top bits are gathered.
+                var reversed = Vector128.Shuffle(Vector128.Create(row.Slice(x, Vector128<byte>.Count)), ReverseEachEight);
+                BinaryPrimitives.WriteUInt16LittleEndian(line[(x >> ByteShift)..], (ushort)reversed.ExtractMostSignificantBits());
+            }
+        }
+
+        for (; x < row.Length; x++)
+        {
+            if (row[x] >= WhiteFrom)
+            {
+                line[x >> ByteShift] |= (byte)(1 << (BitMask - (x & BitMask)));
+            }
+        }
+    }
+
+    /// <summary>Unpacks one row, 16 pixels from each pair of bytes: each byte is spread over eight lanes and each lane keeps only its own bit.</summary>
+    /// <param name="line">The packed row.</param>
+    /// <param name="row">Receives one byte a pixel.</param>
+    private static void UnpackRow(ReadOnlySpan<byte> line, Span<byte> row)
+    {
+        var x = 0;
+        if (Vector128.IsHardwareAccelerated)
+        {
+            for (; x + Vector128<byte>.Count <= row.Length; x += Vector128<byte>.Count)
+            {
+                var pair = Vector128.CreateScalar(BinaryPrimitives.ReadUInt16LittleEndian(line[(x >> ByteShift)..])).AsByte();
+                var bits = Vector128.Shuffle(pair, SpreadTwoBytes) & EachPixelsBit;
+                Vector128.Equals(bits, EachPixelsBit).CopyTo(row[x..]);
+            }
+        }
+
+        for (; x < row.Length; x++)
+        {
+            row[x] = (line[x >> ByteShift] & (1 << (BitMask - (x & BitMask)))) != 0 ? White : (byte)0;
+        }
     }
 }

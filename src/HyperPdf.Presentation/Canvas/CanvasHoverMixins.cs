@@ -72,6 +72,16 @@ public static class CanvasHoverMixins
         public bool IsOverCommentTrigger(PointerHover hover) =>
             hover.IsOverPage && state.Tab is { } tab && tab.Annotations.IsOverCommentTrigger(hover.Page, hover.Point);
 
+        /// <summary>Gets the pointer shape for a point where the select tool hovers: a hand over something clickable, an I-beam over text, else an arrow.</summary>
+        /// <param name="hover">The page and page point under the pointer.</param>
+        /// <returns>The shape.</returns>
+        public ViewerCursor GetHoverCursor(PointerHover hover)
+        {
+            // The text probe takes the page lock and scans characters, and a hand cursor wins whatever it finds, so it runs only when nothing is clickable.
+            var clickable = state.HitTestLink(hover) is not null || state.IsOverField(hover) || state.IsOverCommentTrigger(hover);
+            return PointerRouting.GetHoverCursor(!clickable && state.IsOverText(hover), clickable);
+        }
+
         /// <summary>Gets the pointer for the chosen tool when it is not over anything special.</summary>
         /// <returns>The shape, or <see cref="ViewerCursor.Inherit"/> for select text, whose pointer follows what is under it.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

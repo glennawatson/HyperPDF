@@ -7,7 +7,6 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Media;
-using HyperPdf.Media;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -17,8 +16,8 @@ using ReactiveUI.SourceGenerators;
 namespace HyperPdf.ViewModels.Sidebar;
 
 /// <summary>
-/// Plays the chosen sound or video inside the viewer with the FFmpeg libraries that ship with the app. Nothing plays until the
-/// reader presses Play. When the libraries cannot be loaded the buttons stay off and the panel says so; saving the media and
+/// Plays the chosen sound or video inside the viewer with the decoders that ship with the app. Nothing plays until the
+/// reader presses Play. When media cannot be played the buttons stay off and the panel says so; saving the media and
 /// opening it with the system player still work.
 /// </summary>
 [DebuggerDisplay("MediaPlayerViewModel: {State}")]
@@ -31,8 +30,8 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     private const double FollowTolerance = 0.6;
 
     /// <summary>What the panel says when media cannot be played here.</summary>
-    private const string NotInstalled =
-        "Sound and video cannot be played here because the FFmpeg libraries that come with HyperPDF could not be loaded. You can still save the media or open it with your system's player.";
+    private const string CannotPlay =
+        "Sound and video cannot be played here. You can still save the media or open it with your system's player.";
 
     /// <summary>What the panel says before anything is chosen.</summary>
     private const string ChooseSomething = "Choose a sound or video, then press Play.";
@@ -264,7 +263,7 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     {
         if (!IsAvailable)
         {
-            return NotInstalled;
+            return CannotPlay;
         }
 
         return _media.Selected is null ? ChooseSomething : "Ready. Press Play.";
@@ -279,7 +278,7 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
         Status = "Opening…";
         if (_factory.Create(_media.ReduceMotion) is not { } player)
         {
-            Status = NotInstalled;
+            Status = CannotPlay;
             return false;
         }
 

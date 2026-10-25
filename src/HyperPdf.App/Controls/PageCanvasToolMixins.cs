@@ -26,6 +26,11 @@ internal static class PageCanvasToolMixins
         internal IObservable<KeyEventArgs> SpaceKeyUps => canvas.Events().KeyUp
             .WhereWith(canvas, static (c, e) => e.Key == Key.Space && c.SpaceHeld);
 
+        /// <summary>Gets the animation frames while a text selection drag is under way, which scroll the pages when the pointer is held outside the view.</summary>
+        internal IObservable<TimeSpan> SelectionDragFrames => canvas.WhenChanged(static c => c.SelectionDrag)
+            .SelectWith(canvas, static (c, on) => on && TopLevel.GetTopLevel(c) is { } top ? top.AnimationFrames : Signal.Never<TimeSpan>())
+            .SwitchMap(static frames => frames);
+
         /// <summary>Gets the animation frames while auto-scroll is active on the current tab.</summary>
         /// <param name="tabs">The tab stream.</param>
         /// <returns>The frame timestamps while auto-scrolling.</returns>
@@ -35,6 +40,10 @@ internal static class PageCanvasToolMixins
                 .DistinctUntilChanged()
                 .SelectWith(canvas, static (c, on) => on ? Signal.Defer(c.StartGlide) : Signal.Never<TimeSpan>())
                 .SwitchMap(static frames => frames);
+
+        /// <summary>Moves the pages on one frame of a selection drag; the presentation layer decides how far.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal void StepSelectionDrag() => canvas.State.StepSelectionDrag();
 
         /// <summary>
         /// Starts a glide: the keyboard comes to the pages so the arrows change the speed and Escape stops, and the window's

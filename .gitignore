@@ -432,3 +432,17 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Placeholders the Claude Code sandbox mounts over the repository root (no trailing slash: they are device files, not folders)
+/.bash_profile
+/.bashrc
+/.gitconfig
+/.gitmodules
+/.mcp.json
+/.profile
+/.ripgreprc
+/.zprofile
+/.zshrc
+/.idea
+/.vscode
+/.claude

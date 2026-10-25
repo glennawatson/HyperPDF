@@ -1,0 +1,34 @@
+<Project>
+  <!--
+    Text recognition ships with the app as managed code, and so does Tesseract's English data (the networks it reads
+    with), so Recognise Text works the first time with no setup. Projects that run text recognition set
+    UsesRecognitionData to true.
+  -->
+  <PropertyGroup>
+    <!-- tessdata_fast 4.1.0 English, pinned by SHA-256; the same file OcrLanguageCatalog offers for download. -->
+    <RecognitionEnglishUrl>https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/4.1.0/eng.traineddata</RecognitionEnglishUrl>
+    <RecognitionEnglishSha256>7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2</RecognitionEnglishSha256>
+  </PropertyGroup>
+
+  <!--
+    Downloads the English data into this build's own obj folder, checks its SHA-256 and copies it to tessdata/ beside
+    the app. The folder is per target framework because multi-targeted projects build their frameworks in parallel.
+  -->
+  <Target Name="AddRecognitionEnglish" BeforeTargets="AssignTargetPaths" Condition="'$(UsesRecognitionData)' == 'true'">
+    <PropertyGroup>
+      <RecognitionEnglishDirectory>$(IntermediateOutputPath)tessdata/</RecognitionEnglishDirectory>
+    </PropertyGroup>
+    <DownloadFile SourceUrl="$(RecognitionEnglishUrl)" DestinationFolder="$(RecognitionEnglishDirectory)" Retries="3"
+                  Condition="!Exists('$(RecognitionEnglishDirectory)eng.traineddata')" />
+    <GetFileHash Files="$(RecognitionEnglishDirectory)eng.traineddata" Algorithm="SHA256">
+      <Output TaskParameter="Hash" PropertyName="_RecognitionEnglishHash" />
+    </GetFileHash>
+    <Delete Files="$(RecognitionEnglishDirectory)eng.traineddata" Condition="'$(_RecognitionEnglishHash.ToLowerInvariant())' != '$(RecognitionEnglishSha256)'" />
+    <Error Condition="'$(_RecognitionEnglishHash.ToLowerInvariant())' != '$(RecognitionEnglishSha256)'"
+           Text="The downloaded English text recognition data did not match its SHA-256 and was deleted. Build again to download it again." />
+    <ItemGroup>
+      <None Include="$(RecognitionEnglishDirectory)eng.traineddata" Link="tessdata/eng.traineddata"
+            CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+</Project>

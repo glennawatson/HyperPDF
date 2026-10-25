@@ -28,6 +28,16 @@ public interface IPdfDrawingSession
     /// <returns>Whether drawing was submitted.</returns>
     bool DrawPage(IPdfRenderPicture content, IPdfRenderPicture? annotations, Matrix3x2 matrix, IPdfRenderTarget target, bool grayscale);
 
+    /// <summary>Writes recorded page content as a scalable vector graphics document.</summary>
+    /// <param name="content">The page content.</param>
+    /// <param name="annotations">The optional annotation recording.</param>
+    /// <param name="width">The page width in points.</param>
+    /// <param name="height">The page height in points.</param>
+    /// <param name="background">Whether to paint the white of the paper behind the page.</param>
+    /// <param name="output">The stream the document is written to.</param>
+    /// <returns>Whether the backend can write SVG and did; a backend that cannot returns <see langword="false"/> and writes nothing.</returns>
+    bool WriteSvg(IPdfRenderPicture content, IPdfRenderPicture? annotations, float width, float height, bool background, Stream output) => false;
+
     /// <summary>Draws an image fitted to the caller's target buffer.</summary>
     /// <param name="image">The image.</param>
     /// <param name="target">The caller-owned raster target, which is borrowed only until this call returns.</param>

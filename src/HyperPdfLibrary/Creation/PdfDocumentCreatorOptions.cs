@@ -54,6 +54,13 @@ public sealed record PdfDocumentCreatorOptions
     /// </summary>
     public bool UseDefaultFallbackFonts { get; init; } = true;
 
+    /// <summary>
+    /// Gets extra entries for the document information dictionary, by key, for things the standard keys do not cover such as a
+    /// case number. The standard keys (Title, Author, Subject, Keywords, Creator, Producer, CreationDate) are set by the other
+    /// options and cannot be named here. The entries are not copied to the XMP metadata.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? CustomInfo { get; init; }
+
     /// <summary>Gets the clock that dates the document, or <see langword="null"/> for the system clock.</summary>
     public TimeProvider? Clock { get; init; }
 }

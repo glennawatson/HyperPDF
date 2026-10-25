@@ -1250,6 +1250,37 @@ public static class Descriptions
         "Save a copy in which form fields, comments and other marks become part of the page and can no longer be changed. "
         + "A signed document is refused with a reason. Your open file is never changed.";
 
+    /// <summary>The Export Pages menu item.</summary>
+    public static readonly string ExportPages =
+        "Save pages as picture files, or as SVG, PostScript or EPS drawings. Your open file is never changed.";
+
+    /// <summary>The format list of the export pages window.</summary>
+    public static readonly string ExportFormats = "Choose the kind of file to make. Use the arrow keys to move between the choices.";
+
+    /// <summary>The page choices of the export pages window.</summary>
+    public static readonly string ExportScopes = "Choose which pages to export. Use the arrow keys to move between the choices.";
+
+    /// <summary>The page range box of the export pages window.</summary>
+    public static readonly string ExportPageRange = "Type the pages to export, such as 1-3, 7. Used when you choose the pages you type.";
+
+    /// <summary>The resolution box of the export pages window.</summary>
+    public static readonly string ExportResolution = "How sharp a picture is, in dots to the inch. Higher is sharper and the file is larger. Drawings ignore it.";
+
+    /// <summary>The marks box of the export pages window.</summary>
+    public static readonly string ExportMarkup = "Draw comments, form fields and other marks on the pages.";
+
+    /// <summary>The busy bar of the export pages window.</summary>
+    public static readonly string ExportProgress = "Moves while the pages are being exported.";
+
+    /// <summary>The export button of the export pages window.</summary>
+    public static readonly string ExportSave = "Choose where to save, then export. A format that holds one page makes a numbered file for each page.";
+
+    /// <summary>The cancel button of the export pages window.</summary>
+    public static readonly string ExportCancel = "Stop exporting. Files already finished stay saved.";
+
+    /// <summary>The summary of the export pages window.</summary>
+    public static readonly string ExportResult = "What was saved, what the format left out and what was drawn a little differently.";
+
     /// <summary>The scope choices of the flattened copy window.</summary>
     public static readonly string FlattenScopes = "Choose what becomes part of the page. Use the arrow keys to move between the choices.";
 
@@ -1298,6 +1329,13 @@ public static class Descriptions
 
     /// <summary>The add tags box of the optimised copy window.</summary>
     public static readonly string OptimizeTags = "Guess headings, paragraphs and pictures from the page layout when the document has no reading structure. The guess can be wrong, so check it.";
+
+    /// <summary>The describe pictures box of the optimised copy window.</summary>
+    public static readonly string OptimizeDescribePictures =
+        "Write a short description of each picture as its alternate text, so a screen reader can say what it shows. "
+        + "A small model on this computer makes the description, and nothing is sent anywhere. "
+        + "The first time, it downloads the model from this project's release. The descriptions can be wrong, so check them. "
+        + "Needs the reading structure box.";
 
     /// <summary>The clean up box of the optimised copy window.</summary>
     public static readonly string OptimizeCleanUp = "Remove page thumbnails, private application data, unused resources and empty comment lists. Pages look the same.";

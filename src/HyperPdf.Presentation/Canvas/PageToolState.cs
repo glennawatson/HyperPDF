@@ -15,6 +15,15 @@ public sealed class PageToolState
     /// <summary>Gets or sets a value indicating whether a text selection drag is active.</summary>
     public bool Selecting { get; set; }
 
+    /// <summary>Gets or sets where the pointer was on the canvas at the last selection drag step.</summary>
+    public CanvasPoint SelectionPointer { get; set; }
+
+    /// <summary>Gets or sets where the pointer was in the scrolling area at the last selection drag step.</summary>
+    public CanvasPoint SelectionPointerInScroller { get; set; }
+
+    /// <summary>Gets or sets when the last selection drag frame ran, as a <see cref="Stopwatch"/> timestamp.</summary>
+    public long SelectionDragLast { get; set; }
+
     /// <summary>Gets or sets where the pointer last went down on the canvas.</summary>
     public CanvasPoint PressPoint { get; set; }
 

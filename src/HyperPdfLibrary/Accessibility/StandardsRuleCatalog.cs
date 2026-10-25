@@ -8,7 +8,7 @@ namespace HyperPdfLibrary.Accessibility;
 
 /// <summary>
 /// Reads the rules of veraPDF's PDF/UA, tagged PDF, Well-Tagged PDF and WCAG profiles. The table is the embedded
-/// <c>Data/StandardsRules.tsv</c>, which <c>scripts/StandardsRuleTableGenerator.cs</c> writes from the profile files; a rule that several
+/// <c>Data/StandardsRules.tsv</c>, which <c>src/tools/StandardsRuleTableGenerator.cs</c> writes from the profile files; a rule that several
 /// profiles share is stored once with a bit for each profile that holds it.
 /// </summary>
 internal static class StandardsRuleCatalog

@@ -68,6 +68,29 @@ internal sealed class SkiaDrawingSession : IPdfDrawingSession
     }
 
     /// <inheritdoc/>
+    public bool WriteSvg(IPdfRenderPicture content, IPdfRenderPicture? annotations, float width, float height, bool background, Stream output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        // The canvas writes the document when it is disposed.
+        using (var canvas = SKSvgCanvas.Create(new(0, 0, width, height), output))
+        {
+            if (background)
+            {
+                canvas.Clear(White);
+            }
+
+            canvas.DrawPicture(SkiaResources.Picture(content));
+            if (annotations is not null)
+            {
+                canvas.DrawPicture(SkiaResources.Picture(annotations));
+            }
+        }
+
+        return true;
+    }
+
+    /// <inheritdoc/>
     public unsafe bool DrawImage(IPdfRenderImage image, PdfTileTarget target)
     {
         var surface = _surface ??= new RenderSurface();

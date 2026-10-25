@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Platform.Linux\HyperPdf.Platform.Linux.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Platform.MacOS\HyperPdf.Platform.MacOS.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Platform.Windows\HyperPdf.Platform.Windows.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Speech\HyperPdf.Speech.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Vision\HyperPdf.Vision.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Http\HyperPdf.Http.csproj" />
+    <ProjectReference Include="..\..\HyperPdfLibrary\HyperPdfLibrary.csproj" />
+    <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Caps the tests running at once in this process, which shares a small CI runner with other test processes. -->
+    <Compile Include="..\HyperPdfLibrary.Tests\TestParallelLimit.cs" Link="TestParallelLimit.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Short files made by independent encoders: AAC sound alone, pictures with sound and text, and H.265 pictures alone. -->
+    <None Include="Media\Fixtures\*" Link="Fixtures\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- A 356 byte model with Kokoro's inputs and output, made with the onnx Python package, to prove the ONNX path. -->
+    <None Include="Speech\Fixtures\kokoro-stand-in.onnx" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Speech\Melo\melo-reference.json" Link="melo-reference.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\listening\corpus.json" Link="listening-corpus.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -12,8 +12,10 @@ namespace HyperPdfLibrary.Export;
 
 /// <summary>
 /// Takes the images a page draws out of a document as files. A JPEG or JPEG 2000 image is written as the document stores it,
-/// so nothing is lost; any other image is decoded and written as a PNG. An image drawn more than once is written once, and
-/// the images of forms the page draws are included. Images the document cannot decode are left out.
+/// so nothing is lost. A JBIG2 image is written as a JBIG2 file and a CCITT image as a TIFF, both with the coded data
+/// untouched; when the CCITT coding has no TIFF form, or the image is inline, it is decoded like the rest. Any other image is
+/// decoded and written as a PNG. An image drawn more than once is written once, and the images of forms the page draws are
+/// included. Images the document cannot decode are left out.
 /// </summary>
 public static class PdfImageExtraction
 {
@@ -102,19 +104,29 @@ public static class PdfImageExtraction
     private static ImageFile? Encode(PdfImageObject image, PdfDictionary? resources)
     {
         var last = image.Filters.Count > 0 ? image.Filters[^1].ToKnownName() : KnownName.None;
-        if (last is KnownName.DCTDecode or KnownName.DCT)
+        var stored = last switch
         {
-            return new("jpg", image.GetDecodedData());
-        }
+            KnownName.DCTDecode or KnownName.DCT => new ImageFile("jpg", image.GetDecodedData()),
+            KnownName.JPXDecode => new("jp2", image.GetDecodedData()),
+            KnownName.JBIG2Decode => Wrap("jb2", PdfStoredImageFiles.TryMakeJbig2(image)),
+            KnownName.CCITTFaxDecode or KnownName.CCF => Wrap("tif", PdfStoredImageFiles.TryMakeCcittTiff(image)),
+            _ => (ImageFile?)null,
+        };
 
-        if (last == KnownName.JPXDecode)
+        if (stored is { } file)
         {
-            return new("jp2", image.GetDecodedData());
+            return file;
         }
 
         var pixels = image.DecodePixels(resources);
         return pixels is null || pixels.Pixels.Length == 0 || pixels.UnsupportedCodec != Filters.PdfImageCodec.None ? null : new("png", PdfPngWriter.Encode(pixels));
     }
+
+    /// <summary>Pairs wrapped data with its extension.</summary>
+    /// <param name="extension">The extension without a dot.</param>
+    /// <param name="data">The wrapped bytes, or <see langword="null"/> when the data could not be wrapped.</param>
+    /// <returns>The file, or <see langword="null"/>.</returns>
+    private static ImageFile? Wrap(string extension, byte[]? data) => data is null ? null : new ImageFile(extension, data);
 
     /// <summary>Names an image file.</summary>
     /// <param name="pageIndex">The zero-based page.</param>

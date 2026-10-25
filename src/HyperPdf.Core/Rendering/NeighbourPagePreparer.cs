@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 
@@ -184,7 +185,7 @@ public sealed class NeighbourPagePreparer : IDisposable
         catch (Exception exception) when (exception is not (OutOfMemoryException or AccessViolationException))
         {
             // A damaged page is not worth a failure the reader would see; it is drawn, and reported, when they reach it.
-            Debug.WriteLine($"Neighbour preparation failed for page {template.PageIndex}: {exception.Message}");
+            AppLog.Warning(exception, $"Neighbour preparation failed for page {template.PageIndex}.");
         }
         finally
         {

@@ -34,11 +34,11 @@ publish/
 *.pfx
 
 # Large static data tables, generated notices, and external fixture sets
-tests/reference-pdfs/*.pdf
-tests/listening/
-tests/HyperPdfLibrary.Tests/Conformance/VeraPdf/Data/verapdf-results.tsv
+src/tests/reference-pdfs/*.pdf
+src/tests/listening/
+src/tests/HyperPdfLibrary.Tests/Conformance/VeraPdf/Data/verapdf-results.tsv
 src/HyperPdfLibrary/Conformance/Data/PdfARules.tsv
 src/HyperPdfLibrary/Fonts/Data/
 src/HyperPdfLibrary/Annotations/AppearanceFontMetricsData.cs
 src/HyperPdfLibrary/Text/TextUnicodeData.cs
-licenses/notices/
+src/licenses/notices/

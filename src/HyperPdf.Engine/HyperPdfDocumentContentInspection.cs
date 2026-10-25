@@ -47,6 +47,11 @@ internal static class HyperPdfDocumentContentInspection
             content |= UnsupportedContent.ThreeD;
         }
 
+        if (PdfDocumentContent.HasUnreadableImages(self.Document, pageIndex))
+        {
+            content |= UnsupportedContent.UnreadableImages;
+        }
+
         return PdfDocumentContent.HasAcroForm(self.Document) && HyperPdfContentInspection.HasUnknownScripts(self, pageIndex) ? content | UnsupportedContent.JavaScript : content;
     }
 }

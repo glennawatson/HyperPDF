@@ -18,6 +18,9 @@ internal static class TextLineOrder
     /// <summary>The paragraph level of a right-to-left line.</summary>
     private const int RightToLeftLevel = 1;
 
+    /// <summary>The first character of the Hebrew block, below which no character is a right-to-left letter or an Arabic number.</summary>
+    private const char FirstRightToLeft = (char)0x0590;
+
     /// <summary>The characters a hyphenated word needs: the hyphen and the letter before it.</summary>
     private const int MinCharsForHyphenWord = 2;
 
@@ -52,6 +55,13 @@ internal static class TextLineOrder
     /// <returns><see langword="true"/> when the logical order was written to <see cref="TextPageBuildState.LineLogical"/>.</returns>
     private static bool Reorder(TextPageBuildState state)
     {
+        // No right-to-left letter or Arabic number exists below the Hebrew block, so a line of Latin, Greek or Cyrillic text
+        // is left in order without building its groups or looking up any bidirectional class.
+        if (!MayNeedReordering(CollectionsMarshal.AsSpan(state.LineChars)))
+        {
+            return false;
+        }
+
         FindGroups(state);
         var types = CollectionsMarshal.AsSpan(state.GroupTypes);
         if (!TextBidi.NeedsReordering(types))
@@ -77,6 +87,22 @@ internal static class TextLineOrder
         }
 
         return true;
+    }
+
+    /// <summary>Determines whether any character of a line is at or above the first right-to-left block, so reordering could change the line.</summary>
+    /// <param name="chars">The line's characters.</param>
+    /// <returns><see langword="false"/> when no character can be a right-to-left letter or an Arabic number.</returns>
+    private static bool MayNeedReordering(ReadOnlySpan<TextBuildChar> chars)
+    {
+        foreach (var character in chars)
+        {
+            if (character.InText && character.Unicode >= FirstRightToLeft)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Finds the glyph groups of the line and the bidirectional class of each.</summary>

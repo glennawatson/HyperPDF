@@ -10,7 +10,7 @@ namespace HyperPdf.Core.Licences;
 
 /// <summary>
 /// The third-party notices file read into groups of components. The file is Markdown written by
-/// <c>scripts/GenerateThirdPartyNotices.cs</c>: a <c>## </c> heading per licence, a <c>### </c> heading per component
+/// <c>src/tools/GenerateThirdPartyNotices.cs</c>: a <c>## </c> heading per licence, a <c>### </c> heading per component
 /// with <c>- Name: value</c> lines, then the licence text in a four-backtick <c>text</c> fence. Reading the file only
 /// notes where each part sits; the groups and their strings are made the first time <see cref="Groups"/> is read.
 /// </summary>

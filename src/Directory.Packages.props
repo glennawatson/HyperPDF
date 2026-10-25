@@ -1,0 +1,96 @@
+<Project>
+  <PropertyGroup Label="Central Package Management">
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Shared Version Variables">
+    <AvaloniaVersion>12.1.4</AvaloniaVersion>
+    <TUnitVersion>1.75.0</TUnitVersion>
+    <!-- StyleSharp.Analyzers, PerformanceSharp.Analyzers and SecuritySharp.Analyzers ship from the
+         same release pipeline and always share a version. -->
+    <RoslynCommonAnalyzersVersion>5.1.4</RoslynCommonAnalyzersVersion>
+    <SkiaVersion>4.153.1</SkiaVersion>
+    <HarfBuzzVersion>14.2.1.301</HarfBuzzVersion>
+  </PropertyGroup>
+
+  <ItemGroup Label="UI">
+    <PackageVersion Include="Avalonia" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Win32" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Native" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.X11" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Wayland" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="Avalonia.Headless" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <!-- X11's package declares Skia, but its assembly does not reference it. Rendering is supplied by HyperPdf.Skia. -->
+  <!-- X11 always starts Avalonia's AT-SPI server, which shows a second, poorer tree. HyperPdf.AtSpiReplacement takes the place of that
+       assembly with the nine members X11 calls, and HyperPdf.Platform.Linux serves screen readers instead. -->
+  <ItemGroup>
+    <PrunePackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
+    <PrunePackageReference Include="Avalonia.FreeDesktop.AtSpi" Version="$(AvaloniaVersion)" />
+  </ItemGroup>
+
+  <ItemGroup Label="ReactiveUI">
+    <PackageVersion Include="HyperCodecs" Version="1.0.0" />
+    <PackageVersion Include="HyperCodecs.Platform.Linux" Version="1.0.0" />
+    <PackageVersion Include="ReactiveUI" Version="26.0.1" />
+    <PackageVersion Include="ReactiveUI.Binding" Version="9.1.0" />
+    <PackageVersion Include="ReactiveUI.Avalonia" Version="12.1.6" />
+    <PackageVersion Include="ReactiveUI.Primitives" Version="9.0.0" />
+    <PackageVersion Include="ReactiveUI.Primitives.ObservableEvents" Version="9.0.0" />
+    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="4.2.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Platform / HTTP">
+    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.95.1" />
+    <PackageVersion Include="SkiaSharp" Version="$(SkiaVersion)" />
+    <PackageVersion Include="HarfBuzzSharp" Version="$(HarfBuzzVersion)" />
+    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="$(HarfBuzzVersion)" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="$(SkiaVersion)" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.macOS" Version="$(SkiaVersion)" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Win32" Version="$(SkiaVersion)" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="$(SkiaVersion)" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="$(SkiaVersion)" />
+    <PackageVersion Include="Refit" Version="16.4.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="TUnit" Version="$(TUnitVersion)" />
+    <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.16.0-preview.2" />
+    <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="4.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+  </ItemGroup>
+
+  <!-- Each target framework takes the package of its own release: the .NET 11 package refers to types
+       (CompositeMLKem) that only the .NET 11 runtime has. -->
+  <Choose>
+    <When Condition="'$(TargetFramework)' == 'net10.0'">
+      <ItemGroup>
+        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.13" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.13" />
+      </ItemGroup>
+    </When>
+    <Otherwise>
+      <ItemGroup>
+        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0-rc.2.26504.105" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0-rc.2.26504.105" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0-rc.2.26504.105" />
+      </ItemGroup>
+    </Otherwise>
+  </Choose>
+
+  <ItemGroup Label="Packaging tools">
+    <PackageVersion Include="MinVer" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Analyzers">
+    <PackageVersion Include="StyleSharp.Analyzers" Version="$(RoslynCommonAnalyzersVersion)" />
+    <PackageVersion Include="PerformanceSharp.Analyzers" Version="$(RoslynCommonAnalyzersVersion)" />
+    <PackageVersion Include="SecuritySharp.Analyzers" Version="$(RoslynCommonAnalyzersVersion)" />
+  </ItemGroup>
+</Project>

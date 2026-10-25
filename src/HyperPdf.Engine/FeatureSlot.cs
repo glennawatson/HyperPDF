@@ -123,4 +123,7 @@ internal enum FeatureSlot
 
     /// <summary>The sound and video a document carries.</summary>
     MediaSource = 37,
+
+    /// <summary>Exporting pages as pictures and vector drawings.</summary>
+    PageFileExporter = 38,
 }

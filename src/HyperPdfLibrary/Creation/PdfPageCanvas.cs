@@ -38,6 +38,9 @@ public ref struct PdfPageCanvas
     /// <summary>Whether the page has been added to the document.</summary>
     private int _finished;
 
+    /// <summary>The annotations of the page, such as links, in the order they were added; made when the first is added.</summary>
+    private List<PdfObjectId>? _annotations;
+
     /// <summary>Initializes a new instance of the <see cref="PdfPageCanvas"/> struct.</summary>
     /// <param name="creator">The document being created.</param>
     /// <param name="page">The page object, reserved before drawing starts.</param>
@@ -53,6 +56,7 @@ public ref struct PdfPageCanvas
         _content = default;
         _open = 0;
         _finished = 0;
+        _annotations = null;
         if (creator.ContentCapacityHint > 0)
         {
             _content.Reserve(creator.ContentCapacityHint);
@@ -64,6 +68,9 @@ public ref struct PdfPageCanvas
 
     /// <summary>Gets the page height in points.</summary>
     public readonly float Height { get; }
+
+    /// <summary>Gets the page's object, which exists from the moment the page is begun so annotations and destinations can refer to it.</summary>
+    public readonly PdfObjectId Page => _page;
 
     /// <summary>
     /// Gets the page's resources, for operators written through <see cref="Content"/>. The set is only valid until
@@ -295,6 +302,15 @@ public ref struct PdfPageCanvas
         _content.RestoreState();
     }
 
+    /// <summary>Adds an annotation, such as a link, to the page. The annotation's dictionary is written by the caller.</summary>
+    /// <param name="annotation">The annotation's object, made with <see cref="PdfDocumentCreator.Sink"/>.</param>
+    /// <exception cref="ObjectDisposedException">The page was already finished or disposed.</exception>
+    public void AddAnnotation(PdfObjectId annotation)
+    {
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _finished) != 0, typeof(PdfPageCanvas));
+        (_annotations ??= []).Add(annotation);
+    }
+
     /// <summary>Starts marked content that belongs to a structure element (ISO 32000-2 14.7.4); close it with <see cref="EndContent"/>.</summary>
     /// <param name="element">The element the content belongs to.</param>
     /// <exception cref="ArgumentNullException"><paramref name="element"/> is <see langword="null"/>.</exception>
@@ -359,7 +375,7 @@ public ref struct PdfPageCanvas
         try
         {
             _creator.ContentCapacityHint = _content.Length;
-            _creator.CompletePage(_page, Width, Height, _resources, _content.ToArray());
+            _creator.CompletePage(_page, Width, Height, _resources, _content.ToArray(), _annotations);
         }
         finally
         {
@@ -415,7 +431,7 @@ public ref struct PdfPageCanvas
 
     /// <summary>Checks that a tagged document's content is inside marked content.</summary>
     /// <exception cref="InvalidOperationException">The document is tagged and no content or artifact is open.</exception>
-    private readonly void RequireMarked()
+    internal readonly void RequireMarked()
     {
         if (_creator.Tags is null || _open > 0)
         {

@@ -14,7 +14,7 @@ namespace HyperPdf.App.Services;
 
 /// <summary>
 /// Checks text recognition works from the app's own files, without a window: renders a built-in English sentence with
-/// HyperPDF, recognises it with the shipped Tesseract and English data, and prints where each came from and what was read.
+/// HyperPDF, recognises it with the managed recogniser and the shipped English data, and prints where the data came from and what was read.
 /// Installers and CI run <c>hyperpdf --check-text-recognition</c> to prove a fresh install recognises text.
 /// </summary>
 internal static class TextRecognitionCheck
@@ -41,8 +41,7 @@ internal static class TextRecognitionCheck
     {
         ArgumentNullException.ThrowIfNull(output);
         using var setup = OcrSetup.CreateDefault();
-        using var engine = new TesseractEngine(OcrLanguageCatalog.DefaultLanguage, setup.LanguageDirectory);
-        output.WriteLine($"Tesseract: {TesseractEngine.LibraryPath ?? "not found"}");
+        using var engine = new ManagedOcrEngine(OcrLanguageCatalog.DefaultLanguage, setup.LanguageDirectory);
         output.WriteLine($"Language data: {engine.DataDirectory ?? "not found"}");
         if (!engine.IsAvailable)
         {
@@ -69,10 +68,10 @@ internal static class TextRecognitionCheck
     /// <param name="path">The sample document.</param>
     /// <param name="engine">The recogniser.</param>
     /// <returns>The words read.</returns>
-    private static List<OcrWord> Recognize(string path, TesseractEngine engine)
+    private static List<OcrWord> Recognize(string path, ManagedOcrEngine engine)
     {
         using var document = new HyperPdfEngine().Open(path, null);
-        var size = document.GetPageSizes()[0];
+        var size = document.GetPageSize(0);
         var width = (int)MathF.Ceiling(size.Width * ScanScale);
         var height = (int)MathF.Ceiling(size.Height * ScanScale);
         var pixels = new byte[width * height * BytesPerPixel];

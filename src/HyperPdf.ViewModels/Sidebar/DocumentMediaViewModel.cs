@@ -6,7 +6,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
-using HyperPdf.Media;
+using HyperPdf.Core.Media;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -16,7 +16,7 @@ namespace HyperPdf.ViewModels.Sidebar;
 
 /// <summary>
 /// A tab's sound and video. The media panel only appears for documents that have some. Media never plays by itself: the page
-/// shows the annotation's poster picture, and the reader can press Play to play it in the panel (when FFmpeg is installed),
+/// shows the annotation's poster picture, and the reader can press Play to play it in the panel (when the app has a decoder for it),
 /// save it, or hand it to the system player after confirming.
 /// </summary>
 [DebuggerDisplay("DocumentMediaViewModel: {Items.Count} items")]

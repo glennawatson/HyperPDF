@@ -83,27 +83,44 @@ public static class CanvasCaretMixins
             state.Host.InvalidateVisual();
         }
 
-        /// <summary>Selects all the text on the current page; the caret moves to its end, so Shift and the arrows adjust it.</summary>
+        /// <summary>Selects all the text of the document; the caret moves to its end, so Shift and the arrows adjust it.</summary>
         /// <param name="tab">The tab.</param>
-        public void SelectAllOnPage(DocumentTabViewModel tab)
+        public void SelectAllText(DocumentTabViewModel tab)
         {
             ArgumentNullException.ThrowIfNull(tab);
+            state.Selection.Clear();
+            state.Host.InvalidateVisual();
             if (tab.TryGetDocument() is not { PageCount: > 0 } document)
             {
                 return;
             }
 
-            var page = Math.Clamp(tab.CurrentPageIndex, 0, document.PageCount - 1);
-            var count = document.GetCharacterCount(page);
-            state.Selection.Clear();
-            state.Host.InvalidateVisual();
-            if (count <= 0)
+            var firstPage = -1;
+            var lastPage = -1;
+            for (var page = 0; page < document.PageCount; page++)
+            {
+                if (document.GetCharacterCount(page) <= 0)
+                {
+                    continue;
+                }
+
+                if (firstPage < 0)
+                {
+                    firstPage = page;
+                }
+
+                lastPage = page;
+            }
+
+            if (firstPage < 0)
             {
                 return;
             }
 
-            state.Selection.SelectPage(page, count);
-            state.Caret = new(page, count - 1);
+            var last = new CharacterPosition(lastPage, document.GetCharacterCount(lastPage) - 1);
+            state.Selection.Begin(new(firstPage, 0));
+            state.Selection.Focus = last;
+            state.Caret = last;
         }
 
         /// <summary>Scrolls just enough to show the caret.</summary>

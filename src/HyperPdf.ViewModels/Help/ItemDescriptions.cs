@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using HyperPdf.Core.Attachments;
+using HyperPdf.Core.Exporting;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Settings;
 
@@ -57,6 +58,8 @@ public static class ItemDescriptions
         ProtectionFormatChoice format => $"{format.Name}. {format.Description}",
         FlattenScopeChoice scope => $"{scope.Name}. {scope.Description}",
         FlattenLookChoice look => $"{look.Name}. {look.Description}",
+        PageFileFormatInfo exportFormat => $"{exportFormat.Name}. {exportFormat.Description}",
+        ExportPagesScopeChoice exportScope => exportScope.Name,
         ValidationActionChoice action => $"{action.Name}. {action.Description}",
         SigningKeyChoice key => key.Name,
         ExternalResultChoice result => result.Name,

@@ -5,6 +5,7 @@
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.IO;
 
 namespace HyperPdfLibrary.Security;
@@ -56,7 +57,7 @@ internal static class Md5
     private const int ScheduleFields = 2;
 
     /// <summary>The round that uses the H (parity) function.</summary>
-    private const int RoundH = 2;
+    private const int RoundParity = 2;
 
     /// <summary>The bytes of a file hashed at a time, a multiple of the block length.</summary>
     private const int ChunkLength = 1 << 16;
@@ -177,18 +178,12 @@ internal static class Md5
         var b = state[1];
         var c = state[WordC];
         var d = state[WordD];
-        for (var step = 0; step < Rounds * StepsPerRound; step++)
-        {
-            var round = step / StepsPerRound;
-            var mixed = Mix(round, b, c, d);
-            var word = words[(WordSchedule[round * ScheduleFields] + (WordSchedule[(round * ScheduleFields) + 1] * step)) % BlockWords];
-            var rotated = BitOperations.RotateLeft(a + mixed + Constants[step] + word, Rotations[(round * Rounds) + (step % Rounds)]);
-            var next = b + rotated;
-            a = d;
-            d = c;
-            c = b;
-            b = next;
-        }
+
+        // Each round is its own instantiation, so the mixing function and the word order are fixed when the code is compiled.
+        RunRound<RoundF>(ref a, ref b, ref c, ref d, words);
+        RunRound<RoundG>(ref a, ref b, ref c, ref d, words);
+        RunRound<RoundH>(ref a, ref b, ref c, ref d, words);
+        RunRound<RoundI>(ref a, ref b, ref c, ref d, words);
 
         state[0] += a;
         state[1] += b;
@@ -196,17 +191,82 @@ internal static class Md5
         state[WordD] += d;
     }
 
-    /// <summary>The non-linear function of a round.</summary>
-    /// <param name="round">The round, zero to three.</param>
+    /// <summary>Runs the 16 steps of one round.</summary>
+    /// <typeparam name="TRound">The round.</typeparam>
+    /// <param name="a">The first state word.</param>
     /// <param name="b">The second state word.</param>
     /// <param name="c">The third state word.</param>
     /// <param name="d">The fourth state word.</param>
-    /// <returns>The mixed value.</returns>
-    private static uint Mix(int round, uint b, uint c, uint d) => round switch
+    /// <param name="words">The 16 words of the block.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void RunRound<TRound>(ref uint a, ref uint b, ref uint c, ref uint d, ReadOnlySpan<uint> words)
+        where TRound : struct, IMd5Round
     {
-        0 => (b & c) | (~b & d),
-        1 => (d & b) | (~d & c),
-        RoundH => b ^ c ^ d,
-        _ => c ^ (b | ~d),
-    };
+        var first = WordSchedule[TRound.Index * ScheduleFields];
+        var stride = WordSchedule[(TRound.Index * ScheduleFields) + 1];
+        var rotations = Rotations.Slice(TRound.Index * Rounds, Rounds);
+        var constants = Constants.Slice(TRound.Index * StepsPerRound, StepsPerRound);
+        var x = a;
+        var y = b;
+        var z = c;
+        var w = d;
+        for (var step = 0; step < StepsPerRound; step++)
+        {
+            var word = words[(first + (stride * step)) & (BlockWords - 1)];
+            var next = y + BitOperations.RotateLeft(x + TRound.Mix(y, z, w) + constants[step] + word, rotations[step & (Rounds - 1)]);
+            x = w;
+            w = z;
+            z = y;
+            y = next;
+        }
+
+        a = x;
+        b = y;
+        c = z;
+        d = w;
+    }
+
+    /// <summary>The first round.</summary>
+    private readonly struct RoundF : IMd5Round
+    {
+        /// <inheritdoc/>
+        public static int Index => 0;
+
+        /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint Mix(uint b, uint c, uint d) => (b & c) | (~b & d);
+    }
+
+    /// <summary>The second round.</summary>
+    private readonly struct RoundG : IMd5Round
+    {
+        /// <inheritdoc/>
+        public static int Index => 1;
+
+        /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint Mix(uint b, uint c, uint d) => (d & b) | (~d & c);
+    }
+
+    /// <summary>The third round.</summary>
+    private readonly struct RoundH : IMd5Round
+    {
+        /// <inheritdoc/>
+        public static int Index => RoundParity;
+
+        /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint Mix(uint b, uint c, uint d) => b ^ c ^ d;
+    }
+
+    /// <summary>The fourth round.</summary>
+    private readonly struct RoundI : IMd5Round
+    {
+        /// <inheritdoc/>
+        public static int Index => RoundParity + 1;
+
+        /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint Mix(uint b, uint c, uint d) => c ^ (b | ~d);
+    }
 }

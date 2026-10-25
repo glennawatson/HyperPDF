@@ -13,11 +13,26 @@ namespace HyperPdf.Engine;
 /// <summary>Remembers font shapers and fallback searches for documents opened by one viewer engine.</summary>
 internal sealed class TextBoxFontState
 {
+    /// <summary>The code point stored for a face whose file cannot be used.</summary>
+    private const int UnreadableMarker = -1;
+
+    /// <summary>The combinations of bold and italic.</summary>
+    private const int StyleCount = 4;
+
+    /// <summary>The slot offset of a bold style among the four styles.</summary>
+    private const int BoldSlot = 2;
+
     /// <summary>The installed faces retained for documents opened by this engine.</summary>
     private readonly ConcurrentDictionary<FaceKey, FontProgram> _programs = new();
 
+    /// <summary>The characters faces were found not to have, so a search for a font does not read the same files again.</summary>
+    private readonly ConcurrentDictionary<MissKey, byte> _misses = new();
+
     /// <summary>The installed font catalog for documents opened by this engine.</summary>
     private readonly Lazy<FontCatalog> _catalog;
+
+    /// <summary>The faces of the last catalog used, in the order to try them.</summary>
+    private RankedSet? _ranked;
 
     /// <summary>Initializes a new instance of the <see cref="TextBoxFontState"/> class with its own catalog.</summary>
     internal TextBoxFontState()
@@ -81,6 +96,60 @@ internal sealed class TextBoxFontState
     internal bool TryGetLoaded(FontFace face, out FontProgram? program) =>
         _programs.TryGetValue(new(face.Path, face.FaceIndex), out program);
 
+    /// <summary>Gets the installed faces in the order to try them for a style, ordered once for each style and catalog.</summary>
+    /// <param name="catalog">The installed fonts.</param>
+    /// <param name="bold">Whether bold is wanted.</param>
+    /// <param name="italic">Whether italic is wanted.</param>
+    /// <returns>The faces, best match first.</returns>
+    internal FontFace[] RankedFaces(FontCatalog catalog, bool bold, bool italic)
+    {
+        var ranked = Volatile.Read(ref _ranked);
+        if (ranked is null || !ReferenceEquals(ranked.Catalog, catalog))
+        {
+            ranked = new(catalog, new FontFace[StyleCount][]);
+            Volatile.Write(ref _ranked, ranked);
+        }
+
+        return ranked.Orders[(bold ? BoldSlot : 0) | (italic ? 1 : 0)] ??= TextBoxFonts.Rank(catalog, bold, italic);
+    }
+
+    /// <summary>Tells whether a face is already known to lack a character of some text, or to be unreadable, so its file need not be read again.</summary>
+    /// <param name="face">The face.</param>
+    /// <param name="text">The text.</param>
+    /// <returns>Whether the face cannot show the text.</returns>
+    internal bool KnownToLack(FontFace face, string text)
+    {
+        if (_misses.IsEmpty)
+        {
+            return false;
+        }
+
+        if (_misses.ContainsKey(new(face.Path, face.FaceIndex, UnreadableMarker)))
+        {
+            return true;
+        }
+
+        foreach (var rune in text.EnumerateRunes())
+        {
+            if (_misses.ContainsKey(new(face.Path, face.FaceIndex, rune.Value)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Remembers that a face has no glyph for a character.</summary>
+    /// <param name="face">The face.</param>
+    /// <param name="codePoint">The character.</param>
+    internal void NoteLacks(FontFace face, int codePoint) => _ = _misses.TryAdd(new(face.Path, face.FaceIndex, codePoint), 0);
+
+    /// <summary>Remembers that a face's file cannot be read or is too large to try.</summary>
+    /// <param name="face">The face.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void NoteUnreadable(FontFace face) => NoteLacks(face, UnreadableMarker);
+
     /// <summary>A fallback lookup within the font catalog that owns its table.</summary>
     /// <param name="Block">The block of the first character outside Latin-1.</param>
     /// <param name="Bold">Whether bold is wanted.</param>
@@ -91,4 +160,15 @@ internal sealed class TextBoxFontState
     /// <param name="Path">The font file.</param>
     /// <param name="FaceIndex">The face within it.</param>
     private readonly record struct FaceKey(string Path, int FaceIndex);
+
+    /// <summary>A character a face is known not to have.</summary>
+    /// <param name="Path">The font file.</param>
+    /// <param name="FaceIndex">The face within it.</param>
+    /// <param name="CodePoint">The character, or the marker for a face that cannot be read.</param>
+    private readonly record struct MissKey(string Path, int FaceIndex, int CodePoint);
+
+    /// <summary>The faces of a catalog in the order to try them for each of the four styles.</summary>
+    /// <param name="Catalog">The catalog.</param>
+    /// <param name="Orders">The order for each style, filled in as styles are asked for.</param>
+    private sealed record RankedSet(FontCatalog Catalog, FontFace[][] Orders);
 }

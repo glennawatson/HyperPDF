@@ -15,4 +15,10 @@ public sealed record SkiaOptions
 
     /// <summary>Gets a value indicating whether group opacity uses an intermediate layer.</summary>
     public bool UseOpacitySaveLayer { get; init; }
+
+    /// <summary>Gets the family names of fonts the application carries itself, which text can use when the system has no font of that name.</summary>
+    public IReadOnlyList<string> BundledFamilies { get; init; } = [];
+
+    /// <summary>Gets the function that reads a font file of a bundled family (family, bold, italic), or null when there are none.</summary>
+    public Func<string, bool, bool, byte[]?>? BundledFontReader { get; init; }
 }

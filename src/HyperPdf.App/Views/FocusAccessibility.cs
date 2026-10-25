@@ -27,7 +27,7 @@ internal static class FocusAccessibility
         AutomationProperties.SetHeadingLevel(text, block.Level);
         AutomationProperties.SetPositionInSet(text, block.PositionInList);
         AutomationProperties.SetSizeOfSet(text, block.ListSize);
-        AutomationProperties.SetHelpText(text, Description(block, OperatingSystem.IsLinux()));
+        AutomationProperties.SetHelpText(text, Description(block, OperatingSystem.IsMacOS()));
     }
 
     /// <summary>Gets the control type a block is reported as.</summary>
@@ -42,9 +42,9 @@ internal static class FocusAccessibility
     };
 
     /// <summary>
-    /// Gets the spoken description of a block's role. Windows and macOS report headings and list positions from
-    /// the heading level and set properties; Avalonia's Linux bridge passes on only the description, so there it
-    /// says them too.
+    /// Gets the spoken description of a block's role. The app's own Linux and Windows bridges send headings and list positions
+    /// from the heading level and set properties; Avalonia's macOS bridge passes on only the description, so there it says them
+    /// too.
     /// </summary>
     /// <param name="block">The block.</param>
     /// <param name="describeStructure">Whether to put the heading level and list position into words.</param>

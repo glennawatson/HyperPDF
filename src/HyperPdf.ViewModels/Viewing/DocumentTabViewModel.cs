@@ -6,15 +6,16 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Annotations;
+using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Layout;
+using HyperPdf.Core.Media;
 using HyperPdf.Core.Navigation;
 using HyperPdf.Core.Printing;
 using HyperPdf.Core.Reading;
 using HyperPdf.Core.Rendering;
-using HyperPdf.Media;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -787,7 +788,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         }
         catch (Exception ex)
         {
-            Trace.TraceError(ex.ToString());
+            AppLog.Error(ex);
             PreviewHeight = 0;
             PreviewCaption = "This document could not be opened";
             return;
@@ -1196,14 +1197,16 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <summary>Asks where to save a copy and saves it there.</summary>
     /// <returns>A task.</returns>
     [ReactiveCommand]
-    private async Task SaveAsAsync()
+    private async Task SaveAsAsync() => _ = await AskAndSaveAsync().ConfigureAwait(true);
+
+    /// <summary>Asks where to save a copy, suggesting a PDF name for a picture opened as a document, and saves it there.</summary>
+    /// <returns>A task that reports whether the file was saved.</returns>
+    private async Task<bool> AskAndSaveAsync()
     {
         var cancellationToken = SelectedWorkToken;
-        var path = await SaveAsInteraction.Handle(FileName).ToTask().ConfigureAwait(true);
-        if (!string.IsNullOrEmpty(path))
-        {
-            _ = await SaveAsync(path, cancellationToken).ConfigureAwait(true);
-        }
+        var suggested = PictureFiles.IsPictureFile(FileName) ? PictureFiles.SuggestedPdfName(FileName) : FileName;
+        var path = await SaveAsInteraction.Handle(suggested).ToTask().ConfigureAwait(true);
+        return !string.IsNullOrEmpty(path) && await SaveAsync(path, cancellationToken).ConfigureAwait(true);
     }
 
     /// <summary>Zooms in one step.</summary>
@@ -1276,11 +1279,11 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void DismissReload() => HasPendingReload = false;
 
-    /// <summary>Saves the document over its own file.</summary>
+    /// <summary>Saves the document over its own file; a picture opened as a document is never overwritten, so it asks where to save a PDF.</summary>
     /// <returns>A task that reports whether the file was saved.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task<bool> Save() => SaveAsync(FilePath, SelectedWorkToken);
+    private Task<bool> Save() => PictureFiles.IsPictureFile(FilePath) ? AskAndSaveAsync() : SaveAsync(FilePath, SelectedWorkToken);
 
     /// <summary>Turns caret navigation on or off.</summary>
     [ReactiveCommand]
@@ -1517,7 +1520,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         }
         catch (Exception error)
         {
-            Trace.TraceError(error.ToString());
+            AppLog.Error(error);
         }
     }
 

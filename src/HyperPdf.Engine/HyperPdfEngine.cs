@@ -8,6 +8,7 @@ using System.Security.Cryptography.X509Certificates;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Text.Fonts;
 using HyperPdfLibrary;
+using HyperPdfLibrary.Creation;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts;
@@ -98,7 +99,7 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
     public bool CanOpen(string path)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
-        if (path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        if (path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) || PictureFiles.IsPictureFile(path))
         {
             return true;
         }
@@ -200,6 +201,11 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
     /// <returns>The opened document.</returns>
     private static HyperPdfDocument OpenCore(HyperPdfEngine self, string fullPath, string? password, X509Certificate2? certificate)
     {
+        if (PictureFiles.IsPictureFile(fullPath))
+        {
+            return OpenPictureCore(self, fullPath);
+        }
+
         PdfDocument document;
         try
         {
@@ -238,6 +244,11 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
         X509Certificate2? certificate,
         CancellationToken cancellationToken)
     {
+        if (PictureFiles.IsPictureFile(fullPath))
+        {
+            return await OpenPictureCoreAsync(self, fullPath, cancellationToken).ConfigureAwait(false);
+        }
+
         PdfDocument document;
         try
         {
@@ -256,6 +267,71 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
         {
             document.Dispose();
             cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        return CreateOpened(document, fullPath, self._annotationClock, self._fontState);
+    }
+
+    /// <summary>Opens a picture file as a one page document.</summary>
+    /// <param name="self">The engine's font and drawing services.</param>
+    /// <param name="fullPath">The absolute picture path.</param>
+    /// <returns>The opened document.</returns>
+    /// <exception cref="DocumentOpenException">The picture cannot be read.</exception>
+    private static HyperPdfDocument OpenPictureCore(HyperPdfEngine self, string fullPath)
+    {
+        byte[] file;
+        try
+        {
+            file = File.ReadAllBytes(fullPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new DocumentOpenException(DocumentOpenError.File, $"The file '{fullPath}' could not be found or read.");
+        }
+
+        return OpenPictureBytes(self, fullPath, file, CancellationToken.None);
+    }
+
+    /// <summary>Opens a picture file as a one page document with asynchronous file reads.</summary>
+    /// <param name="self">The engine's font and drawing services.</param>
+    /// <param name="fullPath">The absolute picture path.</param>
+    /// <param name="cancellationToken">Cancels the read and the conversion.</param>
+    /// <returns>The opened document.</returns>
+    /// <exception cref="DocumentOpenException">The picture cannot be read.</exception>
+    /// <exception cref="OperationCanceledException">The open was cancelled.</exception>
+    private static async ValueTask<IDocument> OpenPictureCoreAsync(HyperPdfEngine self, string fullPath, CancellationToken cancellationToken)
+    {
+        byte[] file;
+        try
+        {
+            file = await File.ReadAllBytesAsync(fullPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new DocumentOpenException(DocumentOpenError.File, $"The file '{fullPath}' could not be found or read.");
+        }
+
+        return OpenPictureBytes(self, fullPath, file, cancellationToken);
+    }
+
+    /// <summary>Wraps a picture in a one page PDF and opens it, so the picture reads, zooms and exports like any page.</summary>
+    /// <param name="self">The engine's font and drawing services.</param>
+    /// <param name="fullPath">The absolute picture path, which stays the document's name.</param>
+    /// <param name="file">The picture's bytes.</param>
+    /// <param name="cancellationToken">Cancels the conversion.</param>
+    /// <returns>The opened document.</returns>
+    /// <exception cref="DocumentOpenException">The bytes are not a picture this library reads.</exception>
+    private static HyperPdfDocument OpenPictureBytes(HyperPdfEngine self, string fullPath, byte[] file, CancellationToken cancellationToken)
+    {
+        PdfDocument document;
+        try
+        {
+            var pdf = PdfImageDocument.FromImageFile(file, Path.GetFileName(fullPath), cancellationToken);
+            document = PdfDocumentReader.OpenWith(pdf, new PdfOpenOptions { FontFactory = self._fontFactory, DrawingServices = self._drawingServices });
+        }
+        catch (Exception ex) when (ex is NotSupportedException or InvalidDataException or PdfException)
+        {
+            throw new DocumentOpenException(DocumentOpenError.Format, $"The file '{fullPath}' is not a picture this viewer can read.");
         }
 
         return CreateOpened(document, fullPath, self._annotationClock, self._fontState);

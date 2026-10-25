@@ -3,9 +3,9 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - Directory.Packages.props
-      - licenses/components.json
-      - licenses/packages.json
+      - src/Directory.Packages.props
+      - src/licenses/components.json
+      - src/licenses/packages.json
 permissions:
   contents: write
   actions: write
@@ -34,4 +34,4 @@ jobs:
       - name: Rebuild the notices from the restored packages and push any change
         env:
           GH_TOKEN: ${{ github.token }}
-        run: dotnet run --file scripts/RefreshThirdPartyNotices.cs -- --push
+        run: dotnet run --file src/tools/RefreshThirdPartyNotices.cs -- --push

@@ -14,14 +14,14 @@ namespace HyperPdf.App.Views;
 /// </summary>
 internal static class PageFonts
 {
-    /// <summary>The fonts with Helvetica's widths, most likely first.</summary>
-    private const string SansStack = "Helvetica, Arial, Liberation Sans, Arimo, Nimbus Sans, Helvetica Neue, DejaVu Sans";
+    /// <summary>The fonts with Helvetica's widths. Arimo, which the app carries, comes first because it is the font the page is drawn in.</summary>
+    private const string SansStack = "Arimo, Helvetica, Arial, Liberation Sans, Nimbus Sans, Helvetica Neue, DejaVu Sans";
 
-    /// <summary>The fonts with Times' widths.</summary>
-    private const string SerifStack = "Times New Roman, Times, Liberation Serif, Tinos, Nimbus Roman, DejaVu Serif";
+    /// <summary>The fonts with Times' widths, with the app's own Tinos first.</summary>
+    private const string SerifStack = "Tinos, Times New Roman, Times, Liberation Serif, Nimbus Roman, DejaVu Serif";
 
-    /// <summary>The fonts with Courier's widths.</summary>
-    private const string MonoStack = "Courier New, Courier, Liberation Mono, Cousine, Nimbus Mono PS, DejaVu Sans Mono";
+    /// <summary>The fonts with Courier's widths, with the app's own Cousine first.</summary>
+    private const string MonoStack = "Cousine, Courier New, Courier, Liberation Mono, Nimbus Mono PS, DejaVu Sans Mono";
 
     /// <summary>Gets the screen font for a family. Call on the UI thread.</summary>
     /// <param name="state">The application's font cache, or null before a view has an owner.</param>

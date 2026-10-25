@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Spelling;
 
 namespace HyperPdf.Platform.Linux.Spelling;
@@ -52,16 +53,16 @@ public sealed class WordListSpellChecker : ISpellChecker, IDisposable
         }
         catch (IOException ex)
         {
-            Trace.TraceWarning($"Could not read the word list {wordListPath}: {ex.Message}");
+            AppLog.Warning(ex, $"Could not read the word list {wordListPath}.");
         }
         catch (NotSupportedException ex)
         {
             // A word list that is not a plain file has no length to read.
-            Trace.TraceWarning($"Could not read the word list {wordListPath}: {ex.Message}");
+            AppLog.Warning(ex, $"Could not read the word list {wordListPath}.");
         }
         catch (UnauthorizedAccessException ex)
         {
-            Trace.TraceWarning($"Could not read the word list {wordListPath}: {ex.Message}");
+            AppLog.Warning(ex, $"Could not read the word list {wordListPath}.");
         }
     }
 

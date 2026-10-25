@@ -6,6 +6,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using HyperPdf.Core.Ocr;
 
 namespace HyperPdf.Core.Forms.Detection;
 
@@ -15,42 +16,17 @@ namespace HyperPdf.Core.Forms.Detection;
 /// </summary>
 internal static class DarkPixels
 {
-    /// <summary>The weight of blue in luminance, out of 256.</summary>
-    private const int BlueWeight = 29;
+    /// <summary>The bits of the mask one 128 bit compare gives.</summary>
+    private const int HalfMaskBits = 16;
 
-    /// <summary>The weight of green in luminance, out of 256.</summary>
-    private const int GreenWeight = 150;
-
-    /// <summary>The weight of red in luminance, out of 256.</summary>
-    private const int RedWeight = 77;
-
-    /// <summary>The shift dividing by the weights' total, 256.</summary>
-    private const int WeightShift = 8;
-
-    /// <summary>The bytes in a BGRA pixel.</summary>
-    private const int PixelBytes = 4;
-
-    /// <summary>The green byte of a BGRA pixel.</summary>
-    private const int GreenByte = 1;
-
-    /// <summary>The red byte of a BGRA pixel.</summary>
-    private const int RedByte = 2;
-
-    /// <summary>Gets or sets a value indicating whether vector instructions are used; benchmarks and tests turn them off to compare.</summary>
-    internal static bool UseVectors { get; set; } = true;
+    /// <summary>The pixels two 128 bit compares cover.</summary>
+    private const int PairBytes = 32;
 
     /// <summary>Converts BGRA pixels to luminance.</summary>
     /// <param name="bgra">The pixels, four bytes each.</param>
     /// <param name="luma">Receives one byte per pixel.</param>
-    internal static void ToLuminance(ReadOnlySpan<byte> bgra, Span<byte> luma)
-    {
-        var count = Math.Min(bgra.Length / PixelBytes, luma.Length);
-        for (var i = 0; i < count; i++)
-        {
-            var at = i * PixelBytes;
-            luma[i] = (byte)(((bgra[at] * BlueWeight) + (bgra[at + GreenByte] * GreenWeight) + (bgra[at + RedByte] * RedWeight)) >> WeightShift);
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ToLuminance(ReadOnlySpan<byte> bgra, Span<byte> luma) => OcrRunner.ToGrey(bgra, luma);
 
     /// <summary>Appends the runs of dark pixels in a row at least a given length.</summary>
     /// <param name="row">The row's luminance.</param>
@@ -58,10 +34,21 @@ internal static class DarkPixels
     /// <param name="minLength">The shortest run kept.</param>
     /// <param name="y">The row's index.</param>
     /// <param name="output">Receives the runs.</param>
-    internal static void FindRuns(ReadOnlySpan<byte> row, byte threshold, int minLength, int y, List<DarkRun> output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void FindRuns(ReadOnlySpan<byte> row, byte threshold, int minLength, int y, List<DarkRun> output) =>
+        FindRuns(row, threshold, minLength, y, output, true);
+
+    /// <summary>Appends the runs of dark pixels in a row at least a given length.</summary>
+    /// <param name="row">The row's luminance.</param>
+    /// <param name="threshold">The level below which a pixel is dark.</param>
+    /// <param name="minLength">The shortest run kept.</param>
+    /// <param name="y">The row's index.</param>
+    /// <param name="output">Receives the runs.</param>
+    /// <param name="useVectors">Whether to use vector instructions; tests and benchmarks turn them off to compare.</param>
+    internal static void FindRuns(ReadOnlySpan<byte> row, byte threshold, int minLength, int y, List<DarkRun> output, bool useVectors)
     {
         var scanner = new RunScanner(y, minLength, output);
-        var x = UseVectors && Vector256.IsHardwareAccelerated ? ScanVector(row, threshold, ref scanner) : 0;
+        var x = useVectors && Vector128.IsHardwareAccelerated ? ScanVector(row, threshold, ref scanner) : 0;
         for (; x < row.Length; x++)
         {
             scanner.Step(x, row[x] < threshold);
@@ -74,10 +61,18 @@ internal static class DarkPixels
     /// <param name="row">The row's luminance.</param>
     /// <param name="threshold">The level below which a pixel is dark.</param>
     /// <param name="counts">The column counts, one per pixel of the row.</param>
-    internal static void CountColumns(ReadOnlySpan<byte> row, byte threshold, Span<ushort> counts)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void CountColumns(ReadOnlySpan<byte> row, byte threshold, Span<ushort> counts) => CountColumns(row, threshold, counts, true);
+
+    /// <summary>Adds one to the count of every column whose pixel in a row is dark.</summary>
+    /// <param name="row">The row's luminance.</param>
+    /// <param name="threshold">The level below which a pixel is dark.</param>
+    /// <param name="counts">The column counts, one per pixel of the row.</param>
+    /// <param name="useVectors">Whether to use vector instructions; tests and benchmarks turn them off to compare.</param>
+    internal static void CountColumns(ReadOnlySpan<byte> row, byte threshold, Span<ushort> counts, bool useVectors)
     {
         var length = Math.Min(row.Length, counts.Length);
-        var x = UseVectors && Vector128.IsHardwareAccelerated ? CountVector(row[..length], threshold, counts) : 0;
+        var x = useVectors && Vector128.IsHardwareAccelerated ? CountVector(row[..length], threshold, counts) : 0;
         for (; x < length; x++)
         {
             counts[x] += row[x] < threshold ? (ushort)1 : (ushort)0;
@@ -92,12 +87,26 @@ internal static class DarkPixels
     private static int ScanVector(ReadOnlySpan<byte> row, byte threshold, ref RunScanner scanner)
     {
         ref var start = ref MemoryMarshal.GetReference(row);
-        var level = Vector256.Create(threshold);
         var x = 0;
-        for (; x + Vector256<byte>.Count <= row.Length; x += Vector256<byte>.Count)
+        if (Vector256.IsHardwareAccelerated)
         {
-            var mask = Vector256.LessThan(Vector256.LoadUnsafe(ref start, (nuint)x), level).ExtractMostSignificantBits();
-            scanner.Block(x, mask);
+            var level = Vector256.Create(threshold);
+            for (; x + Vector256<byte>.Count <= row.Length; x += Vector256<byte>.Count)
+            {
+                var mask = Vector256.LessThan(Vector256.LoadUnsafe(ref start, (nuint)x), level).ExtractMostSignificantBits();
+                scanner.Block(x, mask);
+            }
+
+            return x;
+        }
+
+        // Processors with 128 bit vectors only (such as ARM) test two halves and join the masks.
+        var narrow = Vector128.Create(threshold);
+        for (; x + PairBytes <= row.Length; x += PairBytes)
+        {
+            var low = Vector128.LessThan(Vector128.LoadUnsafe(ref start, (nuint)x), narrow).ExtractMostSignificantBits();
+            var high = Vector128.LessThan(Vector128.LoadUnsafe(ref start, (nuint)(x + Vector128<byte>.Count)), narrow).ExtractMostSignificantBits();
+            scanner.Block(x, low | (high << HalfMaskBits));
         }
 
         return x;

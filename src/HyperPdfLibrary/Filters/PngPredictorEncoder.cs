@@ -182,13 +182,23 @@ internal static class PngPredictorEncoder
     /// <returns>The sum.</returns>
     private static long Cost(ReadOnlySpan<byte> filtered)
     {
-        long sum = 0;
-        foreach (var value in filtered)
+        var done = PngFilterLanes.IsAccelerated ? PngFilterLanes.Cost(filtered, out var sum) : ZeroCost(out sum);
+        for (; done < filtered.Length; done++)
         {
+            var value = filtered[done];
             sum += value < SignedLimit ? value : ByteValues - value;
         }
 
         return sum;
+    }
+
+    /// <summary>Starts a cost sum with nothing counted.</summary>
+    /// <param name="sum">Receives zero.</param>
+    /// <returns>Zero, the index to count from.</returns>
+    private static int ZeroCost(out long sum)
+    {
+        sum = 0;
+        return 0;
     }
 
     /// <summary>Filters with Sub: each byte minus the one a pixel to its left.</summary>
@@ -197,7 +207,15 @@ internal static class PngPredictorEncoder
     /// <param name="target">Receives the filtered row.</param>
     private static void FilterSub(ReadOnlySpan<byte> row, int pixelBytes, Span<byte> target)
     {
-        for (var i = 0; i < row.Length; i++)
+        var i = 0;
+        if (PngFilterLanes.IsAccelerated && row.Length > pixelBytes)
+        {
+            // The first pixel has nothing to its left, so it is copied; the rest go sixteen bytes at a time.
+            row[..pixelBytes].CopyTo(target);
+            i = PngFilterLanes.Sub(row, pixelBytes, target, pixelBytes);
+        }
+
+        for (; i < row.Length; i++)
         {
             target[i] = (byte)(row[i] - Left(row, i, pixelBytes));
         }
@@ -209,7 +227,8 @@ internal static class PngPredictorEncoder
     /// <param name="target">Receives the filtered row.</param>
     private static void FilterUp(ReadOnlySpan<byte> row, ReadOnlySpan<byte> previous, Span<byte> target)
     {
-        for (var i = 0; i < row.Length; i++)
+        var i = PngFilterLanes.IsAccelerated && !previous.IsEmpty ? PngFilterLanes.Up(row, previous, target, 0) : 0;
+        for (; i < row.Length; i++)
         {
             target[i] = (byte)(row[i] - Above(previous, i));
         }
@@ -222,7 +241,19 @@ internal static class PngPredictorEncoder
     /// <param name="target">Receives the filtered row.</param>
     private static void FilterAverage(ReadOnlySpan<byte> row, ReadOnlySpan<byte> previous, int pixelBytes, Span<byte> target)
     {
-        for (var i = 0; i < row.Length; i++)
+        var i = 0;
+        if (PngFilterLanes.IsAccelerated && !previous.IsEmpty && row.Length > pixelBytes)
+        {
+            // The first pixel has nothing to its left, so only half the byte above is taken off.
+            for (; i < pixelBytes; i++)
+            {
+                target[i] = (byte)(row[i] - (previous[i] >> 1));
+            }
+
+            i = PngFilterLanes.Average(row, previous, pixelBytes, target, pixelBytes);
+        }
+
+        for (; i < row.Length; i++)
         {
             target[i] = (byte)(row[i] - ((Left(row, i, pixelBytes) + Above(previous, i)) >> 1));
         }
@@ -235,7 +266,19 @@ internal static class PngPredictorEncoder
     /// <param name="target">Receives the filtered row.</param>
     private static void FilterPaeth(ReadOnlySpan<byte> row, ReadOnlySpan<byte> previous, int pixelBytes, Span<byte> target)
     {
-        for (var i = 0; i < row.Length; i++)
+        var i = 0;
+        if (PngFilterLanes.IsAccelerated && !previous.IsEmpty && row.Length > pixelBytes)
+        {
+            // The first pixel has nothing to its left, so the byte above is the prediction.
+            for (; i < pixelBytes; i++)
+            {
+                target[i] = (byte)(row[i] - previous[i]);
+            }
+
+            i = PngFilterLanes.Paeth(row, previous, pixelBytes, target, pixelBytes);
+        }
+
+        for (; i < row.Length; i++)
         {
             var upLeft = i >= pixelBytes ? Above(previous, i - pixelBytes) : 0;
             target[i] = (byte)(row[i] - PaethPredict(Left(row, i, pixelBytes), Above(previous, i), upLeft));

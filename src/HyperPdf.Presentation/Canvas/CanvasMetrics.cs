@@ -39,6 +39,21 @@ public static class CanvasMetrics
     /// <summary>The hit tolerance for text, in points.</summary>
     public static readonly float TextTolerance = 4F;
 
+    /// <summary>How much wider each try is when looking for the text nearest a point.</summary>
+    public static readonly float NearestTextGrowth = 4F;
+
+    /// <summary>The widest reach, in points, when looking for the text nearest a point.</summary>
+    public static readonly float NearestTextLimit = 4096F;
+
+    /// <summary>How many canvas units per second a selection drag scrolls for each unit the pointer is outside the view.</summary>
+    public static readonly double SelectionScrollRate = 8;
+
+    /// <summary>The fastest a selection drag scrolls, in canvas units per second.</summary>
+    public static readonly double SelectionScrollMax = 2400;
+
+    /// <summary>The slowest a selection drag scrolls once the pointer is outside the view, in canvas units per second.</summary>
+    public static readonly double SelectionScrollMin = 120;
+
     /// <summary>Gets whether a press and release stayed close enough to count as a click rather than a drag.</summary>
     /// <param name="pressed">Where the pointer went down.</param>
     /// <param name="released">Where the pointer came up.</param>

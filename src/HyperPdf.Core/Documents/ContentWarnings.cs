@@ -13,7 +13,13 @@ public static class ContentWarnings
     private const string PortfolioWord = "portfolio";
 
     /// <summary>Every unsupported part's bit.</summary>
-    private const int AllParts = (int)(UnsupportedContent.XfaForm | UnsupportedContent.JavaScript | UnsupportedContent.Multimedia | UnsupportedContent.ThreeD | UnsupportedContent.Portfolio);
+    private const int AllParts = (int)(
+        UnsupportedContent.XfaForm
+        | UnsupportedContent.JavaScript
+        | UnsupportedContent.Multimedia
+        | UnsupportedContent.ThreeD
+        | UnsupportedContent.Portfolio
+        | UnsupportedContent.UnreadableImages);
 
     /// <summary>Describes what cannot be shown, and what to do about it.</summary>
     /// <param name="content">The unsupported parts.</param>
@@ -42,6 +48,7 @@ public static class ContentWarnings
             (UnsupportedContent.Multimedia, "sound or video"),
             (UnsupportedContent.ThreeD, "3D models"),
             (UnsupportedContent.Portfolio, "a PDF portfolio"),
+            (UnsupportedContent.UnreadableImages, "images in an unknown format"),
         ];
 
         /// <summary>Gets the message for every supported combination of flags.</summary>
@@ -76,6 +83,11 @@ public static class ContentWarnings
             if ((content & UnsupportedContent.Multimedia) != 0)
             {
                 _ = builder.Append("Sound and video are listed under Media, where you can save them or open them with your player. ");
+            }
+
+            if ((content & UnsupportedContent.UnreadableImages) != 0)
+            {
+                _ = builder.Append("Those images show as grey boxes with a cross. ");
             }
 
             return builder.Append("To use everything, open it in Adobe Acrobat Reader.").ToString();

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Platform;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Advanced;
@@ -390,7 +391,7 @@ public sealed class AtSpiFocusAnnouncementCheck : IFocusAnnouncementCheck
         catch (Exception ex) when (ex is DBusConnectionException or DBusErrorReplyException or OperationCanceledException or ObjectDisposedException)
         {
             // No accessibility bus, or the app is closing: focus changes are then left as the bridge sends them.
-            Trace.TraceInformation($"Focus announcement check unavailable: {ex.Message}");
+            AppLog.Warning(ex, "Focus announcement check unavailable.");
         }
     }
 

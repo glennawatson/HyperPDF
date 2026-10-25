@@ -7,6 +7,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
+using HyperPdfLibrary.Export;
 
 namespace HyperPdfLibrary.Rendering;
 
@@ -171,6 +172,112 @@ public sealed partial class PdfPageRenderer : IDisposable
         {
             entry.Release();
         }
+    }
+
+    /// <summary>
+    /// Writes a page as a scalable vector graphics document, 1 unit to the point, with the page's own size. Text, paths, images,
+    /// gradients and transparency groups stay vectors or embedded images; nothing is drawn to pixels first.
+    /// </summary>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <param name="flags">What to draw; <see cref="PdfRenderFlags.Annotations"/> includes annotation appearances.</param>
+    /// <param name="output">The stream the document is written to.</param>
+    /// <returns><see langword="false"/> when the page does not exist or the drawing backend cannot write SVG; nothing is written then.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="output"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The renderer or its document has been disposed.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool WriteSvg(int pageIndex, PdfRenderFlags flags, Stream output) => WriteSvgCore(pageIndex, flags, output);
+
+    /// <summary>Writes a page as a scalable vector graphics document, as <see cref="WriteSvg"/> does, awaiting the page's bytes first.</summary>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <param name="flags">What to draw.</param>
+    /// <param name="output">The stream the document is written to.</param>
+    /// <param name="cancellationToken">Cancels reading the page and writing the document.</param>
+    /// <returns><see langword="false"/> when the page does not exist or the drawing backend cannot write SVG.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="output"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The renderer or its document has been disposed.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public async ValueTask<bool> WriteSvgAsync(int pageIndex, PdfRenderFlags flags, Stream output, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        if ((uint)pageIndex >= (uint)_document.PageCount)
+        {
+            return false;
+        }
+
+        await PdfDocumentPages.PrefetchPageAsync(_document, pageIndex, cancellationToken).ConfigureAwait(false);
+
+        // The Skia canvas writes synchronously, so the document is built in memory and then written with asynchronous I/O.
+        await using var buffer = new MemoryStream();
+        if (!WriteSvgCore(pageIndex, flags, buffer))
+        {
+            return false;
+        }
+
+        buffer.Position = 0;
+        await buffer.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>
+    /// Writes pages as PostScript level 3, or one page as Encapsulated PostScript. Text is written as outlines, paths and
+    /// images stay paths and images, and axial and radial gradients stay gradients. PostScript has no transparency, so the
+    /// returned report says what was left out or drawn differently.
+    /// </summary>
+    /// <param name="pageIndexes">The zero-based pages, in the order they are written.</param>
+    /// <param name="flags">What to draw; <see cref="PdfRenderFlags.Annotations"/> includes annotation appearances.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="output">The stream the document is written to.</param>
+    /// <param name="cancellationToken">Cancels the export between operators.</param>
+    /// <returns>What was left out or drawn differently.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">There are no pages, or Encapsulated PostScript was asked for with other than one page.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A page does not exist.</exception>
+    /// <exception cref="ObjectDisposedException">The renderer or its document has been disposed.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public PdfPostScriptReport WritePostScript(
+        IReadOnlyList<int> pageIndexes,
+        PdfRenderFlags flags,
+        PdfPostScriptOptions options,
+        Stream output,
+        CancellationToken cancellationToken) =>
+        WritePostScriptCore(pageIndexes, flags, options, output, cancellationToken);
+
+    /// <summary>Writes pages as PostScript, as <see cref="WritePostScript"/> does, awaiting each page's bytes first.</summary>
+    /// <param name="pageIndexes">The zero-based pages, in the order they are written.</param>
+    /// <param name="flags">What to draw.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="output">The stream the document is written to.</param>
+    /// <param name="cancellationToken">Cancels reading the pages, the export and the write.</param>
+    /// <returns>What was left out or drawn differently.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">There are no pages, or Encapsulated PostScript was asked for with other than one page.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A page does not exist.</exception>
+    /// <exception cref="ObjectDisposedException">The renderer or its document has been disposed.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public async ValueTask<PdfPostScriptReport> WritePostScriptAsync(
+        IReadOnlyList<int> pageIndexes,
+        PdfRenderFlags flags,
+        PdfPostScriptOptions options,
+        Stream output,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(pageIndexes);
+        ArgumentNullException.ThrowIfNull(output);
+        foreach (var index in pageIndexes)
+        {
+            if ((uint)index < (uint)_document.PageCount)
+            {
+                await PdfDocumentPages.PrefetchPageAsync(_document, index, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        // The writer is synchronous, so the document is built in memory and then written with asynchronous I/O.
+        await using var buffer = new MemoryStream();
+        var report = WritePostScriptCore(pageIndexes, flags, options, buffer, cancellationToken);
+        buffer.Position = 0;
+        await buffer.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+        return report;
     }
 
     /// <summary>Submits a page replay into a target owned by the caller.</summary>
@@ -558,6 +665,73 @@ public sealed partial class PdfPageRenderer : IDisposable
             EvictLocked();
             return created;
         }
+    }
+
+    /// <summary>Writes a page as SVG: the work of <see cref="WriteSvg"/> and <see cref="WriteSvgAsync"/>.</summary>
+    /// <param name="pageIndex">The zero-based page index.</param>
+    /// <param name="flags">What to draw.</param>
+    /// <param name="output">The stream the document is written to.</param>
+    /// <returns><see langword="false"/> when the page does not exist or the drawing backend cannot write SVG.</returns>
+    private bool WriteSvgCore(int pageIndex, PdfRenderFlags flags, Stream output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+        ObjectDisposedException.ThrowIf(_disposed || _document.IsDisposed, this);
+        if ((uint)pageIndex >= (uint)_document.PageCount)
+        {
+            return false;
+        }
+
+        var page = PdfDocumentPages.GetPage(_document, pageIndex);
+        var cache = CacheFor(flags);
+
+        // The infinite scale selects the full resolution band, so nothing in the recording is thinned for a zoom.
+        var entry = Acquire(pageIndex, !ReferenceEquals(cache, Cache), float.PositiveInfinity, null, true);
+        try
+        {
+            var printing = (flags & PdfRenderFlags.Printing) != 0;
+            var content = entry.GetContent(cache, page, printing);
+            var annotations = (flags & PdfRenderFlags.Annotations) != 0 ? entry.GetAnnotations(cache, page, printing) : null;
+            return _document.DrawingServices.Backend.GetDrawingSession().WriteSvg(content, annotations, page.Width, page.Height, true, output);
+        }
+        finally
+        {
+            entry.Release();
+        }
+    }
+
+    /// <summary>Writes pages as PostScript: the work of <see cref="WritePostScript"/> and <see cref="WritePostScriptAsync"/>.</summary>
+    /// <param name="pageIndexes">The zero-based pages, in the order they are written.</param>
+    /// <param name="flags">What to draw.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="output">The stream the document is written to.</param>
+    /// <param name="cancellationToken">Cancels the export between operators.</param>
+    /// <returns>What was left out or drawn differently.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException">There are no pages, or Encapsulated PostScript was asked for with other than one page.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A page does not exist.</exception>
+    /// <exception cref="ObjectDisposedException">The renderer or its document has been disposed.</exception>
+    private PdfPostScriptReport WritePostScriptCore(IReadOnlyList<int> pageIndexes, PdfRenderFlags flags, PdfPostScriptOptions options, Stream output, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(pageIndexes);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(output);
+        ObjectDisposedException.ThrowIf(_disposed || _document.IsDisposed, this);
+        if (pageIndexes.Count == 0 || (options.Encapsulated && pageIndexes.Count != 1))
+        {
+            throw new ArgumentException("Give one page for Encapsulated PostScript, and at least one page otherwise.", nameof(pageIndexes));
+        }
+
+        var pages = new List<PdfPage>(pageIndexes.Count);
+        foreach (var index in pageIndexes)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(index);
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _document.PageCount);
+            pages.Add(PdfDocumentPages.GetPage(_document, index));
+        }
+
+        var printing = (flags & PdfRenderFlags.Printing) != 0;
+        var annotations = (flags & PdfRenderFlags.Annotations) != 0;
+        return PostScriptPages.Write(CacheFor(flags), pages, printing, annotations, options, output, cancellationToken);
     }
 
     /// <summary>Records page content and requested annotations without creating output pixels.</summary>

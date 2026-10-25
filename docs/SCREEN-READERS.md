@@ -17,16 +17,19 @@ HyperPDF provides names, descriptions and keyboard access for screen readers on 
 - The page area says the page, such as "Page 5 of 40", and gives the page's text as its value.
 - Caret browsing (F7) puts a text cursor on the page, so the arrow keys move through the words. **Keep the keyboard cursor on pages** in Preferences starts every document this way.
 - Read Aloud works from the keyboard without the bar: Ctrl+Shift+V reads the page, Ctrl+Shift+B reads to the end, Ctrl+Shift+C pauses or resumes, Ctrl+Shift+E stops, and Ctrl+Shift+Comma and Ctrl+Shift+Period move a sentence.
-- Focus Mode (Ctrl+4) shows the text as headings, paragraphs and lists. Where the desktop exposes heading levels, use the screen reader's heading commands. On Linux, move through the blocks and listen for the spoken heading level.
+- Focus Mode (Ctrl+4) shows the text as headings, paragraphs and lists. Use the screen reader's heading commands to move between headings. On macOS, move through the blocks and listen for the spoken heading level.
 - Read Aloud reads the text in the app's own voice and marks the sentence on the page.
 
 ## Platform limits
 
 | Desktop | Limit | Workaround |
 |---|---|---|
-| Linux, native Wayland | No accessibility tree reaches the screen reader. | Sign in to an X11 session, or keep `DISPLAY` set so the app uses XWayland. |
-| Linux, X11 | Heading levels and list positions do not reach Orca. | Focus Mode headings and list items, and sidebar and dialog list items, say them in their description, such as "Heading level 2" or "2 of 7". |
-| macOS | List positions do not reach VoiceOver. | Sidebar and dialog lists say their place in each item's description. Focus Mode lists do not. |
-| All | The page has no text pattern, so a screen reader cannot move by word on the page itself. | Use Caret browsing, Focus Mode or Read Aloud. |
+| macOS | List positions do not reach VoiceOver, and the page has no text interface. | Sidebar and dialog lists say their place in each item's description. Use Caret browsing, Focus Mode or Read Aloud. |
 
-These limits come from the Avalonia UI framework. Related reports: AvaloniaUI/Avalonia#22376 and AvaloniaUI/Avalonia#22377.
+Linux and Windows have no limits. When a screen reader is on, HyperPDF serves its own elements: through an AT-SPI server on X11 and on native Wayland, and through UI Automation on Windows. Both send the full tree, heading levels, list positions, landmarks and the page text, so a screen reader can move by character, word, line and paragraph (and sentence on Linux). A failure in the Windows provider falls back to the UI framework's elements for that window. macOS still uses the Avalonia UI framework's tree, which causes the limit above. Related reports: AvaloniaUI/Avalonia#22376 and AvaloniaUI/Avalonia#22377.
+
+## How the checks were made
+
+- **Linux:** a private session with the accessibility bus, Xvfb or a headless Wayland compositor, and `busctl`; `src/tools/CheckScreenReader.cs` runs it.
+- **Windows 11:** a UI Automation client walked the app's elements, read the page text by word and line, toggled and invoked controls, hit tested a point and received property and structure events. Narrator, NVDA and JAWS themselves have not been run.
+- **macOS:** not checked.
