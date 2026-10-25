@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     name: Build and test
-    uses: glennawatson/actions-common/.github/workflows/workflow-common-setup-and-build.yml@315788024be8e61daa4f2b957e6476746211b522 # main
+    uses: glennawatson/actions-common/.github/workflows/workflow-common-setup-and-build.yml@4d538f76071ed73496cbf406cebe85e760fb734d # main
     with:
       srcFolder: '.'
       solutionFile: HyperPdf.slnx
@@ -29,7 +29,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@4d538f76071ed73496cbf406cebe85e760fb734d # main
         with:
           src-folder: '.'
           stamp-version: 'false'
@@ -65,7 +65,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@4d538f76071ed73496cbf406cebe85e760fb734d # main
         with:
           src-folder: '.'
           stamp-version: 'false'
@@ -110,7 +110,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@315788024be8e61daa4f2b957e6476746211b522 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@4d538f76071ed73496cbf406cebe85e760fb734d # main
         with:
           src-folder: '.'
           stamp-version: 'false'
