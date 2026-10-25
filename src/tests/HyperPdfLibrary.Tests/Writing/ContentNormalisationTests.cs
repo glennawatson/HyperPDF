@@ -205,7 +205,37 @@ public sealed class ContentNormalisationTests
         // Drawing the same file again says whether the renderer repeats itself, which tells a changed file from an unsteady renderer.
         var again = Compare(expected.Pixels, original.RenderPage().Pixels, expected.Width);
         var againChanged = Compare(actual.Pixels, changed.RenderPage().Pixels, expected.Width);
-        await Assert.That(difference.Pixels).IsEqualTo(0).Because($"{difference.Details} Drawing the first file again differs in {again.Pixels} pixels, the second in {againChanged.Pixels}.");
+        var detail = $"{difference.Details} Drawing the first file again differs in {again.Pixels} pixels, the second in {againChanged.Pixels}.";
+        await Assert.That(difference.Pixels).IsEqualTo(0).Because($"{detail} {Describe(before, after)}");
+    }
+
+    /// <summary>Temporary: says whether the first image's decoded bytes survived externalising.</summary>
+    /// <param name="before">The first file.</param>
+    /// <param name="after">The second file.</param>
+    /// <returns>The description.</returns>
+    private static string Describe(byte[] before, byte[] after)
+    {
+        const string Marker = "/CS /G ID ";
+        const int Peek = 16;
+        using var source = PdfDocumentReader.Open(before, null);
+        using var saved = PdfDocumentReader.Open(after, null);
+        var contents = PageDictionary(source).Get(KnownName.Contents).AsArray()!;
+        var content = new StringBuilder();
+        for (var i = 0; i < contents.Count; i++)
+        {
+            _ = content.Append(Encoding.Latin1.GetString(contents.Get(i).AsStream()!.DecodeToArray()));
+        }
+
+        var text = content.ToString();
+        var start = text.IndexOf(Marker, StringComparison.Ordinal) + Marker.Length;
+        var inline = Encoding.Latin1.GetBytes(text[start..(start + (WriterControlSamples.ImageSide * WriterControlSamples.ImageSide))]);
+        var images = PageDictionary(saved).GetDictionary(KnownName.Resources)!.GetDictionary(KnownName.XObject)!;
+        var decoded = images.GetStream(images.GetKeyAt(0))!.DecodeToArray();
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"arch={System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture} same={inline.AsSpan().SequenceEqual(decoded)} "
+            + $"inlineLen={inline.Length} decodedLen={decoded.Length} "
+            + $"inline={Convert.ToHexString(inline.AsSpan(0, Peek))} decoded={Convert.ToHexString(decoded.AsSpan(0, Peek))}");
     }
 
     /// <summary>Measures how two renderings differ, so a failure says where and by how much.</summary>
