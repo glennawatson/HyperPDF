@@ -4423,5 +4423,15 @@
     "type": "HyperPdf.Skia.SkiaOptions",
     "frame": "HyperPdf.Benchmarks.HyperPdfSkiaBundledFontBenchmarks.Options()",
     "reason": "The font manager is made once at start-up and lives as long as the app. The benchmark makes a new one for each call so the first request can be measured, which is the only reason this shows up per operation."
+  },
+  {
+    "type": "ReactiveUI.ReactivePropertyChangedEventArgs`1[HyperPdf.ViewModels.Viewing.DocumentTabViewModel]",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.set_CurrentPageIndex",
+    "reason": "ReactiveUI wiring: a reactive property raises its changing and changed notifications with one event arguments object each, which the page canvas, the page box and the form and layer panels observe. The notifications are the view model's interface to the UI."
+  },
+  {
+    "type": "ReactiveUI.ReactivePropertyChangedEventArgs`1[HyperPdf.ViewModels.Viewing.DocumentTabViewModel]",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.set_PageEntry",
+    "reason": "ReactiveUI wiring: the page box text is a reactive property, so a change raises its notifications with an event arguments object. The text itself is the page's label, which the document keeps."
   }
 ]

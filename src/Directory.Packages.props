@@ -6,7 +6,7 @@
 
   <PropertyGroup Label="Shared Version Variables">
     <AvaloniaVersion>12.1.4</AvaloniaVersion>
-    <TUnitVersion>1.75.0</TUnitVersion>
+    <TUnitVersion>1.76.0</TUnitVersion>
     <!-- StyleSharp.Analyzers, PerformanceSharp.Analyzers and SecuritySharp.Analyzers ship from the
          same release pipeline and always share a version. -->
     <RoslynCommonAnalyzersVersion>5.1.4</RoslynCommonAnalyzersVersion>
@@ -70,16 +70,16 @@
   <Choose>
     <When Condition="'$(TargetFramework)' == 'net10.0'">
       <ItemGroup>
-        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
-        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.13" />
-        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.13" />
+        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.14" />
       </ItemGroup>
     </When>
     <Otherwise>
       <ItemGroup>
-        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0-rc.2.26504.105" />
-        <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0-rc.2.26504.105" />
-        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0-rc.2.26504.105" />
+        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0-rc.3.26522.148" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0-rc.3.26522.148" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0-rc.3.26522.148" />
       </ItemGroup>
     </Otherwise>
   </Choose>
