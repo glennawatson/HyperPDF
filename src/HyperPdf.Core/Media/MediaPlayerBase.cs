@@ -216,8 +216,13 @@ public abstract class MediaPlayerBase : IMediaPlayback
             CancelRunLocked();
         }
 
-        _changes.OnCompleted();
-        _changes.Dispose();
+        // Publish checks and raises under this gate, so completing here cannot race a picture thread's last frame.
+        lock (_publishGate)
+        {
+            _changes.OnCompleted();
+            _changes.Dispose();
+        }
+
         Dispose(true);
         GC.SuppressFinalize(this);
     }
