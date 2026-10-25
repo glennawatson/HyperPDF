@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.InteropServices;
 using HyperPdf.Speech.Kokoro;
 
 namespace HyperPdf.Core.Tests.Speech;
@@ -53,6 +54,7 @@ public sealed class KokoroEngineTests
     [Test]
     public async Task SpeaksThroughOnnxRuntime()
     {
+        SkipWithoutOnnxRuntime();
         var directory = Path.Combine(Path.GetTempPath(), $"kokoro-{Guid.NewGuid():N}");
         try
         {
@@ -83,6 +85,7 @@ public sealed class KokoroEngineTests
     [Test]
     public async Task DisposeFreesTheSessionWhileAnotherCallRuns(CancellationToken cancellationToken)
     {
+        SkipWithoutOnnxRuntime();
         var directory = Path.Combine(Path.GetTempPath(), $"kokoro-{Guid.NewGuid():N}");
         try
         {
@@ -142,6 +145,15 @@ public sealed class KokoroEngineTests
         await Assert.That(KokoroModel.IsBritish("bf_emma")).IsTrue();
         await Assert.That(KokoroModel.IsBritish(Heart)).IsFalse();
         await Assert.That(KokoroModel.LexiconFiles(true)[0]).IsEqualTo("gb_gold.json");
+    }
+
+    /// <summary>Skips the test on Intel Macs, because the ONNX Runtime package ships its native library for Apple silicon only.</summary>
+    private static void SkipWithoutOnnxRuntime()
+    {
+        if (OperatingSystem.IsMacOS() && RuntimeInformation.ProcessArchitecture == Architecture.X64)
+        {
+            Skip.Test("ONNX Runtime has no native library for Intel Macs.");
+        }
     }
 
     /// <summary>Phonemizes, unless the engine was disposed first.</summary>

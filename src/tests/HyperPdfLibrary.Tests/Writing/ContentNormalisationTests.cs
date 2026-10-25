@@ -189,6 +189,40 @@ public sealed class ContentNormalisationTests
 
         await Assert.That(expected.IsNear(ImageCentre, ImageCentre, Rgb.White, 0)).IsFalse();
         await Assert.That(actual.Width).IsEqualTo(expected.Width);
-        await Assert.That(actual.Pixels.AsSpan().SequenceEqual(expected.Pixels)).IsTrue();
+        var difference = Compare(expected.Pixels, actual.Pixels);
+        var summary = $"{difference.Bytes} of {expected.Pixels.Length} bytes differ, by up to {difference.Largest}; the first is at byte {difference.First}.";
+        await Assert.That(difference.Bytes).IsEqualTo(0).Because(summary);
     }
+
+    /// <summary>Counts how the bytes of two renderings differ, so a failure says how far apart they are.</summary>
+    /// <param name="expected">The first rendering's bytes.</param>
+    /// <param name="actual">The second rendering's bytes.</param>
+    /// <returns>The differences; a length that differs counts every byte of the longer rendering.</returns>
+    private static PixelDifference Compare(byte[] expected, byte[] actual)
+    {
+        var shared = Math.Min(expected.Length, actual.Length);
+        var count = Math.Abs(expected.Length - actual.Length);
+        var largest = 0;
+        var first = -1;
+        for (var i = 0; i < shared; i++)
+        {
+            var gap = Math.Abs(expected[i] - actual[i]);
+            if (gap == 0)
+            {
+                continue;
+            }
+
+            count++;
+            largest = Math.Max(largest, gap);
+            first = first < 0 ? i : first;
+        }
+
+        return new(count, largest, first);
+    }
+
+    /// <summary>How two renderings differ.</summary>
+    /// <param name="Bytes">The number of bytes that differ.</param>
+    /// <param name="Largest">The largest difference of one byte.</param>
+    /// <param name="First">The position of the first byte that differs, or -1.</param>
+    private readonly record struct PixelDifference(int Bytes, int Largest, int First);
 }

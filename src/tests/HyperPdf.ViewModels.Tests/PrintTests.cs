@@ -41,8 +41,8 @@ public sealed class PrintTests
     /// <summary>Four pages at two per sheet.</summary>
     private const int ExpectedSheets = 2;
 
-    /// <summary>How many times to check a condition.</summary>
-    private const int WaitSteps = 200;
+    /// <summary>The longest a condition is waited for; a slow shared runner can take far longer than a desktop to build a preview.</summary>
+    private static readonly TimeSpan WaitBudget = TimeSpan.FromSeconds(30);
 
     /// <summary>The pause between checks.</summary>
     private static readonly TimeSpan WaitStep = TimeSpan.FromMilliseconds(25);
@@ -156,10 +156,14 @@ public sealed class PrintTests
         {
             var preview = context.Input;
             preview.LayoutIndex = PosterLayout;
-            await Assert.That(await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Sheets.Count == RangePages * PosterSheetsPerPage)).IsTrue();
+            var posterReady = await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Sheets.Count == RangePages * PosterSheetsPerPage);
+            await Assert.That(posterReady).IsTrue().Because($"valid {preview.IsValid}, building {preview.IsBuilding}, sheets {preview.Sheets.Count} of {RangePages * PosterSheetsPerPage}.");
             posterSheets = preview.Sheets.Count;
             preview.LayoutIndex = BookletLayout;
-            await Assert.That(await WaitAsync(() => IsBookletReady(preview))).IsTrue();
+            var bookletReady = await WaitAsync(() => IsBookletReady(preview));
+            var wanted = Booklet.SheetCount(RangePages) * BookletSides;
+            var bookletState = $"valid {preview.IsValid}, building {preview.IsBuilding}, destination {preview.Destination}, sheets {preview.Sheets.Count} of {wanted}.";
+            await Assert.That(bookletReady).IsTrue().Because(bookletState);
             bookletSheets = preview.Sheets.Count;
             context.SetOutput(true);
         });
@@ -195,11 +199,20 @@ public sealed class PrintTests
     /// <returns><see langword="true"/> when it held in time.</returns>
     private static async Task<bool> WaitAsync(Func<bool> condition)
     {
-        for (var i = 0; i < WaitSteps && !condition(); i++)
+        using var timeout = new CancellationTokenSource(WaitBudget);
+        using var timer = new PeriodicTimer(WaitStep);
+        try
         {
-            await Task.Delay(WaitStep);
-        }
+            while (!condition())
+            {
+                _ = await timer.WaitForNextTickAsync(timeout.Token);
+            }
 
-        return condition();
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return condition();
+        }
     }
 }
