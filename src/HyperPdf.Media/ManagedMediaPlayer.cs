@@ -4,16 +4,16 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using HyperPdf.Codecs;
-using HyperPdf.Codecs.Video;
+using HyperCodecs;
+using HyperCodecs.Platform.Video;
+using HyperCodecs.Video;
 using HyperPdf.Core.Media;
-using HyperPdf.Media.Native;
 
 namespace HyperPdf.Media;
 
 /// <summary>
 /// Plays the sound and video of a file with the readers and decoders written in C# for this app, so no native library is needed.
-/// It plays the formats <c>HyperPdf.Codecs</c> decodes and declines the rest. The sound output's clock is what is heard and drives the
+/// It plays the formats <c>HyperCodecs</c> decodes and declines the rest. The sound output's clock is what is heard and drives the
 /// picture, so the two stay together, and a position can be reached at once. Playing never starts by itself: the reader presses Play.
 /// </summary>
 [DebuggerDisplay("ManagedMediaPlayer: {Snapshot}")]
@@ -120,7 +120,7 @@ public sealed class ManagedMediaPlayer : MediaPlayerBase
     /// <returns><see langword="true"/> when a decoder exists for it.</returns>
     private static bool CanDecodePicture(MediaTrack track)
     {
-        using var decoder = PlatformVideoDecoders.Create(track);
+        using var decoder = LinuxVideoDecoders.Create(track);
         return decoder is not null;
     }
 
@@ -132,7 +132,7 @@ public sealed class ManagedMediaPlayer : MediaPlayerBase
     private static OpenedPicture? OpenPictureTrack(MediaContainer container, FramePump pump, ManagedMediaPlayer player)
     {
         var index = container.FindTrack(MediaTrackKind.Video);
-        var decoder = index < 0 ? null : PlatformVideoDecoders.Create(container.Tracks[index]);
+        var decoder = index < 0 ? null : LinuxVideoDecoders.Create(container.Tracks[index]);
         if (decoder is null)
         {
             return null;

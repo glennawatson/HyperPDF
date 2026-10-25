@@ -4,7 +4,7 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using HyperPdf.Codecs;
+using HyperCodecs;
 using HyperPdf.Core.Media;
 
 namespace HyperPdf.Media;

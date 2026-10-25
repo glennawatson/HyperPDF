@@ -5,7 +5,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
-    <ProjectReference Include="..\HyperPdf.Codecs\HyperPdf.Codecs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="HyperCodecs" />
+    <PackageReference Include="HyperCodecs.Platform.Linux" />
   </ItemGroup>
 
   <ItemGroup>

@@ -107,23 +107,23 @@
     <Compile Include="..\..\HyperPdf.App\Controls\FocusArrival.cs" Link="FocusArrival.cs" />
     <Compile Include="..\..\HyperPdf.App\Controls\FocusArrivalMixins.cs" Link="FocusArrivalMixins.cs" />
     <!-- Short Opus files coded by each layer, which the audio decoding benchmarks decode. -->
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\opus-stereo-music.opus" Link="Fixtures\opus-stereo-music.opus" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\silk-mono-wb-20ms.opus" Link="Fixtures\silk-mono-wb-20ms.opus" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\opus-mono-voip.opus" Link="Fixtures\opus-mono-voip.opus" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\aac-lc-stereo-44100.m4a" Link="Fixtures\aac-lc-stereo-44100.m4a" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\aac-lc-noise-24k.m4a" Link="Fixtures\aac-lc-noise-24k.m4a" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\av-h264-aac-text.mp4" Link="Fixtures\av-h264-aac-text.mp4" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\aac-lc-stereo-fragmented.mp4" Link="Fixtures\aac-lc-stereo-fragmented.mp4" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\av-h264-aac-text.mkv" Link="Fixtures\av-h264-aac-text.mkv" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h264-intra-baseline.mp4" Link="Fixtures\h264-intra-baseline.mp4" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h264-intra-cabac.mp4" Link="Fixtures\h264-intra-cabac.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\opus-stereo-music.opus" Link="Fixtures\opus-stereo-music.opus" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\silk-mono-wb-20ms.opus" Link="Fixtures\silk-mono-wb-20ms.opus" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\opus-mono-voip.opus" Link="Fixtures\opus-mono-voip.opus" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\aac-lc-stereo-44100.m4a" Link="Fixtures\aac-lc-stereo-44100.m4a" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\aac-lc-noise-24k.m4a" Link="Fixtures\aac-lc-noise-24k.m4a" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\av-h264-aac-text.mp4" Link="Fixtures\av-h264-aac-text.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\aac-lc-stereo-fragmented.mp4" Link="Fixtures\aac-lc-stereo-fragmented.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\av-h264-aac-text.mkv" Link="Fixtures\av-h264-aac-text.mkv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\h264-intra-baseline.mp4" Link="Fixtures\h264-intra-baseline.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\h264-intra-cabac.mp4" Link="Fixtures\h264-intra-cabac.mp4" CopyToOutputDirectory="PreserveNewest" />
     <!-- Predicted H.264 and H.265 files, which the video decoding benchmarks decode. -->
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h264-p-cabac.mp4" Link="Fixtures\h264-p-cabac.mp4" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h264-b-cabac-deblock.mp4" Link="Fixtures\h264-b-cabac-deblock.mp4" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h265-intra.mp4" Link="Fixtures\h265-intra.mp4" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h265-p.mp4" Link="Fixtures\h265-p.mp4" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h265-b.mp4" Link="Fixtures\h265-b.mp4" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="..\..\tests\HyperPdf.Codecs.Tests\Fixtures\h265-loop-filters-ctu32.mp4" Link="Fixtures\h265-loop-filters-ctu32.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\h264-p-cabac.mp4" Link="Fixtures\h264-p-cabac.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\h264-b-cabac-deblock.mp4" Link="Fixtures\h264-b-cabac-deblock.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\h265-intra.mp4" Link="Fixtures\h265-intra.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\h265-p.mp4" Link="Fixtures\h265-p.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\h265-b.mp4" Link="Fixtures\h265-b.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\tests\HyperPdf.Media.Tests\Fixtures\h265-loop-filters-ctu32.mp4" Link="Fixtures\h265-loop-filters-ctu32.mp4" CopyToOutputDirectory="PreserveNewest" />
     <!-- The JPEG 2000 test encoder,which re-encodes a corpus page as HTJ2K for the high-throughput benchmarks. -->
     <Compile Include="..\..\tests\HyperPdfLibrary.Tests\Graphics\Jpx\JpxTest*.cs" Link="Jpx\%(Filename)%(Extension)" />
     <Compile Include="..\..\tools\JpxHtTableBuilder.cs" Link="Jpx\JpxHtTableBuilder.cs" />

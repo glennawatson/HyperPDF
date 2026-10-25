@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers.Binary;
-using HyperPdf.Codecs.Tests;
 using HyperPdf.Core.Media;
 using ReactiveUI.Primitives;
 

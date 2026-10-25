@@ -2358,7 +2358,7 @@ Apache License
 
 ### PacketVideo AAC decoder tables
 - Version: Android froyo branch of external/opencore, codecs_v2/audio/aac/dec
-- Origin: The AAC Huffman codebooks and scalefactor band tables in HyperPdf.Codecs were written out from the tables of this decoder (hcbtables_binary.cpp and sfb.cpp). Nothing is downloaded or shipped as a library.
+- Origin: The AAC Huffman codebooks and scalefactor band tables in HyperCodecs were written out from the tables of this decoder (hcbtables_binary.cpp and sfb.cpp). Nothing is downloaded or shipped as a library.
 - Copyright: Copyright (C) 1998-2009 PacketVideo.
 - Link: https://android.googlesource.com/platform/external/opencore/+/refs/heads/froyo/codecs_v2/audio/aac/dec/src/hcbtables_binary.cpp
 
@@ -3208,7 +3208,7 @@ The engine builds and caches only the requested mappings. No CMap data is includ
 
 ### Opus reference decoder (RFC 6716)
 - Version: RFC 6716 reference source, with the decoder fixes of RFC 8251
-- Origin: The Opus decoder in HyperPdf.Codecs follows the logic of the reference decoder in RFC 6716, written again in C#; its CELT tables were generated from that source. Nothing is downloaded or shipped as a library.
+- Origin: The Opus decoder in HyperCodecs follows the logic of the reference decoder in RFC 6716, written again in C#; its CELT tables were generated from that source. Nothing is downloaded or shipped as a library.
 - Copyright: Copyright 1994-2011 IETF Trust, Xiph.Org, Skype Limited, Octasic, Jean-Marc Valin, Timothy B. Terriberry, CSIRO, Gregory Maxwell, Mark Borgerding, Erik de Castro Lopo. All rights reserved.
 - Link: https://www.rfc-editor.org/rfc/rfc6716
 

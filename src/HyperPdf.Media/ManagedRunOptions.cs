@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using HyperPdf.Codecs;
+using HyperCodecs;
 
 namespace HyperPdf.Media;
 

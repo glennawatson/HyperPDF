@@ -12,7 +12,7 @@
 
   <ItemGroup>
     <!-- A short H.264 video with AAC sound and text, made by an independent encoder, which the media tests put in documents. -->
-    <None Include="..\HyperPdf.Codecs.Tests\Fixtures\av-h264-aac-text.mp4" Link="Fixtures\av-h264-aac-text.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\HyperPdf.Media.Tests\Fixtures\av-h264-aac-text.mp4" Link="Fixtures\av-h264-aac-text.mp4" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

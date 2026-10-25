@@ -16,7 +16,6 @@
     <Project Path="HyperPdf.Speech/HyperPdf.Speech.csproj" />
     <Project Path="HyperPdf.Vision/HyperPdf.Vision.csproj" />
     <Project Path="HyperPdf.AtSpiReplacement/HyperPdf.AtSpiReplacement.csproj" />
-    <Project Path="HyperPdf.Codecs/HyperPdf.Codecs.csproj" />
     <Project Path="HyperPdf.Media/HyperPdf.Media.csproj" />
     <Project Path="HyperPdf.Platform.Cups/HyperPdf.Platform.Cups.csproj" />
     <Project Path="HyperPdf.Platform.Linux/HyperPdf.Platform.Linux.csproj" />
@@ -33,7 +32,6 @@
     <Project Path="tests/HyperPdf.Core.Tests/HyperPdf.Core.Tests.csproj" />
     <Project Path="tests/HyperPdf.Presentation.Tests/HyperPdf.Presentation.Tests.csproj" />
     <Project Path="tests/HyperPdf.ViewModels.Tests/HyperPdf.ViewModels.Tests.csproj" />
-    <Project Path="tests/HyperPdf.Codecs.Tests/HyperPdf.Codecs.Tests.csproj" />
     <Project Path="tests/HyperPdf.Media.Tests/HyperPdf.Media.Tests.csproj" />
     <Project Path="tests/HyperPdf.Ocr.Tests/HyperPdf.Ocr.Tests.csproj" />
     <Project Path="tests/HyperPdf.TestAssets/HyperPdf.TestAssets.csproj" />
