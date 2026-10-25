@@ -4,9 +4,8 @@
 
 using System.Text;
 using HyperCodecs;
-using HyperPdf.Core.Media;
 
-namespace HyperPdf.Media;
+namespace HyperPdf.Core.Media;
 
 /// <summary>Reads the timed text of a file once, when it opens, so the player can show the right words at any position.</summary>
 internal static class ManagedCaptions

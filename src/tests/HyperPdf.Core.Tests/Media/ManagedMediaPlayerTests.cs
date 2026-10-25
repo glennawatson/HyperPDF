@@ -6,7 +6,7 @@ using System.Buffers.Binary;
 using HyperPdf.Core.Media;
 using ReactiveUI.Primitives;
 
-namespace HyperPdf.Media.Tests;
+namespace HyperPdf.Core.Tests.Media;
 
 /// <summary>Tests for <see cref="ManagedMediaPlayer"/>, which plays sound and video with decoders written in C#.</summary>
 public sealed class ManagedMediaPlayerTests

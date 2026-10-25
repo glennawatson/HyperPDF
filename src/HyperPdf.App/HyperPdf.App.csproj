@@ -39,7 +39,6 @@
     <ProjectReference Include="..\HyperPdf.Ocr\HyperPdf.Ocr.csproj" />
     <ProjectReference Include="..\HyperPdf.Http\HyperPdf.Http.csproj" />
     <ProjectReference Include="..\HyperPdf.Speech\HyperPdf.Speech.csproj" />
-    <ProjectReference Include="..\HyperPdf.Media\HyperPdf.Media.csproj" />
     <ProjectReference Include="..\HyperPdf.Platform.Linux\HyperPdf.Platform.Linux.csproj" />
     <ProjectReference Include="..\HyperPdf.Platform.MacOS\HyperPdf.Platform.MacOS.csproj" />
     <ProjectReference Include="..\HyperPdf.Platform.Windows\HyperPdf.Platform.Windows.csproj" />

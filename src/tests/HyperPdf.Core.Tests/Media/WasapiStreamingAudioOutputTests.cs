@@ -6,7 +6,7 @@ using System.Diagnostics;
 using System.Runtime.Versioning;
 using HyperPdf.Platform.Windows.Audio;
 
-namespace HyperPdf.Media.Tests;
+namespace HyperPdf.Core.Tests.Media;
 
 /// <summary>Tests for <see cref="WasapiStreamingAudioOutput"/> against the sound device of the computer. They write silence, so nothing is heard.</summary>
 public sealed class WasapiStreamingAudioOutputTests

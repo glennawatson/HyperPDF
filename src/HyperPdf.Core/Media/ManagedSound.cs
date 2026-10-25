@@ -5,9 +5,8 @@
 using System.Diagnostics;
 using HyperCodecs;
 using HyperCodecs.Audio;
-using HyperPdf.Core.Media;
 
-namespace HyperPdf.Media;
+namespace HyperPdf.Core.Media;
 
 /// <summary>The sound of a run: the track, its decoder, the converter to the output's rate, and the output.</summary>
 /// <param name="Track">The number of the sound track.</param>

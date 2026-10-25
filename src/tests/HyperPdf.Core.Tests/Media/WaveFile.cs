@@ -4,7 +4,7 @@
 
 using System.Buffers.Binary;
 
-namespace HyperPdf.Media.Tests;
+namespace HyperPdf.Core.Tests.Media;
 
 /// <summary>Builds RIFF/WAVE files in memory for the tests.</summary>
 internal static class WaveFile

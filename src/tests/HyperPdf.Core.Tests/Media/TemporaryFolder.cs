@@ -4,7 +4,7 @@
 
 using System.Diagnostics;
 
-namespace HyperPdf.Media.Tests;
+namespace HyperPdf.Core.Tests.Media;
 
 /// <summary>A folder of files that exists for one test and is deleted with it.</summary>
 [DebuggerDisplay("TemporaryFolder: {_path}")]

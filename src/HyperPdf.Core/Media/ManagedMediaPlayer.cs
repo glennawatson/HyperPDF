@@ -7,9 +7,8 @@ using System.Runtime.CompilerServices;
 using HyperCodecs;
 using HyperCodecs.Platform.Video;
 using HyperCodecs.Video;
-using HyperPdf.Core.Media;
 
-namespace HyperPdf.Media;
+namespace HyperPdf.Core.Media;
 
 /// <summary>
 /// Plays the sound and video of a file with the readers and decoders written in C# for this app, so no native library is needed.

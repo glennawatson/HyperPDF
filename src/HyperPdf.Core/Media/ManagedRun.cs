@@ -5,9 +5,8 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using HyperCodecs;
-using HyperPdf.Core.Media;
 
-namespace HyperPdf.Media;
+namespace HyperPdf.Core.Media;
 
 /// <summary>
 /// One run of a file from a position to its end: a reader that hands packets to a sound thread and a picture thread. The sound

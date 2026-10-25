@@ -5,9 +5,8 @@
 using System.Diagnostics;
 using HyperCodecs;
 using HyperCodecs.Video;
-using HyperPdf.Core.Media;
 
-namespace HyperPdf.Media;
+namespace HyperPdf.Core.Media;
 
 /// <summary>The pictures of a run: the track, its decoder, the scaler to the shown size, and where the pictures go.</summary>
 /// <param name="Track">The number of the picture track.</param>

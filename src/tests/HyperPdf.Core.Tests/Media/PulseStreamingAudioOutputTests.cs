@@ -7,7 +7,7 @@ using HyperPdf.Core.Media;
 using HyperPdf.Platform.Linux.Audio;
 using ReactiveUI.Primitives;
 
-namespace HyperPdf.Media.Tests;
+namespace HyperPdf.Core.Tests.Media;
 
 /// <summary>Tests for <see cref="PulseStreamingAudioOutput"/> against the sound server of the computer. They write silence, so nothing is heard, and skip when there is no sound server.</summary>
 public sealed class PulseStreamingAudioOutputTests

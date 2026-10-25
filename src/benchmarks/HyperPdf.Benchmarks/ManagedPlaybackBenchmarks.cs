@@ -4,7 +4,6 @@
 
 using BenchmarkDotNet.Attributes;
 using HyperPdf.Core.Media;
-using HyperPdf.Media;
 using ReactiveUI.Primitives;
 
 namespace HyperPdf.Benchmarks;

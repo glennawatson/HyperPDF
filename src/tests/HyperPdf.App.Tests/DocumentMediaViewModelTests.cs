@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Media;
-using HyperPdf.Media;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;

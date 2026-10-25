@@ -4,9 +4,8 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using HyperPdf.Core.Media;
 
-namespace HyperPdf.Media;
+namespace HyperPdf.Core.Media;
 
 /// <summary>Chooses how media plays on this computer: with the readers and decoders written in C# for this app, where the sound clock keeps the picture in step.</summary>
 [DebuggerDisplay("MediaPlaybackFactory: {IsAvailable}")]

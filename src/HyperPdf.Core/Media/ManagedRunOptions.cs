@@ -5,7 +5,7 @@
 using System.Diagnostics;
 using HyperCodecs;
 
-namespace HyperPdf.Media;
+namespace HyperPdf.Core.Media;
 
 /// <summary>What one run of a file needs: the file, the sound and pictures it plays, and the clock it plays by.</summary>
 /// <param name="Container">The file.</param>

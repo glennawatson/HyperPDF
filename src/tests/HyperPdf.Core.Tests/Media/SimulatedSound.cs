@@ -5,7 +5,7 @@
 using System.Diagnostics;
 using HyperPdf.Core.Media;
 
-namespace HyperPdf.Media.Tests;
+namespace HyperPdf.Core.Tests.Media;
 
 /// <summary>
 /// A sound output that behaves like a real device without making any noise: it plays what it is given in real time, holds a fifth of

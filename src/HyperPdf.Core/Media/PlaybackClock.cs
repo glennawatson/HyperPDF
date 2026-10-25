@@ -4,9 +4,8 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using HyperPdf.Core.Media;
 
-namespace HyperPdf.Media;
+namespace HyperPdf.Core.Media;
 
 /// <summary>
 /// The clock a run plays by. While there is sound, the clock is what is being heard: the end of the sound written so far, minus the

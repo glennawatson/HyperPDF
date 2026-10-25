@@ -4,6 +4,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="HyperCodecs" />
+    <PackageReference Include="HyperCodecs.Platform.Linux" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
     <PackageReference Include="ReactiveUI.Primitives" />

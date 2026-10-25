@@ -17,6 +17,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Short files made by independent encoders: AAC sound alone, pictures with sound and text, and H.265 pictures alone. -->
+    <None Include="Media\Fixtures\*" Link="Fixtures\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- A 356 byte model with Kokoro's inputs and output, made with the onnx Python package, to prove the ONNX path. -->
     <None Include="Speech\Fixtures\kokoro-stand-in.onnx" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Speech\Melo\melo-reference.json" Link="melo-reference.json" CopyToOutputDirectory="PreserveNewest" />
