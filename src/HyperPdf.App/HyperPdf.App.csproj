@@ -65,10 +65,11 @@
 
   <!-- The Licences window shows these notices: the packages in this project's assets, the font and CMap resource packs, and the data the app downloads. -->
   <PropertyGroup>
-    <NoticesResourceName>HyperPdf.ThirdPartyNotices.md</NoticesResourceName>
     <NoticesComponents>unicode-ucd;open-font-pack;adobe-cmaps;opus-reference-decoder;pv-aac-decoder;tessdata-fast;kokoro;misaki;melotts;bert-base-uncased;g2p-en;cmudict;verapdf-profile-text</NoticesComponents>
   </PropertyGroup>
-  <Import Project="..\licenses\ThirdPartyNotices.targets" />
+  <ItemGroup>
+    <None Include="..\licenses\notices\HyperPdf.App.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
 
   <!-- Debug symbols stay out of the packaged app, in a symbols folder beside it; Native AOT copies them in after Publish. -->
   <Target Name="MoveSymbolsOutOfPublish" AfterTargets="_CopyAotSymbols">

@@ -7,8 +7,8 @@ namespace HyperPdf.ViewModels.Rendering;
 /// <summary>What the UI toolkit supplies to the viewer: where tiles are drawn, how a frame is requested and how pictures are read.</summary>
 public interface IRenderHead
 {
-    /// <summary>Gets the assembly that embeds the third-party notices the Licences window shows.</summary>
-    System.Reflection.Assembly NoticesAssembly { get; }
+    /// <summary>Gets the folder that holds the third-party notices file the Licences window shows.</summary>
+    string NoticesFolder { get; }
 
     /// <summary>Creates the factory for the tiles the render workers fill.</summary>
     /// <param name="recoverSoftware">Asks for software tiles on the UI thread after the graphics device is lost.</param>

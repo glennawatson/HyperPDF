@@ -57,12 +57,12 @@ public sealed class AppServicesHeadTests
         await Assert.That(plainChecker).IsSameReferenceAs(NullSpellChecker.Instance);
     }
 
-    /// <summary>The licence notices are read from the assembly the head names, and are empty when it embeds none.</summary>
+    /// <summary>The licence notices are read from the folder the head names, and are empty when it has no notices file.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task NoticesComeFromTheHeadAssembly()
+    public async Task NoticesComeFromTheHeadFolder()
     {
-        var notices = new LicenceNotices(new FakeRenderHead().NoticesAssembly);
+        var notices = new LicenceNotices(new FakeRenderHead().NoticesFolder);
 
         var document = notices.Load();
 
@@ -70,11 +70,11 @@ public sealed class AppServicesHeadTests
         await Assert.That(notices.Load()).IsSameReferenceAs(document);
     }
 
-    /// <summary>Notices cannot be read without an assembly.</summary>
+    /// <summary>Notices cannot be read without a folder.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task NoticesRequireAnAssembly() =>
-        await Assert.That(static () => new LicenceNotices(null!)).Throws<ArgumentNullException>();
+    public async Task NoticesRequireAFolder() =>
+        await Assert.That(static () => new LicenceNotices(string.Empty)).Throws<ArgumentException>();
 
     /// <summary>The picture a head decodes reaches the signature window's reader.</summary>
     /// <returns>A task.</returns>

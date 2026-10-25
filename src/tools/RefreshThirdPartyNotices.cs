@@ -58,12 +58,13 @@ finally
 async Task<int> GenerateAsync(string project, string name)
 {
     var projectPath = Path.Combine(root, project);
-    var assetsFile = (await ScriptProcess.CaptureAsync(ScriptProcess.Dotnet, ["msbuild", projectPath, "-getProperty:ProjectAssetsFile", "-nologo"], root, token)).Trim();
     var restored = await ScriptProcess.RunAsync(ScriptProcess.Dotnet, ["restore", projectPath, "-v", "q", "--nologo"], root, token);
     if (restored != 0)
     {
         return restored;
     }
+
+    var assetsFile = (await ScriptProcess.CaptureAsync(ScriptProcess.Dotnet, ["msbuild", projectPath, "-getProperty:ProjectAssetsFile", "-nologo"], root, token)).Trim();
 
     var copy = Path.Combine(scratch, Path.GetFileNameWithoutExtension(project), "project.assets.json");
     _ = Directory.CreateDirectory(Path.GetDirectoryName(copy)!);

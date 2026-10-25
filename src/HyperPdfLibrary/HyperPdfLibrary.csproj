@@ -66,14 +66,12 @@
     <EmbeddedResource Include="Accessibility\Data\StandardsRules.tsv" LogicalName="HyperPdfLibrary.Accessibility.StandardsRules.tsv" />
   </ItemGroup>
 
-  <!-- The notices of what the library ships: its packages and the font and CMap resource packs. The nupkg carries them as THIRD-PARTY-NOTICES.md. -->
+  <!-- The notices of what the library ships sit in the root of the package. -->
   <PropertyGroup>
-    <NoticesResourceName>HyperPdfLibrary.ThirdPartyNotices.md</NoticesResourceName>
     <NoticesComponents>unicode-ucd;open-font-pack;adobe-cmaps;verapdf-profile-text</NoticesComponents>
   </PropertyGroup>
-  <Import Project="..\licenses\ThirdPartyNotices.targets" />
   <ItemGroup>
-    <None Include="$(NoticesFile)" Pack="true" PackagePath="THIRD-PARTY-NOTICES.md" Visible="false" />
+    <None Include="..\licenses\notices\HyperPdfLibrary.md" Pack="true" PackagePath="THIRD-PARTY-NOTICES.md" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>

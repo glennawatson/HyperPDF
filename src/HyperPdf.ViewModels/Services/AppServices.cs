@@ -203,7 +203,7 @@ public sealed partial class AppServices : ReactiveObject, IDisposable, ILocalisa
     public partial int SettingsVersion { get; private set; }
 
     /// <summary>Gets the notices owned by this application lifetime.</summary>
-    internal LicenceNotices LicenceNotices => _licenceNotices ??= new(Head.NoticesAssembly);
+    internal LicenceNotices LicenceNotices => _licenceNotices ??= new(Head.NoticesFolder);
 
     /// <summary>Gets the tint over fillable form fields the settings choose.</summary>
     internal FormHighlight FormHighlight => ReadHighlight(this);

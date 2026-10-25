@@ -35,7 +35,7 @@ public sealed class FakeRenderHead : IRenderHead
     public List<string> ReadPaths { get; } = [];
 
     /// <inheritdoc/>
-    public Assembly NoticesAssembly => typeof(FakeRenderHead).Assembly;
+    public string NoticesFolder { get; set; } = Path.Combine(Path.GetTempPath(), "hyperpdf-no-notices");
 
     /// <inheritdoc/>
     public IOwnedSurfaceFactory CreateSurfaceFactory(Action recoverSoftware)

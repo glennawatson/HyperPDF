@@ -88,7 +88,7 @@ public sealed class ControlHelpTests
             new ConfirmWindow { ViewModel = new(new("Delete?", "This cannot be undone.", "Delete")) },
             new PromptWindow { ViewModel = new(new TextPrompt("Note", "Write a note", string.Empty, "Save", false)) },
             new PropertiesWindow(),
-            new LicencesWindow { ViewModel = new(new LicenceNotices(typeof(AvaloniaRenderHead).Assembly).Load()) },
+            new LicencesWindow { ViewModel = new(new LicenceNotices(AppContext.BaseDirectory).Load()) },
             new SignaturesWindow(),
             new CertificateSignWindow(),
             new ValidationDataWindow(),
