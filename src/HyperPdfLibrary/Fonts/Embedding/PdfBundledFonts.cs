@@ -51,6 +51,19 @@ public static class PdfBundledFonts
     public static PdfFontSource OpenOrThrow(PdfBundledFontFamily family, bool bold, bool italic) =>
         PdfFontOpenResult.SourceOrThrow(Open(family, bold, italic));
 
+    /// <summary>Gets the TrueType font file of an embedded font, so a host can show text in it before it is written.</summary>
+    /// <param name="family">The family.</param>
+    /// <param name="bold">Whether to use the bold style; ignored for symbol, dingbats, and emoji families.</param>
+    /// <param name="italic">Whether to use the italic style; ignored for symbol, dingbats, and emoji families.</param>
+    /// <returns>A new copy of the font file, or <see langword="null"/> when the font embedded in the library is damaged.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="family"/> is not a defined family.</exception>
+    public static byte[]? GetFontFile(PdfBundledFontFamily family, bool bold, bool italic)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan((int)family, (int)PdfBundledFontFamily.Sans);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan((int)family, (int)PdfBundledFontFamily.Emoji);
+        return BundledFaces.Decode((BundledFamily)(int)family, bold, italic);
+    }
+
     /// <summary>Opens the default license-compatible bundled backup fonts (Symbol, Dingbats, and Emoji) in fallback order.</summary>
     /// <returns>The ordered list of bundled fallback font sources.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

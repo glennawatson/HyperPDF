@@ -5,6 +5,7 @@
 using Avalonia;
 using Avalonia.Vulkan;
 using HyperPdf.App.Services;
+using HyperPdf.Engine;
 using HyperPdf.Skia;
 
 namespace HyperPdf.App;
@@ -29,7 +30,7 @@ internal static class AppBuilderExtensions
             ArgumentNullException.ThrowIfNull(builder);
             return builder
                 .UseTextShapingSubsystem(static () => SkiaPlatform.InitializeTextShaping(), "HarfBuzz")
-                .UseRenderingSubsystem(static () => SkiaPlatform.Initialize(new SkiaOptions { MaxGpuResourceSizeBytes = GpuResourceCacheBytes }), "Skia");
+                .UseRenderingSubsystem(static () => SkiaPlatform.Initialize(CreateSkiaOptions()), "Skia");
         }
 
         /// <summary>Configures the windowing subsystem and modern Skia rendering for the target desktop environment.</summary>
@@ -65,6 +66,15 @@ internal static class AppBuilderExtensions
             return builder.UseSkia();
         }
     }
+
+    /// <summary>Makes the Skia options: the resource cache limit, and the fonts the engine draws the built in PDF families with, so typed text uses them on every system.</summary>
+    /// <returns>The options.</returns>
+    private static SkiaOptions CreateSkiaOptions() => new()
+    {
+        MaxGpuResourceSizeBytes = GpuResourceCacheBytes,
+        BundledFamilies = BundledScreenFonts.Families,
+        BundledFontReader = BundledScreenFonts.Read,
+    };
 
     /// <summary>Requests the Vulkan procedures the pinned Skia backend uses before trying this graphics path.</summary>
     /// <returns>The Vulkan instance settings.</returns>

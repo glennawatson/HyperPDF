@@ -4343,5 +4343,85 @@
     "type": "System.String",
     "frame": "HyperPdf.Ocr.Layout.PageReader.ReadLine",
     "reason": "The text of each recognised word is a new string, because the word is the result handed to the caller. There is one for each word on the page, none for any step of the network."
+  },
+  {
+    "type": "Entry[HyperPdf.Skia.Fonts.FontManagerImpl+BundledKey,HyperPdf.Skia.Fonts.SkiaTypeface][]",
+    "frame": "HyperPdf.Skia.Fonts.FontManagerImpl.TryBundled(class System.String,bool,bool)",
+    "reason": "Made once, the first time the editor shows text in one of the app's own fonts (about 0.6 ms), then kept for the life of the font manager. Repeated requests allocate 0 B (see HyperPdfSkiaBundledFontBenchmarks.RepeatedRequests)."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdf.Skia.Fonts.FontManagerImpl.TryBundled(class System.String,bool,bool)",
+    "reason": "Made once, the first time the editor shows text in one of the app's own fonts (about 0.6 ms), then kept for the life of the font manager. Repeated requests allocate 0 B (see HyperPdfSkiaBundledFontBenchmarks.RepeatedRequests)."
+  },
+  {
+    "type": "SkiaSharp.SKTypeface",
+    "frame": "HyperPdf.Skia.Fonts.FontManagerImpl.TryBundled(class System.String,bool,bool)",
+    "reason": "Made once, the first time the editor shows text in one of the app's own fonts (about 0.6 ms), then kept for the life of the font manager. Repeated requests allocate 0 B (see HyperPdfSkiaBundledFontBenchmarks.RepeatedRequests)."
+  },
+  {
+    "type": "SkiaSharp.SKData",
+    "frame": "HyperPdf.Skia.Fonts.FontManagerImpl.TryBundled(class System.String,bool,bool)",
+    "reason": "The font file is decoded from the assembly resource once per face and handed to Skia, which keeps its own copy for the typeface's life."
+  },
+  {
+    "type": "System.WeakReference",
+    "frame": "HyperPdf.Skia.Fonts.FontManagerImpl.TryBundled(class System.String,bool,bool)",
+    "reason": "Made once, the first time the editor shows text in one of the app's own fonts (about 0.6 ms), then kept for the life of the font manager. Repeated requests allocate 0 B (see HyperPdfSkiaBundledFontBenchmarks.RepeatedRequests)."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Skia.Fonts.FontManagerImpl.TryBundled(class System.String,bool,bool)",
+    "reason": "Made once, the first time the editor shows text in one of the app's own fonts (about 0.6 ms), then kept for the life of the font manager. Repeated requests allocate 0 B (see HyperPdfSkiaBundledFontBenchmarks.RepeatedRequests)."
+  },
+  {
+    "type": "Entry[System.IntPtr,System.WeakReference][]",
+    "frame": "HyperPdf.Skia.Fonts.FontManagerImpl.TryBundled(class System.String,bool,bool)",
+    "reason": "Made once, the first time the editor shows text in one of the app's own fonts (about 0.6 ms), then kept for the life of the font manager. Repeated requests allocate 0 B (see HyperPdfSkiaBundledFontBenchmarks.RepeatedRequests)."
+  },
+  {
+    "type": "HyperPdf.Skia.Fonts.SkiaTypeface",
+    "frame": "HyperPdf.Skia.Fonts.FontManagerImpl.TryBundled(class System.String,bool,bool)",
+    "reason": "Made once, the first time the editor shows text in one of the app's own fonts (about 0.6 ms), then kept for the life of the font manager. Repeated requests allocate 0 B (see HyperPdfSkiaBundledFontBenchmarks.RepeatedRequests)."
+  },
+  {
+    "type": "SkiaSharp.SKFontStyle",
+    "frame": "HyperPdf.Skia.Fonts.SkiaTypeface..ctor(class SkiaSharp.SKTypeface,value class Avalonia.Media.FontSimulations)",
+    "reason": "Made once, the first time the editor shows text in one of the app's own fonts (about 0.6 ms), then kept for the life of the font manager. Repeated requests allocate 0 B (see HyperPdfSkiaBundledFontBenchmarks.RepeatedRequests)."
+  },
+  {
+    "type": "System.Object",
+    "frame": "HyperPdf.Skia.Fonts.SkiaTypeface..ctor(class SkiaSharp.SKTypeface,value class Avalonia.Media.FontSimulations)",
+    "reason": "Made once, the first time the editor shows text in one of the app's own fonts (about 0.6 ms), then kept for the life of the font manager. Repeated requests allocate 0 B (see HyperPdfSkiaBundledFontBenchmarks.RepeatedRequests)."
+  },
+  {
+    "type": "ManifestResourceStream",
+    "frame": "HyperPdfLibrary.Fonts.BundledFaces.Decode(int32)",
+    "reason": "The font file is decoded from the assembly resource once per face and handed to Skia, which keeps its own copy for the typeface's life."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdf.Skia.Fonts.FontManagerImpl..ctor(class HyperPdf.Skia.SkiaOptions)",
+    "reason": "The font manager is made once at start-up and lives as long as the app. The benchmark makes a new one for each call so the first request can be measured, which is the only reason this shows up per operation."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdf.Skia.Fonts.FontManagerImpl+FallbackKey,HyperPdf.Skia.Fonts.SkiaTypeface]",
+    "frame": "HyperPdf.Skia.Fonts.FontManagerImpl..ctor(class HyperPdf.Skia.SkiaOptions)",
+    "reason": "The font manager is made once at start-up and lives as long as the app. The benchmark makes a new one for each call so the first request can be measured, which is the only reason this shows up per operation."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdf.Skia.Fonts.FontManagerImpl+BundledKey,HyperPdf.Skia.Fonts.SkiaTypeface]",
+    "frame": "HyperPdf.Skia.Fonts.FontManagerImpl..ctor(class HyperPdf.Skia.SkiaOptions)",
+    "reason": "The font manager is made once at start-up and lives as long as the app. The benchmark makes a new one for each call so the first request can be measured, which is the only reason this shows up per operation."
+  },
+  {
+    "type": "HyperPdf.Skia.Fonts.FontManagerImpl",
+    "frame": "HyperPdf.Benchmarks.HyperPdfSkiaBundledFontBenchmarks.FirstRequest()",
+    "reason": "The font manager is made once at start-up and lives as long as the app. The benchmark makes a new one for each call so the first request can be measured, which is the only reason this shows up per operation."
+  },
+  {
+    "type": "HyperPdf.Skia.SkiaOptions",
+    "frame": "HyperPdf.Benchmarks.HyperPdfSkiaBundledFontBenchmarks.Options()",
+    "reason": "The font manager is made once at start-up and lives as long as the app. The benchmark makes a new one for each call so the first request can be measured, which is the only reason this shows up per operation."
   }
 ]

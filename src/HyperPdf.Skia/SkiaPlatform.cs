@@ -30,7 +30,7 @@ public static class SkiaPlatform
         var locator = AvaloniaLocator.CurrentMutable;
         _ = locator.Bind<SkiaOptions>().ToConstant(options);
         _ = locator.Bind<IPlatformRenderInterface>().ToConstant(renderInterface);
-        _ = locator.Bind<IFontManagerImpl>().ToConstant(new FontManagerImpl());
+        _ = locator.Bind<IFontManagerImpl>().ToConstant(new FontManagerImpl(options));
     }
 
     /// <summary>Registers the application's OpenType text shaper.</summary>
