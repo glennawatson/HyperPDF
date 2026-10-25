@@ -197,7 +197,15 @@ public sealed class ContentNormalisationTests
         await Assert.That(expected.IsNear(ImageCentre, ImageCentre, Rgb.White, 0)).IsFalse();
         await Assert.That(actual.Width).IsEqualTo(expected.Width);
         var difference = Compare(expected.Pixels, actual.Pixels, expected.Width);
-        await Assert.That(difference.Pixels).IsEqualTo(0).Because(difference.Details);
+        if (difference.Pixels == 0)
+        {
+            return;
+        }
+
+        // Drawing the same file again says whether the renderer repeats itself, which tells a changed file from an unsteady renderer.
+        var again = Compare(expected.Pixels, original.RenderPage().Pixels, expected.Width);
+        var againChanged = Compare(actual.Pixels, changed.RenderPage().Pixels, expected.Width);
+        await Assert.That(difference.Pixels).IsEqualTo(0).Because($"{difference.Details} Drawing the first file again differs in {again.Pixels} pixels, the second in {againChanged.Pixels}.");
     }
 
     /// <summary>Measures how two renderings differ, so a failure says where and by how much.</summary>
