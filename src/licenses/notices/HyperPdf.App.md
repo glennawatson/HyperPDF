@@ -593,7 +593,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.DependencyInjection
-- Version: 10.0.13
+- Version: 10.0.14
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -623,7 +623,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.DependencyInjection
-- Version: 11.0.0-rc.2.26504.105
+- Version: 11.0.0-rc.3.26522.148
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -653,7 +653,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.DependencyInjection.Abstractions
-- Version: 10.0.13
+- Version: 10.0.14
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -683,7 +683,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Logging
-- Version: 10.0.13
+- Version: 10.0.14
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -713,7 +713,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Logging
-- Version: 11.0.0-rc.2.26504.105
+- Version: 11.0.0-rc.3.26522.148
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -743,7 +743,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Logging.Abstractions
-- Version: 10.0.13
+- Version: 10.0.14
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -773,7 +773,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Logging.Debug
-- Version: 10.0.13
+- Version: 10.0.14
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -803,7 +803,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Logging.Debug
-- Version: 11.0.0-rc.2.26504.105
+- Version: 11.0.0-rc.3.26522.148
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -833,7 +833,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Options
-- Version: 10.0.13
+- Version: 10.0.14
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -863,7 +863,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Primitives
-- Version: 10.0.13
+- Version: 10.0.14
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -1576,7 +1576,7 @@ SOFTWARE.
 ````
 
 ### System.Security.Cryptography.Pkcs
-- Version: 10.0.13
+- Version: 10.0.14
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -1606,7 +1606,7 @@ SOFTWARE.
 ````
 
 ### System.Security.Cryptography.Pkcs
-- Version: 11.0.0-rc.2.26504.105
+- Version: 11.0.0-rc.3.26522.148
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
