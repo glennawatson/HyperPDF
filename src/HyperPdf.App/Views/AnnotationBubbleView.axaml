@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.AnnotationBubbleView">
@@ -9,28 +9,28 @@
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
         <Border x:Name="ColorSwatch" Width="12" Height="12" CornerRadius="3" VerticalAlignment="Center" />
         <TextBlock x:Name="HeadingText" Grid.Column="1" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-        <Button x:Name="CloseBubbleButton" Grid.Column="2" views:ControlHelp.Text="{x:Static help:Descriptions.BubbleClose}"
-                AutomationProperties.Name="Close comment bubble" Classes="tool" Content="✕" />
+        <Button x:Name="CloseBubbleButton" Grid.Column="2" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close this comment bubble. Shortcut: Esc&quot;}"
+                AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close comment bubble&quot;}" Classes="tool" Content="✕" />
       </Grid>
 
-      <TextBox x:Name="NoteEditor" views:ControlHelp.Text="{x:Static help:Descriptions.BubbleNote}"
-               AutomationProperties.Name="Note text" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="140"
-               PlaceholderText="Write a note…" />
+      <TextBox x:Name="NoteEditor" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;The note text for this comment. Type to change it. Shortcut: Ctrl+Enter&quot;}"
+               AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Note text&quot;}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="64" MaxHeight="140"
+               PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Write a note…&quot;}" />
 
       <SelectableTextBlock x:Name="RepliesText" TextWrapping="Wrap" Classes="secondary" IsVisible="False" />
 
       <StackPanel x:Name="ReplyPanel" Spacing="6" IsVisible="False">
-        <TextBox x:Name="ReplyEditor" views:ControlHelp.Text="{x:Static help:Descriptions.BubbleReplyInput}"
-                 AutomationProperties.Name="Reply text" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48" MaxHeight="96"
-                 PlaceholderText="Write a reply…" />
+        <TextBox x:Name="ReplyEditor" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type your reply here. Shortcut: Ctrl+Enter&quot;}"
+                 AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Reply text&quot;}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48" MaxHeight="96"
+                 PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Write a reply…&quot;}" />
         <Button x:Name="SendReplyButton" HorizontalAlignment="Right"
-                views:ControlHelp.Text="{x:Static help:Descriptions.BubbleSendReply}" Content="_Add Reply" />
+                views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Add this reply to the comment. Shortcut: Ctrl+Enter&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Add Reply&quot;}" />
       </StackPanel>
 
       <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
-        <Button x:Name="DeleteBubbleButton" views:ControlHelp.Text="{x:Static help:Descriptions.BubbleDelete}" Content="_Delete" />
-        <Button x:Name="ReplyBubbleButton" Grid.Column="2" views:ControlHelp.Text="{x:Static help:Descriptions.BubbleReply}" Content="_Reply…" />
-        <Button x:Name="SaveBubbleButton" Grid.Column="3" views:ControlHelp.Text="{x:Static help:Descriptions.BubbleSave}" Content="_Save Note" />
+        <Button x:Name="DeleteBubbleButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Delete this comment from the page. Undo can bring it back.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Delete&quot;}" />
+        <Button x:Name="ReplyBubbleButton" Grid.Column="2" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Write a reply to this comment.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Reply…&quot;}" />
+        <Button x:Name="SaveBubbleButton" Grid.Column="3" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save your note text. Shortcut: Ctrl+Enter&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Save Note&quot;}" />
       </Grid>
     </StackPanel>
   </Border>

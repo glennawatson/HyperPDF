@@ -15,9 +15,6 @@ namespace HyperPdf.ViewModels.Markup;
 /// </summary>
 public sealed partial class AnnotationsViewModel
 {
-    /// <summary>The author filter choice that shows everyone's comments.</summary>
-    private const string EveryoneName = "Everyone";
-
     /// <summary>The type filter that shows every type.</summary>
     private const int AllTypes = 0;
 
@@ -51,6 +48,7 @@ public sealed partial class AnnotationsViewModel
     /// <summary>The type filter each kind belongs to, by the kind's value.</summary>
     private static readonly int[] KindTypes =
     [
+
         AllTypes,
         TextMarksType,
         TextMarksType,
@@ -68,20 +66,34 @@ public sealed partial class AnnotationsViewModel
         TextType,
         DrawingsType,
         DrawingsType,
-        DrawingsType,
+        DrawingsType
     ];
 
     /// <summary>Gets the author filter choice that shows everyone's comments.</summary>
     public static string Everyone => EveryoneName;
 
     /// <summary>Gets the type filter choices; the index is <see cref="FilterType"/>.</summary>
-    public static IReadOnlyList<string> TypeFilterOptions { get; } = ["All types", "Highlights and text marks", "Notes", "Drawings and shapes", "Text and callouts", "Stamps and signatures"];
+    public static IReadOnlyList<string> TypeFilterOptions { get; } = UiText.CreateChoices(
+        [
+        "All types",
+        "Highlights and text marks",
+        "Notes",
+        "Drawings and shapes",
+        "Text and callouts",
+        "Stamps and signatures"
+    ]);
 
     /// <summary>Gets the colour filter choices; the index is <see cref="FilterColor"/>, and 0 shows every colour.</summary>
-    public static IReadOnlyList<string> ColorFilterOptions { get; } = CreateColorFilterOptions();
+    public static IReadOnlyList<string> ColorFilterOptions { get; } = UiText.CreateChoices(CreateColorFilterOptions());
 
     /// <summary>Gets the sort order choices; the index is <see cref="SortOrder"/>.</summary>
-    public static IReadOnlyList<string> SortOptions { get; } = ["Page", "Newest first", "Author", "Type"];
+    public static IReadOnlyList<string> SortOptions { get; } = UiText.CreateChoices(
+        [
+        "Page",
+        "Newest first",
+        "Author",
+        "Type"
+    ]);
 
     /// <summary>Gets every annotation of the document, in page order.</summary>
     public ObservableCollection<AnnotationItemViewModel> Items { get; } = [];
@@ -119,6 +131,9 @@ public sealed partial class AnnotationsViewModel
     /// <summary>Gets a value indicating whether there are annotations but the filters hide all of them.</summary>
     [Reactive]
     public partial bool NoMatches { get; private set; }
+
+    /// <summary>Gets the author filter choice that shows everyone's comments.</summary>
+    private static string EveryoneName => UiText.Get("Everyone");
 
     /// <summary>Determines whether an annotation kind belongs to a type filter.</summary>
     /// <param name="kind">The kind.</param>
@@ -227,7 +242,7 @@ public sealed partial class AnnotationsViewModel
             return false;
         }
 
-        if (FilterAuthor is { Length: > 0 } author && !string.Equals(author, EveryoneName, StringComparison.Ordinal) && !string.Equals(item.AuthorName, author, StringComparison.Ordinal))
+        if (FilterAuthor is { Length: > 0 } author && !IsEveryone(author) && !string.Equals(item.AuthorName, author, StringComparison.Ordinal))
         {
             return false;
         }
@@ -239,7 +254,7 @@ public sealed partial class AnnotationsViewModel
     /// <param name="text">The trimmed filter text.</param>
     /// <returns><see langword="true"/> when nothing is filtered out.</returns>
     private bool ShowsEverything(string text) =>
-        text.Length == 0 && FilterType == AllTypes && FilterColor == 0 && (FilterAuthor is not { Length: > 0 } author || string.Equals(author, EveryoneName, StringComparison.Ordinal));
+        text.Length == 0 && FilterType == AllTypes && FilterColor == 0 && (FilterAuthor is not { Length: > 0 } author || IsEveryone(author));
 
     /// <summary>Makes a sidebar item for an annotation, with its replies.</summary>
     /// <param name="editor">The editor.</param>
@@ -358,10 +373,27 @@ public sealed partial class AnnotationsViewModel
             AuthorOptions.RemoveAt(AuthorOptions.Count - 1);
             if (string.Equals(removed, FilterAuthor, StringComparison.Ordinal))
             {
-                FilterAuthor = EveryoneName;
+                FilterAuthor = AuthorOptions[0];
             }
         }
     }
+
+    /// <summary>Renames the existing all-authors choice while retaining the selected author and visible annotations.</summary>
+    private void RefreshAuthorCaption()
+    {
+        var everyoneSelected = IsEveryone(FilterAuthor) || string.Equals(FilterAuthor, EveryoneName, StringComparison.Ordinal);
+        AuthorOptions[0] = EveryoneName;
+        if (everyoneSelected)
+        {
+            FilterAuthor = AuthorOptions[0];
+        }
+    }
+
+    /// <summary>Tests the stable first choice rather than comparing against a freshly translated label.</summary>
+    /// <param name="author">The selected author label.</param>
+    /// <returns>Whether all authors are selected.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool IsEveryone(string author) => string.Equals(author, AuthorOptions[0], StringComparison.Ordinal);
 
     /// <summary>Replaces one page's entries in the list, keeping page order.</summary>
     /// <param name="page">The page.</param>
@@ -408,6 +440,6 @@ public sealed partial class AnnotationsViewModel
         FilterText = string.Empty;
         FilterType = 0;
         FilterColor = 0;
-        FilterAuthor = EveryoneName;
+        FilterAuthor = AuthorOptions[0];
     }
 }

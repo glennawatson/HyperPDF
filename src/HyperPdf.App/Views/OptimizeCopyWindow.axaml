@@ -1,8 +1,8 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.OptimizeCopyWindow"
-        Title="Save Optimised Copy" Width="640" Height="900" MinWidth="480" MinHeight="560" WindowStartupLocation="CenterOwner"
+        Title="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save Optimised Copy&quot;}" Width="640" Height="900" MinWidth="480" MinHeight="560" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
   <!-- Layout only: bindings are made in code (OptimizeCopyWindow.axaml.cs). Every section is always present, so nothing moves while a copy is written. The settings scroll; the progress and summary stay on screen. -->
   <Grid RowDefinitions="*,Auto,Auto" Margin="20">
@@ -10,40 +10,41 @@
       <StackPanel Spacing="12" Margin="0,0,12,0">
         <TextBlock x:Name="HeadingText" FontSize="16" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1" />
 
-        <TextBlock Text="Size" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <ListBox x:Name="PresetList" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizePresets}" AutomationProperties.Name="Size of the copy" />
+        <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Size&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <ListBox x:Name="PresetList" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose how much picture detail may be traded for a smaller file. Use the arrow keys to move between the choices.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Size of the copy&quot;}" />
 
-        <TextBlock Text="Accessibility and clean-up" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <CheckBox x:Name="FixBox" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeAccessibility}" Content="Fill in missing language and title" />
+        <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Accessibility and clean-up&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <CheckBox x:Name="FixBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Add the document language, a window title and tag flags when they are missing, so screen readers read the file correctly.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fill in missing language and title&quot;}" />
         <Grid ColumnDefinitions="Auto,*" Margin="28,0,0,0" ColumnSpacing="12">
-          <TextBlock x:Name="LanguageLabel" Text="Language" VerticalAlignment="Center" />
-          <TextBox x:Name="LanguageBox" Grid.Column="1" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeLanguage}" PlaceholderText="for example en-AU" />
+          <TextBlock TextWrapping="Wrap" x:Name="LanguageLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Language&quot;}" VerticalAlignment="Center" />
+          <TextBox x:Name="LanguageBox" Grid.Column="1" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;The language of the text, such as en-AU. It is used only when the document does not say.&quot;}" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;for example en-AU&quot;}" />
         </Grid>
-        <CheckBox x:Name="TagsBox" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeTags}" Content="Add a reading structure (tags) when missing" />
+        <CheckBox x:Name="TagsBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Guess headings, paragraphs and pictures from the page layout when the document has no reading structure. The guess can be wrong, so check it.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Add a reading structure (tags) when missing&quot;}" />
         <StackPanel x:Name="DescribePanel">
-          <CheckBox x:Name="DescribeBox" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeDescribePictures}" Content="Describe pictures for screen readers" />
+          <CheckBox x:Name="DescribeBox" views:ControlHelp.Text="{views:LiveHelp OptimizeDescribePictures}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Describe pictures for screen readers&quot;}" />
           <TextBlock x:Name="DescribeNote" TextWrapping="Wrap" />
         </StackPanel>
-        <CheckBox x:Name="CleanBox" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeCleanUp}" Content="Remove thumbnails and hidden extras" />
+        <CheckBox x:Name="CleanBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove page thumbnails, private application data, unused resources and empty comment lists. Pages look the same.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove thumbnails and hidden extras&quot;}" />
+
       </StackPanel>
     </ScrollViewer>
 
     <StackPanel Grid.Row="1" Spacing="4" Margin="0,12,0,0">
-      <TextBlock Text="Progress and summary" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-      <ProgressBar x:Name="CopyProgress" Minimum="0" Maximum="100" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeProgress}" AutomationProperties.Name="Progress of the copy" />
+      <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Progress and summary&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <ProgressBar x:Name="CopyProgress" Minimum="0" Maximum="100" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Shows how much of the copy is written.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Progress of the copy&quot;}" />
       <TextBlock x:Name="StatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
       <TextBlock x:Name="ErrorText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" />
       <Border BorderThickness="1" Padding="10" Height="120" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeResult}" AutomationProperties.Name="Summary of the copy" />
+          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;What the saved copy changed, what was left alone and what needs your attention.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Summary of the copy&quot;}" />
         </ScrollViewer>
       </Border>
     </StackPanel>
 
     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
-      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeCancel}" Content="_Cancel" />
-      <Button x:Name="SaveButton" views:ControlHelp.Text="{x:Static help:Descriptions.OptimizeSave}" Content="_Save Copy…" IsDefault="True" />
-      <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop writing the copy. No file is saved.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Cancel&quot;}" />
+      <Button x:Name="SaveButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose where to save the copy, then write it. The open file is never replaced.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Save Copy…&quot;}" IsDefault="True" />
+      <Button x:Name="CloseButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close this window. Shortcut: Esc&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Clos_e&quot;}" IsCancel="True" />
     </StackPanel>
   </Grid>
 </Window>

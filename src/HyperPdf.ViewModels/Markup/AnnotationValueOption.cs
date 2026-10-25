@@ -7,7 +7,11 @@ using System.Diagnostics;
 namespace HyperPdf.ViewModels.Markup;
 
 /// <summary>A named numeric choice offered by an annotation tool.</summary>
-/// <param name="Name">The display name.</param>
+/// <param name="NameKey">The display name.</param>
 /// <param name="Value">The numeric value.</param>
 [DebuggerDisplay("{Name}: {Value}")]
-public readonly record struct AnnotationValueOption(string Name, float Value);
+public readonly record struct AnnotationValueOption(string NameKey, float Value)
+{
+    /// <summary>Gets the localized display text.</summary>
+    public string Name => UiText.Get(NameKey);
+}

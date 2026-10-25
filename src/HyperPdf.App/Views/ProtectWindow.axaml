@@ -1,69 +1,69 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.ProtectWindow"
-        Title="Protect with Password" Width="680" Height="860" MinWidth="520" MinHeight="560" WindowStartupLocation="CenterOwner"
+        Title="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Protect with Password&quot;}" Width="680" Height="860" MinWidth="520" MinHeight="560" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
   <!-- Layout only: bindings are made in code (ProtectWindow.axaml.cs). The choices scroll; the progress and summary stay on screen so nothing moves during a run. -->
   <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="20">
     <StackPanel Spacing="8">
       <TextBlock x:Name="HeadingText" FontSize="16" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1" />
-      <TextBlock TextWrapping="Wrap" Classes="secondary" Text="Saves a protected copy. Passwords are never saved, logged or shown. If you forget them, no one can open the copy." />
+      <TextBlock TextWrapping="Wrap" Classes="secondary" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Saves a protected copy. Passwords are never saved, logged or shown. If you forget them, no one can open the copy.&quot;}" />
     </StackPanel>
 
     <ScrollViewer Grid.Row="1" Margin="0,8,0,0" VerticalScrollBarVisibility="Auto">
       <StackPanel Spacing="10" Margin="0,0,12,0">
         <StackPanel x:Name="CurrentOwnerRow" Spacing="4">
-          <TextBlock x:Name="CurrentOwnerLabel" Text="Current owner password" />
-          <TextBox x:Name="CurrentOwnerBox" views:ControlHelp.Text="{x:Static help:Descriptions.CurrentOwnerPassword}" PasswordChar="●" AutomationProperties.Name="Current owner password" />
+          <TextBlock TextWrapping="Wrap" x:Name="CurrentOwnerLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Current owner password&quot;}" />
+          <TextBox x:Name="CurrentOwnerBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;The owner password of the protection this document has now. It is needed because you opened the document with its reading password. It is never saved.&quot;}" PasswordChar="●" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Current owner password&quot;}" />
         </StackPanel>
 
-        <TextBlock Text="Passwords" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Passwords&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
         <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
-          <TextBlock x:Name="UserLabel" Text="Reading password" VerticalAlignment="Center" />
-          <TextBox x:Name="UserBox" Grid.Column="1" views:ControlHelp.Text="{x:Static help:Descriptions.ReadingPassword}" PasswordChar="●" AutomationProperties.Name="Reading password" />
-          <TextBlock x:Name="UserRepeatLabel" Grid.Row="1" Text="Reading password again" VerticalAlignment="Center" />
-          <TextBox x:Name="UserRepeatBox" Grid.Row="1" Grid.Column="1" views:ControlHelp.Text="{x:Static help:Descriptions.ReadingPasswordRepeat}" PasswordChar="●" AutomationProperties.Name="Reading password again" />
-          <TextBlock x:Name="OwnerLabel" Grid.Row="2" Text="Owner password" VerticalAlignment="Center" />
-          <TextBox x:Name="OwnerBox" Grid.Row="2" Grid.Column="1" views:ControlHelp.Text="{x:Static help:Descriptions.OwnerPasswordField}" PasswordChar="●" AutomationProperties.Name="Owner password" />
-          <TextBlock x:Name="OwnerRepeatLabel" Grid.Row="3" Text="Owner password again" VerticalAlignment="Center" />
-          <TextBox x:Name="OwnerRepeatBox" Grid.Row="3" Grid.Column="1" views:ControlHelp.Text="{x:Static help:Descriptions.OwnerPasswordRepeat}" PasswordChar="●" AutomationProperties.Name="Owner password again" />
+          <TextBlock TextWrapping="Wrap" x:Name="UserLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Reading password&quot;}" VerticalAlignment="Center" />
+          <TextBox x:Name="UserBox" Grid.Column="1" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;People type this password to open the copy. Leave it empty to let anyone open it. It is never saved or shown.&quot;}" PasswordChar="●" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Reading password&quot;}" />
+          <TextBlock TextWrapping="Wrap" x:Name="UserRepeatLabel" Grid.Row="1" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Reading password again&quot;}" VerticalAlignment="Center" />
+          <TextBox x:Name="UserRepeatBox" Grid.Row="1" Grid.Column="1" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the reading password again, so a typing mistake does not lock you out.&quot;}" PasswordChar="●" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Reading password again&quot;}" />
+          <TextBlock TextWrapping="Wrap" x:Name="OwnerLabel" Grid.Row="2" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Owner password&quot;}" VerticalAlignment="Center" />
+          <TextBox x:Name="OwnerBox" Grid.Row="2" Grid.Column="1" views:ControlHelp.Text="{views:LiveHelp OwnerPasswordField}" PasswordChar="●" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Owner password&quot;}" />
+          <TextBlock TextWrapping="Wrap" x:Name="OwnerRepeatLabel" Grid.Row="3" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Owner password again&quot;}" VerticalAlignment="Center" />
+          <TextBox x:Name="OwnerRepeatBox" Grid.Row="3" Grid.Column="1" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the owner password again, so a typing mistake does not lock you out.&quot;}" PasswordChar="●" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Owner password again&quot;}" />
         </Grid>
 
-        <TextBlock Text="What people with the reading password may do" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <CheckBox x:Name="PrintCheck" views:ControlHelp.Text="{x:Static help:Descriptions.AllowPrint}" Content="Print the document" />
-        <CheckBox x:Name="CopyCheck" views:ControlHelp.Text="{x:Static help:Descriptions.AllowCopy}" Content="Copy text and pictures" />
-        <CheckBox x:Name="EditCheck" views:ControlHelp.Text="{x:Static help:Descriptions.AllowEdit}" Content="Change the pages" />
-        <CheckBox x:Name="FormsCheck" views:ControlHelp.Text="{x:Static help:Descriptions.AllowForms}" Content="Fill in forms and add comments" />
-        <CheckBox x:Name="AccessibilityCheck" views:ControlHelp.Text="{x:Static help:Descriptions.AllowAccessibility}" Content="Let screen readers read the text" />
-        <TextBlock x:Name="AccessibilityWarningText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectWarning}" AutomationProperties.Name="Screen reader warning" />
-        <CheckBox x:Name="MetadataCheck" views:ControlHelp.Text="{x:Static help:Descriptions.HideProperties}" Content="Also hide the title and author" />
+        <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;What people with the reading password may do&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <CheckBox x:Name="PrintCheck" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Let people with the reading password print the document.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Print the document&quot;}" />
+        <CheckBox x:Name="CopyCheck" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Let people with the reading password copy text and pictures out of the document.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Copy text and pictures&quot;}" />
+        <CheckBox x:Name="EditCheck" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Let people with the reading password change, add or remove pages.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Change the pages&quot;}" />
+        <CheckBox x:Name="FormsCheck" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Let people with the reading password fill in forms and add comments.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fill in forms and add comments&quot;}" />
+        <CheckBox x:Name="AccessibilityCheck" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Let screen readers and other assistive tools read the text. Leave this on unless you are sure no one needs it.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Let screen readers read the text&quot;}" />
+        <TextBlock x:Name="AccessibilityWarningText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Explains what happens to screen readers with the choices made.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Screen reader warning&quot;}" />
+        <CheckBox x:Name="MetadataCheck" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Also hide the document properties, such as title and author, until the password is typed.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Also hide the title and author&quot;}" />
 
-        <TextBlock Text="Encryption" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <ListBox x:Name="FormatList" Height="200" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectFormats}" AutomationProperties.Name="Encryption of the copy" />
+        <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Encryption&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <ListBox x:Name="FormatList" Height="200" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose how strongly the copy is locked. Use the arrow keys to move between the choices.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Encryption of the copy&quot;}" />
       </StackPanel>
     </ScrollViewer>
 
     <StackPanel Grid.Row="2" Spacing="4" Margin="0,12,0,0">
-      <TextBlock Text="Progress and summary" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Progress and summary&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
       <!-- The busy bar and the result bar share one cell, so the layout stays still; only one is visible at a time. -->
       <Grid>
-        <ProgressBar x:Name="CopyProgress" Minimum="0" Maximum="100" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectProgress}" AutomationProperties.Name="Progress of the copy" />
-        <ProgressBar x:Name="BusyProgress" IsIndeterminate="True" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectProgress}" AutomationProperties.Name="Making the copy" />
+        <ProgressBar x:Name="CopyProgress" Minimum="0" Maximum="100" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Moves while the copy is being made.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Progress of the copy&quot;}" />
+        <ProgressBar x:Name="BusyProgress" IsIndeterminate="True" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Moves while the copy is being made.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Making the copy&quot;}" />
       </Grid>
       <TextBlock x:Name="StatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
       <TextBlock x:Name="ErrorText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" />
       <Border BorderThickness="1" Padding="10" Height="110" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectResult}" AutomationProperties.Name="Summary of the copy" />
+          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;What the copy holds, or why it could not be made.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Summary of the copy&quot;}" />
         </ScrollViewer>
       </Border>
     </StackPanel>
 
     <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
-      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectCancel}" Content="_Cancel" />
-      <Button x:Name="SaveButton" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectSave}" Content="_Save Protected Copy…" IsDefault="True" />
-      <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop making the copy. No file is saved.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Cancel&quot;}" />
+      <Button x:Name="SaveButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Check the choices, choose where to save, then make the protected copy. The open file is never replaced.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Save Protected Copy…&quot;}" IsDefault="True" />
+      <Button x:Name="CloseButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close this window. Shortcut: Esc&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Clos_e&quot;}" IsCancel="True" />
     </StackPanel>
   </Grid>
 </Window>

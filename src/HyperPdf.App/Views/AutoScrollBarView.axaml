@@ -1,28 +1,28 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.AutoScrollBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AutoScrollBarView.axaml.cs). -->
   <!-- Auto-scroll: shown only while the pages scroll by themselves, even in read mode, so stopping is always one click away. -->
-  <Border x:Name="AutoScrollBar" Classes="toolbar subbar" AutomationProperties.Name="Auto-scroll" AutomationProperties.ControlTypeOverride="ToolBar">
+  <Border x:Name="AutoScrollBar" Classes="toolbar subbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Auto-scroll&quot;}" AutomationProperties.ControlTypeOverride="ToolBar">
     <DockPanel>
       <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-        <Button AutomationProperties.Name="Slower" x:Name="AutoScrollSlowerButton" views:ControlHelp.Text="{x:Static help:Descriptions.AutoScrollSlower}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Slower&quot;}" x:Name="AutoScrollSlowerButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make auto-scroll slower. The Down arrow does the same.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconZoomOut}" />
-            <TextBlock Classes="label" Text="Slower" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Slower&quot;}" />
           </StackPanel>
         </Button>
-        <Button AutomationProperties.Name="Faster" x:Name="AutoScrollFasterButton" views:ControlHelp.Text="{x:Static help:Descriptions.AutoScrollFaster}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Faster&quot;}" x:Name="AutoScrollFasterButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make auto-scroll faster. The Up arrow does the same.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconZoomIn}" />
-            <TextBlock Classes="label" Text="Faster" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Faster&quot;}" />
           </StackPanel>
         </Button>
-        <Button AutomationProperties.Name="Stop auto-scroll" x:Name="AutoScrollStopButton" views:ControlHelp.Text="{x:Static help:Descriptions.AutoScrollStop}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop auto-scroll&quot;}" x:Name="AutoScrollStopButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop scrolling by itself. Esc or a click on the pages does the same.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconPause}" />
-            <TextBlock Classes="label" Text="Stop" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop&quot;}" />
           </StackPanel>
         </Button>
       </StackPanel>

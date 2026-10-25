@@ -14,31 +14,31 @@ public static class AnnotationNames
     /// <returns>The name.</returns>
     public static string Get(AnnotationKind kind) => kind switch
     {
-        AnnotationKind.Highlight => "Highlight",
-        AnnotationKind.Underline => "Underline",
-        AnnotationKind.StrikeOut => "Strike-out",
-        AnnotationKind.Squiggly => "Squiggly underline",
-        AnnotationKind.Ink => "Drawing",
-        AnnotationKind.Note => "Note",
-        AnnotationKind.TextBox => "Text",
-        AnnotationKind.Signature => "Signature",
-        AnnotationKind.Rectangle => "Rectangle",
-        AnnotationKind.Ellipse => "Ellipse",
-        AnnotationKind.Arrow => "Arrow",
-        AnnotationKind.Line => "Line",
-        AnnotationKind.Stamp => "Stamp",
-        AnnotationKind.Callout => "Callout",
-        AnnotationKind.Polygon => "Polygon",
-        AnnotationKind.Cloud => "Cloud",
-        AnnotationKind.PolyLine => "Connected lines",
-        AnnotationKind.Redaction => "Redaction",
-        AnnotationKind.Caret => "Insertion point",
-        AnnotationKind.FreehandHighlight => "Freehand highlight",
-        _ => "Annotation",
+        AnnotationKind.Highlight => UiText.Get("Highlight"),
+        AnnotationKind.Underline => UiText.Get("Underline"),
+        AnnotationKind.StrikeOut => UiText.Get("Strike-out"),
+        AnnotationKind.Squiggly => UiText.Get("Squiggly underline"),
+        AnnotationKind.Ink => UiText.Get("Drawing"),
+        AnnotationKind.Note => UiText.Get("Note"),
+        AnnotationKind.TextBox => UiText.Get("Text"),
+        AnnotationKind.Signature => UiText.Get("Signature"),
+        AnnotationKind.Rectangle => UiText.Get("Rectangle"),
+        AnnotationKind.Ellipse => UiText.Get("Ellipse"),
+        AnnotationKind.Arrow => UiText.Get("Arrow"),
+        AnnotationKind.Line => UiText.Get("Line"),
+        AnnotationKind.Stamp => UiText.Get("Stamp"),
+        AnnotationKind.Callout => UiText.Get("Callout"),
+        AnnotationKind.Polygon => UiText.Get("Polygon"),
+        AnnotationKind.Cloud => UiText.Get("Cloud"),
+        AnnotationKind.PolyLine => UiText.Get("Connected lines"),
+        AnnotationKind.Redaction => UiText.Get("Redaction"),
+        AnnotationKind.Caret => UiText.Get("Insertion point"),
+        AnnotationKind.FreehandHighlight => UiText.Get("Freehand highlight"),
+        _ => UiText.Get("Annotation"),
     };
 
     /// <summary>Gets the name of an annotation colour.</summary>
     /// <param name="color">The colour.</param>
     /// <returns>The name, or "Custom".</returns>
-    public static string GetColor(uint color) => AnnotationColors.GetName(color) ?? "Custom";
+    public static string GetColor(uint color) => AnnotationColors.GetName(color) ?? UiText.Get("Custom");
 }

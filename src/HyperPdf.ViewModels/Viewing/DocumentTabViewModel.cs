@@ -30,7 +30,7 @@ namespace HyperPdf.ViewModels.Viewing;
 /// <see cref="DocumentPool"/> and may be closed again while the tab is in the background.
 /// </summary>
 [DebuggerDisplay("DocumentTabViewModel: {FileName}")]
-public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
+public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The width of tab hover previews, in device independent pixels.</summary>
     private const double PreviewSize = 180;
@@ -135,10 +135,13 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
         // While the tab is selected, its open, search and rendering work runs under one token; deselecting the tab or
         // closing it ends that work.
-        _subscriptions.Add(this.WhenChanged(static t => t.IsSelected)
-            .DistinctUntilChanged()
-            .SwitchMap(selected => selected ? Signal.Using(StartSelectedWork, static work => work.Loading) : Signal.Never<RxVoid>())
-            .SubscribeSafeErrors(ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static t => t.IsSelected).DistinctUntilChanged().SwitchMap(
+                    selected => selected
+                        ? Signal.Using(
+                    StartSelectedWork,
+                    static work => work.Loading)
+                        : Signal.Never<RxVoid>()).SubscribeSafeErrors(ErrorTrace.Write));
         _subscriptions.Add(Scope.Create(ReleaseTiles));
         _subscriptions.Add(this.WhenChanged(static x => x.Zoom).Skip(1).SubscribeSafe(ShowZoomText, ErrorTrace.Write));
 
@@ -150,19 +153,14 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
         // Picking a thumbnail scrolls to its page, unless the thumbnail is being selected to follow the page shown.
         // The filter reads the tab's own page: a constructor cannot hand 'this' to a state-passing operator.
-        _subscriptions.Add(this.WhenChanged(static x => x.SelectedThumbnail)
-            .Skip(1)
-            .KeepNotNull()
-            .Where(thumbnail => thumbnail.PageIndex != CurrentPageIndex)
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.SelectedThumbnail).Skip(1).KeepNotNull().Where(thumbnail => thumbnail.PageIndex != CurrentPageIndex)
             .SubscribeSafe(thumbnail => GoToPage(thumbnail.PageIndex), ErrorTrace.Write));
 
         // Picking a bookmark goes to it, unless the bookmark is being selected as part of an edit. The filter reads the
         // tab's own flag: a constructor cannot hand 'this' to a state-passing operator.
-        _subscriptions.Add(this.WhenChanged(static x => x.SelectedOutlineItem)
-            .Skip(1)
-            .KeepNotNull()
-            .Where(_ => !_keepingOutlineSelection)
-            .SubscribeSafe(item => Navigate(item.Target), ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.SelectedOutlineItem).Skip(1).KeepNotNull().Where(_ => !_keepingOutlineSelection).SubscribeSafe(item => Navigate(item.Target), ErrorTrace.Write));
         _isTextFormatShownHelper = this.WhenChanged(static vm => vm.Annotations.IsAnnotating, static vm => vm.FillAndSign.IsActive, static (annotating, filling) => annotating || filling)
             .ToProperty(this, static vm => vm.IsTextFormatShown);
         _subscriptions.Add(_isTextFormatShownHelper);
@@ -170,11 +168,11 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         // Each part that draws on the pages keeps its latest change. The changed tiles are dropped before the version
         // moves on, so views that redraw for the new version never draw a tile from before the change.
         _contentVersionHelper = Signal.Merge(
-                this.WhenChanged(static vm => vm.LastPageChange),
-                this.WhenChanged(static vm => vm.Annotations.LastPageChange),
-                this.WhenChanged(static vm => vm.Forms.LastPageChange),
-                this.WhenChanged(static vm => vm.Layers.LastPageChange),
-                this.WhenChanged(static vm => vm.TextRecognitionInUse).KeepNotNull().SwitchMap(static recognition => recognition.WhenChanged(static r => r.LastPageChange)))
+            this.WhenChanged(static vm => vm.LastPageChange),
+            this.WhenChanged(static vm => vm.Annotations.LastPageChange),
+            this.WhenChanged(static vm => vm.Forms.LastPageChange),
+            this.WhenChanged(static vm => vm.Layers.LastPageChange),
+            this.WhenChanged(static vm => vm.TextRecognitionInUse).KeepNotNull().SwitchMap(static recognition => recognition.WhenChanged(static r => r.LastPageChange)))
             .Where(static change => change.IsChange)
             .Do(DropChangedTiles)
             .Scan(0, static (version, _) => version + 1)
@@ -182,15 +180,14 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         _subscriptions.Add(_contentVersionHelper);
 
         // Page management counts its edits to the page order and geometry; each one reads the pages again.
-        _subscriptions.Add(this.WhenChanged(static vm => vm.PagesInUse)
-            .KeepNotNull()
-            .SwitchMap(static pages => pages.WhenChanged(static p => p.StructureVersion).Skip(1))
-            .SubscribeSafe(_ => RereadPageStructure(), ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static vm => vm.PagesInUse).KeepNotNull().SwitchMap(
+                static pages => pages.WhenChanged(
+                    static p => p
+                    .StructureVersion).Skip(1)).SubscribeSafe(_ => RereadPageStructure(), ErrorTrace.Write));
 
         // The file watcher reports on its own thread; the tab answers on the UI thread.
-        _subscriptions.Add(_fileWatch.Changes
-            .ObserveOn(RxSchedulers.MainThreadScheduler)
-            .SubscribeSafe(_ => CheckChangedFile(), ErrorTrace.Write));
+        _subscriptions.Add(_fileWatch.Changes.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => CheckChangedFile(), ErrorTrace.Write));
     }
 
     /// <summary>Gets the width of the hover preview of a tab.</summary>
@@ -282,8 +279,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public partial double PreviewHeight { get; private set; }
 
     /// <summary>Gets the hover preview caption, for example "Page 3 of 40".</summary>
-    [Reactive]
-    public partial string PreviewCaption { get; private set; } = string.Empty;
+    public string PreviewCaption { get => _localizedPreviewCaption.Value ?? string.Empty; private set => SetPreviewCaption(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the document title.</summary>
     [Reactive]
@@ -298,8 +294,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public partial bool IsLoaded { get; private set; }
 
     /// <summary>Gets the error shown when the document could not be opened.</summary>
-    [Reactive]
-    public partial string? ErrorMessage { get; private set; }
+    public string? ErrorMessage { get => _localizedErrorMessage.Value; private set => SetErrorMessage(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets a value indicating whether a password is required.</summary>
     [Reactive]
@@ -322,8 +317,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public partial string CertificatePasswordEntry { get; set; } = string.Empty;
 
     /// <summary>Gets the reason a certificate open failed, or null.</summary>
-    [Reactive]
-    public partial string? CertificateError { get; private set; }
+    public string? CertificateError { get => _localizedCertificateError.Value; private set => SetCertificateError(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the request to choose a PKCS #12 certificate file.</summary>
     public Interaction<RxVoid, string?> CertificateBrowseInteraction { get; } = new();
@@ -448,10 +442,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public bool IsMediaMode { get => SidebarMode == SidebarMode.Media; set => SetSidebarMode(value, SidebarMode.Media); }
 
     /// <summary>Gets the document's sound and video.</summary>
-    public DocumentMediaViewModel Media => field ??= new(this);
+    public DocumentMediaViewModel Media => _media ??= new(this);
 
     /// <summary>Gets the document's parts and article threads.</summary>
-    public DocumentPartsViewModel Parts => field ??= Owned(new DocumentPartsViewModel(this));
+    public DocumentPartsViewModel Parts => _parts ??= Owned(new DocumentPartsViewModel(this));
 
     /// <summary>Gets the document's layers.</summary>
     public LayersViewModel Layers => _layers ??= Owned(new LayersViewModel(this));
@@ -463,10 +457,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public PageSeparationViewModel Separations => _separations ??= Owned(new PageSeparationViewModel(this));
 
     /// <summary>Gets the files embedded in the document.</summary>
-    public AttachmentsViewModel Attachments => field ??= new(this);
+    public AttachmentsViewModel Attachments => _attachments ??= new(this);
 
     /// <summary>Gets what happens as each page appears while presenting; made when the page view first shows the tab.</summary>
-    public PagePresentationViewModel PagePresentation => field ??= Owned(new PagePresentationViewModel(this, _services));
+    public PagePresentationViewModel PagePresentation => _pagePresentation ??= Owned(new PagePresentationViewModel(this, _services));
 
     /// <summary>Gets the bookmark editing state.</summary>
     public OutlineEditViewModel OutlineEditing => _outlineEditing ??= Owned(new OutlineEditViewModel(this));
@@ -487,22 +481,22 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public MeasureViewModel Measure => _measure ??= Owned(new MeasureViewModel(this));
 
     /// <summary>Gets the digital signature state.</summary>
-    public SignaturesViewModel Signatures => field ??= new(this, _services);
+    public SignaturesViewModel Signatures => _signatures ??= new(this, _services);
 
     /// <summary>Gets the tab's text recognition, created on first use.</summary>
     public TextRecognitionViewModel TextRecognition => TextRecognitionInUse ??= Owned(new TextRecognitionViewModel(this, _services));
 
-    /// <summary>Gets Focus Mode, created when first used.</summary>
+    /// <summary>Gets focus Mode, created when first used.</summary>
     public FocusModeViewModel FocusMode => _focusMode ??= Owned(new FocusModeViewModel(this, _services));
 
     /// <summary>Gets the Read Aloud state, created when first used.</summary>
     public ReadAloudViewModel ReadAloud => _readAloud ??= Owned(new ReadAloudViewModel(this, _services));
 
     /// <summary>Gets the form filling state.</summary>
-    public FormsViewModel Forms => field ??= Owned(new FormsViewModel(this));
+    public FormsViewModel Forms => _forms ??= Owned(new FormsViewModel(this));
 
     /// <summary>Gets the Fill &amp; Sign state.</summary>
-    public FillAndSignViewModel FillAndSign => field ??= new(this, _services);
+    public FillAndSignViewModel FillAndSign => _fillAndSign ??= new(this, _services);
 
     /// <summary>Gets the commands that save a changed copy, such as an optimised, PDF/A, flattened or protected one.</summary>
     public TabCopyActionSet Copies => _copies ??= Owned(new TabCopyActionSet(this));
@@ -553,11 +547,14 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     public partial OutlineItemViewModel? SelectedOutlineItem { get; set; }
 
     /// <summary>Gets printing: the print preview, the desktop's print dialog and saving the printed pages as a PDF.</summary>
-    public TabPrintingViewModel Printing => field ??= new(this);
+    public TabPrintingViewModel Printing => _printing ??= new(this);
 
-    /// <summary>Gets a message about the document that waits until dismissed, for example a failed save.</summary>
-    [Reactive]
-    public partial string? Notice { get; set; }
+    /// <summary>Gets or sets a message about the document that waits until dismissed, for example a failed save.</summary>
+    public string? Notice
+    {
+        get => _saveNotice is { } outcome ? SaveText.Notice(outcome) : _localizedNotice.Value;
+        set => SetNotice(LocalizedMessage.Literal(value));
+    }
 
     /// <summary>Gets the interaction asking where to save a copy.</summary>
     public Interaction<string, string?> SaveAsInteraction { get; } = new();
@@ -778,19 +775,21 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         catch (DocumentOpenException ex)
         {
             PreviewHeight = 0;
-            PreviewCaption = ex.Error switch
-            {
-                DocumentOpenError.Password => "Password protected",
-                DocumentOpenError.Certificate => "Certificate required",
-                _ => ex.Message,
-            };
+            SetPreviewCaption(
+                LocalizedMessage.Literal(
+                    ex.Error switch
+                    {
+    DocumentOpenError.Password => UiText.Get("Password protected"),
+    DocumentOpenError.Certificate => UiText.Get("Certificate required"),
+    _ => ex.Message,
+                    }));
             return;
         }
         catch (Exception ex)
         {
             AppLog.Error(ex);
             PreviewHeight = 0;
-            PreviewCaption = "This document could not be opened";
+            SetPreviewCaption(LocalizedMessage.Get(UiText, "This document could not be opened"));
             return;
         }
 
@@ -799,13 +798,13 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         if (page < 0)
         {
             PreviewHeight = 0;
-            PreviewCaption = "No pages";
+            SetPreviewCaption(LocalizedMessage.Get(UiText, "No pages"));
             return;
         }
 
         var size = Source.PageSizes[page];
         PreviewHeight = size.Width > 0 ? Math.Round(PreviewWidth * size.Height / size.Width) : PreviewWidth;
-        PreviewCaption = $"Page {GetPageDisplay(page)} of {Source.PageCount}";
+        SetPreviewCaption(LocalizedMessage.Format(UiText, "Page {0} of {1}", GetPageDisplay(page), Source.PageCount));
     }
 
     /// <summary>Shows the bookmarks of an edited document without moving the reader.</summary>
@@ -935,7 +934,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         var token = SelectedWorkToken;
         if (_copies?.CloseWindows() == true)
         {
-            Notice = "The file changed on disk and was reloaded, so the window for saving a copy was closed.";
+            SetNotice(LocalizedMessage.Get(UiText, "The file changed on disk and was reloaded, so the window for saving a copy was closed."));
         }
 
         TabTiles.DropBoth(RenderHub, Source.Id);
@@ -999,11 +998,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
         if (outcome.Error is { } error)
         {
-            Notice = $"Could not save: {error}";
+            SetNotice(LocalizedMessage.Format(UiText, "Could not save: {0}", error));
         }
         else if (SaveText.Notice(outcome) is { } notice)
         {
-            Notice = notice;
+            SetNotice(LocalizedMessage.Literal(notice));
+            _saveNotice = outcome;
         }
 
         HasUnsavedChanges = Source.HasUnsavedChanges;
@@ -1032,8 +1032,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
         {
             NeedsPassword = ex.Error == DocumentOpenError.Password;
             NeedsCertificate = ex.Error == DocumentOpenError.Certificate;
-            CertificateError = NeedsCertificate ? ex.Message : null;
-            ErrorMessage = NeedsPassword || NeedsCertificate ? null : ex.Message;
+            SetCertificateError(NeedsCertificate ? LocalizedMessage.Literal(ex.Message) : LocalizedMessage.Literal(null));
+            SetErrorMessage(NeedsPassword || NeedsCertificate ? LocalizedMessage.Literal(null) : LocalizedMessage.Literal(ex.Message));
         }
     }
 
@@ -1088,8 +1088,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     {
         NeedsPassword = false;
         NeedsCertificate = false;
-        CertificateError = null;
-        ErrorMessage = null;
+        SetCertificateError(LocalizedMessage.Literal(null));
+        SetErrorMessage(LocalizedMessage.Literal(null));
         if (!IsLoaded)
         {
             ReadFirstOpen(document);
@@ -1136,7 +1136,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
 
         if (Source.Metadata?.WrappedFileName is { Length: > 0 } wrappedName)
         {
-            Notice = $"This file contains an encrypted document named {wrappedName}. Open it from Attachments.";
+            SetNotice(LocalizedMessage.Format(UiText, "This file contains an encrypted document named {0}. Open it from Attachments.", wrappedName));
         }
 
         TabOpenHints.Apply(this, _services.Settings);
@@ -1448,13 +1448,13 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(CertificatePathEntry))
         {
-            CertificateError = "Choose a certificate file first.";
+            SetCertificateError(LocalizedMessage.Get(UiText, "Choose a certificate file first."));
             return;
         }
 
         Source.UseCertificate(CertificatePathEntry, CertificatePasswordEntry);
         CertificatePasswordEntry = string.Empty;
-        CertificateError = null;
+        SetCertificateError(LocalizedMessage.Literal(null));
         NeedsCertificate = false;
         var token = SelectedWorkToken;
         try
@@ -1533,6 +1533,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable
     /// <param name="part">The new part.</param>
     /// <returns>The same part.</returns>
     private TPart Owned<TPart>(TPart part)
+
         where TPart : IDisposable
     {
         _subscriptions.Add(part);

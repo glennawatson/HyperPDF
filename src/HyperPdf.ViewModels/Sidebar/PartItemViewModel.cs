@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
 
@@ -11,7 +10,7 @@ namespace HyperPdf.ViewModels.Sidebar;
 
 /// <summary>An entry of the document parts tree: a part with its name, metadata and the pages it covers.</summary>
 [DebuggerDisplay("PartItemViewModel: {Name} {PagesText}")]
-public sealed class PartItemViewModel : ReactiveObject
+public sealed class PartItemViewModel : ReactiveObject, ILocalisationChildren
 {
     /// <summary>Initializes a new instance of the <see cref="PartItemViewModel"/> class.</summary>
     /// <param name="part">The part.</param>
@@ -61,10 +60,12 @@ public sealed class PartItemViewModel : ReactiveObject
         }
 
         var last = Math.Max(first, end ?? first);
-        return first == last
-            ? string.Create(CultureInfo.CurrentCulture, $"Page {first + 1}")
-            : string.Create(CultureInfo.CurrentCulture, $"Pages {first + 1} to {last + 1}");
+        return first == last ? UiText.Format("Page {0}", first + 1) : UiText.Format("Pages {0} to {1}", first + 1, last + 1);
     }
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => LocalisationRefresh.RefreshCore(Children, visited);
 
     /// <summary>Finds the page the first part that has one starts on.</summary>
     /// <param name="children">The parts.</param>

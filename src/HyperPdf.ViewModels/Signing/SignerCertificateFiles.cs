@@ -32,7 +32,7 @@ internal static class SignerCertificateFiles
 
             if (found.Count == 0)
             {
-                throw new CryptographicException("The file holds no certificate.");
+                throw new CryptographicException(UiText.Get("The file holds no certificate."));
             }
 
             var ordered = Order(found);

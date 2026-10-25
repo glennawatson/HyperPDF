@@ -12,29 +12,30 @@ namespace HyperPdf.ViewModels.Dialogs;
 
 /// <summary>The prompt dialog: shows a <see cref="TextPrompt"/>, edits its text and answers it.</summary>
 [DebuggerDisplay("PromptViewModel: {Title}")]
-public sealed partial class PromptViewModel : ReactiveObject
+public sealed partial class PromptViewModel : ReactiveObject, ILocalisationChildren
 {
+    /// <summary>The prompt and its retained interface resources.</summary>
+    private readonly TextPrompt _prompt;
+
     /// <summary>Initializes a new instance of the <see cref="PromptViewModel"/> class.</summary>
     /// <param name="prompt">The request.</param>
     public PromptViewModel(TextPrompt prompt)
     {
         ArgumentNullException.ThrowIfNull(prompt);
-        Title = prompt.Title;
-        Label = prompt.Label;
-        AcceptText = prompt.AcceptText;
+        _prompt = prompt;
         Multiline = prompt.Multiline;
         Text = prompt.Text;
         Answered = Signal.Merge(AcceptCommand, CancelCommand);
     }
 
     /// <summary>Gets the window title.</summary>
-    public string Title { get; }
+    public string Title => _prompt.TitleMessage?.ToString() ?? _prompt.Title;
 
     /// <summary>Gets what to type.</summary>
-    public string Label { get; }
+    public string Label => _prompt.LabelMessage?.ToString() ?? _prompt.Label;
 
     /// <summary>Gets the text of the button that accepts.</summary>
-    public string AcceptText { get; }
+    public string AcceptText => _prompt.AcceptMessage?.ToString() ?? _prompt.AcceptText;
 
     /// <summary>Gets a value indicating whether line breaks are allowed.</summary>
     public bool Multiline { get; }
@@ -45,6 +46,14 @@ public sealed partial class PromptViewModel : ReactiveObject
 
     /// <summary>Gets the answer: the text, or <see langword="null"/> when cancelled.</summary>
     public IObservable<string?> Answered { get; }
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(Title));
+        this.RaisePropertyChanged(nameof(Label));
+        this.RaisePropertyChanged(nameof(AcceptText));
+    }
 
     /// <summary>Gives up without an answer.</summary>
     /// <returns>Always <see langword="null"/>.</returns>

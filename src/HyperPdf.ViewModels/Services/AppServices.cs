@@ -28,7 +28,7 @@ namespace HyperPdf.ViewModels.Services;
 
 /// <summary>The composition root: every long lived service, created once at start up.</summary>
 [DebuggerDisplay("AppServices")]
-public sealed partial class AppServices : ReactiveObject, IDisposable
+public sealed partial class AppServices : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>Bytes in a megabyte.</summary>
     private const long BytesPerMegabyte = 1024 * 1024;
@@ -332,6 +332,13 @@ public sealed partial class AppServices : ReactiveObject, IDisposable
             Speech.Dispose();
             PictureDescription.Dispose();
         }
+    }
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        LocalisationRefresh.RefreshCore(_reader, visited);
+        LocalisationRefresh.RefreshCore(RenderHub, visited);
     }
 
     /// <summary>Reads the tint over fillable form fields from the settings.</summary>

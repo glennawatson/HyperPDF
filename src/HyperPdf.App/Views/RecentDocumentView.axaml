@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.RecentDocumentView">
@@ -8,6 +8,6 @@
       <TextBlock x:Name="NameText" />
       <TextBlock x:Name="FolderText" Classes="secondary" FontSize="11" TextTrimming="CharacterEllipsis" />
     </StackPanel>
-    <Button x:Name="RemoveButton" Grid.Column="2" VerticalAlignment="Center" Content="Remove" AutomationProperties.Name="Remove from recent documents" views:ControlHelp.Text="Remove this PDF from recent files without deleting it. On Linux, this also updates the desktop's shared recent list." />
+    <Button x:Name="RemoveButton" Grid.Column="2" VerticalAlignment="Center" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove from recent documents&quot;}" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove this PDF from recent files without deleting it. On Linux, this also updates the desktop&apos;s shared recent list.&quot;}" />
   </Grid>
 </UserControl>

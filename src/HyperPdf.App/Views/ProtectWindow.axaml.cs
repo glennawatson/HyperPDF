@@ -25,11 +25,12 @@ public sealed partial class ProtectWindow : ReactiveUI.Avalonia.ReactiveWindow<P
     public ProtectWindow()
     {
         InitializeComponent();
-        FormatList.ItemTemplate = new FuncDataTemplate<ProtectionFormatChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
+        FormatList.ItemTemplate = new FuncDataTemplate<ProtectionFormatChoice>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(ItemAutomation.NameItems(FormatList));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Protect a copy of {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => UiText.Format("Protect a copy of {0}", name)));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.NeedsCurrentOwner, static v => v.CurrentOwnerRow.IsVisible));
             disposables.Add(this.Bind(ViewModel, static vm => vm.CurrentOwnerPassword, static v => v.CurrentOwnerBox.Text, static text => text, static text => text ?? string.Empty));
             disposables.Add(this.Bind(ViewModel, static vm => vm.UserPassword, static v => v.UserBox.Text, static text => text, static text => text ?? string.Empty));
@@ -77,7 +78,18 @@ public sealed partial class ProtectWindow : ReactiveUI.Avalonia.ReactiveWindow<P
     /// <returns>A task.</returns>
     private async Task SaveAsync(IInteractionContext<string, string?> context)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Save Protected Copy", SuggestedFileName = context.Input, DefaultExtension = "pdf" });
+        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = UiText.Get("Save Protected Copy"), SuggestedFileName = context.Input, DefaultExtension = "pdf" });
         context.SetOutput(file?.TryGetLocalPath());
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        HeadingText.Text = UiText.Format("Protect a copy of {0}", model.FileName);
     }
 }

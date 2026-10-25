@@ -1,127 +1,149 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.PreferencesWindow"
-        Title="Preferences"
+        Title="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Preferences&quot;}"
         Width="540" MaxHeight="900" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
+  <Window.Styles>
+    <Style Selector="Grid.preferenceChoices > TextBlock">
+      <Setter Property="MaxWidth" Value="220" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="ComboBox">
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="ItemTemplate">
+        <DataTemplate x:DataType="x:String">
+          <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+        </DataTemplate>
+      </Setter>
+    </Style>
+  </Window.Styles>
   <!-- Changes apply as soon as they are chosen; nothing else moves. The list scrolls when the screen is short. -->
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
   <StackPanel Margin="20" Spacing="16">
+    <StackPanel Spacing="6">
+      <TextBlock x:Name="InterfaceLanguageLabel" TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Interface language&quot;}" />
+      <ComboBox x:Name="InterfaceLanguageBox" HorizontalAlignment="Stretch" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the interface language. Changes apply immediately.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Interface language&quot;}" />
+      <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the interface language. Changes apply immediately.&quot;}" />
+    </StackPanel>
     <TextBlock Classes="secondary" TextWrapping="Wrap"
-               Text="Changes apply straight away and are kept for next time." />
-    <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
-      <TextBlock x:Name="SchemeLabel" Grid.Row="0" VerticalAlignment="Center" Text="Colour scheme" />
-      <ComboBox AutomationProperties.Name="Colour scheme" x:Name="SchemeBox" views:ControlHelp.Text="{x:Static help:Descriptions.ColourScheme}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
-      <TextBlock x:Name="PageToneLabel" Grid.Row="1" VerticalAlignment="Center" Text="PDF page colour" />
+               Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Changes apply straight away and are kept for next time.&quot;}" />
+    <Grid Classes="preferenceChoices" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
+      <TextBlock x:Name="SchemeLabel" Grid.Row="0" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Colour scheme&quot;}" />
+      <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Colour scheme&quot;}" x:Name="SchemeBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colours of the app, such as Calm, Dark or High contrast.&quot;}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock x:Name="PageToneLabel" Grid.Row="1" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;PDF page colour&quot;}" />
       <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
-        <ComboBox AutomationProperties.Name="PDF page colour" x:Name="PageToneBox" views:ControlHelp.Text="{x:Static help:Descriptions.PageColour}" HorizontalAlignment="Stretch" />
+        <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;PDF page colour&quot;}" x:Name="PageToneBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colour of the pages on screen, including high-contrast pairs or your own colours. Printed pages keep their own colours.&quot;}" HorizontalAlignment="Stretch" />
         <!-- Shown only for Custom colours. -->
         <Grid x:Name="CustomToneRow" ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="8">
-          <TextBlock x:Name="CustomPaperLabel" VerticalAlignment="Center" Text="Paper" />
-          <TextBox AutomationProperties.Name="Custom paper colour, six hex digits" x:Name="CustomPaperBox" views:ControlHelp.Text="{x:Static help:Descriptions.CustomPaperColour}" Grid.Column="1" MaxLength="7" PlaceholderText="RRGGBB" />
-          <TextBlock x:Name="CustomInkLabel" Grid.Column="2" VerticalAlignment="Center" Text="Ink" />
-          <TextBox AutomationProperties.Name="Custom ink colour, six hex digits" x:Name="CustomInkBox" views:ControlHelp.Text="{x:Static help:Descriptions.CustomInkColour}" Grid.Column="3" MaxLength="7" PlaceholderText="RRGGBB" />
+          <TextBlock x:Name="CustomPaperLabel" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Paper&quot;}" />
+          <TextBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Custom paper colour, six hex digits&quot;}" x:Name="CustomPaperBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;The colour of the page background, as six hex digits such as 000000 for black.&quot;}" Grid.Column="1" MaxLength="7" PlaceholderText="RRGGBB" />
+          <TextBlock x:Name="CustomInkLabel" Grid.Column="2" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Ink&quot;}" />
+          <TextBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Custom ink colour, six hex digits&quot;}" x:Name="CustomInkBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;The colour of the text and lines, as six hex digits such as FFFF00 for yellow.&quot;}" Grid.Column="3" MaxLength="7" PlaceholderText="RRGGBB" />
         </Grid>
         <TextBlock x:Name="CustomToneContrastText" Classes="secondary" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
       </StackPanel>
-      <TextBlock x:Name="ToolbarLabel" Grid.Row="2" VerticalAlignment="Center" Text="Tool bar" />
-      <ComboBox AutomationProperties.Name="Tool bar" x:Name="ToolbarBox" views:ControlHelp.Text="{x:Static help:Descriptions.ToolbarStyle}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" />
-      <TextBlock x:Name="FileChangeLabel" Grid.Row="3" VerticalAlignment="Center" Text="When a file changes on disk" />
-      <ComboBox AutomationProperties.Name="When a file changes on disk" x:Name="FileChangeBox" views:ControlHelp.Text="{x:Static help:Descriptions.FileChange}" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" />
-      <TextBlock x:Name="MotionLabel" Grid.Row="4" VerticalAlignment="Center" Text="Motion" />
-      <ComboBox AutomationProperties.Name="Motion" x:Name="MotionBox" views:ControlHelp.Text="{x:Static help:Descriptions.Motion}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" />
-      <TextBlock x:Name="CaretLabel" Grid.Row="5" VerticalAlignment="Center" Text="Text cursor" />
-      <ComboBox AutomationProperties.Name="Text cursor" x:Name="CaretBox" views:ControlHelp.Text="{x:Static help:Descriptions.TextCursor}" Grid.Row="5" Grid.Column="1" HorizontalAlignment="Stretch" />
-      <TextBlock x:Name="FontSizeLabel" Grid.Row="6" VerticalAlignment="Center" Text="Interface text size" />
-      <ComboBox AutomationProperties.Name="Interface text size" x:Name="FontSizeBox" views:ControlHelp.Text="{x:Static help:Descriptions.InterfaceTextSize}" Grid.Row="6" Grid.Column="1" HorizontalAlignment="Stretch" />
-      <TextBlock x:Name="OpeningZoomLabel" Grid.Row="7" VerticalAlignment="Center" Text="Opening zoom" />
-      <ComboBox AutomationProperties.Name="Opening zoom" x:Name="OpeningZoomBox" views:ControlHelp.Text="{x:Static help:Descriptions.OpeningZoom}" Grid.Row="7" Grid.Column="1" HorizontalAlignment="Stretch" />
-      <TextBlock x:Name="CommentAuthorLabel" Grid.Row="8" VerticalAlignment="Center" Text="Author name for comments" />
-      <TextBox AutomationProperties.Name="Author name for comments" x:Name="CommentAuthorBox" views:ControlHelp.Text="{x:Static help:Descriptions.CommentAuthor}" Grid.Row="8" Grid.Column="1" PlaceholderText="Leave empty to use your user name" />
-      <TextBlock x:Name="FormHighlightColorLabel" Grid.Row="9" VerticalAlignment="Center" Text="Form field colour" />
-      <ComboBox AutomationProperties.Name="Form field colour" x:Name="FormHighlightColorBox" views:ControlHelp.Text="{x:Static help:Descriptions.FormHighlightColor}" Grid.Row="9" Grid.Column="1" HorizontalAlignment="Stretch" />
-      <TextBlock x:Name="FormHighlightOpacityLabel" Grid.Row="10" VerticalAlignment="Center" Text="Form field colour strength" />
-      <ComboBox AutomationProperties.Name="Form field colour strength" x:Name="FormHighlightOpacityBox" views:ControlHelp.Text="{x:Static help:Descriptions.FormHighlightOpacity}" Grid.Row="10" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock x:Name="ToolbarLabel" Grid.Row="2" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tool bar&quot;}" />
+      <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tool bar&quot;}" x:Name="ToolbarBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose whether tool bar buttons show their names beside their icons.&quot;}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock x:Name="FileChangeLabel" Grid.Row="3" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When a file changes on disk&quot;}" />
+      <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When a file changes on disk&quot;}" x:Name="FileChangeBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose what happens when an open file is changed by another program.&quot;}" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock x:Name="MotionLabel" Grid.Row="4" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Motion&quot;}" />
+      <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Motion&quot;}" x:Name="MotionBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose whether the app uses movement, such as smooth scrolling.&quot;}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock x:Name="CaretLabel" Grid.Row="5" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text cursor&quot;}" />
+      <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text cursor&quot;}" x:Name="CaretBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose whether the text cursor stays steady or blinks.&quot;}" Grid.Row="5" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock x:Name="FontSizeLabel" Grid.Row="6" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Interface text size&quot;}" />
+      <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Interface text size&quot;}" x:Name="FontSizeBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the size of the text in the app&apos;s buttons, menus and lists.&quot;}" Grid.Row="6" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock x:Name="OpeningZoomLabel" Grid.Row="7" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Opening zoom&quot;}" />
+      <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Opening zoom&quot;}" x:Name="OpeningZoomBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the zoom for new documents. Fit page shows the whole page. Fit width fills the width.&quot;}" Grid.Row="7" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock x:Name="CommentAuthorLabel" Grid.Row="8" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Author name for comments&quot;}" />
+      <StackPanel Grid.Row="8" Grid.Column="1" Spacing="4">
+        <TextBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Author name for comments&quot;}" x:Name="CommentAuthorBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the name shown as the author of your notes, replies and other annotations. Leave it empty to use your user name.&quot;}" />
+        <TextBlock x:Name="CommentAuthorHint" Classes="secondary" TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Leave empty to use your user name&quot;}" />
+      </StackPanel>
+      <TextBlock x:Name="FormHighlightColorLabel" Grid.Row="9" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Form field colour&quot;}" />
+      <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Form field colour&quot;}" x:Name="FormHighlightColorBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colour that marks the form fields you can fill in. It shows on top of each field.&quot;}" Grid.Row="9" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock x:Name="FormHighlightOpacityLabel" Grid.Row="10" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Form field colour strength&quot;}" />
+      <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Form field colour strength&quot;}" x:Name="FormHighlightOpacityBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose how strong the form field colour is. Off removes it, and a higher number makes it stronger.&quot;}" Grid.Row="10" Grid.Column="1" HorizontalAlignment="Stretch" />
     </Grid>
     <StackPanel Spacing="6">
-      <CheckBox AutomationProperties.Name="Open documents at the last page read" x:Name="ReopenAtLastPageBox" views:ControlHelp.Text="{x:Static help:Descriptions.ReopenAtLastPage}" Content="Open documents at the last page read" />
-      <CheckBox AutomationProperties.Name="Follow the page a document opens at" x:Name="FollowOpenActionBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowOpenAction}" Content="Follow the page a document opens at" />
-      <CheckBox AutomationProperties.Name="Show the panel a document asks for" x:Name="FollowPageModeBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowPageMode}" Content="Show the panel a document asks for" />
-      <CheckBox AutomationProperties.Name="Use the page layout and direction a document asks for" x:Name="FollowPageLayoutBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowPageLayout}" Content="Use the page layout and direction a document asks for" />
-      <CheckBox AutomationProperties.Name="Show a document's own title when it asks" x:Name="FollowDisplayDocTitleBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowDisplayDocTitle}" Content="Show a document's own title when it asks" />
-      <CheckBox AutomationProperties.Name="Use the print choices a document asks for" x:Name="FollowPrintDefaultsBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowPrintDefaults}" Content="Use the print choices a document asks for" />
-      <CheckBox AutomationProperties.Name="Ignore bookmark colours" x:Name="IgnoreOutlineColoursBox" views:ControlHelp.Text="{x:Static help:Descriptions.IgnoreOutlineColours}" Content="Ignore bookmark colours" />
-      <CheckBox AutomationProperties.Name="Show page transitions when presenting" x:Name="FollowPageTransitionsBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowPageTransitions}" Content="Show page transitions when presenting" />
-      <CheckBox AutomationProperties.Name="Move on by itself when presenting" x:Name="FollowPageTimingsBox" views:ControlHelp.Text="{x:Static help:Descriptions.FollowPageTimings}" Content="Move on by itself when presenting" />
-      <CheckBox AutomationProperties.Name="Keep the keyboard cursor on pages" x:Name="KeepKeyboardCursorBox" views:ControlHelp.Text="{x:Static help:Descriptions.KeepKeyboardCursor}" Content="Keep the keyboard cursor on pages" />
-      <CheckBox AutomationProperties.Name="Check spelling in form fields" x:Name="CheckSpellingBox" views:ControlHelp.Text="{x:Static help:Descriptions.CheckSpelling}" Content="Check spelling in form fields" />
-      <CheckBox AutomationProperties.Name="Offer fonts that cannot be saved in PDFs" x:Name="PreviewOnlyFontsBox" views:ControlHelp.Text="{x:Static help:Descriptions.PreviewOnlyFonts}" Content="Offer fonts that cannot be saved in PDFs (shown on screen, saved as Helvetica, Times or Courier)" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open documents at the last page read&quot;}" x:Name="ReopenAtLastPageBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When ticked, a document you open again starts at the page you last read in it.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open documents at the last page read&quot;}" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Follow the page a document opens at&quot;}" x:Name="FollowOpenActionBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When ticked, a document that names a page to open at starts there. The page you last read always comes first.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Follow the page a document opens at&quot;}" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the panel a document asks for&quot;}" x:Name="FollowPageModeBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When ticked, a document that asks for its bookmarks, thumbnails, attachments or layers shows that panel when it opens.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the panel a document asks for&quot;}" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use the page layout and direction a document asks for&quot;}" x:Name="FollowPageLayoutBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When ticked, a document that asks for two pages side by side, or for right to left pages, opens that way. The View menu still changes it.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use the page layout and direction a document asks for&quot;}" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show a document&apos;s own title when it asks&quot;}" x:Name="FollowDisplayDocTitleBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When ticked, a document that asks for its title to be shown is named by that title in its tab. Otherwise the tab shows the file name.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show a document&apos;s own title when it asks&quot;}" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use the print choices a document asks for&quot;}" x:Name="FollowPrintDefaultsBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When ticked, the print window starts with the copies, two-sided choice and scaling the document asks for. You can change them.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use the print choices a document asks for&quot;}" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Ignore bookmark colours&quot;}" x:Name="IgnoreOutlineColoursBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When ticked, every bookmark uses the colour of your theme, so none is hard to read. Bold and italic bookmarks stay bold and italic.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Ignore bookmark colours&quot;}" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show page transitions when presenting&quot;}" x:Name="FollowPageTransitionsBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When ticked, presenting shows the effect a page asks for as it appears, such as a fade or a wipe. Off by default. Reduced motion turns it off.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show page transitions when presenting&quot;}" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Move on by itself when presenting&quot;}" x:Name="FollowPageTimingsBox" views:ControlHelp.Text="{views:LiveHelp FollowPageTimings}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Move on by itself when presenting&quot;}" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Keep the keyboard cursor on pages&quot;}" x:Name="KeepKeyboardCursorBox" views:ControlHelp.Text="{views:LiveHelp KeepKeyboardCursor}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Keep the keyboard cursor on pages&quot;}" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Check spelling in form fields&quot;}" x:Name="CheckSpellingBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When ticked, misspelled words in form fields are underlined. Right-click one for corrections, from this computer&apos;s own dictionary.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Check spelling in form fields&quot;}" />
+      <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Offer fonts that cannot be saved in PDFs&quot;}" x:Name="PreviewOnlyFontsBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Some fonts&apos; licences forbid copying them into documents. When this is on, you can type in them on screen; the saved PDF uses the closest built in font, so the font is never copied.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Offer fonts that cannot be saved in PDFs (shown on screen, saved as Helvetica, Times or Courier)&quot;}" />
     </StackPanel>
     <!-- Text and image sharpness: how crisp pages look on screen. Each choice applies at once. -->
     <StackPanel Spacing="6">
-      <TextBlock Text="Text and image sharpness" AutomationProperties.HeadingLevel="2" />
+      <TextBlock Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text and image sharpness&quot;}" AutomationProperties.HeadingLevel="2" />
       <TextBlock Classes="secondary" TextWrapping="Wrap"
-                 Text="Choose how text, lines and pictures are drawn. Pages draw again when you change one." />
+                 Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose how text, lines and pictures are drawn. Pages draw again when you change one.&quot;}" />
       <Grid ColumnDefinitions="Auto,*" RowSpacing="10" ColumnSpacing="16">
-        <TextBlock x:Name="SharpnessPresetLabel" VerticalAlignment="Center" Text="Edges" />
-        <ComboBox AutomationProperties.Name="Edges" x:Name="SharpnessPresetBox" views:ControlHelp.Text="{x:Static help:Descriptions.SharpnessPreset}" Grid.Column="1" HorizontalAlignment="Stretch" />
+        <TextBlock x:Name="SharpnessPresetLabel" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Edges&quot;}" />
+        <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Edges&quot;}" x:Name="SharpnessPresetBox" views:ControlHelp.Text="{views:LiveHelp SharpnessPreset}" Grid.Column="1" HorizontalAlignment="Stretch" />
       </Grid>
       <TextBlock x:Name="SharpnessPresetText" Classes="secondary" TextWrapping="Wrap" />
       <!-- The individual choices behind the named sets. Closed until opened, so the list stays short. -->
-      <Expander x:Name="SharpnessAdvanced" AutomationProperties.Name="Advanced sharpness choices" views:ControlHelp.Text="{x:Static help:Descriptions.AdvancedSharpness}" Header="Advanced sharpness choices" HorizontalAlignment="Stretch">
+      <Expander x:Name="SharpnessAdvanced" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Advanced sharpness choices&quot;}" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show or hide the individual sharpness choices. Changing one of them can move the set above to Custom.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Advanced sharpness choices&quot;}" HorizontalAlignment="Stretch">
         <StackPanel Spacing="6" Margin="0,6,0,0">
           <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
-            <TextBlock x:Name="TextHintingLabel" Grid.Row="3" VerticalAlignment="Center" Text="Fit small text to pixels" />
-            <ComboBox AutomationProperties.Name="Fit small text to pixels" x:Name="TextHintingBox" views:ControlHelp.Text="{x:Static help:Descriptions.TextHinting}" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" />
-            <TextBlock x:Name="TextContrastLabel" Grid.Row="4" VerticalAlignment="Center" Text="Small text contrast" />
-            <ComboBox AutomationProperties.Name="Small text contrast" x:Name="TextContrastBox" views:ControlHelp.Text="{x:Static help:Descriptions.TextContrast}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" />
-            <TextBlock x:Name="TextEdgesLabel" Grid.Row="0" VerticalAlignment="Center" Text="Text edges" />
-            <ComboBox AutomationProperties.Name="Text edges" x:Name="TextEdgesBox" views:ControlHelp.Text="{x:Static help:Descriptions.TextEdges}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
-            <TextBlock x:Name="StrokeAdjustmentLabel" Grid.Row="1" VerticalAlignment="Center" Text="Fit lines to pixels" />
-            <ComboBox AutomationProperties.Name="Fit lines to pixels" x:Name="StrokeAdjustmentBox" views:ControlHelp.Text="{x:Static help:Descriptions.StrokeAdjustment}" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" />
-            <TextBlock x:Name="MinimumLineLabel" Grid.Row="2" VerticalAlignment="Center" Text="Thinnest line" />
-            <ComboBox AutomationProperties.Name="Thinnest line" x:Name="MinimumLineBox" views:ControlHelp.Text="{x:Static help:Descriptions.MinimumLineThickness}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <TextBlock x:Name="TextHintingLabel" Grid.Row="3" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fit small text to pixels&quot;}" />
+            <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fit small text to pixels&quot;}" x:Name="TextHintingBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose how small letters sit on the screen&apos;s pixels. None keeps spacing even. Slight puts each line on whole pixel rows. Full gives the crispest stems with uneven spacing.&quot;}" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <TextBlock x:Name="TextContrastLabel" Grid.Row="4" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Small text contrast&quot;}" />
+            <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Small text contrast&quot;}" x:Name="TextContrastBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the edges of small letters darker so they are easier to read. Normal draws them as the font gives them. Each step above that makes them darker.&quot;}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <TextBlock x:Name="TextEdgesLabel" Grid.Row="0" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text edges&quot;}" />
+            <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text edges&quot;}" x:Name="TextEdgesBox" views:ControlHelp.Text="{views:LiveHelp TextEdges}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <TextBlock x:Name="StrokeAdjustmentLabel" Grid.Row="1" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fit lines to pixels&quot;}" />
+            <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fit lines to pixels&quot;}" x:Name="StrokeAdjustmentBox" views:ControlHelp.Text="{views:LiveHelp StrokeAdjustment}" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" />
+            <TextBlock x:Name="MinimumLineLabel" Grid.Row="2" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Thinnest line&quot;}" />
+            <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Thinnest line&quot;}" x:Name="MinimumLineBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the thinnest lines at least this many screen pixels thick. Off keeps each line as the file draws it.&quot;}" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" />
           </Grid>
-          <CheckBox AutomationProperties.Name="Smooth the edges of lines and shapes" x:Name="SmoothGraphicsBox" views:ControlHelp.Text="{x:Static help:Descriptions.SmoothGraphics}" Content="Smooth the edges of lines and shapes" />
-          <CheckBox AutomationProperties.Name="Smooth pictures" x:Name="SmoothImagesBox" views:ControlHelp.Text="{x:Static help:Descriptions.SmoothImages}" Content="Smooth pictures (turn off to show the nearest source pixel)" />
-          <CheckBox AutomationProperties.Name="Remember the shapes of small letters" x:Name="SmallTextMasksBox" views:ControlHelp.Text="{x:Static help:Descriptions.SmallTextMasks}" Content="Remember the shapes of small letters, so pages of text draw faster" />
-          <CheckBox AutomationProperties.Name="Average pixels when shrinking big pictures" x:Name="AreaImageReductionBox" views:ControlHelp.Text="{x:Static help:Descriptions.AreaImageReduction}" Content="Average pixels when shrinking big pictures" />
+          <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smooth the edges of lines and shapes&quot;}" x:Name="SmoothGraphicsBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smooth the edges of lines and shapes. Turn this off for crisp, hard edges.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smooth the edges of lines and shapes&quot;}" />
+          <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smooth pictures&quot;}" x:Name="SmoothImagesBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Blend the pixels of pictures when they are made bigger or smaller. Turn this off to show the nearest source pixel, with hard edges.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smooth pictures (turn off to show the nearest source pixel)&quot;}" />
+          <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remember the shapes of small letters&quot;}" x:Name="SmallTextMasksBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Draw small letters from shapes made once and reused. Pages of text then draw faster. The fit, contrast and LCD choices turn this on by themselves.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remember the shapes of small letters, so pages of text draw faster&quot;}" />
+          <CheckBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Average pixels when shrinking big pictures&quot;}" x:Name="AreaImageReductionBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When a big picture is shown much smaller, average the pixels it covers instead of picking some of them. This applies to pictures inside the page content as well as stored ones.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Average pixels when shrinking big pictures&quot;}" />
         </StackPanel>
       </Expander>
     </StackPanel>
     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16">
-      <TextBlock x:Name="SpeechEngineLabel" Grid.Row="0" VerticalAlignment="Center" Text="Read Aloud voice" />
-      <ComboBox AutomationProperties.Name="Read Aloud voice" x:Name="SpeechEngineBox" views:ControlHelp.Text="{x:Static help:Descriptions.SpeechEngine}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
-      <TextBlock x:Name="AzureKeyLabel" Grid.Row="1" VerticalAlignment="Center" Text="Azure Speech key" />
-      <TextBox AutomationProperties.Name="Azure Speech key" x:Name="AzureKeyBox" views:ControlHelp.Text="{x:Static help:Descriptions.AzureKey}" Grid.Row="1" Grid.Column="1" PasswordChar="•" PlaceholderText="Key 1 or Key 2 from your Speech resource" />
-      <TextBlock x:Name="AzureRegionLabel" Grid.Row="2" VerticalAlignment="Center" Text="Azure region" />
-      <TextBox AutomationProperties.Name="Azure region" x:Name="AzureRegionBox" views:ControlHelp.Text="{x:Static help:Descriptions.AzureRegion}" Grid.Row="2" Grid.Column="1" PlaceholderText="For example uksouth or eastus" />
+      <TextBlock x:Name="SpeechEngineLabel" Grid.Row="0" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Read Aloud voice&quot;}" />
+      <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Read Aloud voice&quot;}" x:Name="SpeechEngineBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose which voice service reads aloud.&quot;}" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock x:Name="AzureKeyLabel" Grid.Row="1" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Azure Speech key&quot;}" />
+      <TextBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Azure Speech key&quot;}" x:Name="AzureKeyBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type a key from your Azure Speech resource. Azure voices need it.&quot;}" Grid.Row="1" Grid.Column="1" PasswordChar="•" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Key 1 or Key 2 from your Speech resource&quot;}" />
+      <TextBlock x:Name="AzureRegionLabel" Grid.Row="2" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Azure region&quot;}" />
+      <TextBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Azure region&quot;}" x:Name="AzureRegionBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the region of your Azure Speech resource, such as uksouth.&quot;}" Grid.Row="2" Grid.Column="1" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;For example uksouth or eastus&quot;}" />
       <!-- Says where the chosen voice runs, and is read out when the voice changes. -->
       <TextBlock x:Name="SpeechNote" AutomationProperties.LiveSetting="Polite" Grid.Row="3" Grid.ColumnSpan="2" Classes="secondary" TextWrapping="Wrap" />
     </Grid>
     <!-- Text recognition languages: tick the languages to read; each row downloads or removes its own pack. -->
     <StackPanel Spacing="6">
-      <TextBlock Text="Text recognition languages" AutomationProperties.HeadingLevel="2" />
+      <TextBlock Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text recognition languages&quot;}" AutomationProperties.HeadingLevel="2" />
       <TextBlock x:Name="OcrNote" Classes="secondary" TextWrapping="Wrap" />
       <ScrollViewer MaxHeight="220" HorizontalScrollBarVisibility="Disabled">
-        <ItemsControl x:Name="OcrLanguageList" AutomationProperties.Name="Text recognition languages" />
+        <ItemsControl x:Name="OcrLanguageList" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text recognition languages&quot;}" />
       </ScrollViewer>
       <Grid ColumnDefinitions="*,Auto,Auto">
         <TextBlock x:Name="OcrStatusText" Classes="secondary" VerticalAlignment="Center" TextWrapping="Wrap" />
         <ProgressBar Grid.Column="1" x:Name="OcrDownloadProgress" Width="120" Minimum="0" Maximum="1" VerticalAlignment="Center" Margin="8,0"
-                     AutomationProperties.Name="Language pack download progress" />
-        <Button Grid.Column="2" x:Name="StopLanguageDownloadButton" Content="Stop Download"
-                AutomationProperties.Name="Stop download"
-                views:ControlHelp.Text="{x:Static help:Descriptions.StopLanguageDownload}" />
+                     AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Language pack download progress&quot;}" />
+        <Button Grid.Column="2" x:Name="StopLanguageDownloadButton" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop Download&quot;}"
+                AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop download&quot;}"
+                views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop the language download. Languages that already finished are kept.&quot;}" />
       </Grid>
     </StackPanel>
     <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" RowSpacing="10" ColumnSpacing="16">
-      <TextBlock x:Name="TimestampServerLabel" Grid.Row="0" VerticalAlignment="Center" Text="Timestamp server" />
-      <TextBox AutomationProperties.Name="Timestamp server" x:Name="TimestampServerBox" views:ControlHelp.Text="{x:Static help:Descriptions.TimestampServer}" Grid.Row="0" Grid.Column="1" PlaceholderText="Optional, for example http://timestamp.digicert.com" />
-      <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="secondary" TextWrapping="Wrap" Text="When signing with a certificate, a timestamp server records a trusted signing time, so the signature stays valid after the certificate expires. Only a fingerprint of the signature is sent." />
+      <TextBlock x:Name="TimestampServerLabel" Grid.Row="0" VerticalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Timestamp server&quot;}" />
+      <TextBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Timestamp server&quot;}" x:Name="TimestampServerBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Optional. Type the address of a server that records a trusted time when you sign.&quot;}" Grid.Row="0" Grid.Column="1" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Optional, for example http://timestamp.digicert.com&quot;}" />
+      <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Classes="secondary" TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;When signing with a certificate, a timestamp server records a trusted signing time, so the signature stays valid after the certificate expires. Only a fingerprint of the signature is sent.&quot;}" />
     </Grid>
-    <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.ClosePreferences}" HorizontalAlignment="Right" Content="Close" IsDefault="True" IsCancel="True" />
+    <Button x:Name="CloseButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close Preferences. Your changes are already kept. Shortcut: Esc&quot;}" HorizontalAlignment="Right" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close&quot;}" IsDefault="True" IsCancel="True" />
   </StackPanel>
   </ScrollViewer>
 </Window>

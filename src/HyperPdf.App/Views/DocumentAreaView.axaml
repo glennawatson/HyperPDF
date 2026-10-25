@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.DocumentAreaView">
@@ -6,7 +6,7 @@
   <!-- The second column holds a second view of the same document while the view is split. -->
   <Grid x:Name="DocumentArea" ColumnDefinitions="*,Auto,0">
     <ContentControl x:Name="DocumentHost" />
-    <GridSplitter x:Name="SplitSplitter" Grid.Column="1" Width="6" views:ControlHelp.Text="{x:Static help:Descriptions.SplitSplitter}" AutomationProperties.Name="Split view divider" IsVisible="False" />
-    <ContentControl x:Name="SplitHost" Grid.Column="2" AutomationProperties.Name="Second view" IsVisible="False" />
+    <GridSplitter x:Name="SplitSplitter" Grid.Column="1" Width="6" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drag to share the width between the two views.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Split view divider&quot;}" IsVisible="False" />
+    <ContentControl x:Name="SplitHost" Grid.Column="2" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Second view&quot;}" IsVisible="False" />
   </Grid>
 </UserControl>

@@ -17,9 +17,6 @@ namespace HyperPdf.ViewModels.Security;
 [DebuggerDisplay("RemoveProtectionViewModel: {FileName}")]
 public sealed partial class RemoveProtectionViewModel : ProtectionRunViewModel
 {
-    /// <summary>The status shown before anything has happened.</summary>
-    private const string ReadyStatus = "Ready. Choose Save Unprotected Copy to make the file.";
-
     /// <summary>The protector the open document provides.</summary>
     private readonly IDocumentProtector _protector;
 
@@ -32,7 +29,7 @@ public sealed partial class RemoveProtectionViewModel : ProtectionRunViewModel
         ArgumentNullException.ThrowIfNull(protector);
         _protector = protector;
         Status = protector.GetStatus();
-        StatusText = ReadyStatus;
+        SetStatusText(LocalizedMessage.Get(UiText, "Ready. Choose Save Unprotected Copy to make the file."));
 
         // The password is forgotten once the window closes.
         Subscriptions.Add(Scope.Create(ForgetPassword));
@@ -60,12 +57,12 @@ public sealed partial class RemoveProtectionViewModel : ProtectionRunViewModel
     [ReactiveCommand(CanExecute = nameof(CanStart))]
     private async Task SaveAsync()
     {
-        Error = null;
+        SetError(LocalizedMessage.Literal(null));
         var password = OwnerPassword.Length == 0 ? null : OwnerPassword;
         await RunAsync(
             SuggestedName,
-            "Removing the protection from a copy. This can take a while for long files.",
-            "removing the protection",
+            LocalizedMessage.Get(UiText, "Removing the protection from a copy. This can take a while for long files."),
+            LocalizedMessage.Get(UiText, "removing the protection"),
             (stream, token) => _protector.RemoveProtectionAsync(password, stream, token)).ConfigureAwait(true);
     }
 }

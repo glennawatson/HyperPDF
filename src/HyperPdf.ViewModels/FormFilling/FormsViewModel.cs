@@ -22,7 +22,7 @@ namespace HyperPdf.ViewModels.FormFilling;
 /// click; choices are picked from a menu. Every change goes to the document straight away.
 /// </summary>
 [DebuggerDisplay("FormsViewModel: Editing {Editing}")]
-public sealed partial class FormsViewModel : ReactiveObject, IDisposable
+public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The most passes of recalculation, so fields that depend on each other in a loop still settle.</summary>
     private const int MaxCalculationPasses = 8;
@@ -215,17 +215,13 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>What happened.</returns>
     public async Task<FormActionResult> RunPageOpenedAsync(int pageIndex) =>
-        Actions is { } actions
-            ? await FinishAsync(actions.RunPageOpenedAsync(pageIndex, new TabFormActionHost(_owner, false), _owner.LifetimeToken)).ConfigureAwait(true)
-            : FormActionResult.None;
+        Actions is { } actions ? await FinishAsync(actions.RunPageOpenedAsync(pageIndex, new TabFormActionHost(_owner, false), _owner.LifetimeToken)).ConfigureAwait(true) : FormActionResult.None;
 
     /// <summary>Runs the actions a page does when it closes.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>What happened.</returns>
     public async Task<FormActionResult> RunPageClosedAsync(int pageIndex) =>
-        Actions is { } actions
-            ? await FinishAsync(actions.RunPageClosedAsync(pageIndex, new TabFormActionHost(_owner, false), _owner.LifetimeToken)).ConfigureAwait(true)
-            : FormActionResult.None;
+        Actions is { } actions ? await FinishAsync(actions.RunPageClosedAsync(pageIndex, new TabFormActionHost(_owner, false), _owner.LifetimeToken)).ConfigureAwait(true) : FormActionResult.None;
 
     /// <summary>
     /// Runs the document's additional actions for the event the viewer reached. Like a page's actions they run on their
@@ -235,7 +231,13 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
     /// <returns>What happened.</returns>
     public async Task<FormActionResult> RunDocumentEventAsync(FormDocumentEvent documentEvent) =>
         Actions is { } actions
-            ? await FinishAsync(actions.RunDocumentEventAsync(documentEvent, new TabFormActionHost(_owner, false), _owner.LifetimeToken)).ConfigureAwait(true)
+            ? await FinishAsync(
+        actions.RunDocumentEventAsync(
+            documentEvent,
+            new TabFormActionHost(
+                _owner,
+                false),
+            _owner.LifetimeToken)).ConfigureAwait(true)
             : FormActionResult.None;
 
     /// <summary>Picks a choice of a combo or list box.</summary>
@@ -263,7 +265,7 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
         {
             // Keep the editor open so the value can be corrected; the message stays until dismissed.
             ApplyScriptChanges(host);
-            _owner.Notice = problem;
+            _owner.SetNotice(LocalizedMessage.Literal(problem));
             return;
         }
 
@@ -373,11 +375,16 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
         }
     }
 
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => LocalisationRefresh.RefreshCore(_owner, visited);
+
     /// <summary>Determines whether a field can be moved to with the keyboard and filled in.</summary>
     /// <param name="field">The field.</param>
     /// <returns><see langword="true"/> for fields that are not read-only and that the viewer fills.</returns>
     private static bool IsFillable(FormField field) =>
-        !field.IsReadOnly && field.Kind is FormFieldKind.Text or FormFieldKind.CheckBox or FormFieldKind.RadioButton or FormFieldKind.ComboBox or FormFieldKind.ListBox or FormFieldKind.PushButton;
+        !field.IsReadOnly && field.Kind is FormFieldKind.Text or FormFieldKind.CheckBox or FormFieldKind.RadioButton or FormFieldKind
+        .ComboBox or FormFieldKind.ListBox or FormFieldKind.PushButton;
 
     /// <summary>Adds the fillable fields of one page in the page's tab order, then any the order does not list.</summary>
     /// <param name="all">The fillable fields so far.</param>
@@ -415,11 +422,11 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
         {
             return scripts.Keystroke.Function switch
             {
-                FormScriptFunction.Date => $"Type a date like {FormScriptEngine.Format(scripts.Keystroke, "2026-03-07")}.",
-                FormScriptFunction.Time => $"Type a time like {FormScriptEngine.Format(scripts.Keystroke, "13:45")}.",
-                FormScriptFunction.Special => "Type the number with the right count of digits.",
+                FormScriptFunction.Date => UiText.Format("Type a date like {0}.", FormScriptEngine.Format(scripts.Keystroke, "2026-03-07")),
+                FormScriptFunction.Time => UiText.Format("Type a time like {0}.", FormScriptEngine.Format(scripts.Keystroke, "13:45")),
+                FormScriptFunction.Special => UiText.Get("Type the number with the right count of digits."),
                 FormScriptFunction.Program => refusal,
-                _ => "Type a number.",
+                _ => UiText.Get("Type a number."),
             };
         }
 
@@ -681,11 +688,12 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
             pageOrder[scripts] = pageOrder.Count;
         }
 
-        calculated.Sort((a, b) =>
-        {
-            var byListed = position.GetValueOrDefault(a.Name, int.MaxValue).CompareTo(position.GetValueOrDefault(b.Name, int.MaxValue));
-            return byListed != 0 ? byListed : pageOrder[a].CompareTo(pageOrder[b]);
-        });
+        calculated.Sort(
+            (a, b) =>
+{
+    var byListed = position.GetValueOrDefault(a.Name, int.MaxValue).CompareTo(position.GetValueOrDefault(b.Name, int.MaxValue));
+    return byListed != 0 ? byListed : pageOrder[a].CompareTo(pageOrder[b]);
+    });
     }
 
     /// <summary>Starts a push button's action. The action runs in the background so the click returns at once.</summary>
@@ -770,9 +778,7 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable
         _ = pageIndex;
         while (_pendingTurns.TryDequeue(out var turn))
         {
-            _ = turn.Opened
-                ? await RunPageOpenedAsync(turn.Page).ConfigureAwait(true)
-                : await RunPageClosedAsync(turn.Page).ConfigureAwait(true);
+            _ = turn.Opened ? await RunPageOpenedAsync(turn.Page).ConfigureAwait(true) : await RunPageClosedAsync(turn.Page).ConfigureAwait(true);
         }
     }
 

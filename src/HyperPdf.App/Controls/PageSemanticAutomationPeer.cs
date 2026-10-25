@@ -53,14 +53,14 @@ internal class PageSemanticAutomationPeer : AutomationPeer
         ArgumentNullException.ThrowIfNull(item);
         var words = new StringBuilder();
         Append(words, item.Role);
-        Append(words, item.Kind == PageSemanticKind.EmptyCell && item.Row > 0 ? string.Create(CultureInfo.InvariantCulture, $"row {item.Row}, column {item.Column}") : null);
-        Append(words, item.Kind == PageSemanticKind.EmptyCell ? "empty" : null);
+        Append(words, item.Kind == PageSemanticKind.EmptyCell && item.Row > 0 ? UiText.Format("row {0}, column {1}", item.Row, item.Column) : null);
+        Append(words, item.Kind == PageSemanticKind.EmptyCell ? UiText.Get("empty") : null);
         Append(words, item.Description);
-        Append(words, item.Value is { Length: > 0 } value ? $"value {value}" : null);
+        Append(words, item.Value is { Length: > 0 } value ? UiText.Format("value {0}", value) : null);
         Append(words, item.State);
-        Append(words, item.RichText is { Length: > 0 } styles ? $"formatted text, {styles}" : null);
-        Append(words, item.Language is { Length: > 0 } language ? $"language {DescribeLanguage(language)}" : null);
-        Append(words, item.IsHidden ? "hidden" : null);
+        Append(words, item.RichText is { Length: > 0 } styles ? UiText.Format("formatted text, {0}", styles) : null);
+        Append(words, item.Language is { Length: > 0 } language ? UiText.Format("language {0}", DescribeLanguage(language)) : null);
+        Append(words, item.IsHidden ? UiText.Get("hidden") : null);
         return words.Length == 0 ? null : words.ToString();
     }
 

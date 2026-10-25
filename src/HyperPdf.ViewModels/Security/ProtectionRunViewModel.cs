@@ -18,13 +18,22 @@ namespace HyperPdf.ViewModels.Security;
 /// progress that can be cancelled, and keeps a plain-words summary. The open file is never replaced.
 /// </summary>
 [DebuggerDisplay("ProtectionRunViewModel: {FileName}")]
-public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWindowRequest
+public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWindowRequest, ILocalisationChildren
 {
     /// <summary>The bar's value once a copy is saved.</summary>
     private const double FullBar = 100;
 
     /// <summary>The path of the open document, which must never be overwritten.</summary>
     private readonly string _sourcePath;
+
+    /// <summary>The completed report and destination retained for language changes.</summary>
+    private (ProtectionResult Report, string Path, LocalizedMessage Action)? _resultDescription;
+
+    /// <summary>The resource identity of the displayed StatusText.</summary>
+    private LocalizedMessage _localizedStatusText = LocalizedMessage.Literal(string.Empty);
+
+    /// <summary>The resource identity of the displayed Error.</summary>
+    private LocalizedMessage _localizedError;
 
     /// <summary>Initializes a new instance of the <see cref="ProtectionRunViewModel"/> class.</summary>
     /// <param name="sourcePath">The path of the open document.</param>
@@ -56,12 +65,10 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
     public partial double ProgressPercent { get; private set; }
 
     /// <summary>Gets what the run is doing now, or how it ended.</summary>
-    [Reactive]
-    public partial string StatusText { get; protected set; } = string.Empty;
+    public string StatusText { get => _localizedStatusText.Value ?? string.Empty; protected set => SetStatusText(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets what went wrong, or <see langword="null"/>.</summary>
-    [Reactive]
-    public partial string? Error { get; protected set; }
+    public string? Error { get => _localizedError.Value; protected set => SetError(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the plain-words summary of the last finished run; empty before one finishes.</summary>
     [Reactive]
@@ -94,6 +101,24 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
         GC.SuppressFinalize(this);
     }
 
+    /// <summary>Sets the displayed StatusText while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetStatusText(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedStatusText, message, nameof(StatusText));
+
+    /// <summary>Sets the displayed Error while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetError(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedError, message, nameof(Error));
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        RefreshResultText();
+        this.RaisePropertyChanged(nameof(StatusText));
+        this.RaisePropertyChanged(nameof(Error));
+    }
+
     /// <summary>Releases what the window owns: the run in progress, and what a derived window added to <see cref="Subscriptions"/>.</summary>
     /// <param name="disposing"><see langword="true"/> when called from <see cref="Dispose()"/>.</param>
     protected virtual void Dispose(bool disposing)
@@ -110,7 +135,7 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
     /// <param name="action">What the run does, for the refusal line.</param>
     /// <param name="write">Writes the copy.</param>
     /// <returns>A task.</returns>
-    protected async Task RunAsync(string suggestedName, string runningText, string action, Func<Stream, CancellationToken, Task<ProtectionResult>> write)
+    protected async Task RunAsync(string suggestedName, LocalizedMessage runningText, LocalizedMessage action, Func<Stream, CancellationToken, Task<ProtectionResult>> write)
     {
         var path = await SaveInteraction.Handle(suggestedName).ToTask().ConfigureAwait(true);
         if (string.IsNullOrEmpty(path))
@@ -120,7 +145,7 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
 
         if (ProtectedCopyFile.IsSameFile(path, _sourcePath))
         {
-            Error = ProtectedCopyFile.OverwriteMessage;
+            SetError(ProtectedCopyFile.OverwriteStatus);
             return;
         }
 
@@ -128,20 +153,21 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
         Run = run;
         IsRunning = true;
         ProgressPercent = 0;
+        _resultDescription = null;
         ResultText = string.Empty;
-        StatusText = runningText;
+        SetStatusText(runningText);
         try
         {
             ShowResult(await ProtectedCopyFile.WriteAsync(write, path, run.Token).ConfigureAwait(true), path, action);
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Cancelled. No file was saved.";
+            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
         }
         catch (Exception ex) when (CopyFailure.IsExpected(ex) || ex is ArgumentException)
         {
-            Error = $"Could not save the copy: {CopyFailure.Describe(ex)}";
-            StatusText = "The copy was not saved.";
+            SetError(LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(ex)));
+            SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
         }
         finally
         {
@@ -168,11 +194,24 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
     /// <param name="result">The result.</param>
     /// <param name="path">Where the copy was to be saved.</param>
     /// <param name="action">What the run does.</param>
-    private void ShowResult(ProtectionResult result, string path, string action)
+    private void ShowResult(ProtectionResult result, string path, in LocalizedMessage action)
     {
         SavedPath = result.Written ? path : null;
         ProgressPercent = result.Written ? FullBar : 0;
-        StatusText = result.Written ? "Done. The copy is saved." : "The copy could not be made. See the reason below.";
-        ResultText = OptimizeReportText.Join(ProtectionChecks.Lines(result, path, action));
+        SetStatusText(result.Written ? LocalizedMessage.Get(UiText, "Done. The copy is saved.") : LocalizedMessage.Get(UiText, "The copy could not be made. See the reason below."));
+        _resultDescription = (result, path, action);
+        RefreshResultText();
+    }
+
+    /// <summary>Rewords the retained report without repeating the operation.</summary>
+    private void RefreshResultText()
+    {
+        if (_resultDescription is not { } description)
+        {
+            return;
+        }
+
+        var(result, path, action) = description;
+        ResultText = OptimizeReportText.Join(ProtectionChecks.Lines(result, path, action.Value ?? string.Empty));
     }
 }

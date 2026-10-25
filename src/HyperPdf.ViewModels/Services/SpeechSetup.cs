@@ -45,7 +45,8 @@ public sealed record SpeechSetup(
             FilesFor,
             CreateEngineFor,
             platform.CreateAudioOutput,
-            (settings, progress, cancellationToken) => downloads.DownloadAsync(FilesFor(settings), DefaultVoiceDirectory, progress, cancellationToken)) { Downloads = downloads, };
+            (settings, progress, cancellationToken) => downloads.DownloadAsync(FilesFor(settings), DefaultVoiceDirectory, progress, cancellationToken))
+        { Downloads = downloads, };
     }
 
     /// <summary>Gets the files the chosen on-device voice needs: Kokoro's when Kokoro is chosen, otherwise MeloTTS's.</summary>

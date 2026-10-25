@@ -153,9 +153,9 @@ public static class FormScriptEngine
 
         message = (hasLower, hasUpper) switch
         {
-            (true, true) => string.Create(CultureInfo.CurrentCulture, $"The value must be between {lower} and {upper}."),
-            (true, false) => string.Create(CultureInfo.CurrentCulture, $"The value must be at least {lower}."),
-            _ => string.Create(CultureInfo.CurrentCulture, $"The value must be at most {upper}."),
+            (true, true) => UiText.Format("The value must be between {0} and {1}.", lower, upper),
+            (true, false) => UiText.Format("The value must be at least {0}.", lower),
+            _ => UiText.Format("The value must be at most {0}.", upper),
         };
         return false;
     }

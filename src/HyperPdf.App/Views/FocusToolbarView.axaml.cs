@@ -3,8 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using Avalonia.Controls;
-using Avalonia.Controls.Templates;
+using HyperPdf.App.Controls;
 using ReactiveUI;
 using ReactiveUI.Binding;
 
@@ -18,10 +17,8 @@ public sealed partial class FocusToolbarView : ReactiveUI.Avalonia.ReactiveUserC
     public FocusToolbarView()
     {
         InitializeComponent();
-        ColourBox.ItemsSource = FocusModeViewModel.PageColourOptions;
-        FontBox.ItemsSource = FocusModeViewModel.FontOptions;
-        ColourBox.ItemTemplate = new FuncDataTemplate<string>(static (text, _) => new TextBlock { Text = text });
-        FontBox.ItemTemplate = new FuncDataTemplate<string>(static (text, _) => new TextBlock { Text = text });
+        ChoiceViews.SetChoices(ColourBox, FocusModeViewModel.PageColourOptions);
+        ChoiceViews.SetChoices(FontBox, FocusModeViewModel.FontOptions);
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.SmallerCommand, static v => v.SmallerButton));

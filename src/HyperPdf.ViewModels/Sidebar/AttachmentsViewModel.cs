@@ -19,7 +19,7 @@ namespace HyperPdf.ViewModels.Sidebar;
 /// user picks, and never opened automatically, so nothing runs that the user did not choose to run.
 /// </summary>
 [DebuggerDisplay("AttachmentsViewModel: {Items.Count} attachments")]
-public sealed partial class AttachmentsViewModel : ReactiveObject
+public sealed partial class AttachmentsViewModel : ReactiveObject, ILocalisationChildren
 {
     /// <summary>Bytes in a kilobyte.</summary>
     private const double Kilobyte = 1024;
@@ -80,13 +80,13 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
         ArgumentNullException.ThrowIfNull(portfolio);
         var view = portfolio.View.ToUpperInvariant() switch
         {
-            "T" => "tiles",
-            "H" => "hidden",
-            _ => "details",
+            "T" => UiText.Get("tiles"),
+            "H" => UiText.Get("hidden"),
+            _ => UiText.Get("details"),
         };
-        var files = portfolio.FileCount == 1 ? "1 file" : string.Create(CultureInfo.CurrentCulture, $"{portfolio.FileCount} files");
-        var first = string.IsNullOrEmpty(portfolio.InitialFile) ? string.Empty : $" It opens at {portfolio.InitialFile}.";
-        return $"PDF portfolio: {files}, {view} view.{first}";
+        var files = portfolio.FileCount == 1 ? UiText.Get("1 file") : UiText.Format("{0} files", portfolio.FileCount);
+        var first = string.IsNullOrEmpty(portfolio.InitialFile) ? string.Empty : UiText.Format(" It opens at {0}.", portfolio.InitialFile);
+        return UiText.Format("PDF portfolio: {0}, {1} view.{2}", files, view, first);
     }
 
     /// <summary>Describes a file size in words, for example "12 KB".</summary>
@@ -94,10 +94,10 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
     /// <returns>The description.</returns>
     public static string FormatSize(long bytes) => bytes switch
     {
-        1 => "1 byte",
-        < (long)Kilobyte => string.Create(CultureInfo.CurrentCulture, $"{bytes} bytes"),
-        < (long)Megabyte => string.Create(CultureInfo.CurrentCulture, $"{bytes / Kilobyte:0} KB"),
-        _ => string.Create(CultureInfo.CurrentCulture, $"{bytes / Megabyte:0.0} MB"),
+        1 => UiText.Get("1 byte"),
+        < (long)Kilobyte => UiText.Format("{0} bytes", bytes),
+        < (long)Megabyte => UiText.Format("{0:0} KB", bytes / Kilobyte),
+        _ => UiText.Format("{0:0.0} MB", bytes / Megabyte),
     };
 
     /// <summary>Lists the document's files; called when the document loads.</summary>
@@ -171,7 +171,7 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
         var saved = await WriteAsync(attachment, path).ConfigureAwait(true);
         if (saved)
         {
-            _owner.Notice = $"Saved {attachment.Name}.";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Saved {0}.", attachment.Name));
         }
 
         return saved;
@@ -193,18 +193,22 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
         }
         catch (IOException ex)
         {
-            _owner.Notice = $"Could not open {attachment.Name}: {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not open {0}: {1}", attachment.Name, ex.Message));
             return false;
         }
         catch (UnauthorizedAccessException ex)
         {
-            _owner.Notice = $"Could not open {attachment.Name}: {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not open {0}: {1}", attachment.Name, ex.Message));
             return false;
         }
 
         var path = Path.Combine(folder, name.Length > 0 ? name : UnnamedFile);
         return await WriteAsync(attachment, path).ConfigureAwait(true) && await _owner.Links.OpenFileAsync(path, 0).ConfigureAwait(true);
     }
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => LocalisationRefresh.RefreshCore(_owner, visited);
 
     /// <summary>Gets the place a file takes in the list: the portfolio's order, then the files it does not describe in their own order.</summary>
     /// <param name="attachment">The file.</param>
@@ -259,24 +263,24 @@ public sealed partial class AttachmentsViewModel : ReactiveObject
 
             if (!written)
             {
-                _owner.Notice = $"Could not read {attachment.Name} from the document.";
+                _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not read {0} from the document.", attachment.Name));
             }
 
             return written;
         }
         catch (IOException ex)
         {
-            _owner.Notice = $"Could not save {attachment.Name}: {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: {1}", attachment.Name, ex.Message));
             return false;
         }
         catch (UnauthorizedAccessException ex)
         {
-            _owner.Notice = $"Could not save {attachment.Name}: {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: {1}", attachment.Name, ex.Message));
             return false;
         }
         catch (InvalidOperationException)
         {
-            _owner.Notice = $"Could not save {attachment.Name}: the document was closed.";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: the document was closed.", attachment.Name));
             return false;
         }
     }

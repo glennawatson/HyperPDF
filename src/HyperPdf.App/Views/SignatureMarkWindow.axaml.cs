@@ -22,6 +22,7 @@ public sealed partial class SignatureMarkWindow : ReactiveUI.Avalonia.ReactiveWi
         FieldLabels.Link((MarkTextBox, TextLabel));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Title, static v => v.Title));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsTyped, static v => v.TypeOption.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsDrawn, static v => v.DrawOption.IsChecked, static on => on, static on => on == true));
@@ -37,7 +38,7 @@ public sealed partial class SignatureMarkWindow : ReactiveUI.Avalonia.ReactiveWi
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.ClearDrawingCommand, static v => v.ClearDrawingButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.ChooseImageCommand, static v => v.ChooseImageButton));
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.BrowseImageInteraction, BrowseAsync));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SourceImage, static v => v.ImageNameText.Text, static image => image?.Name ?? "No picture chosen yet."));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SourceImage, static v => v.ImageNameText.Text, static image => image?.Name ?? UiText.Get("No picture chosen yet.")));
             disposables.Add(this.Bind(ViewModel, static vm => vm.RemovePaper, static v => v.RemovePaperCheck.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ImageError, static v => v.ImageErrorText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ImageError, static v => v.ImageErrorText.IsVisible, static error => error is not null));
@@ -76,10 +77,21 @@ public sealed partial class SignatureMarkWindow : ReactiveUI.Avalonia.ReactiveWi
     {
         var files = await StorageProvider.OpenFilePickerAsync(new()
         {
-            Title = "Choose a Picture of Your Signature",
+            Title = UiText.Get("Choose a Picture of Your Signature"),
             AllowMultiple = false,
-            FileTypeFilter = [new("Pictures (.png, .jpg, .bmp, .webp)") { Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp"] }],
+            FileTypeFilter = [new(UiText.Get("Pictures (.png, .jpg, .bmp, .webp)")) { Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp"] }],
         });
         context.SetOutput(files.Count > 0 ? files[0].TryGetLocalPath() : null);
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        ImageNameText.Text = model.SourceImage?.Name ?? UiText.Get("No picture chosen yet.");
     }
 }

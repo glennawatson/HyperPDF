@@ -3,12 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using HyperPdf.App.Controls;
 using ReactiveUI;
 using ReactiveUI.Binding;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Views;
 
@@ -24,18 +24,19 @@ public sealed partial class DocumentBarsView : ReactiveUI.Avalonia.ReactiveUserC
         FieldLabels.Link((SeparationBox, SeparationChoiceLabel));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Signatures.SignatureCount, static v => v.SignedBar.IsVisible, static count => count > 0));
             disposables.Add(this.OneWayBind(
                 ViewModel,
                 static vm => vm.Signatures.SignatureCount,
                 static v => v.SignedText.Text,
-                static count => count == 1 ? "This document is digitally signed." : string.Create(CultureInfo.CurrentCulture, $"This document has {count} digital signatures.")));
+                static count => count == 1 ? UiText.Get("This document is digitally signed.") : UiText.Format("This document has {0} digital signatures.", count)));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Signatures.CheckCommand, static v => v.CheckSignaturesButton));
             disposables.Add(this.OneWayBind(
                 ViewModel,
                 static vm => vm.Signatures.IsChecking,
                 static v => v.CheckSignaturesButton.Content,
-                static checking => checking ? "Checking…" : "Check Signatures"));
+                static checking => checking ? UiText.Get("Checking…") : UiText.Get("Check Signatures")));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Signatures.ShowInteraction)
                 .ShowDialogOver(this, static signatures => new SignaturesWindow { ViewModel = signatures }));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Separations.HasSeparations, static v => v.SeparationBar.IsVisible));
@@ -44,5 +45,19 @@ public sealed partial class DocumentBarsView : ReactiveUI.Avalonia.ReactiveUserC
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Separations.Colorants, static v => v.SeparationBox.IsEnabled, static colorants => colorants.Count > 0));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Separations.SelectedIndex, static v => v.SeparationBox.SelectedIndex));
         });
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        SignedText.Text = model.Signatures.SignatureCount == 1
+            ? UiText.Get("This document is digitally signed.")
+            : UiText.Format("This document has {0} digital signatures.", model.Signatures.SignatureCount);
+        CheckSignaturesButton.Content = model.Signatures.IsChecking ? UiText.Get("Checking…") : UiText.Get("Check Signatures");
     }
 }

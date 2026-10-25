@@ -27,7 +27,7 @@ public static class ContentWarnings
     public static string? Describe(UnsupportedContent content)
     {
         var key = (int)content & AllParts;
-        return key == 0 ? null : Descriptions.Messages[key];
+        return key == 0 ? null : UiText.Get(Descriptions.Messages[key]!);
     }
 
     /// <summary>Determines whether a document looks like a PDF portfolio: attached files behind a cover page that says so.</summary>

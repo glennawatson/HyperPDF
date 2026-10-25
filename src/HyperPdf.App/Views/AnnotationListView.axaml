@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.AnnotationListView">
@@ -6,31 +6,31 @@
   <!-- Comment list: a text filter, then filters and sort order shown on request, then the list. -->
   <DockPanel x:Name="AnnotationsPanel">
     <StackPanel DockPanel.Dock="Top" Margin="8,4,8,4" Spacing="6">
-      <TextBox AutomationProperties.Name="Filter comments" x:Name="AnnotationFilterBox" views:ControlHelp.Text="{x:Static help:Descriptions.AnnotationFilterText}" PlaceholderText="Filter comments" />
-      <ToggleButton AutomationProperties.Name="Filter and sort" x:Name="AnnotationFiltersToggle" views:ControlHelp.Text="{x:Static help:Descriptions.AnnotationFilters}" HorizontalAlignment="Stretch">
+      <TextBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Filter comments&quot;}" x:Name="AnnotationFilterBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type words to show only the comments that contain them.&quot;}" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Filter comments&quot;}" />
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Filter and sort&quot;}" x:Name="AnnotationFiltersToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show or hide the choices that filter and sort the comment list.&quot;}" HorizontalAlignment="Stretch">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <Path Classes="icon nav" Data="{StaticResource IconFilter}" />
-          <TextBlock Text="Filter and Sort" VerticalAlignment="Center" />
+          <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Filter and Sort&quot;}" VerticalAlignment="Center" />
         </StackPanel>
       </ToggleButton>
       <StackPanel x:Name="AnnotationFiltersPanel" Spacing="4">
-        <TextBlock x:Name="AnnotationTypeLabel" Classes="secondary" Text="Type" />
-        <ComboBox AutomationProperties.Name="Type" x:Name="AnnotationTypeBox" views:ControlHelp.Text="{x:Static help:Descriptions.AnnotationTypeFilter}" HorizontalAlignment="Stretch" />
-        <TextBlock x:Name="AnnotationColourLabel" Classes="secondary" Text="Colour" />
-        <ComboBox AutomationProperties.Name="Colour" x:Name="AnnotationColourBox" views:ControlHelp.Text="{x:Static help:Descriptions.AnnotationColourFilter}" HorizontalAlignment="Stretch" />
-        <TextBlock x:Name="AnnotationAuthorLabel" Classes="secondary" Text="Author" />
-        <ComboBox AutomationProperties.Name="Author" x:Name="AnnotationAuthorBox" views:ControlHelp.Text="{x:Static help:Descriptions.AnnotationAuthorFilter}" HorizontalAlignment="Stretch" />
-        <TextBlock x:Name="AnnotationSortLabel" Classes="secondary" Text="Sort by" />
-        <ComboBox AutomationProperties.Name="Sort by" x:Name="AnnotationSortBox" views:ControlHelp.Text="{x:Static help:Descriptions.AnnotationSort}" HorizontalAlignment="Stretch" />
-        <Button AutomationProperties.Name="Show all comments" x:Name="ClearAnnotationFilterButton" views:ControlHelp.Text="{x:Static help:Descriptions.ClearAnnotationFilter}" HorizontalAlignment="Stretch" Content="Show All Comments" />
+        <TextBlock TextWrapping="Wrap" x:Name="AnnotationTypeLabel" Classes="secondary" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type&quot;}" />
+        <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type&quot;}" x:Name="AnnotationTypeBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show only one type of comment, such as notes or drawings.&quot;}" HorizontalAlignment="Stretch" />
+        <TextBlock TextWrapping="Wrap" x:Name="AnnotationColourLabel" Classes="secondary" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Colour&quot;}" />
+        <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Colour&quot;}" x:Name="AnnotationColourBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show only the comments of one colour.&quot;}" HorizontalAlignment="Stretch" />
+        <TextBlock TextWrapping="Wrap" x:Name="AnnotationAuthorLabel" Classes="secondary" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Author&quot;}" />
+        <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Author&quot;}" x:Name="AnnotationAuthorBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show only the comments one person wrote.&quot;}" HorizontalAlignment="Stretch" />
+        <TextBlock TextWrapping="Wrap" x:Name="AnnotationSortLabel" Classes="secondary" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sort by&quot;}" />
+        <ComboBox AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sort by&quot;}" x:Name="AnnotationSortBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the order of the comment list: by page, newest first, by author or by type.&quot;}" HorizontalAlignment="Stretch" />
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show all comments&quot;}" x:Name="ClearAnnotationFilterButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show every comment again.&quot;}" HorizontalAlignment="Stretch" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show All Comments&quot;}" />
       </StackPanel>
     </StackPanel>
     <Panel>
-      <ListBox x:Name="AnnotationList" AutomationProperties.Name="Annotations" Background="Transparent" />
+      <ListBox x:Name="AnnotationList" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Annotations&quot;}" Background="Transparent" />
       <TextBlock x:Name="NoAnnotationsText" Classes="secondary" Margin="12" TextWrapping="Wrap"
-                 Text="No annotations yet. Choose Annotate, or right-click selected text." />
+                 Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;No annotations yet. Choose Annotate, or right-click selected text.&quot;}" />
       <TextBlock x:Name="NoMatchesText" Classes="secondary" Margin="12" TextWrapping="Wrap"
-                 Text="No comments match the filter. Choose Show All Comments to see them all." />
+                 Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;No comments match the filter. Choose Show All Comments to see them all.&quot;}" />
     </Panel>
   </DockPanel>
 </UserControl>

@@ -23,7 +23,8 @@ public sealed partial class Pdf20CopyWindow : ReactiveUI.Avalonia.ReactiveWindow
         InitializeComponent();
         _ = this.WhenActivated(disposables =>
         {
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Save a PDF 2.0 copy of {name}"));
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => UiText.Format("Save a PDF 2.0 copy of {0}", name)));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.SaveCommand, static v => v.SaveButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CancelCommand, static v => v.CancelButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
@@ -49,7 +50,18 @@ public sealed partial class Pdf20CopyWindow : ReactiveUI.Avalonia.ReactiveWindow
     /// <returns>A task.</returns>
     private async Task SaveAsync(IInteractionContext<string, string?> context)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Save as PDF 2.0 Copy", SuggestedFileName = context.Input, DefaultExtension = "pdf" });
+        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = UiText.Get("Save as PDF 2.0 Copy"), SuggestedFileName = context.Input, DefaultExtension = "pdf" });
         context.SetOutput(file?.TryGetLocalPath());
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        HeadingText.Text = UiText.Format("Save a PDF 2.0 copy of {0}", model.FileName);
     }
 }

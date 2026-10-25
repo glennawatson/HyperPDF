@@ -22,13 +22,21 @@ internal static class RequirementMapping
         }
 
         var assessment = PdfDocumentRequirements.Evaluate(self.Document);
+        return Describe(assessment);
+    }
+
+    /// <summary>Retains a completed assessment so visible notices can follow interface language changes.</summary>
+    /// <param name="assessment">The completed assessment, independent of the open document.</param>
+    /// <returns>The report with its typed display provider.</returns>
+    internal static RequirementReport Describe(PdfRequirementAssessment assessment)
+    {
         if (assessment.Decision == PdfRequirementDecision.Satisfied)
         {
             return RequirementReport.None;
         }
 
         var level = assessment.Decision == PdfRequirementDecision.Critical ? RequirementLevel.Critical : RequirementLevel.Fallback;
-        return new(level, assessment.Summary, Details(assessment));
+        return new(level, RequirementDisplay.Summary(assessment), Details(assessment)) { LocalisedText = new AssessmentText(assessment) };
     }
 
     /// <summary>Copies the notices from a save: every requirement the save removed.</summary>
@@ -43,7 +51,9 @@ internal static class RequirementMapping
 
         foreach (var change in writer.Requirements)
         {
-            caller.RequirementWarnings.Add(change.Message);
+            var removed = new RemovedRequirement(change.Type, PdfRequirementCapabilities.HyperPdf.Find(change.Type)?.Title);
+            caller.RemovedRequirements.Add(removed);
+            caller.RequirementWarnings.Add(removed.Text);
         }
     }
 
@@ -57,10 +67,21 @@ internal static class RequirementMapping
         {
             if (!result.IsMet)
             {
-                details.Add(result.Message);
+                details.Add(RequirementDisplay.Describe(result));
             }
         }
 
         return [.. details];
+    }
+
+    /// <summary>Keeps typed assessment data, without retaining or reopening the PDF document.</summary>
+    /// <param name="assessment">The completed requirement assessment.</param>
+    private sealed class AssessmentText(PdfRequirementAssessment assessment) : IRequirementText
+    {
+        /// <inheritdoc/>
+        public string Summary => RequirementDisplay.Summary(assessment);
+
+        /// <inheritdoc/>
+        public IReadOnlyList<string> Details => RequirementMapping.Details(assessment);
     }
 }

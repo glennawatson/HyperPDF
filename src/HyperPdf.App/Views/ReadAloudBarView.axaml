@@ -1,48 +1,48 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.ReadAloudBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (ReadAloudBarView.axaml.cs). -->
   <!-- Read Aloud: steady controls; the sentence being read is softly marked on the page and the view follows it. -->
-  <Border x:Name="ReadAloudBar" Classes="toolbar" AutomationProperties.Name="Read Aloud" AutomationProperties.ControlTypeOverride="ToolBar">
+  <Border x:Name="ReadAloudBar" Classes="toolbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Read Aloud&quot;}" AutomationProperties.ControlTypeOverride="ToolBar">
     <Grid ColumnDefinitions="Auto,*,Auto">
       <StackPanel Orientation="Horizontal" Spacing="2">
-        <Button AutomationProperties.Name="Previous sentence" x:Name="PreviousSentenceButton" views:ControlHelp.Text="{x:Static help:Descriptions.PreviousSentence}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Previous sentence&quot;}" x:Name="PreviousSentenceButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go back one sentence and read it again. Shortcut: Ctrl+Shift+Comma&quot;}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconPreviousSentence}" />
         </Button>
-        <Button AutomationProperties.Name="Play" x:Name="PlayButton" views:ControlHelp.Text="{x:Static help:Descriptions.Play}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Play&quot;}" x:Name="PlayButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Carry on reading from where it stopped. Shortcut: Ctrl+Shift+C&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconPlay}" />
-            <TextBlock Classes="label" Text="Play" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Play&quot;}" />
           </StackPanel>
         </Button>
-        <Button AutomationProperties.Name="Pause" x:Name="PauseButton" views:ControlHelp.Text="{x:Static help:Descriptions.Pause}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pause&quot;}" x:Name="PauseButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pause reading. Your place is kept. Shortcut: Ctrl+Shift+C&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconPause}" />
-            <TextBlock Classes="label" Text="Pause" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pause&quot;}" />
           </StackPanel>
         </Button>
-        <Button AutomationProperties.Name="Next sentence" x:Name="NextSentenceButton" views:ControlHelp.Text="{x:Static help:Descriptions.NextSentence}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Next sentence&quot;}" x:Name="NextSentenceButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Skip to the next sentence. Shortcut: Ctrl+Shift+Period&quot;}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconNextSentence}" />
         </Button>
-        <ComboBox x:Name="VoiceBox" views:ControlHelp.Text="{x:Static help:Descriptions.Voice}" AutomationProperties.Name="Voice" Width="250" VerticalAlignment="Center" Margin="8,0,2,0" />
-        <ComboBox x:Name="SpeedBox" views:ControlHelp.Text="{x:Static help:Descriptions.Speed}" AutomationProperties.Name="Speed" Width="150" VerticalAlignment="Center" />
-        <Button AutomationProperties.Name="Options" x:Name="ReadAloudOptionsButton" views:ControlHelp.Text="{x:Static help:Descriptions.ReadAloudOptions}" Classes="tool">
-          <TextBlock Classes="label" Text="Options" />
+        <ComboBox x:Name="VoiceBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the voice that reads aloud.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Voice&quot;}" Width="250" VerticalAlignment="Center" Margin="8,0,2,0" />
+        <ComboBox x:Name="SpeedBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose how fast the voice reads.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Speed&quot;}" Width="150" VerticalAlignment="Center" />
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Options&quot;}" x:Name="ReadAloudOptionsButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose how the text being read is marked on the page.&quot;}" Classes="tool">
+          <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Options&quot;}" />
           <Button.Flyout>
             <Flyout Placement="BottomEdgeAlignedLeft">
               <StackPanel Spacing="8" Margin="4">
-                <CheckBox x:Name="WordMarkCheck" views:ControlHelp.Text="{x:Static help:Descriptions.WordMark}" Content="Mark the word being read" />
-                <CheckBox x:Name="FocusBandCheck" views:ControlHelp.Text="{x:Static help:Descriptions.FocusBand}" Content="Dim text away from what is read" />
+                <CheckBox x:Name="WordMarkCheck" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Mark each word as it is read aloud.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Mark the word being read&quot;}" />
+                <CheckBox x:Name="FocusBandCheck" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Dim the text away from the part being read aloud.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Dim text away from what is read&quot;}" />
               </StackPanel>
             </Flyout>
           </Button.Flyout>
         </Button>
-        <Button x:Name="DownloadVoiceButton" views:ControlHelp.Text="{x:Static help:Descriptions.DownloadVoice}" Content="Download Voice" VerticalAlignment="Center" Margin="8,0,0,0" />
-        <ProgressBar x:Name="VoiceDownloadProgress" AutomationProperties.Name="Voice download progress" Width="140" Minimum="0" Maximum="1" VerticalAlignment="Center" Margin="8,0" />
+        <Button x:Name="DownloadVoiceButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Download this voice so it can read aloud on this computer.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Download Voice&quot;}" VerticalAlignment="Center" Margin="8,0,0,0" />
+        <ProgressBar x:Name="VoiceDownloadProgress" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Voice download progress&quot;}" Width="140" Minimum="0" Maximum="1" VerticalAlignment="Center" Margin="8,0" />
       </StackPanel>
       <TextBlock Grid.Column="1" x:Name="ReadAloudText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="8,0" TextWrapping="Wrap" />
-      <Button Grid.Column="2" x:Name="CloseReadAloudButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseReadAloud}" Content="Close" />
+      <Button Grid.Column="2" x:Name="CloseReadAloudButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop reading and close the Read Aloud bar. Shortcut: Ctrl+Shift+E&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close&quot;}" />
     </Grid>
   </Border>
 </UserControl>

@@ -16,7 +16,7 @@ namespace HyperPdf.ViewModels.Reading;
 /// <see cref="Version"/> moves on when that happens so a view of the text can load it again.
 /// </summary>
 [DebuggerDisplay("TabReading: Version {Version}")]
-internal sealed partial class TabReading : ReactiveObject
+internal sealed partial class TabReading : ReactiveObject, ILocalisationChildren
 {
     /// <summary>The tab.</summary>
     private readonly DocumentTabViewModel _owner;
@@ -40,6 +40,10 @@ internal sealed partial class TabReading : ReactiveObject
 
     /// <summary>Gets a number that differs whenever the text a reader sees may differ: the document the tab shows and how often its text was reset.</summary>
     internal long TextKey => ((long)_owner.Source.Id << 32) | (uint)Version;
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => LocalisationRefresh.RefreshCore(_owner, visited);
 
     /// <summary>Gets the document's pages in reading order.</summary>
     /// <returns>The reading order, or <see langword="null"/> when the document is closed or cannot describe its layout.</returns>
@@ -82,8 +86,7 @@ internal sealed partial class TabReading : ReactiveObject
     private ReadingSources? CurrentSources()
     {
         var document = Volatile.Read(ref _readingSource);
-        return document is null || document.IsDisposed
-            || DocumentFeature<ITextLayoutSource>.Get(document) is not { } characters
+        return document is null || document.IsDisposed || DocumentFeature<ITextLayoutSource>.Get(document) is not { } characters
             ? null
             : new ReadingSources(characters, DocumentFeature<ITaggedStructureSource>.Get(document));
     }

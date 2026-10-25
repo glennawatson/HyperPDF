@@ -4,6 +4,8 @@
 
 using System.Diagnostics;
 using Avalonia.Controls.Templates;
+using HyperPdf.App.Controls;
+using HyperPdf.App.Services;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -27,6 +29,7 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.OcrLanguages.IsDownloading, static v => v.OcrDownloadProgress.Opacity, static downloading => downloading ? 1D : 0D));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.OcrLanguages.DownloadProgress, static v => v.OcrDownloadProgress.Value));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.OcrLanguages.StopDownloadCommand, static v => v.StopLanguageDownloadButton));
+            BindLanguage(disposables.Add);
             disposables.Add(this.Bind(ViewModel, static vm => vm.ColorScheme, static v => v.SchemeBox.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.PageTone, static v => v.PageToneBox.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.CustomPaper, static v => v.CustomPaperBox.Text));
@@ -64,6 +67,7 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.UsesAzure, static v => v.AzureRegionLabel.IsVisible));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.UsesAzure, static v => v.AzureRegionBox.IsVisible));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.UsesAzure, static v => v.SpeechNote.Text, DescribeSpeech));
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => SpeechNote.Text = DescribeSpeech(ViewModel?.UsesAzure ?? false), ErrorTrace.Write));
 
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
@@ -79,8 +83,19 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
     /// <param name="azure">Whether Azure is chosen.</param>
     /// <returns>The note.</returns>
     private static string DescribeSpeech(bool azure) => azure
-        ? "Each sentence read aloud is sent to your own Azure Speech resource, which bills your Azure account. The key is kept in your settings file, readable only by you."
-        : "The voice runs on this computer, so nothing you read is sent anywhere. It is downloaded once, the first time you use Read Aloud.";
+        ? UiText.Get("Each sentence read aloud is sent to your own Azure Speech resource, which bills your Azure account. The key is kept in your settings file, readable only by you.")
+        : UiText.Get("The voice runs on this computer, so nothing you read is sent anywhere. It is downloaded once, the first time you use Read Aloud.");
+
+    /// <summary>Follows actual language selection changes while preserving the startup command-line override.</summary>
+    /// <param name="add">Keeps each binding until the window is deactivated.</param>
+    private void BindLanguage(Action<IDisposable> add)
+    {
+        add(this.Bind(ViewModel, static vm => vm.InterfaceLanguage, static view => view.InterfaceLanguageBox.SelectedIndex));
+        add(this.WhenChanged(static view => view.ViewModel!.InterfaceLanguage)
+            .DistinctUntilChanged()
+            .Skip(1)
+            .SubscribeSafe(LanguagePreferences.Change, ErrorTrace.Write));
+    }
 
     /// <summary>Binds the tick boxes for how documents open and present.</summary>
     /// <param name="add">Keeps a binding until the window is deactivated.</param>
@@ -103,26 +118,28 @@ public sealed partial class PreferencesWindow : ReactiveUI.Avalonia.ReactiveWind
     /// <summary>Fills the lists of choices and links each box to its label.</summary>
     private void FillChoices()
     {
-        SchemeBox.ItemsSource = PreferencesViewModel.ColorSchemeOptions;
-        PageToneBox.ItemsSource = PreferencesViewModel.PageToneOptions;
-        OpeningZoomBox.ItemsSource = PreferencesViewModel.OpeningZoomOptions;
-        ToolbarBox.ItemsSource = PreferencesViewModel.ToolbarOptions;
-        FileChangeBox.ItemsSource = PreferencesViewModel.FileChangeOptions;
-        MotionBox.ItemsSource = PreferencesViewModel.MotionOptions;
-        CaretBox.ItemsSource = PreferencesViewModel.CaretOptions;
-        FontSizeBox.ItemsSource = PreferencesViewModel.FontSizeOptions;
-        FormHighlightColorBox.ItemsSource = PreferencesViewModel.FormHighlightColorOptions;
-        FormHighlightOpacityBox.ItemsSource = PreferencesViewModel.FormHighlightOpacityOptions;
-        SpeechEngineBox.ItemsSource = PreferencesViewModel.SpeechEngineOptions;
-        SharpnessPresetBox.ItemsSource = SharpnessViewModel.PresetOptions;
-        TextEdgesBox.ItemsSource = SharpnessViewModel.TextEdgeOptions;
-        StrokeAdjustmentBox.ItemsSource = SharpnessViewModel.StrokeAdjustmentOptions;
-        MinimumLineBox.ItemsSource = SharpnessViewModel.MinimumLineOptions;
-        TextHintingBox.ItemsSource = SharpnessViewModel.TextHintingOptions;
-        TextContrastBox.ItemsSource = SharpnessViewModel.TextContrastOptions;
+        ChoiceViews.SetChoices(InterfaceLanguageBox, PreferencesViewModel.InterfaceLanguageOptions);
+        ChoiceViews.SetChoices(SchemeBox, PreferencesViewModel.ColorSchemeOptions);
+        ChoiceViews.SetChoices(PageToneBox, PreferencesViewModel.PageToneOptions);
+        ChoiceViews.SetChoices(OpeningZoomBox, PreferencesViewModel.OpeningZoomOptions);
+        ChoiceViews.SetChoices(ToolbarBox, PreferencesViewModel.ToolbarOptions);
+        ChoiceViews.SetChoices(FileChangeBox, PreferencesViewModel.FileChangeOptions);
+        ChoiceViews.SetChoices(MotionBox, PreferencesViewModel.MotionOptions);
+        ChoiceViews.SetChoices(CaretBox, PreferencesViewModel.CaretOptions);
+        ChoiceViews.SetChoices(FontSizeBox, PreferencesViewModel.FontSizeOptions);
+        ChoiceViews.SetChoices(FormHighlightColorBox, PreferencesViewModel.FormHighlightColorOptions);
+        ChoiceViews.SetChoices(FormHighlightOpacityBox, PreferencesViewModel.FormHighlightOpacityOptions);
+        ChoiceViews.SetChoices(SpeechEngineBox, PreferencesViewModel.SpeechEngineOptions);
+        ChoiceViews.SetChoices(SharpnessPresetBox, SharpnessViewModel.PresetOptions);
+        ChoiceViews.SetChoices(TextEdgesBox, SharpnessViewModel.TextEdgeOptions);
+        ChoiceViews.SetChoices(StrokeAdjustmentBox, SharpnessViewModel.StrokeAdjustmentOptions);
+        ChoiceViews.SetChoices(MinimumLineBox, SharpnessViewModel.MinimumLineOptions);
+        ChoiceViews.SetChoices(TextHintingBox, SharpnessViewModel.TextHintingOptions);
+        ChoiceViews.SetChoices(TextContrastBox, SharpnessViewModel.TextContrastOptions);
 
         OcrLanguageList.ItemTemplate = new FuncDataTemplate<OcrLanguageItemViewModel>(static (_, _) => new OcrLanguageItemView());
         FieldLabels.Link(
+            (InterfaceLanguageBox, InterfaceLanguageLabel),
             (SchemeBox, SchemeLabel),
             (PageToneBox, PageToneLabel),
             (ToolbarBox, ToolbarLabel),

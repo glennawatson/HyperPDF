@@ -1,10 +1,10 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="HyperPdf.App.Views.FocusBlockView">
   <!-- Sizes, spacing, colours and typeface come from Focus Mode's settings as resources (FocusView.axaml.cs). -->
   <UserControl.ContextMenu>
     <ContextMenu>
-      <MenuItem x:Name="ReadFromHereItem" Header="_Read Aloud from Here" />
+      <MenuItem x:Name="ReadFromHereItem" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Read Aloud from Here&quot;}" />
     </ContextMenu>
   </UserControl.ContextMenu>
   <TextBlock x:Name="Body" Classes="focus" TextWrapping="Wrap" />

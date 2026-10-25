@@ -70,6 +70,12 @@
     </None>
   </ItemGroup>
 
+  <!-- Consumer code composes the reusable localisation APIs with the app's resource identity. -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'HyperPdf.Core' or '$(MSBuildProjectName)' == 'HyperPdf.Engine' or '$(MSBuildProjectName)' == 'HyperPdf.ViewModels' or '$(MSBuildProjectName)' == 'HyperPdf.App' or '$(MSBuildProjectName)' == 'HyperPdf.Engine.Tests' or '$(MSBuildProjectName)' == 'HyperPdf.ViewModels.Tests' or '$(MSBuildProjectName)' == 'HyperPdf.App.Tests' or '$(MSBuildProjectName)' == 'HyperPdf.Benchmarks' or '$(MSBuildProjectName)' == 'HyperPdf.Localisation.Benchmarks'">
+    <Using Include="HyperPdf.Localisation.ResourceCatalog" Static="true" />
+    <Using Include="CP.Localisation" />
+    <Using Include="CP.Localisation.LocalisationMessage" Alias="LocalizedMessage" />
+  </ItemGroup>
   <!-- System.Threading.Lock on .NET 9+. -->
   <ItemGroup>
     <Using Include="System.Threading.Lock" Alias="Lock" />

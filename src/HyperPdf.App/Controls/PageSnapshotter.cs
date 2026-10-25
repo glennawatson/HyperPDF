@@ -23,12 +23,6 @@ internal sealed class PageSnapshotter
     /// <summary>The points per inch, to give the picture its true resolution.</summary>
     private const double PointsPerInch = 72;
 
-    /// <summary>Said when the picture is on the clipboard.</summary>
-    private const string CopiedMessage = "Copied an image of the area. Paste it where you need it.";
-
-    /// <summary>Said when the picture could not be made.</summary>
-    private const string FailedMessage = "Could not make an image of the area.";
-
     /// <summary>The last picture put on the clipboard, kept because some desktops read it only when it is pasted.</summary>
     private Bitmap? _snapshot;
 
@@ -52,6 +46,12 @@ internal sealed class PageSnapshotter
 
     /// <summary>Gets how many snapshots have finished.</summary>
     internal int SnapshotsFinished => Volatile.Read(ref _snapshotsFinished);
+
+    /// <summary>Gets the message said when the picture is on the clipboard.</summary>
+    private static string CopiedMessage => UiText.Get("Copied an image of the area. Paste it where you need it.");
+
+    /// <summary>Gets the message said when the picture could not be made.</summary>
+    private static string FailedMessage => UiText.Get("Could not make an image of the area.");
 
     /// <summary>Releases the last rendered snapshot bitmap when the canvas is deactivated.</summary>
     internal void Release()
@@ -159,15 +159,15 @@ internal sealed class PageSnapshotter
         try
         {
             bitmap.Save(path, new PngBitmapEncoderOptions());
-            tab.Notice = $"This desktop's clipboard cannot hold images, so the image of the area was saved as {Path.GetFileName(path)}.";
+            tab.Notice = UiText.Format("This desktop's clipboard cannot hold images, so the image of the area was saved as {0}.", Path.GetFileName(path));
         }
         catch (IOException error)
         {
-            tab.Notice = $"Could not save the image: {error.Message}";
+            tab.Notice = UiText.Format("Could not save the image: {0}", error.Message);
         }
         catch (UnauthorizedAccessException error)
         {
-            tab.Notice = $"Could not save the image: {error.Message}";
+            tab.Notice = UiText.Format("Could not save the image: {0}", error.Message);
         }
     }
 

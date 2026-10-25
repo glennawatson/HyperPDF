@@ -21,7 +21,7 @@ namespace HyperPdf.ViewModels.Signing;
 /// certificate revocation online; the check runs off the UI thread.
 /// </summary>
 [DebuggerDisplay("SignaturesViewModel: {SignatureCount} signatures")]
-public sealed partial class SignaturesViewModel : ReactiveObject
+public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationChildren
 {
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
@@ -59,6 +59,13 @@ public sealed partial class SignaturesViewModel : ReactiveObject
     {
         SignatureCount = DocumentFeature<ISignatureSource>.Get(_owner.TryGetDocument())?.SignatureCount ?? 0;
         Signatures.Clear();
+    }
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        LocalisationRefresh.RefreshCore(_owner, visited);
+        LocalisationRefresh.RefreshCore(_services, visited);
     }
 
     /// <summary>Asks the signatures window to close.</summary>
@@ -154,7 +161,7 @@ public sealed partial class SignaturesViewModel : ReactiveObject
         using var request = new CertificateSignViewModel(
             _services.Settings.RememberedCertificates,
             Math.Max(0, _owner.CurrentPageIndex),
-            r => PdfSigner.Preview(_owner.TryGetDocument(), r),
+                r => PdfSigner.Preview(_owner.TryGetDocument(), r),
             _services.Settings.TimestampServer);
         var accepted = await CertificateSignInteraction.Handle(request).ToTask(cancellationToken).ConfigureAwait(true);
         var certificate = accepted ? request.TakeCertificate() : null;
@@ -191,12 +198,12 @@ public sealed partial class SignaturesViewModel : ReactiveObject
             }
             catch (Exception ex) when (IsSigningFailure(ex))
             {
-                _owner.Notice = $"Could not sign: {CopyFailure.Describe(ex)}";
+                _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not sign: {0}", CopyFailure.Message(ex)));
                 return;
             }
 
             // Notes tell the user what the signer changed or could not do, such as a missing timestamp or a repair.
-            _owner.Notice = $"Signed copy saved as {Path.GetFileName(destination)}.{SignedCopyFile.NotesSuffix(signed)}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Signed copy saved as {0}.{1}", Path.GetFileName(destination), SignedCopyFile.NotesSuffix(signed)));
             _services.RequestOpen(destination);
         }
     }

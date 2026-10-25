@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.DocumentLockView">
@@ -7,31 +7,31 @@
     <Border x:Name="ErrorPanel" Background="{DynamicResource AppCanvasBackground}">
       <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="480">
         <Path Classes="icon" Width="48" Height="48" Stroke="{DynamicResource AppSecondaryForeground}" Data="{StaticResource IconDocument}" />
-        <TextBlock FontSize="16" HorizontalAlignment="Center" AutomationProperties.HeadingLevel="1" Text="This document could not be opened" />
+        <TextBlock TextWrapping="Wrap" FontSize="16" HorizontalAlignment="Center" AutomationProperties.HeadingLevel="1" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;This document could not be opened&quot;}" />
         <TextBlock x:Name="ErrorText" AutomationProperties.LiveSetting="Assertive" Classes="secondary" TextWrapping="Wrap" HorizontalAlignment="Center" />
       </StackPanel>
     </Border>
 
     <Border x:Name="PasswordPanel" Background="{DynamicResource AppCanvasBackground}">
       <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" Width="320">
-        <TextBlock FontSize="16" HorizontalAlignment="Center" AutomationProperties.HeadingLevel="1" Text="This document is password protected" />
-        <TextBox x:Name="PasswordBox" views:ControlHelp.Text="{x:Static help:Descriptions.DocumentPassword}" AutomationProperties.Name="Password" PasswordChar="●" PlaceholderText="Password" />
-        <Button x:Name="UnlockButton" views:ControlHelp.Text="{x:Static help:Descriptions.Unlock}" HorizontalAlignment="Right" Content="Unlock" />
+        <TextBlock TextWrapping="Wrap" FontSize="16" HorizontalAlignment="Center" AutomationProperties.HeadingLevel="1" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;This document is password protected&quot;}" />
+        <TextBox x:Name="PasswordBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the document&apos;s password, then press Enter.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Password&quot;}" PasswordChar="●" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Password&quot;}" />
+        <Button x:Name="UnlockButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open the document with this password.&quot;}" HorizontalAlignment="Right" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Unlock&quot;}" />
       </StackPanel>
     </Border>
 
     <Border x:Name="CertificatePanel" Background="{DynamicResource AppCanvasBackground}">
       <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" Width="360">
-        <TextBlock FontSize="16" HorizontalAlignment="Center" AutomationProperties.HeadingLevel="1" Text="This document needs a certificate" />
-        <TextBlock x:Name="OpenCertificateLabel" Text="Certificate file" />
+        <TextBlock TextWrapping="Wrap" FontSize="16" HorizontalAlignment="Center" AutomationProperties.HeadingLevel="1" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;This document needs a certificate&quot;}" />
+        <TextBlock TextWrapping="Wrap" x:Name="OpenCertificateLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Certificate file&quot;}" />
         <Grid ColumnDefinitions="*,Auto">
-          <TextBox x:Name="OpenCertificatePathBox" Grid.Column="0" views:ControlHelp.Text="{x:Static help:Descriptions.CertificateFile}" AutomationProperties.Name="Certificate file" PlaceholderText=".p12 or .pfx file" />
-          <Button x:Name="BrowseOpenCertificateButton" Grid.Column="1" Margin="8,0,0,0" views:ControlHelp.Text="{x:Static help:Descriptions.ChooseCertificate}" AutomationProperties.Name="Choose certificate file" Content="Choose…" />
+          <TextBox x:Name="OpenCertificatePathBox" Grid.Column="0" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type where your certificate file is, a .p12 or .pfx file.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Certificate file&quot;}" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;.p12 or .pfx file&quot;}" />
+          <Button x:Name="BrowseOpenCertificateButton" Grid.Column="1" Margin="8,0,0,0" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose your certificate file from a folder.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose certificate file&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose…&quot;}" />
         </Grid>
-        <TextBlock x:Name="OpenCertificatePasswordLabel" Text="Certificate password" />
-        <TextBox x:Name="OpenCertificatePasswordBox" views:ControlHelp.Text="{x:Static help:Descriptions.CertificatePassword}" AutomationProperties.Name="Certificate password" PasswordChar="●" />
+        <TextBlock TextWrapping="Wrap" x:Name="OpenCertificatePasswordLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Certificate password&quot;}" />
+        <TextBox x:Name="OpenCertificatePasswordBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the password for your certificate. It is never saved.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Certificate password&quot;}" PasswordChar="●" />
         <TextBlock x:Name="OpenCertificateErrorText" AutomationProperties.LiveSetting="Assertive" TextWrapping="Wrap" />
-        <Button x:Name="UnlockCertificateButton" views:ControlHelp.Text="{x:Static help:Descriptions.OpenCertificateDocument}" HorizontalAlignment="Right" Content="Open document" />
+        <Button x:Name="UnlockCertificateButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open this document with the certificate and private key you chose.&quot;}" HorizontalAlignment="Right" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open document&quot;}" />
       </StackPanel>
     </Border>
   </Panel>

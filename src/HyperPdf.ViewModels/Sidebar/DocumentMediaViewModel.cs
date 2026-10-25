@@ -20,7 +20,7 @@ namespace HyperPdf.ViewModels.Sidebar;
 /// save it, or hand it to the system player after confirming.
 /// </summary>
 [DebuggerDisplay("DocumentMediaViewModel: {Items.Count} items")]
-public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
+public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The temporary folder opened media is written to.</summary>
     private const string TempFolderName = "hyperpdf-media";
@@ -108,7 +108,7 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
         var saved = await WriteAsync(media, path).ConfigureAwait(true);
         if (saved)
         {
-            _owner.Notice = $"Saved {media.FileName}.";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Saved {0}.", media.FileName));
         }
 
         return saved;
@@ -130,6 +130,13 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _player?.Dispose();
 
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        LocalisationRefresh.RefreshCore(_owner, visited);
+        LocalisationRefresh.RefreshCore(_player, visited);
+    }
+
     /// <summary>Writes a piece of media to a new temporary file.</summary>
     /// <param name="media">The media.</param>
     /// <returns>The full path of the file, or <see langword="null"/> when it could not be written; the notice says why.</returns>
@@ -143,12 +150,12 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
         }
         catch (IOException ex)
         {
-            _owner.Notice = $"Could not open {media.FileName}: {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not open {0}: {1}", media.FileName, ex.Message));
             return null;
         }
         catch (UnauthorizedAccessException ex)
         {
-            _owner.Notice = $"Could not open {media.FileName}: {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not open {0}: {1}", media.FileName, ex.Message));
             return null;
         }
 
@@ -183,22 +190,22 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
             // Extracting and writing the file is synchronous, so it runs on the pool and a large clip does not freeze the window.
             var index = media.Index;
             var written = await Task.Run(() => WriteFile(source, index, path), _owner.LifetimeToken).ConfigureAwait(true);
-            _owner.Notice = written ? _owner.Notice : $"Could not read {media.FileName} from the document.";
+            _owner.SetNotice(written ? LocalizedMessage.Literal(_owner.Notice) : LocalizedMessage.Format(UiText, "Could not read {0} from the document.", media.FileName));
             return written;
         }
         catch (IOException ex)
         {
-            _owner.Notice = $"Could not save {media.FileName}: {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: {1}", media.FileName, ex.Message));
             return false;
         }
         catch (UnauthorizedAccessException ex)
         {
-            _owner.Notice = $"Could not save {media.FileName}: {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: {1}", media.FileName, ex.Message));
             return false;
         }
         catch (InvalidOperationException)
         {
-            _owner.Notice = $"Could not save {media.FileName}: the document was closed.";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: the document was closed.", media.FileName));
             return false;
         }
     }

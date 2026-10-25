@@ -19,7 +19,7 @@
          https://github.com/AvaloniaUI/Avalonia/issues/22465 -->
     <UseOptimizedPublish>false</UseOptimizedPublish>
     <EventSourceSupport>true</EventSourceSupport>
-    <InvariantGlobalization>true</InvariantGlobalization>
+    <InvariantGlobalization>false</InvariantGlobalization>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
     <OptimizationPreference>Speed</OptimizationPreference>
     <StripSymbols>true</StripSymbols>
@@ -48,6 +48,7 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Win32" />
+    <PackageReference Include="Localisation.Avalonia" />
     <PackageReference Include="Avalonia.Native" />
     <PackageReference Include="Avalonia.X11" />
     <PackageReference Include="Avalonia.Wayland" />

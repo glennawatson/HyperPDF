@@ -12,8 +12,11 @@ namespace HyperPdf.ViewModels.Sidebar;
 
 /// <summary>An outline (bookmark) entry in the sidebar.</summary>
 [DebuggerDisplay("OutlineItemViewModel: {Title}")]
-public sealed partial class OutlineItemViewModel : ReactiveObject
+public sealed partial class OutlineItemViewModel : ReactiveObject, ILocalisationChildren
 {
+    /// <summary>The title stored in the document.</summary>
+    private readonly string _title;
+
     /// <summary>Initializes a new instance of the <see cref="OutlineItemViewModel"/> class.</summary>
     /// <param name="node">The outline node.</param>
     public OutlineItemViewModel(OutlineNode node)
@@ -27,7 +30,7 @@ public sealed partial class OutlineItemViewModel : ReactiveObject
     public OutlineItemViewModel(OutlineNode node, bool ignoreColours)
     {
         ArgumentNullException.ThrowIfNull(node);
-        Title = string.IsNullOrWhiteSpace(node.Title) ? "(untitled)" : node.Title;
+        _title = node.Title;
         Target = node.Target;
         Id = node.Id;
         IsExpanded = node.IsOpen;
@@ -56,7 +59,7 @@ public sealed partial class OutlineItemViewModel : ReactiveObject
     public int Id { get; }
 
     /// <summary>Gets the title.</summary>
-    public string Title { get; }
+    public string Title => string.IsNullOrWhiteSpace(_title) ? UiText.Get("(untitled)") : _title;
 
     /// <summary>Gets the navigation target.</summary>
     public LinkTarget Target { get; }
@@ -152,5 +155,12 @@ public sealed partial class OutlineItemViewModel : ReactiveObject
         }
 
         return items;
+    }
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(Title));
+        LocalisationRefresh.RefreshCore(Children, visited);
     }
 }

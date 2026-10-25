@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Localisation\HyperPdf.Localisation.csproj" />
+  </ItemGroup>
   <PropertyGroup>
     <Description>UI-agnostic document model, render scheduling, tile caching and search for HyperPDF.</Description>
   </PropertyGroup>

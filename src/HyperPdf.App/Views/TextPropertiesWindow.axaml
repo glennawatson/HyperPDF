@@ -1,38 +1,38 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.TextPropertiesWindow"
-        Title="Text Properties" Width="720" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner"
+        Title="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text Properties&quot;}" Width="720" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
   <StackPanel Margin="20" Spacing="10">
-    <TextBlock x:Name="TextLabel" Text="Text" />
-    <TextBox x:Name="ContentInput" views:ControlHelp.Text="{x:Static help:Descriptions.TextPropertiesText}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="96" />
+    <TextBlock TextWrapping="Wrap" x:Name="TextLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text&quot;}" />
+    <TextBox x:Name="ContentInput" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;The text. Enter starts a new line.&quot;}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="96" />
     <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
-      <TextBlock x:Name="FamilyLabel" Text="Font" VerticalAlignment="Center" />
-      <ComboBox Grid.Column="1" Grid.ColumnSpan="3" x:Name="FamilyInput" views:ControlHelp.Text="{x:Static help:Descriptions.FontFamily}" HorizontalAlignment="Stretch" MaxDropDownHeight="360" />
-      <TextBlock Grid.Row="1" x:Name="SizeLabel" Text="Size (points)" VerticalAlignment="Center" />
-      <NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="SizeInput" MinWidth="140" views:ControlHelp.Text="{x:Static help:Descriptions.FontSize}" Minimum="4" Maximum="144" Increment="0.5" FormatString="0.##" />
-      <TextBlock Grid.Row="1" Grid.Column="2" x:Name="ColourLabel" Text="Colour" VerticalAlignment="Center" />
-      <ComboBox Grid.Row="1" Grid.Column="3" x:Name="ColourInput" MinWidth="140" views:ControlHelp.Text="{x:Static help:Descriptions.TextColour}" HorizontalAlignment="Stretch" />
+      <TextBlock TextWrapping="Wrap" x:Name="FamilyLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Font&quot;}" VerticalAlignment="Center" />
+      <ComboBox Grid.Column="1" Grid.ColumnSpan="3" x:Name="FamilyInput" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the font of the text you type, or of the text you picked. Each font is shown in its own letters.&quot;}" HorizontalAlignment="Stretch" MaxDropDownHeight="360" />
+      <TextBlock TextWrapping="Wrap" Grid.Row="1" x:Name="SizeLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Size (points)&quot;}" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Row="1" Grid.Column="1" x:Name="SizeInput" MinWidth="140" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose or type the text size in points.&quot;}" Minimum="4" Maximum="144" Increment="0.5" FormatString="0.##" />
+      <TextBlock TextWrapping="Wrap" Grid.Row="1" Grid.Column="2" x:Name="ColourLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Colour&quot;}" VerticalAlignment="Center" />
+      <ComboBox Grid.Row="1" Grid.Column="3" x:Name="ColourInput" MinWidth="140" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colour of the text you type, or of the text you picked.&quot;}" HorizontalAlignment="Stretch" />
       <StackPanel Grid.Row="2" Grid.ColumnSpan="4" Orientation="Horizontal" Spacing="16">
-        <CheckBox x:Name="BoldInput" views:ControlHelp.Text="{x:Static help:Descriptions.BoldText}" Content="Bold" />
-        <CheckBox x:Name="ItalicInput" views:ControlHelp.Text="{x:Static help:Descriptions.ItalicText}" Content="Italic" />
-        <CheckBox x:Name="UnderlineInput" views:ControlHelp.Text="{x:Static help:Descriptions.UnderlineText}" Content="Underline" />
+        <CheckBox x:Name="BoldInput" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text bold, or not. Shortcut: Ctrl+B while typing.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Bold&quot;}" />
+        <CheckBox x:Name="ItalicInput" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text italic, or not. Shortcut: Ctrl+I while typing.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Italic&quot;}" />
+        <CheckBox x:Name="UnderlineInput" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Underline the text, or not. Shortcut: Ctrl+U while typing.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Underline&quot;}" />
       </StackPanel>
-      <TextBlock Grid.Row="3" x:Name="AlignmentLabel" Text="Alignment" VerticalAlignment="Center" />
-      <ComboBox Grid.Row="3" Grid.Column="1" x:Name="AlignmentInput" views:ControlHelp.Text="{x:Static help:Descriptions.TextAlignment}" HorizontalAlignment="Stretch" />
-      <TextBlock Grid.Row="3" Grid.Column="2" x:Name="WrapLabel" Text="Wrap width (0 grows)" VerticalAlignment="Center" />
-      <NumericUpDown Grid.Row="3" Grid.Column="3" x:Name="WrapInput" MinWidth="140" views:ControlHelp.Text="{x:Static help:Descriptions.WrapWidth}" Minimum="0" Maximum="2000" Increment="10" FormatString="0.#" />
-      <TextBlock Grid.Row="4" x:Name="LineSpacingLabel" Text="Line spacing" VerticalAlignment="Center" />
-      <NumericUpDown Grid.Row="4" Grid.Column="1" x:Name="LineSpacingInput" MinWidth="140" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" Minimum="0.5" Maximum="4" Increment="0.05" FormatString="0.##" />
-      <TextBlock Grid.Row="4" Grid.Column="2" x:Name="LetterSpacingLabel" Text="Letter spacing (points)" VerticalAlignment="Center" />
-      <NumericUpDown Grid.Row="4" Grid.Column="3" x:Name="LetterSpacingInput" MinWidth="140" views:ControlHelp.Text="{x:Static help:Descriptions.TextSpacing}" Minimum="-10" Maximum="50" Increment="0.25" FormatString="0.##" />
-      <TextBlock Grid.Row="5" x:Name="CombLabel" Text="Comb boxes (0 for none)" VerticalAlignment="Center" />
-      <NumericUpDown Grid.Row="5" Grid.Column="1" x:Name="CombInput" MinWidth="140" views:ControlHelp.Text="{x:Static help:Descriptions.CombBoxes}" Minimum="0" Maximum="256" Increment="1" FormatString="0" />
+      <TextBlock TextWrapping="Wrap" Grid.Row="3" x:Name="AlignmentLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Alignment&quot;}" VerticalAlignment="Center" />
+      <ComboBox Grid.Row="3" Grid.Column="1" x:Name="AlignmentInput" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose where lines sit across the text box.&quot;}" HorizontalAlignment="Stretch" />
+      <TextBlock TextWrapping="Wrap" Grid.Row="3" Grid.Column="2" x:Name="WrapLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Wrap width (0 grows)&quot;}" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Row="3" Grid.Column="3" x:Name="WrapInput" MinWidth="140" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;The width lines wrap at, in points. 0 lets the box grow as you type.&quot;}" Minimum="0" Maximum="2000" Increment="10" FormatString="0.#" />
+      <TextBlock TextWrapping="Wrap" Grid.Row="4" x:Name="LineSpacingLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Line spacing&quot;}" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Row="4" Grid.Column="1" x:Name="LineSpacingInput" MinWidth="140" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the space between lines and between letters.&quot;}" Minimum="0.5" Maximum="4" Increment="0.05" FormatString="0.##" />
+      <TextBlock TextWrapping="Wrap" Grid.Row="4" Grid.Column="2" x:Name="LetterSpacingLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Letter spacing (points)&quot;}" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Row="4" Grid.Column="3" x:Name="LetterSpacingInput" MinWidth="140" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the space between lines and between letters.&quot;}" Minimum="-10" Maximum="50" Increment="0.25" FormatString="0.##" />
+      <TextBlock TextWrapping="Wrap" Grid.Row="5" x:Name="CombLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Comb boxes (0 for none)&quot;}" VerticalAlignment="Center" />
+      <NumericUpDown Grid.Row="5" Grid.Column="1" x:Name="CombInput" MinWidth="140" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Put one letter in each of this many evenly spaced boxes, as on forms with a box per letter. 0 writes running text.&quot;}" Minimum="0" Maximum="256" Increment="1" FormatString="0" />
     </Grid>
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
-      <Button x:Name="ApplyButton" views:ControlHelp.Text="{x:Static help:Descriptions.ApplyTextProperties}" Content="Apply" IsDefault="True" />
-      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.Cancel}" Content="Cancel" IsCancel="True" />
+      <Button x:Name="ApplyButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use these settings for the text.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Apply&quot;}" IsDefault="True" />
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close this window without making any changes. Shortcut: Esc&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Cancel&quot;}" IsCancel="True" />
     </StackPanel>
   </StackPanel>
 </Window>

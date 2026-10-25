@@ -29,13 +29,17 @@ public static class ContextMenus
         var mark = annotations.MarkSelectionCommand;
         return
         [
-            MenuEntry.Item("_Copy", "Ctrl+C", copy, selectedText, true),
-            MenuEntry.Item("_Read Aloud from Here", null, tab.ReadAloud.ReadFromCharacterCommand, readFrom, true),
+
+            MenuEntry.Item(UiText.Get("_Copy"), "Ctrl+C", copy, selectedText, true),
+            MenuEntry.Item(UiText.Get("_Read Aloud from Here"), null, tab.ReadAloud.ReadFromCharacterCommand, readFrom, true),
             MenuEntry.Separator(),
-            MenuEntry.Submenu("_Highlight", editable, ColorItems(mark, lines, static (selected, color) => new MarkSelectionRequest(AnnotationKind.Highlight, color, selected))),
-            MenuEntry.Item("_Underline", null, mark, new MarkSelectionRequest(AnnotationKind.Underline, annotations.Color, lines), editable),
-            MenuEntry.Item("_Strike Out", null, mark, new MarkSelectionRequest(AnnotationKind.StrikeOut, AnnotationColors.Clay, lines), editable),
-            MenuEntry.Item("S_quiggly Underline", null, mark, new MarkSelectionRequest(AnnotationKind.Squiggly, AnnotationColors.Clay, lines), editable),
+            MenuEntry.Submenu(
+                UiText.Get("_Highlight"),
+                editable,
+                ColorItems(mark, lines, static (selected, color) => new MarkSelectionRequest(AnnotationKind.Highlight, color, selected))),
+            MenuEntry.Item(UiText.Get("_Underline"), null, mark, new MarkSelectionRequest(AnnotationKind.Underline, annotations.Color, lines), editable),
+            MenuEntry.Item(UiText.Get("_Strike Out"), null, mark, new MarkSelectionRequest(AnnotationKind.StrikeOut, AnnotationColors.Clay, lines), editable),
+            MenuEntry.Item(UiText.Get("S_quiggly Underline"), null, mark, new MarkSelectionRequest(AnnotationKind.Squiggly, AnnotationColors.Clay, lines), editable)
         ];
     }
 
@@ -52,21 +56,26 @@ public static class ContextMenus
         if (annotation.Kind == AnnotationKind.TextBox)
         {
             // A text box's contents are its text, edited on the page rather than as a note.
-            items.Add(MenuEntry.Item("_Edit Text", "Enter", annotations.EditSelectedTextCommand, null, true));
-            items.Add(MenuEntry.Item("Text _Properties…", null, annotations.EditTextPropertiesCommand, null, true));
+            items.Add(MenuEntry.Item(UiText.Get("_Edit Text"), "Enter", annotations.EditSelectedTextCommand, null, true));
+            items.Add(MenuEntry.Item(UiText.Get("Text _Properties…"), null, annotations.EditTextPropertiesCommand, null, true));
         }
         else
         {
-            items.Add(MenuEntry.Item(annotation.Contents.Length > 0 ? "_Edit Note" : "Add _Note", null, annotations.OpenBubbleForCommand, null, true));
+            items.Add(
+                MenuEntry.Item(annotation.Contents.Length > 0 ? UiText.Get("_Edit Note") : UiText.Get("Add _Note"), null, annotations.OpenBubbleForCommand, null, true));
         }
 
         items.AddRange(
-        [
-            MenuEntry.Item("_Reply", null, annotations.ReplyInBubbleForCommand, null, true),
-            MenuEntry.Submenu("_Status", true, StatusItems(annotations, annotation)),
-            MenuEntry.Submenu("C_olour", true, ColorItems(annotations.RecolorAnnotationCommand, annotation, static (picked, color) => new AnnotationColorChoice(picked, color))),
+            [
+
+            MenuEntry.Item(UiText.Get("_Reply"), null, annotations.ReplyInBubbleForCommand, null, true),
+            MenuEntry.Submenu(UiText.Get("_Status"), true, StatusItems(annotations, annotation)),
+            MenuEntry.Submenu(
+                    UiText.Get("C_olour"),
+                    true,
+                    ColorItems(annotations.RecolorAnnotationCommand, annotation, static (picked, color) => new AnnotationColorChoice(picked, color))),
             MenuEntry.Separator(),
-            MenuEntry.Item($"_Delete {name}", "Delete", annotations.DeleteCommand, null, true),
+            MenuEntry.Item(UiText.Format("_Delete {0}", name), "Delete", annotations.DeleteCommand, null, true)
         ]);
         return items;
     }
@@ -82,12 +91,13 @@ public static class ContextMenus
         var editable = annotations.CanAnnotate;
         return
         [
-            MenuEntry.Item("_Read Aloud from Here", null, tab.ReadAloud.ReadFromPointCommand, location, true),
+
+            MenuEntry.Item(UiText.Get("_Read Aloud from Here"), null, tab.ReadAloud.ReadFromPointCommand, location, true),
             MenuEntry.Separator(),
-            MenuEntry.Item("Add _Note Here", null, annotations.BeginNoteBubbleHereCommand, location, editable),
-            MenuEntry.Item("_Type Text Here", null, annotations.TypeTextHereCommand, location, editable),
+            MenuEntry.Item(UiText.Get("Add _Note Here"), null, annotations.BeginNoteBubbleHereCommand, location, editable),
+            MenuEntry.Item(UiText.Get("_Type Text Here"), null, annotations.TypeTextHereCommand, location, editable),
             MenuEntry.Separator(),
-            MenuEntry.Item("_Annotate…", null, annotations.StartCommand, null, editable),
+            MenuEntry.Item(UiText.Get("_Annotate…"), null, annotations.StartCommand, null, editable)
         ];
     }
 
@@ -117,10 +127,11 @@ public static class ContextMenus
         var command = annotations.SetAnnotationStatusCommand;
         return
         [
-            MenuEntry.Item("_Accepted", null, command, new AnnotationStatusChoice(annotation, ReviewState.Accepted), true),
-            MenuEntry.Item("_Rejected", null, command, new AnnotationStatusChoice(annotation, ReviewState.Rejected), true),
-            MenuEntry.Item("_Cancelled", null, command, new AnnotationStatusChoice(annotation, ReviewState.Cancelled), true),
-            MenuEntry.Item("C_ompleted", null, command, new AnnotationStatusChoice(annotation, ReviewState.Completed), true),
+
+            MenuEntry.Item(UiText.Get("_Accepted"), null, command, new AnnotationStatusChoice(annotation, ReviewState.Accepted), true),
+            MenuEntry.Item(UiText.Get("_Rejected"), null, command, new AnnotationStatusChoice(annotation, ReviewState.Rejected), true),
+            MenuEntry.Item(UiText.Get("_Cancelled"), null, command, new AnnotationStatusChoice(annotation, ReviewState.Cancelled), true),
+            MenuEntry.Item(UiText.Get("C_ompleted"), null, command, new AnnotationStatusChoice(annotation, ReviewState.Completed), true)
         ];
     }
 
@@ -135,7 +146,7 @@ public static class ContextMenus
         var items = new List<MenuEntry>(AnnotationColors.All.Count);
         foreach (var (name, color) in AnnotationColors.All)
         {
-            items.Add(MenuEntry.Item(name, null, command, parameter(state, color), true).WithSwatch(color));
+            items.Add(MenuEntry.Item(UiText.Get(name), null, command, parameter(state, color), true).WithSwatch(color));
         }
 
         return items;

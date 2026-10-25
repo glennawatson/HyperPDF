@@ -14,7 +14,7 @@ namespace HyperPdf.ViewModels.Output;
 
 /// <summary>Printing a tab's document: the print preview, the desktop's print dialog and saving the printed pages as a PDF.</summary>
 [DebuggerDisplay("TabPrintingViewModel: {_owner.FileName}")]
-public sealed partial class TabPrintingViewModel : ReactiveObject
+public sealed partial class TabPrintingViewModel : ReactiveObject, ILocalisationChildren
 {
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
@@ -25,6 +25,10 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
 
     /// <summary>Gets the interaction showing the print preview; it returns whether the reader chose to print.</summary>
     public Interaction<PrintPreviewViewModel, bool> PrintPreviewInteraction { get; } = new();
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => LocalisationRefresh.RefreshCore(_owner, visited);
 
     /// <summary>Deletes a file, ignoring failures.</summary>
     /// <param name="path">The file.</param>
@@ -107,7 +111,7 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
             }
 
             var outcome = await _owner.Services.Platform.Printer.SubmitAsync(file, _owner.FileName, job, CancellationToken.None).ConfigureAwait(true);
-            _owner.Notice = outcome.Sent ? $"Sent to {label}." : $"Could not print: {outcome.Detail}";
+            _owner.SetNotice(outcome.Sent ? LocalizedMessage.Format(UiText, "Sent to {0}.", label) : LocalizedMessage.Format(UiText, "Could not print: {0}", outcome.Detail));
             return outcome.Sent;
         }
         finally
@@ -123,7 +127,7 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
         var printer = _owner.Services.Platform.Printer;
         if (!printer.IsAvailable)
         {
-            _owner.Notice = "Printing is not available on this desktop. Choose Save as PDF instead.";
+            _owner.SetNotice(LocalizedMessage.Get(UiText, "Printing is not available on this desktop. Choose Save as PDF instead."));
             return false;
         }
 
@@ -150,13 +154,13 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
 
             if (!written)
             {
-                _owner.Notice = "Could not prepare the document for printing.";
+                _owner.SetNotice(LocalizedMessage.Get(UiText, "Could not prepare the document for printing."));
                 return false;
             }
 
             if (!await printer.PrintAsync(file, _owner.FileName, CancellationToken.None).ConfigureAwait(true))
             {
-                _owner.Notice = "The print dialog could not be opened.";
+                _owner.SetNotice(LocalizedMessage.Get(UiText, "The print dialog could not be opened."));
                 return false;
             }
 
@@ -186,11 +190,11 @@ public sealed partial class TabPrintingViewModel : ReactiveObject
         }
         catch (IOException ex)
         {
-            _owner.Notice = $"Could not save: {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save: {0}", ex.Message));
         }
         catch (UnauthorizedAccessException ex)
         {
-            _owner.Notice = $"Could not save: {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save: {0}", ex.Message));
         }
 
         return false;

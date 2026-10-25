@@ -19,7 +19,7 @@ namespace HyperPdf.ViewModels.Preferences;
 /// the list indexes match the explicit values of the render enums.
 /// </summary>
 [DebuggerDisplay("SharpnessViewModel")]
-public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable
+public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The services.</summary>
     private readonly AppServices _services;
@@ -43,22 +43,22 @@ public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>Gets the named sets in enum order.</summary>
-    public static IReadOnlyList<string> PresetOptions { get; } = ["Smooth", "Sharp", "Crisp", "Custom"];
+    public static IReadOnlyList<string> PresetOptions { get; } = UiText.CreateChoices(["Smooth", "Sharp", "Crisp", "Custom"]);
 
     /// <summary>Gets the text edge choices in enum order.</summary>
-    public static IReadOnlyList<string> TextEdgeOptions { get; } = ["Smooth", "Sharp", "LCD"];
+    public static IReadOnlyList<string> TextEdgeOptions { get; } = UiText.CreateChoices(["Smooth", "Sharp", "LCD"]);
 
     /// <summary>Gets the small text hinting choices in enum order.</summary>
-    public static IReadOnlyList<string> TextHintingOptions { get; } = ["None", "Slight", "Full"];
+    public static IReadOnlyList<string> TextHintingOptions { get; } = UiText.CreateChoices(["None", "Slight", "Full"]);
 
     /// <summary>Gets the small text contrast choices; the index is the contrast level.</summary>
-    public static IReadOnlyList<string> TextContrastOptions { get; } = ["Normal", "Darker", "Darkest", "Boldest"];
+    public static IReadOnlyList<string> TextContrastOptions { get; } = UiText.CreateChoices(["Normal", "Darker", "Darkest", "Boldest"]);
 
     /// <summary>Gets the stroke adjustment choices in enum order.</summary>
-    public static IReadOnlyList<string> StrokeAdjustmentOptions { get; } = ["Off", "When the page asks", "Always"];
+    public static IReadOnlyList<string> StrokeAdjustmentOptions { get; } = UiText.CreateChoices(["Off", "When the page asks", "Always"]);
 
     /// <summary>Gets the minimum line thickness choices; the index is the number of pixels.</summary>
-    public static IReadOnlyList<string> MinimumLineOptions { get; } = ["Off", "1 pixel", "2 pixels", "3 pixels"];
+    public static IReadOnlyList<string> MinimumLineOptions { get; } = UiText.CreateChoices(["Off", "1 pixel", "2 pixels", "3 pixels"]);
 
     /// <summary>Gets or sets the named set index; Custom when the individual choices match no named set.</summary>
     [Reactive]
@@ -108,15 +108,19 @@ public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
 
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => LocalisationRefresh.RefreshCore(_services, visited);
+
     /// <summary>Describes a named set.</summary>
     /// <param name="index">The set index.</param>
     /// <returns>What the set does, or an empty text for an index that is no set.</returns>
     internal static string DescribePreset(int index) => (SharpnessPreset)index switch
     {
-        SharpnessPreset.Smooth => "Text, lines and pictures are drawn with soft edges that blend into the page.",
-        SharpnessPreset.Sharp => "Text is drawn with hard edges, where each pixel is fully dark or fully clear. Lines and pictures keep soft edges.",
-        SharpnessPreset.Crisp => "Text, lines and pictures are drawn with hard edges, and lines are fitted to whole screen pixels.",
-        SharpnessPreset.Custom => "The choices under Advanced match none of the other three.",
+        SharpnessPreset.Smooth => UiText.Get("Text, lines and pictures are drawn with soft edges that blend into the page."),
+        SharpnessPreset.Sharp => UiText.Get("Text is drawn with hard edges, where each pixel is fully dark or fully clear. Lines and pictures keep soft edges."),
+        SharpnessPreset.Crisp => UiText.Get("Text, lines and pictures are drawn with hard edges, and lines are fitted to whole screen pixels."),
+        SharpnessPreset.Custom => UiText.Get("The choices under Advanced match none of the other three."),
         _ => string.Empty,
     };
 
@@ -172,19 +176,20 @@ public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable
     /// <param name="change">Gives the choices with the value applied.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Follow<T>(IObservable<T> source, Func<RenderSharpness, T, RenderSharpness> change) =>
-        _subscriptions.Add(source.Skip(1).SubscribeSafe(
-            value =>
-            {
-                if (_syncing)
-                {
-                    return;
-                }
+        _subscriptions.Add(
+        source.Skip(1).SubscribeSafe(
+                value =>
+{
+    if (_syncing)
+    {
+        return;
+    }
 
-                // The setter brings the value into range, so an out of range index still gives a working choice.
-                _services.Settings.Sharpness = change(_services.Settings.Sharpness, value);
-                _services.ApplySettings();
-                SelectMatchingPreset();
-            },
+    // The setter brings the value into range, so an out of range index still gives a working choice.
+    _services.Settings.Sharpness = change(_services.Settings.Sharpness, value);
+    _services.ApplySettings();
+    SelectMatchingPreset();
+        },
             ErrorTrace.Write));
 
     /// <summary>Moves the named set to the one that matches the individual choices, or to Custom.</summary>

@@ -19,6 +19,9 @@ public sealed class AppSettings
     /// <summary>The ink colour a custom page colour starts with: yellow.</summary>
     internal const uint DefaultCustomInk = 0xFFFF00U;
 
+    /// <summary>Gets or sets the interface culture name; empty follows the desktop on the next launch.</summary>
+    public string InterfaceLanguage { get; set; } = string.Empty;
+
     /// <summary>Gets or sets the colour scheme.</summary>
     public ColorSchemeChoice ColorScheme { get; set; }
 

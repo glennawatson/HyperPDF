@@ -9,8 +9,11 @@ namespace HyperPdf.ViewModels.Output;
 /// <summary>Tells the failures a copy or sign window can show in its own error line from the ones that are bugs.</summary>
 internal static class CopyFailure
 {
-    /// <summary>What the window says when its document was closed under it.</summary>
-    internal const string DocumentClosedText = "The document was closed or reloaded while this window was open. Close this window and open it again from the menu.";
+    /// <summary>The message resource for a document closed under a copy window.</summary>
+    private const string DocumentClosedKey = "The document was closed or reloaded while this window was open. Close this window and open it again from the menu.";
+
+    /// <summary>Gets what the window says when its document was closed under it.</summary>
+    internal static string DocumentClosedText => UiText.Get(DocumentClosedKey);
 
     /// <summary>Determines whether a failure is a closed document; the engine throws an <see cref="ObjectDisposedException"/>, a kind of <see cref="InvalidOperationException"/>.</summary>
     /// <param name="exception">The failure.</param>
@@ -30,4 +33,11 @@ internal static class CopyFailure
     /// <returns>The text to show.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string Describe(Exception exception) => IsDocumentClosed(exception) ? DocumentClosedText : exception.Message;
+
+    /// <summary>Retains an interface failure's key without interpreting exception text as a resource.</summary>
+    /// <param name="exception">The failure.</param>
+    /// <returns>The message to insert into a localized error.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static LocalizedMessage Message(Exception exception) =>
+        IsDocumentClosed(exception) ? LocalizedMessage.Get(UiText, DocumentClosedKey) : LocalizedMessage.Literal(exception.Message);
 }

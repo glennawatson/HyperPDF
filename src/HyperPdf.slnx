@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/HyperPdf.Benchmarks/HyperPdf.Benchmarks.csproj" />
+    <Project Path="benchmarks/HyperPdf.Localisation.Benchmarks/HyperPdf.Localisation.Benchmarks.csproj" />
     <Project Path="benchmarks/HyperPdf.Benchmarks.Generator/HyperPdf.Benchmarks.Generator.csproj" />
   </Folder>
   <Folder Name="/src/">
@@ -8,6 +9,7 @@
     <Project Path="HyperPdfLibrary/HyperPdfLibrary.csproj" />
     <Project Path="HyperPdf.App/HyperPdf.App.csproj" />
     <Project Path="HyperPdf.Core/HyperPdf.Core.csproj" />
+    <Project Path="HyperPdf.Localisation/HyperPdf.Localisation.csproj" />
     <Project Path="HyperPdf.ViewModels/HyperPdf.ViewModels.csproj" />
     <Project Path="HyperPdf.Presentation/HyperPdf.Presentation.csproj" />
     <Project Path="HyperPdf.Http/HyperPdf.Http.csproj" />

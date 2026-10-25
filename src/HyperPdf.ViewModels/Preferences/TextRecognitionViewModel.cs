@@ -22,7 +22,7 @@ namespace HyperPdf.ViewModels.Preferences;
 /// asks which language the document is in; a language not on this computer downloads in the same click.
 /// </summary>
 [DebuggerDisplay("TextRecognitionViewModel: Recognizing={IsRunning}, LanguageBar={IsLanguageBarOpen}")]
-public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposable
+public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>
     /// Below this mean word confidence, out of 100, the first page probably is not in the chosen language. Clean English
@@ -68,10 +68,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
 
         // A language the reader picks is the one the next run uses; the bar setting its own index is not a pick. The
         // filter reads the view model's own flag: a constructor cannot hand 'this' to a state-passing operator.
-        _subscriptions.Add(this.WhenChanged(static vm => vm.LanguageIndex)
-            .Skip(1)
-            .Where(_ => !_settingIndex)
-            .SubscribeSafe(UseLanguage, ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.LanguageIndex).Skip(1).Where(_ => !_settingIndex).SubscribeSafe(UseLanguage, ErrorTrace.Write));
         _subscriptions.Add(this.WhenChanged(static vm => vm.RecognitionRun).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
         _subscriptions.Add(this.WhenChanged(static vm => vm.DownloadRun).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
     }
@@ -135,6 +132,13 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
 
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        LocalisationRefresh.RefreshCore(_owner, visited);
+        LocalisationRefresh.RefreshCore(_services, visited);
+    }
+
     /// <summary>Describes the outcome of a run.</summary>
     /// <param name="recognized">Pages given text.</param>
     /// <param name="alreadyText">Pages that already had text.</param>
@@ -145,14 +149,15 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     {
         if (alreadyText == pageCount)
         {
-            return "Every page already has text, so there was nothing to recognise.";
+            return UiText.Get("Every page already has text, so there was nothing to recognise.");
         }
 
-        var pages = recognized == 1 ? "1 page" : $"{recognized} pages";
-        var prefix = stopped ? "Stopped. " : string.Empty;
+        var pages = recognized == 1 ? UiText.Get("1 page") : UiText.Format("{0} pages", recognized);
+        var prefix = stopped ? UiText.Get("Stopped. ") : string.Empty;
         return recognized == 0
-            ? $"{prefix}No text was found on the scanned pages."
-            : $"{prefix}Text recognised on {pages}. You can now search, select and copy it. Save to keep it.";
+            ? UiText.Format("{0}No text was found on the scanned pages.", prefix)
+            : UiText
+            .Format("{0}Text recognised on {1}. You can now search, select and copy it. Save to keep it.", prefix, pages);
     }
 
     /// <summary>Describes the language bar's button for a choice of languages.</summary>
@@ -164,7 +169,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         var needed = setup.PacksNeededFor(codes, []);
         if (needed.Count > 0)
         {
-            return $"Download {OcrLanguagesViewModel.DescribePacks(needed)} ({OcrLanguageCatalog.DescribeSize(OcrLanguagePackDownloader.TotalBytes(needed))})";
+            return UiText.Format("Download {0} ({1})", OcrLanguagesViewModel.DescribePacks(needed), OcrLanguageCatalog.DescribeSize(OcrLanguagePackDownloader.TotalBytes(needed)));
         }
 
         var names = new List<OcrLanguagePack>(codes.Count);
@@ -176,7 +181,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
             }
         }
 
-        return $"Recognise in {OcrLanguagesViewModel.DescribePacks(names)}";
+        return UiText.Format("Recognise in {0}", OcrLanguagesViewModel.DescribePacks(names));
     }
 
     /// <summary>Gets a language's place in <see cref="LanguageNames"/>.</summary>
@@ -229,9 +234,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
             return new(pageIndex, status, 0);
         }
 
-        return check && OcrRunner.AverageConfidence(words) < UnsureConfidence
-            ? new(pageIndex, OcrPageStatus.Unsure, 0)
-            : OcrRunner.WriteWords(writer, pageIndex, pageToken, words);
+        return check && OcrRunner.AverageConfidence(words) < UnsureConfidence ? new(pageIndex, OcrPageStatus.Unsure, 0) : OcrRunner.WriteWords(writer, pageIndex, pageToken, words);
     }
 
     /// <summary>Recognises the pages in the chosen languages, asking first only if the first page reads poorly.</summary>
@@ -244,7 +247,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     [ReactiveCommand(CanExecute = nameof(_isIdle))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ChooseLanguage() =>
-        OpenLanguageBar("Choose the language of this document. Languages not on this computer download in the same click.");
+        OpenLanguageBar(UiText.Get("Choose the language of this document. Languages not on this computer download in the same click."));
 
     /// <summary>Downloads the picked language if needed, then recognises the text in it.</summary>
     /// <returns>A task.</returns>
@@ -309,30 +312,30 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         DownloadProgress = 0;
         try
         {
-            LanguageBarText = $"Downloading {OcrLanguagesViewModel.DescribePacks(packs)}. It stays on this computer for next time.";
+            LanguageBarText = UiText.Format("Downloading {0}. It stays on this computer for next time.", OcrLanguagesViewModel.DescribePacks(packs));
             var progress = new Progress<double>(fraction => DownloadProgress = fraction);
             await _services.Ocr.DownloadAsync(packs, progress, download.Token).ConfigureAwait(true);
             return true;
         }
         catch (OperationCanceledException)
         {
-            LanguageBarText = "The download stopped. Nothing was half saved.";
+            LanguageBarText = UiText.Get("The download stopped. Nothing was half saved.");
         }
         catch (HttpRequestException ex)
         {
-            LanguageBarText = $"The language could not be downloaded ({ex.Message}). Check the internet connection, then press the button again.";
+            LanguageBarText = UiText.Format("The language could not be downloaded ({0}). Check the internet connection, then press the button again.", ex.Message);
         }
         catch (InvalidDataException)
         {
-            LanguageBarText = "The language arrived damaged and was thrown away. Press the button to try again.";
+            LanguageBarText = UiText.Get("The language arrived damaged and was thrown away. Press the button to try again.");
         }
         catch (IOException ex)
         {
-            LanguageBarText = $"The language could not be saved: {ex.Message}";
+            LanguageBarText = UiText.Format("The language could not be saved: {0}", ex.Message);
         }
         catch (UnauthorizedAccessException ex)
         {
-            LanguageBarText = $"The language could not be saved: {ex.Message}";
+            LanguageBarText = UiText.Format("The language could not be saved: {0}", ex.Message);
         }
         finally
         {
@@ -367,36 +370,39 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         IsBusy = true;
         try
         {
-            ProgressText = "Starting text recognition…";
+            ProgressText = UiText.Get("Starting text recognition…");
             using var engine = await Task.Run(_services.CreateOcrEngine, cancellationToken).ConfigureAwait(true);
             if (!engine.IsAvailable)
             {
-                _owner.Notice = OcrSetup.EngineUnavailableText;
+                _owner.SetNotice(OcrSetup.EngineUnavailableMessage);
                 return;
             }
 
             var run = await RecognizePagesAsync(document, writer, engine, confirmed, cancellationToken).ConfigureAwait(true);
             if (run.Unsure)
             {
-                OpenLanguageBar($"The first scanned page does not read well as {OcrLanguagesViewModel.DescribePacks(ChosenPacks())}, "
-                    + "so nothing has been changed yet. Choose the language of this document.");
+                OpenLanguageBar(
+                    UiText.Format("The first scanned page does not read well as {0}, ", OcrLanguagesViewModel.DescribePacks(ChosenPacks()))
+                    + UiText.Get("so nothing has been changed yet. Choose the language of this document."));
                 return;
             }
 
             _owner.Search.Refresh();
             _owner.InvalidateReading();
-            _owner.Notice = run.Closed
-                ? "Text recognition stopped because the document was closed."
-                : Describe(run.Recognized, run.AlreadyText, document.PageCount, cancellationToken.IsCancellationRequested);
+            _owner.SetNotice(
+                run.Closed
+                    ? LocalizedMessage.Get(UiText, "Text recognition stopped because the document was closed.")
+                    : LocalizedMessage
+                .Literal(Describe(run.Recognized, run.AlreadyText, document.PageCount, cancellationToken.IsCancellationRequested)));
         }
         catch (OperationCanceledException)
         {
-            _owner.Notice = "Text recognition stopped.";
+            _owner.SetNotice(LocalizedMessage.Get(UiText, "Text recognition stopped."));
         }
         catch (InvalidOperationException)
         {
             // The engine throws ObjectDisposedException, a kind of InvalidOperationException, once its document is closed.
-            _owner.Notice = "Text recognition stopped because the document was closed.";
+            _owner.SetNotice(LocalizedMessage.Get(UiText, "Text recognition stopped because the document was closed."));
         }
         finally
         {
@@ -436,7 +442,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         if (!setup.IsEngineInstalled())
         {
             IsLanguageBarOpen = false;
-            _owner.Notice = OcrSetup.EngineUnavailableText;
+            _owner.SetNotice(OcrSetup.EngineUnavailableMessage);
             return false;
         }
 
@@ -451,13 +457,13 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
                 _chosen.Add(OcrLanguageCatalog.DefaultLanguage);
             }
 
-            OpenLanguageBar("The language set for text recognition is not one the app knows. Choose the language of this document.");
+            OpenLanguageBar(UiText.Get("The language set for text recognition is not one the app knows. Choose the language of this document."));
             return false;
         }
 
         if (needed.Count > 0)
         {
-            OpenLanguageBar($"This document is set to {OcrLanguagesViewModel.DescribePacks(ChosenPacks())}, which is not on this computer yet.");
+            OpenLanguageBar(UiText.Format("This document is set to {0}, which is not on this computer yet.", OcrLanguagesViewModel.DescribePacks(ChosenPacks())));
             return false;
         }
 
@@ -467,7 +473,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         }
         catch (IOException ex)
         {
-            _owner.Notice = $"The chosen languages could not be prepared: {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "The chosen languages could not be prepared: {0}", ex.Message));
             return false;
         }
 
@@ -491,7 +497,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         for (var page = 0; page < pageCount && !cancellation.IsCancellationRequested; page++)
         {
             Progress = (double)page / pageCount;
-            ProgressText = $"Recognising text: page {page + 1} of {pageCount}";
+            ProgressText = UiText.Format("Recognising text: page {0} of {1}", page + 1, pageCount);
             await document.PreparePageAsync(page, cancellation).ConfigureAwait(true);
             var index = page;
             var check = checkFirst;

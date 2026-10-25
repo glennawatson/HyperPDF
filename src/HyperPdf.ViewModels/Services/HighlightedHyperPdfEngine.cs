@@ -29,7 +29,10 @@ internal sealed class HighlightedHyperPdfEngine : IDocumentEngine
     /// <param name="highlight">Reads the tint over fillable form fields.</param>
     /// <param name="sharpness">Reads the page sharpness choices.</param>
     internal HighlightedHyperPdfEngine(Func<FormHighlight> highlight, Func<RenderSharpness> sharpness)
-        : this(highlight, sharpness, new HyperPdfEngine())
+        : this(
+        highlight,
+        sharpness,
+        new HyperPdfEngine())
     {
     }
 
@@ -38,7 +41,10 @@ internal sealed class HighlightedHyperPdfEngine : IDocumentEngine
     /// <param name="sharpness">Reads the page sharpness choices.</param>
     /// <param name="catalog">The installed fonts, scanned on first use.</param>
     internal HighlightedHyperPdfEngine(Func<FormHighlight> highlight, Func<RenderSharpness> sharpness, Lazy<FontCatalog> catalog)
-        : this(highlight, sharpness, HyperPdfEngine.WithFontCatalog(catalog))
+        : this(
+        highlight,
+        sharpness,
+        HyperPdfEngine.WithFontCatalog(catalog))
     {
     }
 

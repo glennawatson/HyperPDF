@@ -13,7 +13,7 @@ namespace HyperPdf.ViewModels.Preferences;
 
 /// <summary>One language in the text recognition language list: whether it is used, whether its pack is on this computer, and buttons to download or remove it.</summary>
 [DebuggerDisplay("OcrLanguageItemViewModel: {Pack.Code} selected={IsSelected} downloaded={IsDownloaded}")]
-public sealed partial class OcrLanguageItemViewModel : ReactiveObject
+public sealed partial class OcrLanguageItemViewModel : ReactiveObject, ILocalisationChildren
 {
     /// <summary>The list that owns this language and does the downloading.</summary>
     private readonly OcrLanguagesViewModel _owner;
@@ -23,6 +23,9 @@ public sealed partial class OcrLanguageItemViewModel : ReactiveObject
 
     /// <summary>Emits whether the pack can be removed now; enables Remove.</summary>
     private readonly IObservable<bool> _canRemove;
+
+    /// <summary>The resource identity of the displayed StatusText.</summary>
+    private LocalizedMessage _localizedStatusText = LocalizedMessage.Literal(string.Empty);
 
     /// <summary>Initializes a new instance of the <see cref="OcrLanguageItemViewModel"/> class.</summary>
     /// <param name="owner">The list that owns this language.</param>
@@ -54,8 +57,7 @@ public sealed partial class OcrLanguageItemViewModel : ReactiveObject
     public partial bool IsDownloaded { get; internal set; }
 
     /// <summary>Gets a short status, for example "Downloaded" or "Not downloaded, about 2 MB".</summary>
-    [Reactive]
-    public partial string StatusText { get; internal set; } = string.Empty;
+    public string StatusText { get => _localizedStatusText.Value ?? string.Empty; internal set => SetStatusText(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets a value indicating whether Download is offered: the pack is missing and nothing is downloading.</summary>
     [Reactive]
@@ -64,6 +66,18 @@ public sealed partial class OcrLanguageItemViewModel : ReactiveObject
     /// <summary>Gets a value indicating whether Remove is offered: the pack is downloaded and nothing is downloading.</summary>
     [Reactive]
     public partial bool CanRemove { get; internal set; }
+
+    /// <summary>Sets the displayed StatusText while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetStatusText(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedStatusText, message, nameof(StatusText));
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(StatusText));
+        LocalisationRefresh.RefreshCore(_owner, visited);
+    }
 
     /// <summary>Downloads this language's pack.</summary>
     /// <returns>A task.</returns>

@@ -3,9 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Platform.Storage;
+using HyperPdf.App.Controls;
 using HyperPdf.Core.Settings;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -21,7 +21,9 @@ public sealed partial class CertificateSignWindow : ReactiveUI.Avalonia.Reactive
     public CertificateSignWindow()
     {
         InitializeComponent();
-        RememberedBox.ItemTemplate = new FuncDataTemplate<RememberedCertificate>(static (certificate, _) => new TextBlock { Text = ItemDescriptions.DescribeCertificate(certificate) });
+        RememberedBox.ItemTemplate = new FuncDataTemplate<RememberedCertificate>(
+            static (certificate, _) => ChoiceViews.CreateLabel(certificate, ItemDescriptions.DescribeCertificate));
+        KindBox.ItemTemplate = ChoiceViews.CreateKeysTemplate();
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(ItemAutomation.NameItems(RememberedBox));
@@ -36,7 +38,7 @@ public sealed partial class CertificateSignWindow : ReactiveUI.Avalonia.Reactive
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.BrowseInteraction, BrowseAsync));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Reason, static v => v.ReasonBox.Text, static text => text, static text => text ?? string.Empty));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Location, static v => v.LocationBox.Text, static text => text, static text => text ?? string.Empty));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.CertificationChoices, static v => v.KindBox.ItemsSource));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.CertificationChoices, static v => v.KindBox.ItemsSource, ChoiceViews.CreateItemsConverter()));
             disposables.Add(this.Bind(ViewModel, static vm => vm.CertificationIndex, static v => v.KindBox.SelectedIndex));
             disposables.Add(this.Bind(ViewModel, static vm => vm.IsVisibleSignature, static v => v.VisibleCheck.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.PreviewText, static v => v.PreviewText.Text));
@@ -76,9 +78,9 @@ public sealed partial class CertificateSignWindow : ReactiveUI.Avalonia.Reactive
     {
         var files = await StorageProvider.OpenFilePickerAsync(new()
         {
-            Title = "Choose a Certificate",
+            Title = UiText.Get("Choose a Certificate"),
             AllowMultiple = false,
-            FileTypeFilter = [new("Certificates (.p12, .pfx)") { Patterns = ["*.p12", "*.pfx"] }],
+            FileTypeFilter = [new(UiText.Get("Certificates (.p12, .pfx)")) { Patterns = ["*.p12", "*.pfx"] }],
         });
         context.SetOutput(files.Count > 0 ? files[0].TryGetLocalPath() : null);
     }

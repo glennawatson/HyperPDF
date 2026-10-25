@@ -135,7 +135,7 @@ public sealed partial class MediaPanelView : ReactiveUI.Avalonia.ReactiveUserCon
             return;
         }
 
-        var file = await storage.SaveFilePickerAsync(new() { Title = "Save Media", SuggestedFileName = context.Input });
+        var file = await storage.SaveFilePickerAsync(new() { Title = UiText.Get("Save Media"), SuggestedFileName = context.Input });
         context.SetOutput(file?.TryGetLocalPath());
     }
 }

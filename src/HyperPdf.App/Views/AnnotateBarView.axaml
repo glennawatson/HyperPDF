@@ -1,64 +1,64 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.AnnotateBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AnnotateBarView.axaml.cs). -->
   <!-- Annotate tools: shown only while annotating. Each tool has its name beside its icon. -->
-  <Border x:Name="AnnotateBar" Classes="toolbar subbar" AutomationProperties.Name="Annotate tools" AutomationProperties.ControlTypeOverride="ToolBar">
+  <Border x:Name="AnnotateBar" Classes="toolbar subbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Annotate tools&quot;}" AutomationProperties.ControlTypeOverride="ToolBar">
     <Grid ColumnDefinitions="*,Auto">
       <WrapPanel Orientation="Horizontal">
-        <ToggleButton AutomationProperties.Name="Select" x:Name="SelectTool" views:ControlHelp.Text="{x:Static help:Descriptions.SelectTool}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Select&quot;}" x:Name="SelectTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Select text, or click an annotation to pick it. Drag a picked annotation or its corner squares to move or resize it; arrow keys nudge it.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconCursor}" />
-            <TextBlock Classes="label" Text="Select" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Select&quot;}" />
           </StackPanel>
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Highlight" x:Name="HighlightTool" views:ControlHelp.Text="{x:Static help:Descriptions.HighlightTool}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Highlight&quot;}" x:Name="HighlightTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Select text to highlight it.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon edit" Data="{StaticResource IconHighlight}" />
-            <TextBlock Classes="label" Text="Highlight" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Highlight&quot;}" />
           </StackPanel>
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Underline" x:Name="UnderlineTool" views:ControlHelp.Text="{x:Static help:Descriptions.UnderlineTool}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Underline&quot;}" x:Name="UnderlineTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Select text to underline it.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon edit" Data="{StaticResource IconUnderline}" />
-            <TextBlock Classes="label" Text="Underline" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Underline&quot;}" />
           </StackPanel>
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Strike" x:Name="StrikeOutTool" views:ControlHelp.Text="{x:Static help:Descriptions.StrikeTool}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Strike&quot;}" x:Name="StrikeOutTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Select text to draw a line through it.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon edit" Data="{StaticResource IconStrike}" />
-            <TextBlock Classes="label" Text="Strike" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Strike&quot;}" />
           </StackPanel>
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Draw" x:Name="DrawTool" views:ControlHelp.Text="{x:Static help:Descriptions.DrawTool}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Draw&quot;}" x:Name="DrawTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drag on the page to draw freehand.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon edit" Data="{StaticResource IconDraw}" />
-            <TextBlock Classes="label" Text="Draw" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Draw&quot;}" />
           </StackPanel>
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Highlighter" x:Name="FreehandHighlightTool" views:ControlHelp.Text="{x:Static help:Descriptions.FreehandHighlightTool}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Highlighter&quot;}" x:Name="FreehandHighlightTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drag on the page with a wide, see-through pen to highlight anything, including pictures and scanned text.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon edit" Data="{StaticResource IconFreehandHighlight}" />
-            <TextBlock Classes="label" Text="Highlighter" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Highlighter&quot;}" />
           </StackPanel>
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Caret" x:Name="CaretTool" views:ControlHelp.Text="{x:Static help:Descriptions.CaretTool}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Caret&quot;}" x:Name="CaretTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Click on the page to mark a place where text should be inserted.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon add" Data="{StaticResource IconCaret}" />
-            <TextBlock Classes="label" Text="Caret" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Caret&quot;}" />
           </StackPanel>
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Note" x:Name="NoteTool" views:ControlHelp.Text="{x:Static help:Descriptions.NoteTool}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Note&quot;}" x:Name="NoteTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Click on the page to add a sticky note.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon add" Data="{StaticResource IconNote}" />
-            <TextBlock Classes="label" Text="Note" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Note&quot;}" />
           </StackPanel>
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Text" x:Name="TextTool" views:ControlHelp.Text="{x:Static help:Descriptions.TextTool}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text&quot;}" x:Name="TextTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Click on the page and type. Click or double-click text to change it.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon add" Data="{StaticResource IconText}" />
-            <TextBlock Classes="label" Text="Text" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text&quot;}" />
           </StackPanel>
         </ToggleButton>
         <views:AnnotateShapeButtonView />
@@ -67,22 +67,22 @@
         <views:AnnotationStyleView />
       </WrapPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal">
-        <Button AutomationProperties.Name="Undo" x:Name="UndoButton" views:ControlHelp.Text="{x:Static help:Descriptions.Undo}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Undo&quot;}" x:Name="UndoButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Undo your last annotation change: adding, deleting, moving, colour, style, note or reply. Shortcut: Ctrl+Z&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon edit" Data="{StaticResource IconUndo}" />
-            <TextBlock Classes="label" Text="Undo" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Undo&quot;}" />
           </StackPanel>
         </Button>
-        <Button AutomationProperties.Name="Redo" x:Name="RedoButton" views:ControlHelp.Text="{x:Static help:Descriptions.Redo}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Redo&quot;}" x:Name="RedoButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the annotation change you undid again. Shortcut: Ctrl+Y or Ctrl+Shift+Z&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon edit" Data="{StaticResource IconRedo}" />
-            <TextBlock Classes="label" Text="Redo" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Redo&quot;}" />
           </StackPanel>
         </Button>
-        <Button AutomationProperties.Name="Done" x:Name="AnnotateDoneButton" views:ControlHelp.Text="{x:Static help:Descriptions.AnnotateDone}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Done&quot;}" x:Name="AnnotateDoneButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Put the annotation tools away.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconDone}" />
-            <TextBlock Classes="label" Text="Done" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Done&quot;}" />
           </StackPanel>
         </Button>
       </StackPanel>

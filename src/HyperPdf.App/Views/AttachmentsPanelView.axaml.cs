@@ -48,7 +48,7 @@ public sealed partial class AttachmentsPanelView : ReactiveUI.Avalonia.ReactiveU
             return;
         }
 
-        var file = await storage.SaveFilePickerAsync(new() { Title = "Save Attachment", SuggestedFileName = context.Input });
+        var file = await storage.SaveFilePickerAsync(new() { Title = UiText.Get("Save Attachment"), SuggestedFileName = context.Input });
         context.SetOutput(file?.TryGetLocalPath());
     }
 }

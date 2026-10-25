@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using System.Reflection;
 using System.Text;
 using HyperPdf.Core.Licences;
@@ -21,20 +20,8 @@ namespace HyperPdf.ViewModels.Preferences;
 /// can be copied.
 /// </summary>
 [DebuggerDisplay("LicencesViewModel: {Version}: {Search}: {Nodes.Count} licences")]
-public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
+public sealed partial class LicencesViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
-    /// <summary>The origin text of this application's own entry.</summary>
-    private const string ThisApplication = "This application";
-
-    /// <summary>The text shown when no component is chosen.</summary>
-    private const string NothingChosen = "Choose a component to read its licence.";
-
-    /// <summary>The text shown when the search finds nothing.</summary>
-    private const string NothingFound = "No component matches your search.";
-
-    /// <summary>Said after the text is copied.</summary>
-    private const string CopiedMessage = "Copied the licence text.";
-
     /// <summary>Owns the subscriptions.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
@@ -44,7 +31,9 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
     /// <summary>Initializes a new instance of the <see cref="LicencesViewModel"/> class.</summary>
     /// <param name="document">The notices to show.</param>
     public LicencesViewModel(NoticeDocument document)
-        : this(document, ReadAppVersion())
+        : this(
+        document,
+        ReadAppVersion())
     {
     }
 
@@ -57,7 +46,6 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
         ArgumentNullException.ThrowIfNull(version);
         _document = document;
         Version = version;
-        VersionHeading = Version.Length == 0 ? "HyperPDF" : $"Version {Version}";
         Nodes = Build(document, string.Empty, Version);
         SelectedNode = FirstEntry(Nodes);
         _detailTitleHelper = this.WhenChanged(static vm => vm.SelectedNode).Select(TitleOf).ToProperty(this, static vm => vm.DetailTitle);
@@ -76,7 +64,7 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
     public string Version { get; }
 
     /// <summary>Gets the version line shown under the window heading, such as <c>Version 2.4.0</c>.</summary>
-    public string VersionHeading { get; }
+    public string VersionHeading => Version.Length == 0 ? "HyperPDF" : UiText.Format("Version {0}", Version);
 
     /// <summary>Gets or sets the words the components are narrowed by.</summary>
     [Reactive]
@@ -109,9 +97,28 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
     /// <summary>Gets a short count of what the search shows, such as "12 components".</summary>
     public string Summary => CountText(Nodes);
 
+    /// <summary>Gets the origin text of this application's own entry.</summary>
+    private static string ThisApplication => UiText.Get("This application");
+
+    /// <summary>Gets the text shown when no component is chosen.</summary>
+    private static string NothingChosen => UiText.Get("Choose a component to read its licence.");
+
+    /// <summary>Gets the text shown when the search finds nothing.</summary>
+    private static string NothingFound => UiText.Get("No component matches your search.");
+
+    /// <summary>Gets said after the text is copied.</summary>
+    private static string CopiedMessage => UiText.Get("Copied the licence text.");
+
     /// <inheritdoc/>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(VersionHeading));
+        this.RaisePropertyChanged(nameof(Summary));
+    }
 
     /// <summary>Reads this application's informational version without the commit hash suffix.</summary>
     /// <returns>The version string.</returns>
@@ -150,7 +157,7 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
 
             if (children.Count > 0)
             {
-                nodes.Add(new(string.Create(CultureInfo.CurrentCulture, $"{group.Licence} ({children.Count})"), null, children));
+                nodes.Add(new($"{group.Licence} ({children.Count})", null, children));
             }
         }
 
@@ -180,7 +187,7 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
             return NothingFound;
         }
 
-        return string.Create(CultureInfo.CurrentCulture, $"{count} {(count == 1 ? "component" : "components")}");
+        return $"{count} {(count == 1 ? UiText.Get("component") : UiText.Get("components"))}";
     }
 
     /// <summary>Gets a component's version, using the application version for this application's own entry.</summary>
@@ -210,10 +217,18 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
         var version = EffectiveVersion(entry, appVersion);
         foreach (var word in words)
         {
-            var found = entry.Name.Contains(word, StringComparison.OrdinalIgnoreCase)
-                || version.Contains(word, StringComparison.OrdinalIgnoreCase)
-                || entry.Licence.Contains(word, StringComparison.OrdinalIgnoreCase)
-                || entry.Origin.Contains(word, StringComparison.OrdinalIgnoreCase)
+            var found = entry.Name.Contains(
+                word,
+                StringComparison.OrdinalIgnoreCase)
+                || version.Contains(
+                word,
+                StringComparison.OrdinalIgnoreCase)
+                || entry.Licence.Contains(
+                word,
+                StringComparison.OrdinalIgnoreCase)
+                || entry.Origin.Contains(
+                word,
+                StringComparison.OrdinalIgnoreCase)
                 || entry.Copyright.Contains(word, StringComparison.OrdinalIgnoreCase);
             if (!found)
             {
@@ -262,15 +277,15 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable
     {
         if (node?.Entry is not { } entry)
         {
-            return node is null ? string.Empty : string.Create(CultureInfo.CurrentCulture, $"{node.Children.Count} components use this licence.");
+            return node is null ? string.Empty : UiText.Format("{0} components use this licence.", node.Children.Count);
         }
 
         var text = new StringBuilder();
-        _ = text.Append("Licence: ").Append(entry.Licence);
-        Append(text, "Version", EffectiveVersion(entry, appVersion));
-        Append(text, "Comes from", entry.Origin);
-        Append(text, "Copyright", entry.Copyright);
-        Append(text, "Link", entry.Link);
+        _ = text.Append(UiText.Get("Licence: ")).Append(entry.Licence);
+        Append(text, UiText.Get("Version"), EffectiveVersion(entry, appVersion));
+        Append(text, UiText.Get("Comes from"), entry.Origin);
+        Append(text, UiText.Get("Copyright"), entry.Copyright);
+        Append(text, UiText.Get("Link"), entry.Link);
         return text.ToString();
     }
 

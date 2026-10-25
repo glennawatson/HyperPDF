@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdf.Core.Documents;
@@ -12,11 +11,11 @@ namespace HyperPdf.ViewModels.Viewing;
 /// <summary>Plain words for the colour separation pages of a preseparated document.</summary>
 internal static class SeparationText
 {
-    /// <summary>The name shown for a separation whose file gives no colourant.</summary>
-    internal const string UnnamedColorant = "Unnamed colourant";
+    /// <summary>Gets the name shown for a separation whose file gives no colourant.</summary>
+    internal static string UnnamedColorant => UiText.Get("Unnamed colourant");
 
-    /// <summary>Says that the current page of a preseparated document is an ordinary page.</summary>
-    internal const string OrdinaryPage = "Ordinary page, not a colour separation";
+    /// <summary>Gets says that the current page of a preseparated document is an ordinary page.</summary>
+    internal static string OrdinaryPage => UiText.Get("Ordinary page, not a colour separation");
 
     /// <summary>Gets a colourant's display name.</summary>
     /// <param name="page">The separation page.</param>
@@ -30,9 +29,12 @@ internal static class SeparationText
     internal static string Describe(SeparationGroup group, SeparationPage page)
     {
         var count = group.Pages.Length;
-        return string.Create(
-            CultureInfo.CurrentCulture,
-            $"Separation: {Colorant(page)}, part of printed page {group.PrintedPage} ({count} {(count == 1 ? "colourant" : "colourants")})");
+        return UiText.Format(
+            "Separation: {0}, part of printed page {1} ({2} {3})",
+            Colorant(page),
+            group.PrintedPage,
+            count,
+            (count == 1 ? UiText.Get("colourant") : UiText.Get("colourants")));
     }
 
     /// <summary>Says what a page edit could not keep together, or <see langword="null"/> when it kept everything.</summary>
@@ -61,15 +63,23 @@ internal static class SeparationText
     {
         if (change.PrintedPage == 0)
         {
-            return string.Create(CultureInfo.CurrentCulture, $"Damaged colour separation details on {Pages(change.UnlinkedPages)} were removed.");
+            return UiText.Format("Damaged colour separation details on {0} were removed.", Pages(change.UnlinkedPages));
         }
 
         var kept = change.KeptPages < change.GroupPages
-            ? string.Create(CultureInfo.CurrentCulture, $"Printed page {change.PrintedPage} kept {change.KeptPages} of its {change.GroupPages} colour separations, and they stay linked.")
+            ? UiText.Format(
+            "Printed page {0} kept {1} of its {2} colour separations, and they stay linked.",
+            change.PrintedPage,
+            change.KeptPages,
+            change.GroupPages)
             : string.Empty;
-        var marked = change.UnlinkedPages == 1 ? "is no longer marked as a colour separation" : "are no longer marked as colour separations";
+        var marked = change.UnlinkedPages == 1 ? UiText.Get("is no longer marked as a colour separation") : UiText.Get("are no longer marked as colour separations");
         var unlinked = change.UnlinkedPages > 0
-            ? string.Create(CultureInfo.CurrentCulture, $"{Pages(change.UnlinkedPages)} of printed page {change.PrintedPage} {marked}.")
+            ? UiText.Format(
+            "{0} of printed page {1} {2}.",
+            Pages(change.UnlinkedPages),
+            change.PrintedPage,
+            marked)
             : string.Empty;
         return kept.Length > 0 && unlinked.Length > 0 ? $"{kept} {unlinked}" : kept + unlinked;
     }
@@ -78,5 +88,5 @@ internal static class SeparationText
     /// <param name="count">The count.</param>
     /// <returns>For example "1 page" or "2 pages".</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string Pages(int count) => string.Create(CultureInfo.CurrentCulture, $"{count} {(count == 1 ? "page" : "pages")}");
+    private static string Pages(int count) => $"{count} {(count == 1 ? UiText.Get("page") : UiText.Get("pages"))}";
 }

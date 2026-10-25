@@ -1,32 +1,32 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.FindBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (FindBarView.axaml.cs). -->
-  <Border x:Name="FindBar" Classes="toolbar" AutomationProperties.Name="Find" AutomationProperties.LandmarkType="Search">
+  <Border x:Name="FindBar" Classes="toolbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find&quot;}" AutomationProperties.LandmarkType="Search">
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="2">
-      <TextBox x:Name="SearchBox" views:ControlHelp.Text="{x:Static help:Descriptions.SearchBox}" AutomationProperties.Name="Find in document" MinWidth="200" MinHeight="28" Padding="8,3" VerticalAlignment="Center" PlaceholderText="Find in document" />
+      <TextBox x:Name="SearchBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the words to find. Press Enter for the next result or Shift+Enter for the one before.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find in document&quot;}" MinWidth="200" MinHeight="28" Padding="8,3" VerticalAlignment="Center" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find in document&quot;}" />
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
-      <ToggleButton AutomationProperties.Name="Match case" x:Name="MatchCaseToggle" views:ControlHelp.Text="{x:Static help:Descriptions.MatchCase}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Match case&quot;}" x:Name="MatchCaseToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Only find text with the same capital and small letters.&quot;}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconCase}" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Whole words" x:Name="WholeWordToggle" views:ControlHelp.Text="{x:Static help:Descriptions.WholeWords}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Whole words&quot;}" x:Name="WholeWordToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Only find whole words, not parts of longer words.&quot;}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconWholeWord}" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Ignore accents" x:Name="IgnoreAccentsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.IgnoreAccents}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Ignore accents&quot;}" x:Name="IgnoreAccentsToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find letters with or without accents, so resume also finds résumé.&quot;}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconAccent}" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Similar characters" x:Name="SimilarCharactersToggle" views:ControlHelp.Text="{x:Static help:Descriptions.SimilarCharacters}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Similar characters&quot;}" x:Name="SimilarCharactersToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Treat look-alike characters as the same: curly and straight quotes, dashes, and full-width letters.&quot;}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconSimilar}" />
       </ToggleButton>
-      <Button AutomationProperties.Name="Previous result" x:Name="PreviousResultButton" views:ControlHelp.Text="{x:Static help:Descriptions.PreviousResult}" Classes="tool">
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Previous result&quot;}" x:Name="PreviousResultButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go to the previous result. Shortcut: Shift+F3&quot;}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconPageUp}" />
       </Button>
-      <Button AutomationProperties.Name="Next result" x:Name="NextResultButton" views:ControlHelp.Text="{x:Static help:Descriptions.NextResult}" Classes="tool">
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Next result&quot;}" x:Name="NextResultButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go to the next result. Shortcut: F3&quot;}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconPageDown}" />
       </Button>
       <TextBlock x:Name="SearchStatusText" AutomationProperties.LiveSetting="Polite" Classes="secondary" VerticalAlignment="Center" Margin="8,0" />
-      <Button AutomationProperties.Name="Close find" x:Name="CloseFindButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseFind}" Classes="tool">
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close find&quot;}" x:Name="CloseFindButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close the find bar. Shortcut: Esc&quot;}" Classes="tool">
         <Path Classes="icon remove" Data="{StaticResource IconClose}" />
       </Button>
       </StackPanel>

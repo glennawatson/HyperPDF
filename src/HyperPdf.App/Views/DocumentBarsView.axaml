@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.DocumentBarsView">
@@ -11,17 +11,17 @@
           <Path Classes="icon nav" Data="{StaticResource IconSignature}" />
           <TextBlock x:Name="SignedText" VerticalAlignment="Center" />
         </StackPanel>
-        <Button Grid.Column="1" x:Name="CheckSignaturesButton" views:ControlHelp.Text="{x:Static help:Descriptions.CheckSignatures}" Content="Check Signatures" />
+        <Button Grid.Column="1" x:Name="CheckSignaturesButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Check who signed this document and whether it changed after signing. This may go online.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Check Signatures&quot;}" />
       </Grid>
     </Border>
 
     <!-- Shown on every page of a preseparated file, so nothing moves: which colourant the page is and which printed page it is part of. -->
-    <Border x:Name="SeparationBar" Classes="toolbar" AutomationProperties.Name="Colour separation">
+    <Border x:Name="SeparationBar" Classes="toolbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Colour separation&quot;}">
       <Grid ColumnDefinitions="*,Auto,Auto">
         <TextBlock x:Name="SeparationText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
-        <TextBlock Grid.Column="1" x:Name="SeparationChoiceLabel" Text="Show separation" VerticalAlignment="Center" Margin="8,0,4,0" />
-        <ComboBox Grid.Column="2" x:Name="SeparationBox" AutomationProperties.Name="Show separation" Width="200" VerticalAlignment="Center" Margin="0,0,6,0"
-                  views:ControlHelp.Text="{x:Static help:Descriptions.ShowSeparation}" />
+        <TextBlock TextWrapping="Wrap" Grid.Column="1" x:Name="SeparationChoiceLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show separation&quot;}" VerticalAlignment="Center" Margin="8,0,4,0" />
+        <ComboBox Grid.Column="2" x:Name="SeparationBox" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show separation&quot;}" Width="200" VerticalAlignment="Center" Margin="0,0,6,0"
+                  views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show another colour separation of the same printed page. Each separation is a page of its own in this file.&quot;}" />
       </Grid>
     </Border>
   </StackPanel>

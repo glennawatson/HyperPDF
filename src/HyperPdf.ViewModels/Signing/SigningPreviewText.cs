@@ -11,17 +11,18 @@ namespace HyperPdf.ViewModels.Signing;
 /// <summary>Describes in plain words what signing a document would do, so the user can check it before signing.</summary>
 internal static class SigningPreviewText
 {
-    /// <summary>The shortest description when the document cannot say what signing would do.</summary>
-    internal const string Unavailable = "The document cannot say what signing would do.";
+    /// <summary>Gets the shortest description when the document cannot say what signing would do.</summary>
+    internal static string Unavailable => UiText.Get("The document cannot say what signing would do.");
 
     /// <summary>Gets the kinds of certification the user can choose, in the order of <see cref="CertificationLevel"/>.</summary>
-    internal static string[] CertificationChoices { get; } =
-    [
+    internal static IReadOnlyList<string> CertificationChoices { get; } =
+    UiText.CreateChoices(
+        [
         "Approve: allow any later change",
         "Certify: allow no later change",
         "Certify: allow form filling and signing",
-        "Certify: allow form filling, signing and comments",
-    ];
+        "Certify: allow form filling, signing and comments"
+    ]);
 
     /// <summary>Describes a preview.</summary>
     /// <param name="preview">The preview, or <see langword="null"/> when the document cannot be previewed.</param>
@@ -35,26 +36,27 @@ internal static class SigningPreviewText
         }
 
         var text = new StringBuilder();
-        var action = preview.IsNewField ? "Adds the signature field" : "Signs the empty field";
-        var drawn = preview.IsVisible ? "drawn on the page" : "not drawn on the page";
-        _ = text.AppendLine(CultureInfo.CurrentCulture, $"{action} {preview.FieldName} on page {preview.PageNumber}, {drawn}.")
-            .AppendLine(CultureInfo.CurrentCulture, $"Signature type: {FormatName(preview.Format)}, digest {DigestName(preview.Digest)}.");
-        AppendOptional(text, "Reason", preview.Reason);
-        AppendOptional(text, "Location", preview.Location);
-        _ = text.AppendLine("It covers the whole document, including your unsaved changes. A new copy is saved; this file is not changed.")
+        var action = preview.IsNewField ? UiText.Get("Adds the signature field") : UiText.Get("Signs the empty field");
+        var drawn = preview.IsVisible ? UiText.Get("drawn on the page") : UiText.Get("not drawn on the page");
+        _ = text.AppendLine(
+            UiText.Format("{0} {1} on page {2}, {3}.", action, preview.FieldName, preview.PageNumber, drawn))
+            .AppendLine(UiText.Format("Signature type: {0}, digest {1}.", FormatName(preview.Format), DigestName(preview.Digest)));
+        AppendOptional(text, UiText.Get("Reason"), preview.Reason);
+        AppendOptional(text, UiText.Get("Location"), preview.Location);
+        _ = text.AppendLine(UiText.Get("It covers the whole document, including your unsaved changes. A new copy is saved; this file is not changed."))
             .AppendLine(preview.LaterChanges);
         var hasServer = Uri.TryCreate(timestampServer, UriKind.Absolute, out _);
         if (hasServer)
         {
-            _ = text.AppendLine(CultureInfo.CurrentCulture, $"A trusted timestamp is added from {timestampServer}. Only a hash of the signature is sent, never the document.");
+            _ = text.AppendLine(UiText.Format("A trusted timestamp is added from {0}. Only a hash of the signature is sent, never the document.", timestampServer));
         }
         else if (preview.TimestampRequired)
         {
-            _ = text.AppendLine("The signature field asks for a trusted timestamp. Type a timestamp server in Preferences.");
+            _ = text.AppendLine(UiText.Get("The signature field asks for a trusted timestamp. Type a timestamp server in Preferences."));
         }
         else
         {
-            _ = text.AppendLine("No timestamp is added. Type a timestamp server in Preferences to record a trusted time.");
+            _ = text.AppendLine(UiText.Get("No timestamp is added. Type a timestamp server in Preferences to record a trusted time."));
         }
 
         foreach (var note in preview.Notes)
@@ -64,7 +66,7 @@ internal static class SigningPreviewText
 
         foreach (var problem in preview.Problems)
         {
-            _ = text.AppendLine(CultureInfo.CurrentCulture, $"Cannot sign: {problem}");
+            _ = text.AppendLine(UiText.Format("Cannot sign: {0}", problem));
         }
 
         return text.ToString().TrimEnd();
@@ -75,8 +77,8 @@ internal static class SigningPreviewText
     /// <returns>The name.</returns>
     internal static string FormatName(SigningFormat format) => format switch
     {
-        SigningFormat.CadesDetached => "PAdES (CAdES)",
-        _ => "standard (PKCS #7)",
+        SigningFormat.CadesDetached => UiText.Get("PAdES (CAdES)"),
+        _ => UiText.Get("standard (PKCS #7)"),
     };
 
     /// <summary>Gets the name of a digest.</summary>

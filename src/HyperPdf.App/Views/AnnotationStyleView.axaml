@@ -1,53 +1,53 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.AnnotationStyleView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AnnotationStyleView.axaml.cs). -->
   <StackPanel Orientation="Horizontal">
     <!-- One colour button, always showing the colour's name, so colour is never the only cue. -->
-    <Button AutomationProperties.Name="Annotation colour" x:Name="ColourButton" views:ControlHelp.Text="{x:Static help:Descriptions.AnnotationColour}" Classes="tool">
+    <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Annotation colour&quot;}" x:Name="ColourButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colour for new annotations, drawings and text, and for the annotation you picked.&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal" Spacing="6">
         <Border x:Name="ColourSwatch" Classes="swatch" />
         <TextBlock x:Name="ColourText" VerticalAlignment="Center" />
       </StackPanel>
       <Button.Flyout>
         <MenuFlyout>
-          <MenuItem x:Name="YellowItem" views:ControlHelp.Text="{x:Static help:Descriptions.Yellow}" Header="_Yellow">
+          <MenuItem x:Name="YellowItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use yellow for new annotations and the one you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Yellow&quot;}">
             <MenuItem.Icon>
               <Border Classes="swatch" Background="#F0DC96" />
             </MenuItem.Icon>
           </MenuItem>
-          <MenuItem x:Name="GreenItem" views:ControlHelp.Text="{x:Static help:Descriptions.Green}" Header="_Green">
+          <MenuItem x:Name="GreenItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use green for new annotations and the one you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Green&quot;}">
             <MenuItem.Icon>
               <Border Classes="swatch" Background="#BCDCB0" />
             </MenuItem.Icon>
           </MenuItem>
-          <MenuItem x:Name="BlueItem" views:ControlHelp.Text="{x:Static help:Descriptions.Blue}" Header="_Blue">
+          <MenuItem x:Name="BlueItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use blue for new annotations and the one you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Blue&quot;}">
             <MenuItem.Icon>
               <Border Classes="swatch" Background="#B4CCDC" />
             </MenuItem.Icon>
           </MenuItem>
-          <MenuItem x:Name="RedItem" views:ControlHelp.Text="{x:Static help:Descriptions.Red}" Header="_Red">
+          <MenuItem x:Name="RedItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use red for new annotations and the one you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Red&quot;}">
             <MenuItem.Icon>
               <Border Classes="swatch" Background="#E8BCB4" />
             </MenuItem.Icon>
           </MenuItem>
-          <MenuItem x:Name="PurpleItem" views:ControlHelp.Text="{x:Static help:Descriptions.Purple}" Header="_Purple">
+          <MenuItem x:Name="PurpleItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use purple for new annotations and the one you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Purple&quot;}">
             <MenuItem.Icon>
               <Border Classes="swatch" Background="#D4C8E4" />
             </MenuItem.Icon>
           </MenuItem>
-          <MenuItem x:Name="OrangeItem" views:ControlHelp.Text="{x:Static help:Descriptions.Orange}" Header="_Orange">
+          <MenuItem x:Name="OrangeItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use orange for new annotations and the one you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Orange&quot;}">
             <MenuItem.Icon>
               <Border Classes="swatch" Background="#F0CCA8" />
             </MenuItem.Icon>
           </MenuItem>
-          <MenuItem x:Name="GreyItem" views:ControlHelp.Text="{x:Static help:Descriptions.Grey}" Header="Gr_ey">
+          <MenuItem x:Name="GreyItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use grey for new annotations and the one you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Gr_ey&quot;}">
             <MenuItem.Icon>
               <Border Classes="swatch" Background="#D0D0CC" />
             </MenuItem.Icon>
           </MenuItem>
-          <MenuItem x:Name="DarkBlueItem" views:ControlHelp.Text="{x:Static help:Descriptions.DarkBlue}" Header="_Dark Blue">
+          <MenuItem x:Name="DarkBlueItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use dark blue for new annotations and the one you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Dark Blue&quot;}">
             <MenuItem.Icon>
               <Border Classes="swatch" Background="#23324A" />
             </MenuItem.Icon>
@@ -55,16 +55,16 @@
         </MenuFlyout>
       </Button.Flyout>
     </Button>
-    <Button AutomationProperties.Name="Line width" x:Name="LineWidthButton" views:ControlHelp.Text="{x:Static help:Descriptions.LineWidth}" Classes="tool">
+    <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Line width&quot;}" x:Name="LineWidthButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose how thick new drawings, lines and shapes are, and the one you picked.&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon edit" Data="{StaticResource IconLineWidth}" />
-        <TextBlock x:Name="LineWidthText" Classes="label" Text="Line" />
+        <TextBlock TextWrapping="Wrap" x:Name="LineWidthText" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Line&quot;}" />
       </StackPanel>
       <Button.Flyout>
         <MenuFlyout>
-          <MenuItem x:Name="ThinLineItem" views:ControlHelp.Text="{x:Static help:Descriptions.LineThin}" Header="_Thin" />
-          <MenuItem x:Name="MediumLineItem" views:ControlHelp.Text="{x:Static help:Descriptions.LineMedium}" Header="_Medium" />
-          <MenuItem x:Name="ThickLineItem" views:ControlHelp.Text="{x:Static help:Descriptions.LineThick}" Header="T_hick" />
+          <MenuItem x:Name="ThinLineItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use thin lines for new drawings and shapes and the one you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Thin&quot;}" />
+          <MenuItem x:Name="MediumLineItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use medium lines for new drawings and shapes and the one you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Medium&quot;}" />
+          <MenuItem x:Name="ThickLineItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use thick lines for new drawings and shapes and the one you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;T_hick&quot;}" />
         </MenuFlyout>
       </Button.Flyout>
     </Button>

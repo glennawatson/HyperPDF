@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Globalization;
+using HyperPdf.App.Controls;
 using HyperPdf.Core.Printing;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -23,10 +24,7 @@ public sealed partial class PrintSheetSettingsView : ReactiveUI.Avalonia.Reactiv
             _ = PagesPerSheetBox.Items.Add(choice.ToString(CultureInfo.CurrentCulture));
         }
 
-        foreach (var choice in PrintPreviewViewModel.LayoutChoices)
-        {
-            _ = LayoutBox.Items.Add(choice);
-        }
+        ChoiceViews.SetChoices(LayoutBox, PrintPreviewViewModel.LayoutChoices);
 
         FieldLabels.Link(
             (LayoutBox, LayoutLabel),

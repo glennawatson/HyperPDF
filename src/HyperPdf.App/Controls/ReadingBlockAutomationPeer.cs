@@ -107,12 +107,12 @@ internal sealed class ReadingBlockAutomationPeer : AutomationPeer, ISetMember
     {
         var role = _block.Kind switch
         {
-            ReadingBlockKind.ListItem when _listSize > 0 => string.Create(CultureInfo.InvariantCulture, $"List item {_positionInList} of {_listSize}"),
-            ReadingBlockKind.TableCell when _block.Row > 0 => string.Create(CultureInfo.InvariantCulture, $"Table cell, row {_block.Row}, column {_block.Column}"),
-            ReadingBlockKind.TableCell => "Table cell",
-            ReadingBlockKind.Figure => "Figure",
-            ReadingBlockKind.Caption => "Caption",
-            ReadingBlockKind.Footnote => "Footnote",
+            ReadingBlockKind.ListItem when _listSize > 0 => UiText.Format("List item {0} of {1}", _positionInList, _listSize),
+            ReadingBlockKind.TableCell when _block.Row > 0 => UiText.Format("Table cell, row {0}, column {1}", _block.Row, _block.Column),
+            ReadingBlockKind.TableCell => UiText.Get("Table cell"),
+            ReadingBlockKind.Figure => UiText.Get("Figure"),
+            ReadingBlockKind.Caption => UiText.Get("Caption"),
+            ReadingBlockKind.Footnote => UiText.Get("Footnote"),
             _ => null,
         };
 
@@ -122,7 +122,7 @@ internal sealed class ReadingBlockAutomationPeer : AutomationPeer, ISetMember
             return role;
         }
 
-        var spoken = $"language {PageSemanticAutomationPeer.DescribeLanguage(language)}";
+        var spoken = UiText.Format("language {0}", PageSemanticAutomationPeer.DescribeLanguage(language));
         return role is null ? spoken : $"{role}, {spoken}";
     }
 

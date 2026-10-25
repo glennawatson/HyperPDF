@@ -44,10 +44,15 @@ public sealed partial class TextPropertiesViewModel : ReactiveObject
     }
 
     /// <summary>Gets the alignments offered, in <see cref="TextBoxAlignment"/> order.</summary>
-    public static IReadOnlyList<string> Alignments { get; } = ["Left", "Centre", "Right"];
+    public static IReadOnlyList<string> Alignments { get; } = UiText.CreateChoices(
+        [
+        "Left",
+        "Centre",
+        "Right"
+    ]);
 
     /// <summary>Gets the colours offered, by name.</summary>
-    public static IReadOnlyList<string> ColorNames { get; } = Names();
+    public static IReadOnlyList<string> ColorNames { get; } = UiText.CreateChoices(Names());
 
     /// <summary>Gets the font families offered.</summary>
     public IReadOnlyList<string> FontFamilies { get; }
@@ -115,7 +120,10 @@ public sealed partial class TextPropertiesViewModel : ReactiveObject
     /// <summary>Builds the format the settings describe.</summary>
     /// <returns>The format, clamped to usable values.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public TextFormat ToFormat() => new TextFormat(FontFamily, (float)FontSize, ChosenColor)
+    public TextFormat ToFormat() => new TextFormat(
+        FontFamily,
+        (float)FontSize,
+        ChosenColor)
     {
         IsBold = IsBold,
         IsItalic = IsItalic,
@@ -133,7 +141,7 @@ public sealed partial class TextPropertiesViewModel : ReactiveObject
         var names = new string[AnnotationsViewModel.TextColors.Count];
         for (var i = 0; i < names.Length; i++)
         {
-            names[i] = AnnotationsViewModel.TextColors[i].Name;
+            names[i] = AnnotationsViewModel.TextColors[i].NameKey;
         }
 
         return names;

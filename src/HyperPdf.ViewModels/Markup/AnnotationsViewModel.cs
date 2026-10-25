@@ -20,10 +20,13 @@ namespace HyperPdf.ViewModels.Markup;
 /// and the edits themselves. Edits go straight to the document; the page's tiles are dropped so it redraws.
 /// </summary>
 [DebuggerDisplay("AnnotationsViewModel: {Tool}, {Items.Count} annotations")]
-public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
+public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The width of the highlighter pen, in points.</summary>
     public static readonly float HighlighterWidth = 14;
+
+    /// <summary>The reply prompt's title, label and button resource key.</summary>
+    private const string ReplyKey = "Reply";
 
     /// <summary>The coordinates stored for each drawn signature point.</summary>
     private const int PointCoordinates = 2;
@@ -34,17 +37,11 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     /// <summary>The size of a kept measurement's label.</summary>
     private const float MeasurementTextSize = 9;
 
-    /// <summary>The title, label and button of the reply prompt.</summary>
-    private const string ReplyTitle = "Reply";
-
     /// <summary>How far outside an annotation a click still picks it, in points.</summary>
     private const float HitTolerance = 3;
 
     /// <summary>The longest side of a picture stamp when placed, in points.</summary>
     private const float PictureStampSide = 144;
-
-    /// <summary>The label of the stamp button while a picture stamp is chosen.</summary>
-    private const string PictureStampLabel = "Picture";
 
     /// <summary>The thin line width in points.</summary>
     private const float ThinLine = 1;
@@ -98,6 +95,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
         _owner = owner;
         _subscriptions =
         [
+
             this.WhenChanged(static x => x.FilterText)
                 .Skip(1)
                 .Throttle(TypingDelay, RxSchedulers.MainThreadScheduler)
@@ -107,7 +105,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
                 .SubscribeSafe(_ => ApplyFilter(), ErrorTrace.Write),
             this.WhenChanged(static x => x.FilterAuthor, static x => x.SortOrder)
                 .Skip(1)
-                .SubscribeSafe(_ => ApplyFilter(), ErrorTrace.Write),
+                .SubscribeSafe(_ => ApplyFilter(), ErrorTrace.Write)
         ];
         foreach (var subscription in WatchTextFormat())
         {
@@ -219,14 +217,14 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>Gets the shape button's label: the shape being drawn, or "Shape".</summary>
-    public string ShapeLabel => (GetShapeKind(Tool) ?? GetPolygonKind(Tool)) is { } kind ? AnnotationNames.Get(kind) : "Shape";
+    public string ShapeLabel => (GetShapeKind(Tool) ?? GetPolygonKind(Tool)) is { } kind ? AnnotationNames.Get(kind) : UiText.Get("Shape");
 
     /// <summary>Gets or sets the word on the stamp placed by the stamp tool.</summary>
     [Reactive(nameof(StampButtonLabel))]
     public partial string StampLabel { get; set; } = "APPROVED";
 
     /// <summary>Gets the stamp button's label: the stamp being placed, or "Stamp".</summary>
-    public string StampButtonLabel => Tool == AnnotationTool.Stamp ? $"Stamp: {StampLabel}" : "Stamp";
+    public string StampButtonLabel => Tool == AnnotationTool.Stamp ? UiText.Format("Stamp: {0}", StampLabel) : UiText.Get("Stamp");
 
     /// <summary>Gets or sets the colour for new annotations, as 0xRRGGBB; lines, shapes, drawings and text use its deeper tone.</summary>
     [Reactive(nameof(ColorName))]
@@ -240,14 +238,14 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     public partial float LineWidth { get; set; } = MediumLine;
 
     /// <summary>Gets the line width's name, shown on its button.</summary>
-    public string LineWidthName => $"Line: {NameOf(LineWidths, LineWidth)}";
+    public string LineWidthName => UiText.Format("Line: {0}", NameOf(LineWidths, LineWidth));
 
     /// <summary>Gets or sets the text size of new text boxes and callouts, in points.</summary>
     [Reactive(nameof(FontSizeName), nameof(CurrentTextFormat))]
     public partial float FontSize { get; set; } = MediumText;
 
     /// <summary>Gets the text size's name, shown on its button.</summary>
-    public string FontSizeName => $"Text: {NameOf(FontSizes, FontSize)}";
+    public string FontSizeName => UiText.Format("Text: {0}", NameOf(FontSizes, FontSize));
 
     /// <summary>Gets the annotation picked with the select tool, outlined on the page.</summary>
     [Reactive]
@@ -255,6 +253,9 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets a value indicating whether the document can be annotated.</summary>
     public bool CanAnnotate => Editor is not null;
+
+    /// <summary>Gets the label of the stamp button while a picture stamp is chosen.</summary>
+    private static string PictureStampLabel => UiText.Get("Picture");
 
     /// <summary>Gets the document's editor, or <see langword="null"/> when the document cannot be edited.</summary>
     private IAnnotationEditor? Editor => DocumentFeature<IAnnotationEditor>.Get(_owner.TryGetDocument());
@@ -434,7 +435,12 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     /// <returns>A task.</returns>
     public async Task AddNoteAsync(int page, PagePoint location)
     {
-        var text = await PromptInteraction.Handle(new("Add Note", "Note", string.Empty, "Add Note", true)).ToTask().ConfigureAwait(true);
+        var text = await PromptInteraction.Handle(new(
+            LocalizedMessage.Get(UiText, "Add Note"),
+            LocalizedMessage.Get(UiText, "Note"),
+            string.Empty,
+            LocalizedMessage.Get(UiText, "Add Note"),
+            true)).ToTask().ConfigureAwait(true);
         if (!string.IsNullOrWhiteSpace(text) && EditorForChange() is { } editor)
         {
             _ = Added(page, editor.AddNote(page, location, text, Color));
@@ -447,7 +453,12 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     /// <returns>A task.</returns>
     public async Task AddTextAsync(int page, PagePoint location)
     {
-        var text = await PromptInteraction.Handle(new("Add Text", "Text to write on the page", string.Empty, "Add Text", true)).ToTask().ConfigureAwait(true);
+        var text = await PromptInteraction.Handle(new(
+            LocalizedMessage.Get(UiText, "Add Text"),
+            LocalizedMessage.Get(UiText, "Text to write on the page"),
+            string.Empty,
+            LocalizedMessage.Get(UiText, "Add Text"),
+            true)).ToTask().ConfigureAwait(true);
         if (!string.IsNullOrWhiteSpace(text) && EditorForChange() is { } editor)
         {
             _ = Added(page, editor.AddText(page, location, text, FontSize, AnnotationColors.Deep(Color), AnnotationKind.TextBox));
@@ -461,7 +472,12 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     /// <returns>A task.</returns>
     public async Task AddCalloutAsync(int page, PagePoint target, PagePoint location)
     {
-        var text = await PromptInteraction.Handle(new("Add Callout", "Text of the callout", string.Empty, "Add Callout", true)).ToTask().ConfigureAwait(true);
+        var text = await PromptInteraction.Handle(new(
+            LocalizedMessage.Get(UiText, "Add Callout"),
+            LocalizedMessage.Get(UiText, "Text of the callout"),
+            string.Empty,
+            LocalizedMessage.Get(UiText, "Add Callout"),
+            true)).ToTask().ConfigureAwait(true);
         if (!string.IsNullOrWhiteSpace(text) && EditorForChange() is { } editor)
         {
             _ = Added(page, editor.AddCallout(page, target, location, text, FontSize, AnnotationColors.Deep(Color)));
@@ -545,6 +561,20 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     /// <summary>Picks an annotation, or clears the pick.</summary>
     /// <param name="annotation">The annotation.</param>
     public void Select(PageAnnotation? annotation) => Selected = annotation;
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(ShapeLabel));
+        this.RaisePropertyChanged(nameof(StampButtonLabel));
+        this.RaisePropertyChanged(nameof(LineWidthName));
+        this.RaisePropertyChanged(nameof(FontSizeName));
+        RefreshAuthorCaption();
+        this.RaisePropertyChanged(nameof(TextColorName));
+        this.RaisePropertyChanged(nameof(SpacingName));
+        LocalisationRefresh.RefreshCore(Items, visited);
+        LocalisationRefresh.RefreshCore(_owner, visited);
+    }
 
     /// <summary>
     /// Determines whether a point picks an annotation. An unfilled closed shape is picked only near its outline, so the
@@ -649,7 +679,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
             }
         }
 
-        return $"{value:0.#} pt";
+        return UiText.Format("{0:0.#} pt", value);
     }
 
     /// <summary>Turns a tool on, or back to selecting when it is turned off.</summary>
@@ -692,7 +722,12 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     [ReactiveCommand]
     private async Task CustomStampAsync()
     {
-        var text = await PromptInteraction.Handle(new("Custom Stamp", "Words on the stamp", string.Empty, "Use Stamp", false)).ToTask().ConfigureAwait(true);
+        var text = await PromptInteraction.Handle(new(
+            LocalizedMessage.Get(UiText, "Custom Stamp"),
+            LocalizedMessage.Get(UiText, "Words on the stamp"),
+            string.Empty,
+            LocalizedMessage.Get(UiText, "Use Stamp"),
+            false)).ToTask().ConfigureAwait(true);
         if (!string.IsNullOrWhiteSpace(text))
         {
             SetStamp(text);
@@ -719,7 +754,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable
     {
         if (picture is null || picture.Width <= 0 || picture.Height <= 0)
         {
-            _owner.Notice = "That picture could not be read. Choose a PNG, JPEG, BMP or WebP file.";
+            _owner.SetNotice(LocalizedMessage.Get(UiText, "That picture could not be read. Choose a PNG, JPEG, BMP or WebP file."));
             return;
         }
 

@@ -76,7 +76,7 @@ public sealed partial class DocumentMenuView : ReactiveUI.Avalonia.ReactiveUserC
             return;
         }
 
-        var file = await storage.SaveFilePickerAsync(new() { Title = "Save a Copy", SuggestedFileName = context.Input, DefaultExtension = "pdf" });
+        var file = await storage.SaveFilePickerAsync(new() { Title = UiText.Get("Save a Copy"), SuggestedFileName = context.Input, DefaultExtension = "pdf" });
         context.SetOutput(file?.TryGetLocalPath());
     }
 }

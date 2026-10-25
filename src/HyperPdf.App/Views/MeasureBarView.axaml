@@ -1,53 +1,53 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.MeasureBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (MeasureBarView.axaml.cs). -->
   <!-- Measuring: shown only while measuring. Click points on the page; double-click or Enter finishes, Esc clears. -->
-  <Border x:Name="MeasureBar" Classes="toolbar subbar" AutomationProperties.Name="Measure tools" AutomationProperties.ControlTypeOverride="ToolBar">
+  <Border x:Name="MeasureBar" Classes="toolbar subbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Measure tools&quot;}" AutomationProperties.ControlTypeOverride="ToolBar">
     <Grid ColumnDefinitions="*,Auto">
       <WrapPanel Orientation="Horizontal">
-        <ToggleButton AutomationProperties.Name="Distance" x:Name="DistanceTool" views:ControlHelp.Text="{x:Static help:Descriptions.Distance}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Distance&quot;}" x:Name="DistanceTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Click two points on the page to measure the distance between them.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconRuler}" />
-            <TextBlock Classes="label" Text="Distance" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Distance&quot;}" />
           </StackPanel>
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Perimeter" x:Name="PerimeterTool" views:ControlHelp.Text="{x:Static help:Descriptions.Perimeter}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Perimeter&quot;}" x:Name="PerimeterTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Click points along a path to measure its length. Double-click to finish.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconPerimeter}" />
-            <TextBlock Classes="label" Text="Perimeter" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Perimeter&quot;}" />
           </StackPanel>
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Area" x:Name="AreaTool" views:ControlHelp.Text="{x:Static help:Descriptions.Area}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Area&quot;}" x:Name="AreaTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Click the corners of a shape to measure its area. Double-click to finish.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconArea}" />
-            <TextBlock Classes="label" Text="Area" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Area&quot;}" />
           </StackPanel>
         </ToggleButton>
         <Rectangle Classes="separator" />
-        <TextBlock x:Name="ScaleLabel" Classes="secondary" Text="Scale" VerticalAlignment="Center" Margin="4,0,6,0" />
-        <TextBox x:Name="ScaleBox" views:ControlHelp.Text="{x:Static help:Descriptions.MeasureScale}" AutomationProperties.Name="Measuring scale" Width="130" Height="30" MinHeight="30" VerticalAlignment="Center"
+        <TextBlock TextWrapping="Wrap" x:Name="ScaleLabel" Classes="secondary" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Scale&quot;}" VerticalAlignment="Center" Margin="4,0,6,0" />
+        <TextBox x:Name="ScaleBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type how the page relates to real size, such as 1 cm = 2 m or 1:100.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Measuring scale&quot;}" Width="130" Height="30" MinHeight="30" VerticalAlignment="Center"
                  VerticalContentAlignment="Center" />
         <TextBlock x:Name="MeasureResult" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="12,0" FontWeight="SemiBold" />
       </WrapPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal">
-        <Button AutomationProperties.Name="Keep on page" x:Name="MeasureKeepButton" views:ControlHelp.Text="{x:Static help:Descriptions.MeasureKeep}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Keep on page&quot;}" x:Name="MeasureKeepButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Keep the finished measurement on the page as an annotation.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon add" Data="{StaticResource IconAdd}" />
-            <TextBlock Classes="label" Text="Keep" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Keep&quot;}" />
           </StackPanel>
         </Button>
-        <Button AutomationProperties.Name="Clear measurement" x:Name="MeasureClearButton" views:ControlHelp.Text="{x:Static help:Descriptions.MeasureClear}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Clear measurement&quot;}" x:Name="MeasureClearButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Clear the measurement you are making. Shortcut: Esc&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconClose}" />
-            <TextBlock Classes="label" Text="Clear" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Clear&quot;}" />
           </StackPanel>
         </Button>
-        <Button AutomationProperties.Name="Done measuring" x:Name="MeasureDoneButton" views:ControlHelp.Text="{x:Static help:Descriptions.MeasureDone}" Classes="tool">
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Done measuring&quot;}" x:Name="MeasureDoneButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Put the measuring tools away.&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconDone}" />
-            <TextBlock Classes="label" Text="Done" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Done&quot;}" />
           </StackPanel>
         </Button>
       </StackPanel>

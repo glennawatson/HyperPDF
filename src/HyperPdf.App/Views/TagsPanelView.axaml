@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.TagsPanelView">
@@ -10,23 +10,23 @@
   -->
   <DockPanel x:Name="TagsPanel">
     <StackPanel DockPanel.Dock="Top" Margin="8,4,8,4" Spacing="4">
-      <TextBlock Classes="secondary" TextWrapping="Wrap" Text="Tags tell a screen reader how this document reads. Choose a tag to change it." />
-      <Button x:Name="CheckButton" Content="Check Accessibility" AutomationProperties.Name="Check accessibility" views:ControlHelp.Text="{x:Static help:Descriptions.CheckTags}" HorizontalAlignment="Stretch" />
+      <TextBlock Classes="secondary" TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tags tell a screen reader how this document reads. Choose a tag to change it.&quot;}" />
+      <Button x:Name="CheckButton" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Check Accessibility&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Check accessibility&quot;}" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Look for things a screen reader would struggle with, such as a picture with no description.&quot;}" HorizontalAlignment="Stretch" />
       <TextBlock x:Name="SummaryText" Classes="secondary" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-      <ListBox x:Name="ProblemList" MaxHeight="120" AutomationProperties.Name="Things to look at" Background="Transparent" />
+      <ListBox x:Name="ProblemList" MaxHeight="120" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Things to look at&quot;}" Background="Transparent" />
     </StackPanel>
-    <ScrollViewer x:Name="FormScroll" DockPanel.Dock="Bottom" MaxHeight="360" AutomationProperties.Name="Change the chosen tag">
+    <ScrollViewer x:Name="FormScroll" DockPanel.Dock="Bottom" MaxHeight="360" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Change the chosen tag&quot;}">
       <StackPanel Margin="8" Spacing="4">
         <views:TagFormView x:Name="TagForm" />
         <views:TagOrderView x:Name="TagOrder" />
         <views:TagRoleMapView x:Name="TagRoleMap" />
-        <TextBlock x:Name="KeysText" Classes="secondary" TextWrapping="Wrap" Text="Keys: Ctrl+Shift+Up or Down reads earlier or later. Ctrl+Shift+Right nests. Ctrl+Shift+Left un-nests. Delete removes an empty tag." />
-        <TextBlock x:Name="StatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="Result of the last change" />
+        <TextBlock x:Name="KeysText" Classes="secondary" TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Keys: Ctrl+Shift+Up or Down reads earlier or later. Ctrl+Shift+Right nests. Ctrl+Shift+Left un-nests. Delete removes an empty tag.&quot;}" />
+        <TextBlock x:Name="StatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Result of the last change&quot;}" />
       </StackPanel>
     </ScrollViewer>
     <Panel>
-      <ListBox x:Name="TagList" AutomationProperties.Name="Tags" Background="Transparent" />
-      <TextBlock x:Name="UntaggedText" Classes="secondary" Margin="12" TextWrapping="Wrap" Text="This document has no tags, so a screen reader reads its text in the order it was drawn." />
+      <ListBox x:Name="TagList" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tags&quot;}" Background="Transparent" />
+      <TextBlock x:Name="UntaggedText" Classes="secondary" Margin="12" TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;This document has no tags, so a screen reader reads its text in the order it was drawn.&quot;}" />
     </Panel>
   </DockPanel>
 </UserControl>

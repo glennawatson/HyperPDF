@@ -11,11 +11,11 @@ namespace HyperPdf.ViewModels.Sidebar;
 /// <summary>Words for the layers panel: the visible notes on a layer and how a screen reader says an entry.</summary>
 internal static class LayerText
 {
-    /// <summary>The note on a locked layer.</summary>
-    internal const string LockedNote = "Locked";
-
     /// <summary>The percentage points in a magnification of 1.</summary>
     private const double PercentPerUnit = 100;
+
+    /// <summary>Gets the note on a locked layer.</summary>
+    internal static string LockedNote => UiText.Get("Locked");
 
     /// <summary>Writes the visible note for a layer: that it is locked, and when the file shows it automatically by zoom.</summary>
     /// <param name="layer">The layer.</param>
@@ -29,7 +29,7 @@ internal static class LayerText
             return zoom;
         }
 
-        return zoom.Length == 0 ? LockedNote : string.Create(CultureInfo.CurrentCulture, $"{LockedNote}. {zoom}");
+        return zoom.Length == 0 ? LockedNote : $"{LockedNote}. {zoom}";
     }
 
     /// <summary>Writes a zoom range in words.</summary>
@@ -42,12 +42,14 @@ internal static class LayerText
         var high = Percent(max);
         if (min > 0 && !double.IsPositiveInfinity(max))
         {
-            return string.Create(CultureInfo.CurrentCulture, $"Shown from {low} up to {high} zoom");
+            return UiText.Format("Shown from {0} up to {1} zoom", low, high);
         }
 
         return min > 0
-            ? string.Create(CultureInfo.CurrentCulture, $"Shown from {low} zoom")
-            : string.Create(CultureInfo.CurrentCulture, $"Shown below {high} zoom");
+            ? UiText.Format(
+            "Shown from {0} zoom",
+            low)
+            : UiText.Format("Shown below {0} zoom", high);
     }
 
     /// <summary>Says an entry as a screen reader should: its name, then that it is a group, locked, or limited by zoom.</summary>
@@ -58,10 +60,10 @@ internal static class LayerText
     /// <returns>The spoken name.</returns>
     internal static string Speak(string name, bool isLabel, string note, int children)
     {
-        var kind = isLabel ? " group" : string.Empty;
-        var detail = note.Length > 0 ? string.Create(CultureInfo.CurrentCulture, $", {note}") : string.Empty;
-        var count = children > 0 ? string.Create(CultureInfo.CurrentCulture, $", {children} sublayers") : string.Empty;
-        return string.Create(CultureInfo.CurrentCulture, $"{name}{kind}{detail}{count}");
+        var kind = isLabel ? UiText.Get(" group") : string.Empty;
+        var detail = note.Length > 0 ? $", {note}" : string.Empty;
+        var count = children > 0 ? UiText.Format(", {0} sublayers", children) : string.Empty;
+        return $"{name}{kind}{detail}{count}";
     }
 
     /// <summary>Formats a magnification as a percentage.</summary>

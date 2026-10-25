@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
@@ -27,9 +26,10 @@ public sealed partial class TabFinderView : ReactiveUI.Avalonia.ReactiveUserCont
         var viewModels = this.WhenChanged(static v => v.ViewModel);
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(ItemAutomation.NameItems(TabFinderList));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasTabs, static v => v.TabFinderButton.IsVisible));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Tabs.Count, static v => v.TabCountText.Text, static count => string.Create(CultureInfo.CurrentCulture, $"Tabs {count}")));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Tabs.Count, static v => v.TabCountText.Text, static count => UiText.Format("Tabs {0}", count)));
             disposables.Add(this.Bind(ViewModel, static vm => vm.TabQuery, static v => v.TabFinderBox.Text, static query => query, static text => text ?? string.Empty));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FoundTabs, static v => v.TabFinderList.ItemsSource));
 
@@ -62,5 +62,16 @@ public sealed partial class TabFinderView : ReactiveUI.Avalonia.ReactiveUserCont
                 .WhereWith(this, static (view, _) => view.TabFinderButton.Flyout is { IsOpen: false })
                 .SubscribeSafe(_ => TabFinderButton.Flyout!.ShowAt(TabFinderButton), ErrorTrace.Write));
         });
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        TabCountText.Text = UiText.Format("Tabs {0}", model.Tabs.Count);
     }
 }

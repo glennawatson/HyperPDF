@@ -20,16 +20,10 @@ namespace HyperPdf.ViewModels.Output;
 /// is written to a temporary file and moved into place only once it is complete and meets the level.
 /// </summary>
 [DebuggerDisplay("ArchiveCopyViewModel: {FileName}")]
-public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRequest
+public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRequest, ILocalisationChildren
 {
     /// <summary>The ending of the temporary file the copy is written to.</summary>
     private const string TemporarySuffix = ".archiving";
-
-    /// <summary>Why a chosen destination was refused.</summary>
-    private const string OverwriteMessage = "That would replace the file you have open. Choose a different name for the copy.";
-
-    /// <summary>The status shown before anything has happened.</summary>
-    private const string ReadyStatus = "Ready. Choose a level, then Save a Copy.";
 
     /// <summary>The index of the suggested level, PDF/A-2b.</summary>
     private const int SuggestedLevel = 1;
@@ -52,6 +46,15 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
     /// <summary>Owns the run in progress until the window closes.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
+    /// <summary>The completed report and destination retained for language changes.</summary>
+    private (ArchiveCopyResult Report, string Path)? _resultDescription;
+
+    /// <summary>The resource identity of the displayed StatusText.</summary>
+    private LocalizedMessage _localizedStatusText = LocalizedMessage.Get(UiText, "Ready. Choose a level, then Save a Copy.");
+
+    /// <summary>The resource identity of the displayed Error.</summary>
+    private LocalizedMessage _localizedError;
+
     /// <summary>Initializes a new instance of the <see cref="ArchiveCopyViewModel"/> class.</summary>
     /// <param name="writer">The open document's PDF/A copy writer.</param>
     /// <param name="sourcePath">The path of the open document.</param>
@@ -71,8 +74,15 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
     /// <summary>Gets the level choices, oldest first, with PDF/A-2b suggested.</summary>
     public IReadOnlyList<ArchiveLevelChoice> Levels { get; } =
     [
-        new(ArchiveLevel.PdfA1B, "PDF/A-1b", "The oldest level. Use it only when a system asks for PDF/A-1. It does not allow see-through effects or attached files."),
-        new(ArchiveLevel.PdfA2B, "PDF/A-2b (suggested)", "The pages will look the same in years to come. Allows see-through effects and layers. Best for most files."),
+
+        new(
+            ArchiveLevel.PdfA1B,
+            "PDF/A-1b",
+            "The oldest level. Use it only when a system asks for PDF/A-1. It does not allow see-through effects or attached files."),
+        new(
+            ArchiveLevel.PdfA2B,
+            "PDF/A-2b (suggested)",
+            "The pages will look the same in years to come. Allows see-through effects and layers. Best for most files."),
         new(ArchiveLevel.PdfA2U, "PDF/A-2u", "As PDF/A-2b, and all text can be searched and copied."),
         new(ArchiveLevel.PdfA2A, "PDF/A-2a", "As PDF/A-2u, and the file must have a reading structure (tags) for screen readers."),
         new(ArchiveLevel.PdfA3B, "PDF/A-3b", "As PDF/A-2b, and any kind of file may be attached."),
@@ -80,7 +90,7 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
         new(ArchiveLevel.PdfA3A, "PDF/A-3a", "As PDF/A-3u, and the file must have a reading structure (tags) for screen readers."),
         new(ArchiveLevel.PdfA4, "PDF/A-4", "The newest level, based on PDF 2.0. Attached files must also be PDF/A."),
         new(ArchiveLevel.PdfA4E, "PDF/A-4e", "PDF/A-4 for engineering files, which may hold 3D models."),
-        new(ArchiveLevel.PdfA4F, "PDF/A-4f", "PDF/A-4 with attached files of any kind."),
+        new(ArchiveLevel.PdfA4F, "PDF/A-4f", "PDF/A-4 with attached files of any kind.")
     ];
 
     /// <summary>Gets the name of the open document.</summary>
@@ -102,12 +112,10 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
     public partial double ProgressPercent { get; private set; }
 
     /// <summary>Gets what the run is doing now, or how it ended.</summary>
-    [Reactive]
-    public partial string StatusText { get; private set; } = ReadyStatus;
+    public string StatusText { get => _localizedStatusText.Value ?? string.Empty; private set => SetStatusText(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets what went wrong, or <see langword="null"/>.</summary>
-    [Reactive]
-    public partial string? Error { get; private set; }
+    public string? Error { get => _localizedError.Value; private set => SetError(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the plain-words summary of the last finished run; empty before one finishes.</summary>
     [Reactive]
@@ -134,6 +142,25 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <summary>Sets the displayed StatusText while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetStatusText(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedStatusText, message, nameof(StatusText));
+
+    /// <summary>Sets the displayed Error while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetError(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedError, message, nameof(Error));
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        RefreshResultText();
+        this.RaisePropertyChanged(nameof(StatusText));
+        this.RaisePropertyChanged(nameof(Error));
+        LocalisationRefresh.RefreshCore(Levels, visited);
+    }
 
     /// <summary>Determines whether two paths name the same file.</summary>
     /// <param name="first">The first path.</param>
@@ -178,7 +205,7 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
     [ReactiveCommand(CanExecute = nameof(_canSave))]
     private async Task SaveAsync()
     {
-        Error = null;
+        SetError(LocalizedMessage.Literal(null));
         var path = await SaveInteraction.Handle(SuggestedName).ToTask().ConfigureAwait(true);
         if (string.IsNullOrEmpty(path))
         {
@@ -187,7 +214,7 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
 
         if (IsSameFile(path, _sourcePath))
         {
-            Error = OverwriteMessage;
+            SetError(LocalizedMessage.Get(UiText, "That would replace the file you have open. Choose a different name for the copy."));
             return;
         }
 
@@ -195,20 +222,21 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
         Run = run;
         IsRunning = true;
         ProgressPercent = 0;
+        _resultDescription = null;
         ResultText = string.Empty;
-        StatusText = $"Making a {ArchiveText.Label(Level)} copy. This can take a while for long files.";
+        SetStatusText(LocalizedMessage.Format(UiText, "Making a {0} copy. This can take a while for long files.", ArchiveText.Label(Level)));
         try
         {
             ShowResult(await WriteAsync(path, run.Token).ConfigureAwait(true), path);
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Cancelled. No file was saved.";
+            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
         }
         catch (Exception ex) when (CopyFailure.IsExpected(ex))
         {
-            Error = $"Could not save the copy: {CopyFailure.Describe(ex)}";
-            StatusText = "The copy was not saved.";
+            SetError(LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(ex)));
+            SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
         }
         finally
         {
@@ -263,7 +291,20 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
         Result = result;
         SavedPath = result.Converted ? path : null;
         ProgressPercent = result.Converted ? FullBar : 0;
-        StatusText = result.Converted ? "Done. The copy is saved." : "The copy could not be made. See the reasons below.";
+        SetStatusText(result.Converted ? LocalizedMessage.Get(UiText, "Done. The copy is saved.") : LocalizedMessage.Get(UiText, "The copy could not be made. See the reasons below."));
+        _resultDescription = (result, path);
+        RefreshResultText();
+    }
+
+    /// <summary>Rewords the retained report without repeating the operation.</summary>
+    private void RefreshResultText()
+    {
+        if (_resultDescription is not { } description)
+        {
+            return;
+        }
+
+        var(result, path) = description;
         ResultText = OptimizeReportText.Join(ArchiveText.Lines(result, path));
     }
 }

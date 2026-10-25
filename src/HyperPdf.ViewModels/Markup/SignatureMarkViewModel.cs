@@ -21,11 +21,8 @@ namespace HyperPdf.ViewModels.Markup;
 /// whether the mark is remembered on this computer, and can forget a remembered one.
 /// </summary>
 [DebuggerDisplay("SignatureMarkViewModel: {Kind}: {Style}")]
-public sealed partial class SignatureMarkViewModel : ReactiveObject, IDisposable
+public sealed partial class SignatureMarkViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
-    /// <summary>The name shown for a remembered picture.</summary>
-    private const string SavedPictureName = "Remembered picture";
-
     /// <summary>The drawn points so far, stroke after stroke.</summary>
     private readonly List<PagePoint> _points = [];
 
@@ -72,7 +69,12 @@ public sealed partial class SignatureMarkViewModel : ReactiveObject, IDisposable
         }
 
         _imageMarkHelper = this.WhenChanged(static vm => vm.SourceImage, static vm => vm.RemovePaper, PrepareImage).ToProperty(this, static vm => vm.ImageMark);
-        _previewHelper = this.WhenChanged(static vm => vm.Style, static vm => vm.Text, static vm => vm.Drawing, static vm => vm.ImageMark, Choose)
+        _previewHelper = this.WhenChanged(
+            static vm => vm.Style,
+            static vm => vm.Text,
+            static vm => vm.Drawing,
+            static vm => vm.ImageMark,
+            Choose)
             .ToProperty(this, static vm => vm.Preview);
         _subscriptions.Add(_imageMarkHelper);
         _subscriptions.Add(_previewHelper);
@@ -85,13 +87,13 @@ public sealed partial class SignatureMarkViewModel : ReactiveObject, IDisposable
     public SignatureMarkKind Kind { get; }
 
     /// <summary>Gets the window title.</summary>
-    public string Title => Kind == SignatureMarkKind.Initials ? "Your Initials" : "Your Signature";
+    public string Title => Kind == SignatureMarkKind.Initials ? UiText.Get("Your Initials") : UiText.Get("Your Signature");
 
     /// <summary>Gets the label of the box the mark is typed in.</summary>
-    public string TextLabel => Kind == SignatureMarkKind.Initials ? "Your initials" : "Your name, as you sign it";
+    public string TextLabel => Kind == SignatureMarkKind.Initials ? UiText.Get("Your initials") : UiText.Get("Your name, as you sign it");
 
     /// <summary>Gets the label of the button that uses the mark.</summary>
-    public string UseText => Kind == SignatureMarkKind.Initials ? "Use Initials" : "Use Signature";
+    public string UseText => Kind == SignatureMarkKind.Initials ? UiText.Get("Use Initials") : UiText.Get("Use Signature");
 
     /// <summary>Gets or sets how the mark is made.</summary>
     [Reactive(nameof(IsTyped), nameof(IsDrawn), nameof(IsImage))]
@@ -167,13 +169,16 @@ public sealed partial class SignatureMarkViewModel : ReactiveObject, IDisposable
     public SignatureMark? Result =>
         Choose(Style, Text, Drawing, Style == SignatureMarkStyle.Image ? PrepareImage(SourceImage, RemovePaper) : null) is { } mark ? mark with { Kind = Kind } : null;
 
+    /// <summary>Gets the name shown for a remembered picture.</summary>
+    private static string SavedPictureName => UiText.Get("Remembered picture");
+
     /// <summary>Uses a picture already read from a file.</summary>
     /// <param name="image">The picture, or <see langword="null"/> when the file could not be read.</param>
     public void UseImage(DecodedImage? image)
     {
         if (image is null)
         {
-            ImageError = "This file could not be read as a picture. Choose a PNG, JPEG, BMP or WebP file.";
+            ImageError = UiText.Get("This file could not be read as a picture. Choose a PNG, JPEG, BMP or WebP file.");
             return;
         }
 
@@ -186,13 +191,23 @@ public sealed partial class SignatureMarkViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
 
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(Title));
+        this.RaisePropertyChanged(nameof(TextLabel));
+        this.RaisePropertyChanged(nameof(UseText));
+    }
+
     /// <summary>Prepares a picture: removes white paper when asked and trims empty margins.</summary>
     /// <param name="image">The picture.</param>
     /// <param name="removePaper">Whether white paper becomes transparent.</param>
     /// <returns>The mark, or <see langword="null"/> when there is no picture or nothing visible in it.</returns>
     private static SignatureMark? PrepareImage(DecodedImage? image, bool removePaper) =>
         image is not null && SignatureImage.Create(image.Pixels.Span, image.Width, image.Height, removePaper) is { } prepared
-            ? SignatureMark.FromImage(SignatureMarkKind.Signature, prepared)
+            ? SignatureMark.FromImage(
+        SignatureMarkKind.Signature,
+        prepared)
             : null;
 
     /// <summary>Picks the mark for the chosen style.</summary>

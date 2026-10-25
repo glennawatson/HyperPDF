@@ -38,6 +38,7 @@ public static class Program
     {
         ArgumentNullException.ThrowIfNull(args);
         _ = LegacyDataFolders.MoveAll();
+        LanguagePreferences.Apply(args);
         if (Array.IndexOf(args, TextRecognitionCheck.Argument) >= 0)
         {
             return TextRecognitionCheck.Run(Console.Out);
@@ -103,8 +104,15 @@ public static class Program
     private static List<string> NormalizeArguments(string[] args)
     {
         var documents = new List<string>(args.Length);
-        foreach (var arg in args)
+        for (var index = 0; index < args.Length; index++)
         {
+            var arg = args[index];
+            if (arg == InterfaceCulture.LanguageArgument)
+            {
+                index++;
+                continue;
+            }
+
             if (string.IsNullOrWhiteSpace(arg) || arg.StartsWith("--", StringComparison.Ordinal))
             {
                 continue;

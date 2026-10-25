@@ -1,14 +1,14 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.AttachmentsPanelView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AttachmentsPanelView.axaml.cs). -->
   <Grid x:Name="AttachmentsPanel" RowDefinitions="Auto,*,Auto">
-    <TextBlock x:Name="PortfolioHeading" Margin="8,6" TextWrapping="Wrap" Classes="secondary" FontSize="11" AutomationProperties.Name="Portfolio" />
-    <ListBox x:Name="AttachmentList" Grid.Row="1" AutomationProperties.Name="Attachments" Background="Transparent" />
+    <TextBlock x:Name="PortfolioHeading" Margin="8,6" TextWrapping="Wrap" Classes="secondary" FontSize="11" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Portfolio&quot;}" />
+    <ListBox x:Name="AttachmentList" Grid.Row="1" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Attachments&quot;}" Background="Transparent" />
     <StackPanel Grid.Row="2" Margin="8" Spacing="6">
-      <Button x:Name="OpenAttachmentButton" views:ControlHelp.Text="{x:Static help:Descriptions.OpenAttachment}" HorizontalAlignment="Stretch" Content="Open Attachment" />
-      <Button x:Name="SaveAttachmentButton" views:ControlHelp.Text="{x:Static help:Descriptions.SaveAttachment}" HorizontalAlignment="Stretch" Content="Save Attachment…" />
+      <Button x:Name="OpenAttachmentButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open the chosen attached file. A PDF opens in a new tab; other files open in their own app after you agree. Programs are never started.&quot;}" HorizontalAlignment="Stretch" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open Attachment&quot;}" />
+      <Button x:Name="SaveAttachmentButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save the chosen attachment as a file.&quot;}" HorizontalAlignment="Stretch" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save Attachment…&quot;}" />
     </StackPanel>
   </Grid>
 </UserControl>

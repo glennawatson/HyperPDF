@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
 using HyperPdf.Core.Archiving;
 
 namespace HyperPdf.ViewModels.Output;
@@ -40,10 +39,13 @@ internal static class ArchiveText
     internal static string ClaimRemovedNotice(ArchiveClaimRemoval removal)
     {
         ArgumentNullException.ThrowIfNull(removal);
-        var notice = $"This file no longer met {Label(removal.Level)}, so HyperPDF removed its PDF/A claim.";
+        var notice = UiText.Format("This file no longer met {0}, so HyperPDF removed its PDF/A claim.", Label(removal.Level));
         return removal.Reasons.Count > 0
-            ? $"{notice} It could not be fixed: {removal.Reasons[0]} Use Save PDF/A Copy to make a PDF/A version."
-            : $"{notice} Use Save PDF/A Copy to make a PDF/A version.";
+            ? UiText.Format(
+            "{0} It could not be fixed: {1} Use Save PDF/A Copy to make a PDF/A version.",
+            notice,
+            removal.Reasons[0])
+            : UiText.Format("{0} Use Save PDF/A Copy to make a PDF/A version.", notice);
     }
 
     /// <summary>Gets the note shown when a save fixed a file so it still meets its PDF/A level.</summary>
@@ -52,7 +54,7 @@ internal static class ArchiveText
     internal static string ClaimRepairedNotice(ArchiveClaimRepair repair)
     {
         ArgumentNullException.ThrowIfNull(repair);
-        var notice = $"HyperPDF fixed the saved file so it still meets {Label(repair.Level)}.";
+        var notice = UiText.Format("HyperPDF fixed the saved file so it still meets {0}.", Label(repair.Level));
         var shown = Math.Min(repair.Repairs.Count, ShownRepairs);
         if (shown == 0)
         {
@@ -68,7 +70,11 @@ internal static class ArchiveText
         var fixes = string.Join(' ', named);
         var more = repair.Repairs.Count - shown;
         return more > 0
-            ? string.Create(CultureInfo.CurrentCulture, $"{notice} {fixes} And {more} more fixes.")
+            ? UiText.Format(
+            "{0} {1} And {2} more fixes.",
+            notice,
+            fixes,
+            more)
             : $"{notice} {fixes}";
     }
 
@@ -82,7 +88,7 @@ internal static class ArchiveText
         var label = Label(result.Level);
         if (!result.Converted)
         {
-            var problems = new List<string>(result.Problems.Count + 1) { $"The copy could not be made as {label}, so no file was saved. Here is why:" };
+            var problems = new List<string>(result.Problems.Count + 1) { UiText.Format("The copy could not be made as {0}, so no file was saved. Here is why:", label) };
             foreach (var problem in result.Problems)
             {
                 problems.Add($"• {problem.Description}");
@@ -91,14 +97,14 @@ internal static class ArchiveText
             return [.. problems];
         }
 
-        var lines = new List<string>(result.Changes.Count + HeadingLines) { $"Saved as {Path.GetFileName(path)}. The copy meets {label}. Your open file was not changed." };
+        var lines = new List<string>(result.Changes.Count + HeadingLines) { UiText.Format("Saved as {0}. The copy meets {1}. Your open file was not changed.", Path.GetFileName(path), label) };
         if (result.Changes.Count == 0)
         {
-            lines.Add("Nothing needed to change.");
+            lines.Add(UiText.Get("Nothing needed to change."));
             return [.. lines];
         }
 
-        lines.Add("To meet the standard, the copy:");
+        lines.Add(UiText.Get("To meet the standard, the copy:"));
         foreach (var change in result.Changes)
         {
             lines.Add($"• {change.Description}");

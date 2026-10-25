@@ -82,7 +82,7 @@ public static class FormScriptRuns
     private static bool Accepted(in FormScriptOutcome outcome, out string message)
     {
         var accepted = !outcome.Completed || outcome.Accepted;
-        message = outcome.Message.Length > 0 ? outcome.Message : DefaultRefusal;
+        message = outcome.Message.Length > 0 ? outcome.Message : UiText.Get(DefaultRefusal);
         message = accepted ? string.Empty : message;
         return accepted;
     }

@@ -1,61 +1,61 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.ActionBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (ActionBarView.axaml.cs). -->
   <WrapPanel Orientation="Horizontal">
-    <Button AutomationProperties.Name="Save" x:Name="SaveButton" views:ControlHelp.Text="{x:Static help:Descriptions.Save}" Classes="tool">
+    <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save&quot;}" x:Name="SaveButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save your annotations and form entries to the file. Shortcut: Ctrl+S&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon add" Data="{StaticResource IconSave}" />
-        <TextBlock Classes="label" Text="Save" />
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save&quot;}" />
       </StackPanel>
     </Button>
-    <Button AutomationProperties.Name="Print" x:Name="PrintItem" views:ControlHelp.Text="{x:Static help:Descriptions.Print}" Classes="tool">
+    <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Print&quot;}" x:Name="PrintItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the pages and settings, then print. Shortcut: Ctrl+P&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon nav" Data="{StaticResource IconPrint}" />
-        <TextBlock Classes="label" Text="Print" />
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Print&quot;}" />
       </StackPanel>
     </Button>
-    <ToggleButton AutomationProperties.Name="Annotate" x:Name="AnnotateToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Annotate}" Classes="tool">
+    <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Annotate&quot;}" x:Name="AnnotateToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the tools to highlight, underline, draw, and add notes and text.&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon edit" Data="{StaticResource IconHighlight}" />
-        <TextBlock Classes="label" Text="Annotate" />
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Annotate&quot;}" />
       </StackPanel>
     </ToggleButton>
-    <ToggleButton AutomationProperties.Name="Fill &amp; Sign" x:Name="FillSignToggle" views:ControlHelp.Text="{x:Static help:Descriptions.FillSign}" Classes="tool">
+    <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fill &amp; Sign&quot;}" x:Name="FillSignToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the tools to fill in forms and sign the document.&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon edit" Data="{StaticResource IconFillSign}" />
-        <TextBlock Classes="label" Text="Fill &amp; Sign" />
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fill &amp; Sign&quot;}" />
       </StackPanel>
     </ToggleButton>
     <Rectangle Classes="separator" />
-    <ToggleButton AutomationProperties.Name="Find" x:Name="FindToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Find}" Classes="tool">
+    <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find&quot;}" x:Name="FindToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Search for words in this document. Shortcut: Ctrl+F&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon nav" Data="{StaticResource IconSearch}" />
-        <TextBlock Classes="label" Text="Find" />
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find&quot;}" />
       </StackPanel>
     </ToggleButton>
-    <ToggleButton AutomationProperties.Name="Focus" x:Name="FocusToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Focus}" Classes="tool">
+    <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Focus&quot;}" x:Name="FocusToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show only the text, in one calm column, without the page layout. Shortcut: Ctrl+4&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon nav" Data="{StaticResource IconFocus}" />
-        <TextBlock Classes="label" Text="Focus" />
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Focus&quot;}" />
       </StackPanel>
     </ToggleButton>
-    <ToggleButton AutomationProperties.Name="Read Aloud" x:Name="ReadAloudToggle" views:ControlHelp.Text="{x:Static help:Descriptions.ReadAloud}" Classes="tool">
+    <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Read Aloud&quot;}" x:Name="ReadAloudToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Read the document aloud, starting from this page. Shortcut: Ctrl+Shift+Y&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon nav" Data="{StaticResource IconSpeaker}" />
-        <TextBlock Classes="label" Text="Read Aloud" />
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Read Aloud&quot;}" />
       </StackPanel>
     </ToggleButton>
     <views:ViewMenuView />
     <views:DocumentMenuView x:Name="DocumentMenu" />
-    <Button x:Name="ToolsMenuButton" views:ControlHelp.Text="{x:Static help:Descriptions.ToolsMenu}" AutomationProperties.Name="Tools" Classes="tool" Content="Tools ▾">
+    <Button x:Name="ToolsMenuButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open the Tools menu to measure the page, copy an image of part of it or recognise scanned text.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tools&quot;}" Classes="tool" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tools ▾&quot;}">
       <Button.Flyout>
         <MenuFlyout Placement="BottomEdgeAlignedRight">
-          <MenuItem x:Name="MeasureItem" views:ControlHelp.Text="{x:Static help:Descriptions.Measure}" Header="_Measure" InputGesture="Ctrl+Shift+M" />
-          <MenuItem x:Name="SnapshotToolItem" views:ControlHelp.Text="{x:Static help:Descriptions.SnapshotTool}" Header="_Snapshot" ToggleType="CheckBox" />
-          <MenuItem x:Name="RecognizeTextItem" views:ControlHelp.Text="{x:Static help:Descriptions.RecognizeText}" Header="Recognise _Text" />
-          <MenuItem x:Name="RecognizeLanguageItem" views:ControlHelp.Text="{x:Static help:Descriptions.RecognizeTextInLanguage}" Header="Recognise Text in Another _Language…" />
+          <MenuItem x:Name="MeasureItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Measure distances, lengths and areas on the page. Shortcut: Ctrl+Shift+M&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Measure&quot;}" InputGesture="Ctrl+Shift+M" />
+          <MenuItem x:Name="SnapshotToolItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drag a box around part of a page to copy a sharp image of it. Press Esc to stop.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Snapshot&quot;}" ToggleType="CheckBox" />
+          <MenuItem x:Name="RecognizeTextItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find the words in scanned pages so you can search, select and hear them.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Recognise _Text&quot;}" />
+          <MenuItem x:Name="RecognizeLanguageItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the language a scanned document is written in, then find its words. Other languages download in one click.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Recognise Text in Another _Language…&quot;}" />
         </MenuFlyout>
       </Button.Flyout>
     </Button>

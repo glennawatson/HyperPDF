@@ -3,7 +3,7 @@
              xmlns:controls="using:HyperPdf.App.Controls"
              x:Class="HyperPdf.App.Views.ThumbnailItemView">
   <StackPanel Spacing="4">
-    <controls:PageThumbnail x:Name="Thumbnail" />
+    <controls:PageThumbnail x:Name="Thumbnail" FlowDirection="LeftToRight" />
     <TextBlock x:Name="LabelText" HorizontalAlignment="Center" Classes="secondary" />
   </StackPanel>
 </UserControl>

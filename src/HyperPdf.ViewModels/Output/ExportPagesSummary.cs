@@ -15,6 +15,14 @@ namespace HyperPdf.ViewModels.Output;
 [DebuggerDisplay("ExportPagesSummary: {Files} files")]
 internal sealed record ExportPagesSummary(int Files, int Skipped, int Approximated, string Path, string? Problem)
 {
+    /// <summary>Gets the retained reason an export was refused.</summary>
+    internal LocalizedMessage ProblemMessage { get; init; } = LocalizedMessage.Literal(Problem);
+
+    /// <summary>Makes a refused summary while retaining the message resource.</summary>
+    /// <param name="problem">The retained reason.</param>
+    /// <returns>The summary.</returns>
+    internal static ExportPagesSummary Refused(in LocalizedMessage problem) => new(0, 0, 0, string.Empty, problem.Value) { ProblemMessage = problem };
+
     /// <summary>Makes the summary of a run that stopped.</summary>
     /// <param name="problem">Why, in plain words.</param>
     /// <returns>The summary.</returns>

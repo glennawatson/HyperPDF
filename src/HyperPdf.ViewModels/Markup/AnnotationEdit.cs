@@ -18,9 +18,9 @@ public static class AnnotationEdit
     public static PageRect GetNextBounds(PageRect bounds, bool resizing, PagePoint anchor, PagePoint point) =>
         resizing
             ? PageRect.FromEdges(
-                Math.Min(anchor.X, point.X),
-                Math.Min(anchor.Y, point.Y),
-                Math.Max(anchor.X, point.X),
-                Math.Max(anchor.Y, point.Y))
+        Math.Min(anchor.X, point.X),
+        Math.Min(anchor.Y, point.Y),
+        Math.Max(anchor.X, point.X),
+        Math.Max(anchor.Y, point.Y))
             : bounds with { Left = bounds.Left + (point.X - anchor.X), Top = bounds.Top + (point.Y - anchor.Y) };
 }

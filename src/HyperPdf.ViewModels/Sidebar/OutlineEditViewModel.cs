@@ -19,7 +19,7 @@ namespace HyperPdf.ViewModels.Sidebar;
 /// history, so the page edit Undo also takes it back. The result of each edit is written in <see cref="Status"/> for screen readers.
 /// </summary>
 [DebuggerDisplay("OutlineEditViewModel: {Status}")]
-public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
+public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The index that appends.</summary>
     private const int Append = -1;
@@ -66,8 +66,15 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
         var lifetime = new CancellationDisposable();
         _lifetime = lifetime.Token;
         _subscriptions.Add(lifetime);
-        _subscriptions.Add(owner.WhenChanged(static tab => tab.SelectedOutlineItem, static tab => tab.Outline, static tab => tab.IsLoaded, static (_, _, _) => RxVoid.Default)
-            .SubscribeSafe(_ => RefreshState(), ErrorTrace.Write));
+        _subscriptions.Add(
+            owner.WhenChanged(
+                static tab => tab.SelectedOutlineItem,
+                static tab => tab.Outline,
+                static tab => tab.IsLoaded,
+                static (
+                    _,
+                    _,
+                    _) => RxVoid.Default).SubscribeSafe(_ => RefreshState(), ErrorTrace.Write));
     }
 
     /// <summary>Gets a number that changes each time an edit has changed the bookmark list, so a view can restore the keyboard focus the new list took away.</summary>
@@ -112,6 +119,10 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
 
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => LocalisationRefresh.RefreshCore(_owner, visited);
+
     /// <summary>Finds an entry's place among its siblings.</summary>
     /// <param name="items">The entries at one level.</param>
     /// <param name="parentId">The object number of the level's parent; 0 for the top level.</param>
@@ -143,8 +154,13 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
     private async Task AddAsync()
     {
         var page = _owner.CurrentPageIndex;
-        var suggestion = string.Create(System.Globalization.CultureInfo.CurrentCulture, $"Page {_owner.GetPageDisplay(page)}");
-        var title = await PromptInteraction.Handle(new("Add Bookmark", "Title", suggestion, "Add Bookmark", false)).ToTask().ConfigureAwait(true);
+        var suggestion = UiText.Format("Page {0}", _owner.GetPageDisplay(page));
+        var title = await PromptInteraction.Handle(new(
+            LocalizedMessage.Get(UiText, "Add Bookmark"),
+            LocalizedMessage.Get(UiText, "Title"),
+            suggestion,
+            LocalizedMessage.Get(UiText, "Add Bookmark"),
+            false)).ToTask().ConfigureAwait(true);
         if (string.IsNullOrWhiteSpace(title))
         {
             return;
@@ -153,7 +169,7 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
         var parentId = _owner.SelectedOutlineItem?.Id ?? 0;
         await RunAsync(
             (editor, token) => editor.AddBookmarkAsync(parentId, Append, title, page, token),
-            $"Added bookmark {title}.",
+            UiText.Format("Added bookmark {0}.", title),
             _owner.SelectedOutlineItem?.Id ?? 0).ConfigureAwait(true);
     }
 
@@ -167,10 +183,15 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
             return;
         }
 
-        var title = await PromptInteraction.Handle(new("Rename Bookmark", "Title", item.Title, "Rename", false)).ToTask().ConfigureAwait(true);
+        var title = await PromptInteraction.Handle(new(
+            LocalizedMessage.Get(UiText, "Rename Bookmark"),
+            LocalizedMessage.Get(UiText, "Title"),
+            item.Title,
+            LocalizedMessage.Get(UiText, "Rename"),
+            false)).ToTask().ConfigureAwait(true);
         if (!string.IsNullOrWhiteSpace(title))
         {
-            await RunAsync((editor, token) => editor.RenameBookmarkAsync(item.Id, title, token), $"Renamed bookmark to {title}.", item.Id).ConfigureAwait(true);
+            await RunAsync((editor, token) => editor.RenameBookmarkAsync(item.Id, title, token), UiText.Format("Renamed bookmark to {0}.", title), item.Id).ConfigureAwait(true);
         }
     }
 
@@ -178,35 +199,57 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
     /// <returns>A task.</returns>
     [ReactiveCommand(CanExecute = nameof(_canChange))]
     private Task RemoveAsync() => _owner.SelectedOutlineItem is { } item
-        ? RunAsync((editor, token) => editor.RemoveBookmarkAsync(item.Id, token), $"Removed bookmark {item.Title}. Undo puts it back.", 0)
+        ? RunAsync(
+        (editor, token) => editor
+        .RemoveBookmarkAsync(item.Id, token),
+        UiText.Format("Removed bookmark {0}. Undo puts it back.", item.Title),
+        0)
         : Task.CompletedTask;
 
     /// <summary>Moves the selected bookmark above its previous sibling.</summary>
     /// <returns>A task.</returns>
     [ReactiveCommand(CanExecute = nameof(_canMoveUp))]
     private Task MoveUpAsync() => Place() is { } place && _owner.SelectedOutlineItem is { } item
-        ? RunAsync((editor, token) => editor.MoveBookmarkAsync(item.Id, place.ParentId, place.Index - 1, token), $"Moved {item.Title} up.", item.Id)
+        ? RunAsync(
+        (editor, token)
+        => editor.MoveBookmarkAsync(item.Id, place.ParentId, place.Index - 1, token),
+        UiText.Format("Moved {0} up.", item.Title),
+        item.Id)
         : Task.CompletedTask;
 
     /// <summary>Moves the selected bookmark below its next sibling.</summary>
     /// <returns>A task.</returns>
     [ReactiveCommand(CanExecute = nameof(_canMoveDown))]
     private Task MoveDownAsync() => Place() is { } place && _owner.SelectedOutlineItem is { } item
-        ? RunAsync((editor, token) => editor.MoveBookmarkAsync(item.Id, place.ParentId, place.Index + 1, token), $"Moved {item.Title} down.", item.Id)
+        ? RunAsync(
+        (
+            editor,
+            token) => editor.MoveBookmarkAsync(item.Id, place.ParentId, place.Index + 1, token),
+        UiText.Format("Moved {0} down.", item.Title),
+        item.Id)
         : Task.CompletedTask;
 
     /// <summary>Makes the selected bookmark the last child of the bookmark above it.</summary>
     /// <returns>A task.</returns>
     [ReactiveCommand(CanExecute = nameof(_canIndent))]
     private Task IndentAsync() => Place() is { } place && _owner.SelectedOutlineItem is { } item
-        ? RunAsync((editor, token) => editor.MoveBookmarkAsync(item.Id, place.PreviousId, Append, token), $"Moved {item.Title} into the bookmark above.", item.Id)
+        ? RunAsync(
+        (editor, token)
+        => editor.MoveBookmarkAsync(item.Id, place.PreviousId, Append, token),
+        UiText.Format("Moved {0} into the bookmark above.", item.Title),
+        item.Id)
         : Task.CompletedTask;
 
     /// <summary>Moves the selected bookmark out of its parent, to just after the parent.</summary>
     /// <returns>A task.</returns>
     [ReactiveCommand(CanExecute = nameof(_canOutdent))]
     private Task OutdentAsync() => Place() is { } place && _owner.SelectedOutlineItem is { } item
-        ? RunAsync((editor, token) => editor.MoveBookmarkAsync(item.Id, place.GrandParentId, place.ParentIndex + 1, token), $"Moved {item.Title} out of its parent.", item.Id)
+        ? RunAsync(
+        (
+            editor,
+            token) => editor.MoveBookmarkAsync(item.Id, place.GrandParentId, place.ParentIndex + 1, token),
+        UiText.Format("Moved {0} out of its parent.", item.Title),
+        item.Id)
         : Task.CompletedTask;
 
     /// <summary>Gets the selected bookmark's place in the tree.</summary>
@@ -235,7 +278,7 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable
                 EditVersion++;
             }
 
-            Status = result.Succeeded ? done : result.Problem ?? "The bookmarks could not be changed.";
+            Status = result.Succeeded ? done : result.Problem ?? UiText.Get("The bookmarks could not be changed.");
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {

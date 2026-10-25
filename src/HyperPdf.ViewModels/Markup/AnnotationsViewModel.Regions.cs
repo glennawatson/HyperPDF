@@ -130,7 +130,8 @@ public sealed partial class AnnotationsViewModel
     private async Task ReadRegionsAsync(IDocument document, int page)
     {
         await document.PreparePageAsync(page, CancellationToken.None).ConfigureAwait(true);
-        var found = await Task.Run(() =>
+        var found = await Task.Run(
+            () =>
         {
             // Captures the finder and the page: the read runs once per page, off the UI thread.
             var output = new List<FormRegion>();

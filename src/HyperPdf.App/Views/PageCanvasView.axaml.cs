@@ -110,7 +110,10 @@ public sealed partial class PageCanvasView : ReactiveUI.Avalonia.ReactiveUserCon
             return;
         }
 
-        ConfirmRequest request = new("Open File", $"Open {context.Input} in another app? Only open files you trust.", "Open File");
+        ConfirmRequest request = new(
+            LocalizedMessage.Get(UiText, "Open File"),
+            LocalizedMessage.Format(UiText, "Open {0} in another app? Only open files you trust.", context.Input),
+            LocalizedMessage.Get(UiText, "Open File"));
         context.SetOutput(await new ConfirmWindow { ViewModel = new(request) }.ShowDialog<bool>(owner));
     }
 
@@ -126,9 +129,9 @@ public sealed partial class PageCanvasView : ReactiveUI.Avalonia.ReactiveUserCon
         }
 
         ConfirmRequest request = new(
-            "Load Answers",
-            $"This form asks to load answers from {context.Input}. You choose the file next, and Undo takes the change back. Only load files you trust.",
-            "Choose File");
+            LocalizedMessage.Get(UiText, "Load Answers"),
+            LocalizedMessage.Format(UiText, "This form asks to load answers from {0}. You choose the file next, and Undo takes the change back. Only load files you trust.", context.Input),
+            LocalizedMessage.Get(UiText, "Choose File"));
         context.SetOutput(await new ConfirmWindow { ViewModel = new(request) }.ShowDialog<bool>(owner));
     }
 
@@ -145,9 +148,9 @@ public sealed partial class PageCanvasView : ReactiveUI.Avalonia.ReactiveUserCon
 
         var files = await storage.OpenFilePickerAsync(new()
         {
-            Title = $"Choose the Answers to Load ({context.Input})",
+            Title = UiText.Format("Choose the Answers to Load ({0})", context.Input),
             AllowMultiple = false,
-            FileTypeFilter = [new("Form data (.fdf, .xfdf)") { Patterns = ["*.fdf", "*.xfdf"] }],
+            FileTypeFilter = [new(UiText.Get("Form data (.fdf, .xfdf)")) { Patterns = ["*.fdf", "*.xfdf"] }],
         });
         context.SetOutput(files.Count > 0 ? files[0].TryGetLocalPath() : null);
     }

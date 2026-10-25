@@ -7,7 +7,11 @@ using System.Diagnostics;
 namespace HyperPdf.ViewModels.Markup;
 
 /// <summary>A named text colour offered by the text tool.</summary>
-/// <param name="Name">The display name.</param>
+/// <param name="NameKey">The display name.</param>
 /// <param name="Color">The colour value.</param>
 [DebuggerDisplay("{Name}: {Color}")]
-public readonly record struct TextColorOption(string Name, uint Color);
+public readonly record struct TextColorOption(string NameKey, uint Color)
+{
+    /// <summary>Gets the localized display text.</summary>
+    public string Name => UiText.Get(NameKey);
+}

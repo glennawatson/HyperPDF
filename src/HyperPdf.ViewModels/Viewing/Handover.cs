@@ -12,6 +12,7 @@ namespace HyperPdf.ViewModels.Viewing;
 /// <param name="value">The resource.</param>
 [DebuggerDisplay("Handover: {Value}")]
 internal sealed class Handover<T>(T value) : IDisposable
+
     where T : class, IDisposable
 {
     /// <summary>The resource, or <see langword="null"/> once handed over or released.</summary>

@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 
 namespace HyperPdf.ViewModels.Finding;
 
@@ -21,7 +20,7 @@ public sealed record FolderSearchResultViewModel(string Path, int PageIndex, str
     public bool IsMatch => PageIndex >= 0;
 
     /// <summary>Gets where the match is, such as "report.pdf, page 4".</summary>
-    public string Location => IsMatch ? string.Create(CultureInfo.CurrentCulture, $"{FileName}, page {PageIndex + 1}") : FileName;
+    public string Location => IsMatch ? UiText.Format("{0}, page {1}", FileName, PageIndex + 1) : FileName;
 
     /// <summary>Gets the line as a screen reader says it.</summary>
     public string SpokenText => $"{Location}: {Snippet}";

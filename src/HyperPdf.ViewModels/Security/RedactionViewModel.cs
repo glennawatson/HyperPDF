@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Redaction;
@@ -21,21 +20,10 @@ namespace HyperPdf.ViewModels.Security;
 /// overwritten and keeps its marks, so a cancel or a failure loses nothing.
 /// </summary>
 [DebuggerDisplay("RedactionViewModel: {FileName}, {AreaCount} areas")]
-public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequest
+public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequest, ILocalisationChildren
 {
     /// <summary>The ending of the temporary file the copy is written to.</summary>
     private const string TemporarySuffix = ".redacting";
-
-    /// <summary>Why a chosen destination was refused.</summary>
-    private const string OverwriteMessage = "That would replace the file you have open. Choose a different name for the redacted copy.";
-
-    /// <summary>The status shown before anything has happened.</summary>
-    private const string ReadyStatus = "Ready. Tick the box to confirm, then Apply and Save As.";
-
-    /// <summary>The warning shown above the confirmation.</summary>
-    private const string Warning =
-        "Redaction removes the marked text, pictures and drawings from the new file for good. "
-        + "After you save it, the removed content cannot be brought back. Your open file is not changed, so keep it if you may need the original.";
 
     /// <summary>The redactor the open document provides.</summary>
     private readonly IDocumentRedactor _redactor;
@@ -51,6 +39,15 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
 
     /// <summary>Owns the run in progress until the window closes.</summary>
     private readonly MultipleDisposable _subscriptions = [];
+
+    /// <summary>The completed report and destination retained for language changes.</summary>
+    private (RedactionReport Report, string Path)? _resultDescription;
+
+    /// <summary>The resource identity of the displayed StatusText.</summary>
+    private LocalizedMessage _localizedStatusText = LocalizedMessage.Get(UiText, "Ready. Tick the box to confirm, then Apply and Save As.");
+
+    /// <summary>The resource identity of the displayed Error.</summary>
+    private LocalizedMessage _localizedError;
 
     /// <summary>Initializes a new instance of the <see cref="RedactionViewModel"/> class.</summary>
     /// <param name="redactor">The open document's redactor.</param>
@@ -69,9 +66,17 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
         SelectedImage = ImageOptions[1];
         SelectedLineArt = LineArtOptions[1];
         Summary = areaCount == 0
-            ? "Nothing is marked. Use Mark Area to Redact or Mark Text to Redact first."
-            : string.Create(CultureInfo.CurrentCulture, $"{areaCount} marked {(areaCount == 1 ? "area" : "areas")} on {pageCount} {(pageCount == 1 ? "page" : "pages")} will be removed.");
-        SourceNote = hasUnsavedChanges ? "Marks and comments you have not saved yet are included in the redacted copy." : null;
+            ? UiText.Get("Nothing is marked. Use Mark Area to Redact or Mark Text to Redact first.")
+            : UiText.Format(
+            "{0} marked {1} on {2} {3} will be removed.",
+            areaCount,
+            (areaCount == 1
+                ? UiText.Get("area")
+                : UiText
+            .Get("areas")),
+            pageCount,
+            (pageCount == 1 ? UiText.Get("page") : UiText.Get("pages")));
+        SourceNote = hasUnsavedChanges ? UiText.Get("Marks and comments you have not saved yet are included in the redacted copy.") : null;
         _canApply = this.WhenChanged(static vm => vm.IsRunning, static vm => vm.Understands, static (running, understood) => !running && understood);
         _canCancel = this.WhenChanged(static vm => vm.IsRunning);
         _subscriptions.Add(this.WhenChanged(static vm => vm.Run).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
@@ -80,17 +85,22 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
     /// <summary>Gets the choices for pictures under a mark.</summary>
     public IReadOnlyList<RedactionImageOption> ImageOptions { get; } =
     [
+
         new(RedactionImageChoice.Keep, "Leave pictures alone", "Pictures are not changed, even under a mark."),
         new(RedactionImageChoice.BlankPart, "Blank the covered part", "Only the part of a picture under a mark is blanked. The rest of the picture stays."),
-        new(RedactionImageChoice.Remove, "Remove the whole picture", "A picture a mark touches is removed completely."),
+        new(RedactionImageChoice.Remove, "Remove the whole picture", "A picture a mark touches is removed completely.")
     ];
 
     /// <summary>Gets the choices for drawings under a mark.</summary>
     public IReadOnlyList<RedactionLineArtOption> LineArtOptions { get; } =
     [
+
         new(RedactionLineArtChoice.Keep, "Leave drawings alone", "Lines and shapes are not changed, even under a mark."),
         new(RedactionLineArtChoice.RemoveCovered, "Remove drawings that are fully covered", "A line or shape is removed only when a mark covers all of it."),
-        new(RedactionLineArtChoice.RemoveTouched, "Remove every drawing a mark touches", "Any line or shape a mark touches is removed, which can include backgrounds."),
+        new(
+            RedactionLineArtChoice.RemoveTouched,
+            "Remove every drawing a mark touches",
+            "Any line or shape a mark touches is removed, which can include backgrounds.")
     ];
 
     /// <summary>Gets the name of the open document.</summary>
@@ -140,12 +150,10 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
     public partial bool IsRunning { get; private set; }
 
     /// <summary>Gets what the run is doing now, or how it ended.</summary>
-    [Reactive]
-    public partial string StatusText { get; private set; } = ReadyStatus;
+    public string StatusText { get => _localizedStatusText.Value ?? string.Empty; private set => SetStatusText(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets what went wrong, or <see langword="null"/>.</summary>
-    [Reactive]
-    public partial string? Error { get; private set; }
+    public string? Error { get => _localizedError.Value; private set => SetError(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the plain-words summary of the last finished run; empty before one finishes.</summary>
     [Reactive]
@@ -161,10 +169,19 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
 
     /// <summary>Gets the settings the window currently describes.</summary>
     public RedactionSettings Settings =>
-        new(SelectedImage?.Choice ?? RedactionImageChoice.BlankPart, SelectedLineArt?.Choice ?? RedactionLineArtChoice.RemoveCovered, RemoveHiddenText, RemoveLinksAndComments, ScrubMetadata);
+        new(
+        SelectedImage?.Choice ?? RedactionImageChoice.BlankPart,
+        SelectedLineArt?.Choice ?? RedactionLineArtChoice.RemoveCovered,
+        RemoveHiddenText,
+        RemoveLinksAndComments,
+        ScrubMetadata);
 
     /// <summary>Gets the file name suggested for the copy.</summary>
     public string SuggestedName => $"{Path.GetFileNameWithoutExtension(FileName)} (redacted).pdf";
+
+    /// <summary>Gets the warning shown above the confirmation.</summary>
+    private static string Warning => UiText.Get("Redaction removes the marked text, pictures and drawings from the new file for good. ")
+        + UiText.Get("After you save it, the removed content cannot be brought back. Your open file is not changed, so keep it if you may need the " + "original.");
 
     /// <summary>Gets or sets the run in progress, which disposing cancels, or <see langword="null"/> when none is.</summary>
     [Reactive]
@@ -173,6 +190,27 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <summary>Sets the displayed StatusText while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetStatusText(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedStatusText, message, nameof(StatusText));
+
+    /// <summary>Sets the displayed Error while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetError(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedError, message, nameof(Error));
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        RefreshResultText();
+        this.RaisePropertyChanged(nameof(WarningText));
+        this.RaisePropertyChanged(nameof(StatusText));
+        this.RaisePropertyChanged(nameof(Error));
+        LocalisationRefresh.RefreshCore(ImageOptions, visited);
+        LocalisationRefresh.RefreshCore(LineArtOptions, visited);
+    }
 
     /// <summary>Determines whether two paths name the same file.</summary>
     /// <param name="first">The first path.</param>
@@ -217,10 +255,10 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
     [ReactiveCommand(CanExecute = nameof(_canApply))]
     private async Task ApplyAsync()
     {
-        Error = null;
+        SetError(LocalizedMessage.Literal(null));
         if (AreaCount == 0)
         {
-            Error = "Nothing is marked, so there is nothing to redact.";
+            SetError(LocalizedMessage.Get(UiText, "Nothing is marked, so there is nothing to redact."));
             return;
         }
 
@@ -232,15 +270,16 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
 
         if (IsSameFile(path, _sourcePath))
         {
-            Error = OverwriteMessage;
+            SetError(LocalizedMessage.Get(UiText, "That would replace the file you have open. Choose a different name for the redacted copy."));
             return;
         }
 
         var run = new CancellationDisposable();
         Run = run;
         IsRunning = true;
+        _resultDescription = null;
         ResultText = string.Empty;
-        StatusText = "Removing the marked content…";
+        SetStatusText(LocalizedMessage.Get(UiText, "Removing the marked content…"));
         try
         {
             var report = await WriteAsync(path, run.Token).ConfigureAwait(true);
@@ -248,12 +287,12 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Cancelled. No file was saved.";
+            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
         }
         catch (Exception ex) when (CopyFailure.IsExpected(ex))
         {
-            Error = $"Could not save the redacted copy: {CopyFailure.Describe(ex)}";
-            StatusText = "The redacted copy was not saved.";
+            SetError(LocalizedMessage.Format(UiText, "Could not save the redacted copy: {0}", CopyFailure.Message(ex)));
+            SetStatusText(LocalizedMessage.Get(UiText, "The redacted copy was not saved."));
         }
         finally
         {
@@ -300,12 +339,29 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
     {
         Report = report;
         SavedPath = path;
-        StatusText = "Done. The redacted copy is saved.";
-        var removed = string.Create(
-            CultureInfo.CurrentCulture,
-            $"Removed {report.Characters} text characters, {report.Pictures} pictures, {report.Drawings} drawings and {report.Annotations} links, comments or form fields from {report.Pages} pages.");
-        var saved = string.Create(CultureInfo.CurrentCulture, $"The redacted copy is saved as {path}. Your open file was not changed.");
-        const string check = "Open the copy and check it before you share it.";
+        SetStatusText(LocalizedMessage.Get(UiText, "Done. The redacted copy is saved."));
+        _resultDescription = (report, path);
+        RefreshResultText();
+    }
+
+    /// <summary>Rewords the retained report without repeating the operation.</summary>
+    private void RefreshResultText()
+    {
+        if (_resultDescription is not { } description)
+        {
+            return;
+        }
+
+        var(report, path) = description;
+        var removed = UiText.Format(
+            "Removed {0} text characters, {1} pictures, {2} drawings and {3} links, comments or form fields from {4} pages.",
+            report.Characters,
+            report.Pictures,
+            report.Drawings,
+            report.Annotations,
+            report.Pages);
+        var saved = UiText.Format("The redacted copy is saved as {0}. Your open file was not changed.", path);
+        var check = UiText.Get("Open the copy and check it before you share it.");
         ResultText = report switch
         {
             { ClaimRemoved: { } removal } => string.Join('\n', removed, saved, ArchiveText.ClaimRemovedNotice(removal), check),

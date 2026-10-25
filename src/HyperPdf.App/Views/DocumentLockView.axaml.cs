@@ -54,9 +54,9 @@ public sealed partial class DocumentLockView : ReactiveUI.Avalonia.ReactiveUserC
 
         var files = await owner.StorageProvider.OpenFilePickerAsync(new()
         {
-            Title = "Choose a Certificate",
+            Title = UiText.Get("Choose a Certificate"),
             AllowMultiple = false,
-            FileTypeFilter = [new("Certificates (.p12, .pfx)") { Patterns = ["*.p12", "*.pfx"] }],
+            FileTypeFilter = [new(UiText.Get("Certificates (.p12, .pfx)")) { Patterns = ["*.p12", "*.pfx"] }],
         });
         context.SetOutput(files.Count > 0 ? files[0].TryGetLocalPath() : null);
     }

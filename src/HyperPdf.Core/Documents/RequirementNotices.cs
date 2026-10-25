@@ -10,13 +10,13 @@ namespace HyperPdf.Core.Documents;
 public static class RequirementNotices
 {
     /// <summary>
-    /// What the viewer does with a document whose unmet penalties reach 100 (ISO 32000-2 §12.11.6 says processing shall
+    /// Gets what the viewer does with a document whose unmet penalties reach 100 (ISO 32000-2 §12.11.6 says processing shall
     /// not continue). The pages stay readable as a static copy; forms, buttons and actions are off.
     /// </summary>
-    public static readonly string StaticCopy = "HyperPDF shows the pages as a static copy and keeps forms, buttons and actions off.";
+    public static string StaticCopy => UiText.Get("HyperPDF shows the pages as a static copy and keeps forms, buttons and actions off.");
 
-    /// <summary>What the viewer does when the unmet requirements are optional.</summary>
-    public static readonly string UsesFallback = "Everything else works as usual.";
+    /// <summary>Gets what the viewer does when the unmet requirements are optional.</summary>
+    public static string UsesFallback => UiText.Get("Everything else works as usual.");
 
     /// <summary>Gets the notice for a report.</summary>
     /// <param name="report">The report.</param>
@@ -27,8 +27,8 @@ public static class RequirementNotices
         ArgumentNullException.ThrowIfNull(report);
         return report.Level switch
         {
-            RequirementLevel.Critical => $"{report.Summary} {StaticCopy}",
-            RequirementLevel.Fallback => $"{report.Summary} {UsesFallback}",
+            RequirementLevel.Critical => $"{report.LocalisedText?.Summary ?? UiText.Get(report.Summary)} {StaticCopy}",
+            RequirementLevel.Fallback => $"{report.LocalisedText?.Summary ?? UiText.Get(report.Summary)} {UsesFallback}",
             _ => null,
         };
     }
@@ -40,15 +40,16 @@ public static class RequirementNotices
     public static string? DescribeDetails(RequirementReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        if (report.Details.Count == 0)
+        var details = report.LocalisedText?.Details ?? report.Details;
+        if (details.Count == 0)
         {
             return null;
         }
 
         var builder = new StringBuilder();
-        foreach (var line in report.Details)
+        foreach (var line in details)
         {
-            _ = builder.AppendLine(line);
+            _ = builder.AppendLine(UiText.Get(line));
         }
 
         return builder.ToString().TrimEnd();

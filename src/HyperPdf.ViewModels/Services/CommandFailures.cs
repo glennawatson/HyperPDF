@@ -37,8 +37,8 @@ public static class CommandFailures
     {
         ArgumentNullException.ThrowIfNull(error);
         return CopyFailure.IsDocumentClosed(error)
-            ? "That action stopped because the document was closed or reloaded."
-            : $"That action did not finish: {error.Message}";
+            ? UiText.Get("That action stopped because the document was closed or reloaded.")
+            : UiText.Format("That action did not finish: {0}", error.Message);
     }
 
     /// <summary>Traces a failure and shows its plain words in the window, when there is one.</summary>

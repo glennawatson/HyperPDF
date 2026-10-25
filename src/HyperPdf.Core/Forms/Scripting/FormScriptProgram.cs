@@ -78,7 +78,7 @@ public sealed class FormScriptProgram
         }
         catch (SandboxException exception)
         {
-            host.Tell($"A script in this form was skipped. {exception.Message}");
+            host.Tell(UiText.Format("A script in this form was skipped. {0}", exception.Message));
             return new(false, input.Value, true, [exception.Message]);
         }
 

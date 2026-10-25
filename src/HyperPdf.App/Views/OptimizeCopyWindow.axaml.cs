@@ -23,12 +23,13 @@ public sealed partial class OptimizeCopyWindow : ReactiveUI.Avalonia.ReactiveWin
     public OptimizeCopyWindow()
     {
         InitializeComponent();
-        PresetList.ItemTemplate = new FuncDataTemplate<OptimizePresetChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
+        PresetList.ItemTemplate = new FuncDataTemplate<OptimizePresetChoice>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
         FieldLabels.Link((LanguageBox, LanguageLabel));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(ItemAutomation.NameItems(PresetList));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Save an optimised copy of {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => UiText.Format("Save an optimised copy of {0}", name)));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Presets, static v => v.PresetList.ItemsSource));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedPreset, static v => v.PresetList.SelectedItem, static choice => choice, static item => item as OptimizePresetChoice));
             disposables.Add(this.Bind(ViewModel, static vm => vm.FixAccessibility, static v => v.FixBox.IsChecked, static on => on, static on => on == true));
@@ -66,7 +67,18 @@ public sealed partial class OptimizeCopyWindow : ReactiveUI.Avalonia.ReactiveWin
     /// <returns>A task.</returns>
     private async Task SaveAsync(IInteractionContext<string, string?> context)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Save Optimised Copy", SuggestedFileName = context.Input, DefaultExtension = "pdf" });
+        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = UiText.Get("Save Optimised Copy"), SuggestedFileName = context.Input, DefaultExtension = "pdf" });
         context.SetOutput(file?.TryGetLocalPath());
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        HeadingText.Text = UiText.Format("Save an optimised copy of {0}", model.FileName);
     }
 }

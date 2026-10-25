@@ -1,14 +1,14 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.MainWindow"
-        Title="Hyper PDF Viewer" Width="1200" Height="850" MinWidth="480" MinHeight="320"
+        Width="1200" Height="850" MinWidth="480" MinHeight="320"
         Background="{DynamicResource AppWindowBackground}"
         DragDrop.AllowDrop="True">
   <!-- Layout only: bindings, commands and shortcuts are set up in code with ReactiveUI.Binding (MainWindow.axaml.cs). -->
   <Grid RowDefinitions="Auto,*,Auto">
     <!-- Tab strip. -->
-    <views:TabBarView x:Name="TabBar" AutomationProperties.Name="Tabs" AutomationProperties.LandmarkType="Navigation" />
+    <views:TabBarView x:Name="TabBar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tabs&quot;}" AutomationProperties.LandmarkType="Navigation" />
     <Panel Grid.Row="1">
       <views:StartView x:Name="StartPage" />
       <views:DocumentAreaView x:Name="DocumentArea" />

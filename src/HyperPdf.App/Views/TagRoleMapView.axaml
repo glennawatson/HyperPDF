@@ -1,16 +1,16 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.TagRoleMapView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (TagRoleMapView.axaml.cs). -->
   <StackPanel Spacing="4">
-    <TextBlock x:Name="RoleLabel" Text="Custom tag types" FontWeight="SemiBold" Margin="0,6,0,0" />
-    <ListBox x:Name="RoleList" MaxHeight="100" AutomationProperties.Name="Custom tag types and what they stand for" Background="Transparent" />
-    <Button x:Name="RemoveRoleButton" Margin="0,0,4,4" Content="Remove Custom Type" AutomationProperties.Name="Remove the chosen custom tag type" views:ControlHelp.Text="{x:Static help:Descriptions.RemoveRole}" />
-    <TextBlock x:Name="NewRoleLabel" Text="New custom tag type" FontWeight="SemiBold" Margin="0,6,0,0" />
-    <TextBox x:Name="NewRoleBox" AutomationProperties.Name="New custom tag type name" AutomationProperties.LabeledBy="{Binding #NewRoleLabel}" views:ControlHelp.Text="{x:Static help:Descriptions.NewRole}" />
-    <TextBlock x:Name="RoleTargetLabel" Text="It stands for" FontWeight="SemiBold" Margin="0,6,0,0" />
-    <ComboBox x:Name="RoleTargetBox" AutomationProperties.Name="Standard tag the custom type stands for" AutomationProperties.LabeledBy="{Binding #RoleTargetLabel}" views:ControlHelp.Text="{x:Static help:Descriptions.NewRole}" HorizontalAlignment="Stretch" />
-    <Button x:Name="AddRoleButton" Margin="0,0,4,4" Content="Add Custom Type" AutomationProperties.Name="Add the custom tag type" views:ControlHelp.Text="{x:Static help:Descriptions.NewRole}" />
+    <TextBlock TextWrapping="Wrap" x:Name="RoleLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Custom tag types&quot;}" FontWeight="SemiBold" Margin="0,6,0,0" />
+    <ListBox x:Name="RoleList" MaxHeight="100" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Custom tag types and what they stand for&quot;}" Background="Transparent" />
+    <Button x:Name="RemoveRoleButton" Margin="0,0,4,4" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove Custom Type&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove the chosen custom tag type&quot;}" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Take away the chosen custom tag type&apos;s meaning. It is refused while any tag still uses the type.&quot;}" />
+    <TextBlock TextWrapping="Wrap" x:Name="NewRoleLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;New custom tag type&quot;}" FontWeight="SemiBold" Margin="0,6,0,0" />
+    <TextBox x:Name="NewRoleBox" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;New custom tag type name&quot;}" AutomationProperties.LabeledBy="{Binding #NewRoleLabel}" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Name a custom tag type this document uses and choose the standard tag it stands for, so screen readers know what it means.&quot;}" />
+    <TextBlock TextWrapping="Wrap" x:Name="RoleTargetLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;It stands for&quot;}" FontWeight="SemiBold" Margin="0,6,0,0" />
+    <ComboBox x:Name="RoleTargetBox" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Standard tag the custom type stands for&quot;}" AutomationProperties.LabeledBy="{Binding #RoleTargetLabel}" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Name a custom tag type this document uses and choose the standard tag it stands for, so screen readers know what it means.&quot;}" HorizontalAlignment="Stretch" />
+    <Button x:Name="AddRoleButton" Margin="0,0,4,4" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Add Custom Type&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Add the custom tag type&quot;}" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Name a custom tag type this document uses and choose the standard tag it stands for, so screen readers know what it means.&quot;}" />
   </StackPanel>
 </UserControl>

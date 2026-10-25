@@ -52,7 +52,7 @@ public sealed partial class PageManagementView : ReactiveUI.Avalonia.ReactiveUse
             return;
         }
 
-        var files = await storage.OpenFilePickerAsync(new() { Title = "Insert or Merge PDFs", AllowMultiple = true, FileTypeFilter = [FilePickerFileTypes.Pdf] });
+        var files = await storage.OpenFilePickerAsync(new() { Title = UiText.Get("Insert or Merge PDFs"), AllowMultiple = true, FileTypeFilter = [FilePickerFileTypes.Pdf] });
         var paths = new List<string>(files.Count);
         foreach (var file in files)
         {
@@ -78,7 +78,7 @@ public sealed partial class PageManagementView : ReactiveUI.Avalonia.ReactiveUse
 
         var file = await storage.SaveFilePickerAsync(new()
         {
-            Title = "Extract Selected Pages",
+            Title = UiText.Get("Extract Selected Pages"),
             SuggestedFileName = context.Input,
             DefaultExtension = "pdf",
             FileTypeChoices = [FilePickerFileTypes.Pdf],

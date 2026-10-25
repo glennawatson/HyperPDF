@@ -16,6 +16,9 @@ public sealed record RequirementReport(RequirementLevel Level, string Summary, I
     /// <summary>Gets the report of a document whose requirements are met or absent.</summary>
     public static RequirementReport None { get; } = new(RequirementLevel.None, string.Empty, []);
 
+    /// <summary>Gets an optional typed formatter that follows interface language changes.</summary>
+    public IRequirementText? LocalisedText { get; init; }
+
     /// <summary>Gets a value indicating whether the document shall not be processed further, so forms, buttons and actions stay off.</summary>
     public bool StopsProcessing => Level == RequirementLevel.Critical;
 }

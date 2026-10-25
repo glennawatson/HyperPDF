@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.VisualTree;
 using HyperPdf.App.Controls;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 
 namespace HyperPdf.App.Views;
 
@@ -26,9 +27,13 @@ internal static class ItemAutomation
 
         // The event carries only the container, and a container is not yet tied to its list while it is prepared,
         // so the list travels with each event to count its items.
-        return list.ContainersPrepared
-            .SelectWith(list, static (owner, args) => new PreparedItem(owner, args))
-            .SubscribeSafe(NameItem, ErrorTrace.Write);
+        return new MultipleDisposable
+        {
+            list.ContainersPrepared
+                .SelectWith(list, static (owner, args) => new PreparedItem(owner, args))
+                .SubscribeSafe(NameItem, ErrorTrace.Write),
+            UiText.CultureChanges.SelectWith(list, static (owner, _) => owner).SubscribeSafe(RefreshNames, ErrorTrace.Write),
+        };
     }
 
     /// <summary>Names the list or tree item that shows a view.</summary>
@@ -49,23 +54,44 @@ internal static class ItemAutomation
         }
     }
 
+    /// <summary>Refreshes existing item names without changing their data or selection.</summary>
+    /// <param name="list">The existing list.</param>
+    private static void RefreshNames(ItemsControl list)
+    {
+        for (var index = 0; index < list.Items.Count; index++)
+        {
+            if (list.ContainerFromIndex(index) is { } container)
+            {
+                NameItem(list, container, index);
+            }
+        }
+    }
+
     /// <summary>Names a list item as it is prepared for an item, from what the item holds and where it sits.</summary>
     /// <param name="prepared">The list and the container that was prepared with its position.</param>
     private static void NameItem(PreparedItem prepared)
     {
         var (list, args) = prepared;
-        var container = args.Container;
+        NameItem(list, args.Container, args.Index);
+    }
+
+    /// <summary>Applies the current culture's accessible name to one realized container.</summary>
+    /// <param name="list">The owning list.</param>
+    /// <param name="container">The existing item container.</param>
+    /// <param name="index">Its position.</param>
+    private static void NameItem(ItemsControl list, Control container, int index)
+    {
         var item = list.ItemFromContainer(container) ?? container.DataContext;
         var count = list.Items.Count;
-        AutomationProperties.SetName(container, ItemDescriptions.Describe(item, args.Index, count));
-        AutomationProperties.SetPositionInSet(container, args.Index + 1);
+        AutomationProperties.SetName(container, ItemDescriptions.Describe(item, index, count));
+        AutomationProperties.SetPositionInSet(container, index + 1);
         AutomationProperties.SetSizeOfSet(container, count);
 
         // Avalonia's macOS bridge drops the set position, so there it is spoken as the description. The Linux and Windows bridges are the
         // app's own and send the position, so saying it again would be heard twice.
         if (OperatingSystem.IsMacOS())
         {
-            AutomationProperties.SetHelpText(container, ItemDescriptions.DescribePosition(item, args.Index, count));
+            AutomationProperties.SetHelpText(container, ItemDescriptions.DescribePosition(item, index, count));
         }
     }
 }

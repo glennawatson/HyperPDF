@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Optimizing;
 using HyperPdf.Core.Platform;
@@ -21,16 +20,10 @@ namespace HyperPdf.ViewModels.Output;
 /// temporary file and moved into place once it is complete, so a cancel or a failure leaves no half-written file.
 /// </summary>
 [DebuggerDisplay("OptimizeCopyViewModel: {FileName}")]
-public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowRequest
+public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowRequest, ILocalisationChildren
 {
     /// <summary>The ending of the temporary file the copy is written to.</summary>
     private const string TemporarySuffix = ".optimising";
-
-    /// <summary>Why a chosen destination was refused.</summary>
-    private const string OverwriteMessage = "That would replace the file you have open. Choose a different name for the copy.";
-
-    /// <summary>The status shown before anything has happened.</summary>
-    private const string ReadyStatus = "Ready. Choose your settings, then Save a Copy.";
 
     /// <summary>The bytes in a megabyte, for telling people how big the model is.</summary>
     private const long BytesPerMegabyte = 1_000_000;
@@ -56,8 +49,17 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     /// <summary>Owns what the window's lifetime ends.</summary>
     private readonly MultipleDisposable _lifetime = [];
 
+    /// <summary>The completed report and destination retained for language changes.</summary>
+    private (OptimizeReport Report, string Path)? _resultDescription;
+
     /// <summary>Stops the run in progress; <see langword="null"/> when none is.</summary>
     private CancellationTokenSource? _cancel;
+
+    /// <summary>The resource identity of the displayed StatusText.</summary>
+    private LocalizedMessage _localizedStatusText = LocalizedMessage.Get(UiText, "Ready. Choose your settings, then Save a Copy.");
+
+    /// <summary>The resource identity of the displayed Error.</summary>
+    private LocalizedMessage _localizedError;
 
     /// <summary>Initializes a new instance of the <see cref="OptimizeCopyViewModel"/> class.</summary>
     /// <param name="optimizer">The open document's optimiser.</param>
@@ -80,7 +82,6 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
         _optimizer = optimizer;
         _sourcePath = sourcePath;
         _pictureDescription = pictureDescription;
-        PictureDescriptionNote = DescribeModel(pictureDescription);
         FileName = Path.GetFileName(sourcePath);
         Language = language ?? string.Empty;
         SelectedPreset = Presets[1];
@@ -94,9 +95,16 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     /// <summary>Gets the size choices.</summary>
     public IReadOnlyList<OptimizePresetChoice> Presets { get; } =
     [
-        new(OptimizePreset.Smaller, "Smaller file", "The smallest file. Pictures are scaled to about 150 dots per inch and compressed harder, so fine detail in photos and scans may soften."),
+
+        new(
+            OptimizePreset.Smaller,
+            "Smaller file",
+            "The smallest file. Pictures are scaled to about 150 dots per inch and compressed harder, so fine detail in photos and scans may " + "soften."),
         new(OptimizePreset.Balanced, "Balanced", "A good size with little visible change. Pictures are scaled to about 200 dots per inch. Best for most files."),
-        new(OptimizePreset.KeepQuality, "Keep quality", "No picture loses detail. The file shrinks only by lossless means, such as better compression and removing repeats, so it may stay large."),
+        new(
+            OptimizePreset.KeepQuality,
+            "Keep quality",
+            "No picture loses detail. The file shrinks only by lossless means, such as better compression and removing repeats, so it may stay " + "large.")
     ];
 
     /// <summary>Gets the name of the open document.</summary>
@@ -125,7 +133,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     public bool CanDescribePictures => _pictureDescription is not null;
 
     /// <summary>Gets what to tell people about describing pictures: that it runs on this computer and what it costs to start.</summary>
-    public string PictureDescriptionNote { get; }
+    public string PictureDescriptionNote => DescribeModel(_pictureDescription);
 
     /// <summary>
     /// Gets or sets a value indicating whether the pictures found while a reading structure is guessed are described by a model
@@ -147,12 +155,10 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     public partial double ProgressPercent { get; private set; }
 
     /// <summary>Gets what the run is doing now, or how it ended.</summary>
-    [Reactive]
-    public partial string StatusText { get; private set; } = ReadyStatus;
+    public string StatusText { get => _localizedStatusText.Value ?? string.Empty; private set => SetStatusText(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets what went wrong, or <see langword="null"/>.</summary>
-    [Reactive]
-    public partial string? Error { get; private set; }
+    public string? Error { get => _localizedError.Value; private set => SetError(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the plain-words summary of the last finished copy; empty before one finishes.</summary>
     [Reactive]
@@ -176,6 +182,26 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _lifetime.Dispose();
 
+    /// <summary>Sets the displayed StatusText while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetStatusText(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedStatusText, message, nameof(StatusText));
+
+    /// <summary>Sets the displayed Error while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetError(in LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedError, message, nameof(Error));
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(PictureDescriptionNote));
+        RefreshResultText();
+        this.RaisePropertyChanged(nameof(StatusText));
+        this.RaisePropertyChanged(nameof(Error));
+        LocalisationRefresh.RefreshCore(Presets, visited);
+    }
+
     /// <summary>Tells people what describing pictures costs: a one-off download, and that it runs on this computer.</summary>
     /// <param name="setup">How pictures are described, or <see langword="null"/>.</param>
     /// <returns>The note, or empty when pictures cannot be described.</returns>
@@ -189,8 +215,8 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
         var missing = setup.MissingBytes();
         var megabytes = (missing + HalfMegabyte) / BytesPerMegabyte;
         return missing > 0
-            ? string.Create(CultureInfo.CurrentCulture, $"Runs on this computer. The first time, it downloads about {megabytes} MB from this project's release.")
-            : "Runs on this computer. Nothing is sent anywhere.";
+            ? UiText.Format("Runs on this computer. The first time, it downloads about {0} MB from this project's release.", megabytes)
+            : UiText.Get("Runs on this computer. Nothing is sent anywhere.");
     }
 
     /// <summary>Determines whether two paths name the same file.</summary>
@@ -236,7 +262,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     [ReactiveCommand(CanExecute = nameof(_canSave))]
     private async Task SaveAsync()
     {
-        Error = null;
+        SetError(LocalizedMessage.Literal(null));
         var path = await SaveInteraction.Handle(SuggestedName).ToTask().ConfigureAwait(true);
         if (string.IsNullOrEmpty(path))
         {
@@ -245,7 +271,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
 
         if (IsSameFile(path, _sourcePath))
         {
-            Error = OverwriteMessage;
+            SetError(LocalizedMessage.Get(UiText, "That would replace the file you have open. Choose a different name for the copy."));
             return;
         }
 
@@ -253,6 +279,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
         Volatile.Write(ref _cancel, cancel);
         IsRunning = true;
         ProgressPercent = 0;
+        _resultDescription = null;
         ResultText = string.Empty;
         try
         {
@@ -261,13 +288,13 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Cancelled. No file was saved.";
+            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
             ProgressPercent = 0;
         }
         catch (Exception ex) when (CopyFailure.IsExpected(ex))
         {
-            Error = $"Could not save the copy: {CopyFailure.Describe(ex)}";
-            StatusText = "The copy was not saved.";
+            SetError(LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(ex)));
+            SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
             ProgressPercent = 0;
         }
         finally
@@ -330,7 +357,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     {
         if (setup.MissingBytes() > 0)
         {
-            StatusText = "Downloading the picture model.";
+            SetStatusText(LocalizedMessage.Get(UiText, "Downloading the picture model."));
             await setup.Download(new Progress<double>(static _ => { }), cancellationToken).ConfigureAwait(true);
         }
 
@@ -347,9 +374,15 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
         }
 
         ProgressPercent = OptimizeReportText.OverallPercent(progress);
-        StatusText = progress.Total > 0
-            ? string.Create(CultureInfo.CurrentCulture, $"{OptimizeReportText.DescribeStep(progress.Step)}: {progress.Completed} of {progress.Total}")
-            : OptimizeReportText.DescribeStep(progress.Step);
+        SetStatusText(
+            progress.Total > 0
+                ? LocalizedMessage.Format(
+                    UiText,
+                    "{0}: {1} of {2}",
+                    OptimizeReportText.StepMessage(progress.Step),
+                    progress.Completed,
+                    progress.Total)
+                : OptimizeReportText.StepMessage(progress.Step));
     }
 
     /// <summary>Shows a finished copy's summary.</summary>
@@ -360,7 +393,21 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
         Report = report;
         SavedPath = path;
         ProgressPercent = OptimizeReportText.OverallPercent(new(OptimizeStep.Done, 0, 0));
-        StatusText = "Done. The copy is saved.";
+        SetStatusText(LocalizedMessage.Get(UiText, "Done. The copy is saved."));
+        _resultDescription = (report, path);
+        this.RaisePropertyChanged(nameof(PictureDescriptionNote));
+        RefreshResultText();
+    }
+
+    /// <summary>Rewords the retained report without repeating the operation.</summary>
+    private void RefreshResultText()
+    {
+        if (_resultDescription is not { } description)
+        {
+            return;
+        }
+
+        var(report, path) = description;
         ResultText = OptimizeReportText.Join(OptimizeReportText.Lines(report, path));
     }
 }

@@ -21,16 +21,10 @@ namespace HyperPdf.ViewModels.Output;
 /// file is never overwritten.
 /// </summary>
 [DebuggerDisplay("SaveCopyViewModel: {FileName} ({Format})")]
-public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowRequest
+public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowRequest, ILocalisationChildren
 {
     /// <summary>The ending of the temporary file a standard copy is written to.</summary>
     private const string TemporarySuffix = ".saving";
-
-    /// <summary>Why a chosen destination was refused.</summary>
-    private const string OverwriteMessage = "That would replace the file you have open. Choose a different name for the copy.";
-
-    /// <summary>The status shown before a standard copy has started.</summary>
-    private const string ReadyStatus = "Ready. Choose a format and settings, then Save Copy.";
 
     /// <summary>The bar's value once a copy is saved.</summary>
     private const double FullBar = 100;
@@ -46,6 +40,9 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
 
     /// <summary>The index of the Flattened format in <see cref="Formats"/>.</summary>
     private const int FlattenedIndex = 4;
+
+    /// <summary>The ready status resource key.</summary>
+    private const string ReadyStatusKey = "Ready. Choose a format and settings, then Save Copy.";
 
     /// <summary>The path of the open document, which must never be overwritten.</summary>
     private readonly string _sourcePath;
@@ -72,16 +69,22 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     private double _standardProgress;
 
     /// <summary>The status text of the standard copy.</summary>
-    private string _standardStatus = ReadyStatus;
+    private LocalizedMessage _standardStatus = LocalizedMessage.Get(UiText, ReadyStatusKey);
 
     /// <summary>The error text of the standard copy, or <see langword="null"/>.</summary>
-    private string? _standardError;
+    private LocalizedMessage _standardError;
 
     /// <summary>The summary text of the standard copy.</summary>
-    private string _standardResultText = string.Empty;
+    private (string Path, DocumentSaveOutcome Outcome)? _standardDescription;
 
     /// <summary>The saved path of the standard copy, or <see langword="null"/>.</summary>
     private string? _standardSavedPath;
+
+    /// <summary>The resource identity of the displayed StatusText.</summary>
+    private LocalizedMessage _localizedStatusText = LocalizedMessage.Get(UiText, ReadyStatusKey);
+
+    /// <summary>The resource identity of the displayed Error.</summary>
+    private LocalizedMessage _localizedError;
 
     /// <summary>Initializes a new instance of the <see cref="SaveCopyViewModel"/> class.</summary>
     /// <param name="optimize">The optimised copy view model.</param>
@@ -132,11 +135,12 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     /// <summary>Gets the copy format choices.</summary>
     public IReadOnlyList<SaveCopyFormatChoice> Formats { get; } =
     [
+
         new(SaveCopyFormat.Standard, "Standard PDF", "Saves a copy of the document as it is now, keeping your annotations, form entries and page changes."),
         new(SaveCopyFormat.Optimized, "Optimised", "Saves a smaller or more accessible copy, or removes thumbnails and hidden extras."),
         new(SaveCopyFormat.Archive, "PDF/A (long-term archive)", "Saves a PDF/A copy made to keep its look for many years."),
         new(SaveCopyFormat.Pdf20, "PDF 2.0", "Saves a PDF 2.0 file, moving details from retired PDF features when possible."),
-        new(SaveCopyFormat.Flattened, "Flattened", "Draws form fields, comments and other marks into the page so they can no longer be changed."),
+        new(SaveCopyFormat.Flattened, "Flattened", "Draws form fields, comments and other marks into the page so they can no longer be changed.")
     ];
 
     /// <summary>Gets the name of the open document.</summary>
@@ -209,12 +213,10 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     public partial double ProgressPercent { get; private set; }
 
     /// <summary>Gets what the run is doing now, or how it ended.</summary>
-    [Reactive]
-    public partial string StatusText { get; private set; } = ReadyStatus;
+    public string StatusText { get => _localizedStatusText.Value ?? string.Empty; private set => SetStatusText(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets what went wrong, or <see langword="null"/>.</summary>
-    [Reactive]
-    public partial string? Error { get; private set; }
+    public string? Error { get => _localizedError.Value; private set => SetError(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the plain-words summary of the last finished run; empty before one finishes.</summary>
     [Reactive]
@@ -224,9 +226,12 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     [Reactive]
     public partial string? SavedPath { get; private set; }
 
-    /// <summary>Gets or sets the standard copy run in progress, which disposing cancels, or <see langword="null"/> when none is.</summary>
+    /// <summary>The standard copy run in progress, which disposing cancels, or <see langword="null"/> when none is.</summary>
     [Reactive]
     private partial CancellationDisposable? Run { get; set; }
+
+    /// <summary>Gets the completed summary in the current language.</summary>
+    private string StandardResultText => _standardDescription is { } description ? BuildStandardResult(description.Path, description.Outcome) : string.Empty;
 
     /// <summary>Selects the format matching <paramref name="format"/>.</summary>
     /// <param name="format">The format to select.</param>
@@ -246,6 +251,29 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _lifetime.Dispose();
+
+    /// <summary>Sets the displayed StatusText while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetStatusText(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedStatusText, message, nameof(StatusText));
+
+    /// <summary>Sets the displayed Error while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetError(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedError, message, nameof(Error));
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(StatusText));
+        this.RaisePropertyChanged(nameof(Error));
+        LocalisationRefresh.RefreshCore(Formats, visited);
+        LocalisationRefresh.RefreshCore(Optimize, visited);
+        LocalisationRefresh.RefreshCore(Archive, visited);
+        LocalisationRefresh.RefreshCore(Pdf20, visited);
+        LocalisationRefresh.RefreshCore(Flatten, visited);
+        SyncState();
+    }
 
     /// <summary>Determines whether two paths name the same file.</summary>
     /// <param name="first">The first path.</param>
@@ -281,7 +309,7 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     /// <returns>The summary text.</returns>
     private static string BuildStandardResult(string path, in DocumentSaveOutcome outcome)
     {
-        var summary = $"Saved a standard PDF copy to {path}.";
+        var summary = UiText.Format("Saved a standard PDF copy to {0}.", path);
         return SaveText.Notice(outcome) is { } notice ? $"{summary}\n{notice}" : summary;
     }
 
@@ -337,7 +365,7 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
 
             default:
                 {
-                    ApplyState(_standardRunning, _standardRunning, _standardProgress, _standardStatus, _standardError, _standardResultText, _standardSavedPath);
+                    ApplyState(_standardRunning, _standardRunning, _standardProgress, _standardStatus.Value ?? string.Empty, _standardError.Value, StandardResultText, _standardSavedPath);
                     break;
                 }
         }
@@ -356,8 +384,8 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
         IsRunning = running;
         IsBusy = busy;
         ProgressPercent = progress;
-        StatusText = status;
-        Error = error;
+        SetStatusText(LocalizedMessage.Literal(status));
+        SetError(LocalizedMessage.Literal(error));
         ResultText = result;
         SavedPath = savedPath;
     }
@@ -415,7 +443,7 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     /// <returns>A task.</returns>
     private async Task SaveStandardAsync()
     {
-        _standardError = null;
+        _standardError = LocalizedMessage.Literal(null);
         SyncState();
         var path = await SaveInteraction.Handle(SuggestedName).ToTask().ConfigureAwait(true);
         if (string.IsNullOrEmpty(path))
@@ -425,7 +453,7 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
 
         if (IsSameFile(path, _sourcePath))
         {
-            _standardError = OverwriteMessage;
+            _standardError = LocalizedMessage.Get(UiText, "That would replace the file you have open. Choose a different name for the copy.");
             SyncState();
             return;
         }
@@ -434,8 +462,8 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
         Run = run;
         _standardRunning = true;
         _standardProgress = 0;
-        _standardResultText = string.Empty;
-        _standardStatus = "Saving a standard PDF copy.";
+        _standardDescription = null;
+        _standardStatus = LocalizedMessage.Get(UiText, "Saving a standard PDF copy.");
         SyncState();
         try
         {
@@ -444,13 +472,13 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
         }
         catch (OperationCanceledException)
         {
-            _standardStatus = "Cancelled. No file was saved.";
+            _standardStatus = LocalizedMessage.Get(UiText, "Cancelled. No file was saved.");
             _standardProgress = 0;
         }
         catch (Exception ex) when (CopyFailure.IsExpected(ex))
         {
-            _standardError = $"Could not save the copy: {CopyFailure.Describe(ex)}";
-            _standardStatus = "The copy was not saved.";
+            _standardError = LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(ex));
+            _standardStatus = LocalizedMessage.Get(UiText, "The copy was not saved.");
             _standardProgress = 0;
         }
         finally
@@ -492,11 +520,17 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
             if (!serialized)
             {
                 TryDelete(temporary);
-                return new(false, report.Failure ?? "The document could not be written.");
+                return new(false, report.Failure ?? UiText.Get("The document could not be written."));
             }
 
             FileReplacement.Replace(temporary, path);
-            return new(true, null, report.ClaimRemoved) { ClaimRepaired = report.ClaimRepaired, TrapNetworkWarnings = report.TrapNetworkWarnings, RequirementWarnings = report.RequirementWarnings };
+            return new(true, null, report.ClaimRemoved)
+            {
+                ClaimRepaired = report.ClaimRepaired,
+                TrapNetworkWarnings = report.TrapNetworkWarnings,
+                RequirementWarnings = report.RequirementWarnings,
+                RemovedRequirements = report.RemovedRequirements,
+            };
         }
         catch
         {
@@ -545,15 +579,15 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     {
         if (!outcome.Saved)
         {
-            _standardError = outcome.Error is { } error ? $"Could not save the copy: {error}" : "Could not save the copy.";
-            _standardStatus = "The copy was not saved.";
+            _standardError = outcome.Error is { } error ? LocalizedMessage.Format(UiText, "Could not save the copy: {0}", error) : LocalizedMessage.Get(UiText, "Could not save the copy.");
+            _standardStatus = LocalizedMessage.Get(UiText, "The copy was not saved.");
             _standardProgress = 0;
             return;
         }
 
         _standardSavedPath = path;
         _standardProgress = FullBar;
-        _standardStatus = "Done. The copy is saved.";
-        _standardResultText = BuildStandardResult(path, outcome);
+        _standardStatus = LocalizedMessage.Get(UiText, "Done. The copy is saved.");
+        _standardDescription = (path, outcome);
     }
 }

@@ -19,4 +19,5 @@ internal sealed record TabCopyActionSpec<TRequest>(
     string UnavailableText,
     Func<IDocument, bool> IsAvailable,
     Func<DocumentTabViewModel, TRequest?> CreateRequest)
+
     where TRequest : class, ICopyWindowRequest;

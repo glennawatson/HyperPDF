@@ -1,45 +1,51 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.PrintSheetSettingsView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (PrintSheetSettingsView.axaml.cs). -->
   <StackPanel Spacing="14">
     <Grid ColumnDefinitions="136,*">
-      <TextBlock x:Name="LayoutLabel" Text="Layout" VerticalAlignment="Center" />
-      <ComboBox x:Name="LayoutBox" views:ControlHelp.Text="{x:Static help:Descriptions.PrintLayout}" AutomationProperties.Name="Layout" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock TextWrapping="Wrap" x:Name="LayoutLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Layout&quot;}" VerticalAlignment="Center" />
+      <ComboBox x:Name="LayoutBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose normal pages, a folded booklet or a poster made from several sheets.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Layout&quot;}" Grid.Column="1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+        <ComboBox.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
     </Grid>
     <Grid x:Name="PagesPerSheetRow" ColumnDefinitions="136,*">
-      <TextBlock x:Name="PagesPerSheetLabel" Text="Pages per sheet" VerticalAlignment="Center" />
-      <ComboBox x:Name="PagesPerSheetBox" views:ControlHelp.Text="{x:Static help:Descriptions.PagesPerSheet}" AutomationProperties.Name="Pages per sheet" Grid.Column="1" HorizontalAlignment="Stretch" />
+      <TextBlock TextWrapping="Wrap" x:Name="PagesPerSheetLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pages per sheet&quot;}" VerticalAlignment="Center" />
+      <ComboBox x:Name="PagesPerSheetBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose how many pages to fit on each sheet of paper.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pages per sheet&quot;}" Grid.Column="1" HorizontalAlignment="Stretch" />
     </Grid>
     <Grid x:Name="PaperRow" ColumnDefinitions="136,*">
-      <TextBlock x:Name="PaperLabel" Text="Paper size" VerticalAlignment="Center" />
-      <ComboBox x:Name="PaperBox" views:ControlHelp.Text="{x:Static help:Descriptions.PaperSize}" AutomationProperties.Name="Paper size" Grid.Column="1" HorizontalAlignment="Stretch">
-        <ComboBoxItem Content="A4" />
-        <ComboBoxItem Content="Letter" />
-        <ComboBoxItem Content="A3" />
-        <ComboBoxItem Content="A5" />
-        <ComboBoxItem Content="Legal" />
-        <ComboBoxItem Content="Tabloid" />
+      <TextBlock TextWrapping="Wrap" x:Name="PaperLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Paper size&quot;}" VerticalAlignment="Center" />
+      <ComboBox x:Name="PaperBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the size of the paper.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Paper size&quot;}" Grid.Column="1" HorizontalAlignment="Stretch">
+        <ComboBoxItem Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;A4&quot;}" />
+        <ComboBoxItem Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Letter&quot;}" />
+        <ComboBoxItem Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;A3&quot;}" />
+        <ComboBoxItem Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;A5&quot;}" />
+        <ComboBoxItem Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Legal&quot;}" />
+        <ComboBoxItem Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tabloid&quot;}" />
       </ComboBox>
     </Grid>
     <Grid x:Name="ScalingRow" ColumnDefinitions="136,*">
-      <TextBlock x:Name="ScalingLabel" Text="Page size" VerticalAlignment="Center" />
-      <ComboBox x:Name="ScalingBox" views:ControlHelp.Text="{x:Static help:Descriptions.PrintScaling}" AutomationProperties.Name="Page size" Grid.Column="1" HorizontalAlignment="Stretch">
-        <ComboBoxItem Content="Fit to paper" />
-        <ComboBoxItem Content="Actual size" />
-        <ComboBoxItem Content="Shrink oversized pages" />
-        <ComboBoxItem Content="Custom scale" />
+      <TextBlock TextWrapping="Wrap" x:Name="ScalingLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Page size&quot;}" VerticalAlignment="Center" />
+      <ComboBox x:Name="ScalingBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose how big each page prints: filling the paper, at its true size, shrunk only when too big, or at a chosen scale.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Page size&quot;}" Grid.Column="1" HorizontalAlignment="Stretch">
+        <ComboBoxItem Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fit to paper&quot;}" />
+        <ComboBoxItem Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Actual size&quot;}" />
+        <ComboBoxItem Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Shrink oversized pages&quot;}" />
+        <ComboBoxItem Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Custom scale&quot;}" />
       </ComboBox>
     </Grid>
     <Grid x:Name="ScalePercentRow" ColumnDefinitions="136,*">
-      <TextBlock x:Name="ScalePercentLabel" Text="Scale (%)" VerticalAlignment="Center" />
-      <NumericUpDown x:Name="ScalePercentBox" views:ControlHelp.Text="{x:Static help:Descriptions.PrintScalePercent}" AutomationProperties.Name="Scale percent" Grid.Column="1"
+      <TextBlock TextWrapping="Wrap" x:Name="ScalePercentLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Scale (%)&quot;}" VerticalAlignment="Center" />
+      <NumericUpDown x:Name="ScalePercentBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Set the scale as a percentage of the page&apos;s true size, from 10 to 400.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Scale percent&quot;}" Grid.Column="1"
                      Minimum="10" Maximum="400" Increment="5" FormatString="0" HorizontalAlignment="Stretch" />
     </Grid>
     <Grid ColumnDefinitions="136,*">
-      <TextBlock Text="Options" VerticalAlignment="Center" />
-      <CheckBox x:Name="AnnotationsBox" views:ControlHelp.Text="{x:Static help:Descriptions.PrintAnnotations}" Grid.Column="1" Content="Annotations" />
+      <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Options&quot;}" VerticalAlignment="Center" />
+      <CheckBox x:Name="AnnotationsBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Print the highlights, notes and other annotations too.&quot;}" Grid.Column="1" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Annotations&quot;}" />
     </Grid>
   </StackPanel>
 </UserControl>

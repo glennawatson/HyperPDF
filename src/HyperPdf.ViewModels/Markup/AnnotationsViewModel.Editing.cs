@@ -154,7 +154,12 @@ public sealed partial class AnnotationsViewModel
             return;
         }
 
-        var text = await PromptInteraction.Handle(new("Edit Note", "Note", annotation.Contents, "Save Note", true)).ToTask().ConfigureAwait(true);
+        var text = await PromptInteraction.Handle(new(
+            LocalizedMessage.Get(UiText, "Edit Note"),
+            LocalizedMessage.Get(UiText, "Note"),
+            annotation.Contents,
+            LocalizedMessage.Get(UiText, "Save Note"),
+            true)).ToTask().ConfigureAwait(true);
         if (text is not null && !string.Equals(text, annotation.Contents, StringComparison.Ordinal) && EditorForChange()?.SetContents(annotation.PageIndex, annotation.Index, text) == true)
         {
             Record(new AnnotationContentsChanged(annotation.PageIndex, annotation.Index, annotation.Contents, text));
@@ -171,7 +176,12 @@ public sealed partial class AnnotationsViewModel
             return;
         }
 
-        var text = await PromptInteraction.Handle(new(ReplyTitle, ReplyTitle, string.Empty, ReplyTitle, true)).ToTask().ConfigureAwait(true);
+        var text = await PromptInteraction.Handle(new(
+            LocalizedMessage.Get(UiText, ReplyKey),
+            LocalizedMessage.Get(UiText, ReplyKey),
+            string.Empty,
+            LocalizedMessage.Get(UiText, ReplyKey),
+            true)).ToTask().ConfigureAwait(true);
         if (!string.IsNullOrWhiteSpace(text) && EditorForChange() is { } editor)
         {
             _ = Added(annotation.PageIndex, editor.AddReply(annotation.PageIndex, annotation.Index, text, ReviewState.None));
@@ -380,7 +390,7 @@ public sealed partial class AnnotationsViewModel
     {
         foreach (var (colorName, color) in AnnotationColors.All)
         {
-            if (!string.Equals(colorName, name, StringComparison.Ordinal))
+            if (!string.Equals(UiText.Get(colorName), name, StringComparison.Ordinal))
             {
                 continue;
             }

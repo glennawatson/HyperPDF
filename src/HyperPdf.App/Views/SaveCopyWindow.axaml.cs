@@ -23,20 +23,17 @@ public sealed partial class SaveCopyWindow : ReactiveUI.Avalonia.ReactiveWindow<
     public SaveCopyWindow()
     {
         InitializeComponent();
-        FormatList.ItemTemplate = new FuncDataTemplate<SaveCopyFormatChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
-        PresetList.ItemTemplate = new FuncDataTemplate<OptimizePresetChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
-        LevelList.ItemTemplate = new FuncDataTemplate<ArchiveLevelChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
-        ScopeList.ItemTemplate = new FuncDataTemplate<FlattenScopeChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
-        LookList.ItemTemplate = new FuncDataTemplate<FlattenLookChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
+        ConfigureChoiceTemplates();
         FieldLabels.Link((LanguageBox, LanguageLabel));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(ItemAutomation.NameItems(FormatList));
             disposables.Add(ItemAutomation.NameItems(PresetList));
             disposables.Add(ItemAutomation.NameItems(LevelList));
             disposables.Add(ItemAutomation.NameItems(ScopeList));
             disposables.Add(ItemAutomation.NameItems(LookList));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Save a copy of {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => UiText.Format("Save a copy of {0}", name)));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Formats, static v => v.FormatList.ItemsSource));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedFormat, static v => v.FormatList.SelectedItem, static choice => choice, static item => item as SaveCopyFormatChoice));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.FormatList.IsEnabled, static running => !running));
@@ -81,12 +78,33 @@ public sealed partial class SaveCopyWindow : ReactiveUI.Avalonia.ReactiveWindow<
         });
     }
 
+    /// <summary>Composes the culture-aware presentations of the copy formats and their settings.</summary>
+    private void ConfigureChoiceTemplates()
+    {
+        FormatList.ItemTemplate = new FuncDataTemplate<SaveCopyFormatChoice>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
+        PresetList.ItemTemplate = new FuncDataTemplate<OptimizePresetChoice>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
+        LevelList.ItemTemplate = new FuncDataTemplate<ArchiveLevelChoice>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
+        ScopeList.ItemTemplate = new FuncDataTemplate<FlattenScopeChoice>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
+        LookList.ItemTemplate = new FuncDataTemplate<FlattenLookChoice>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
+    }
+
     /// <summary>Asks where to save the copy, through the desktop's save dialog.</summary>
     /// <param name="context">The interaction context, holding the suggested file name.</param>
     /// <returns>A task.</returns>
     private async Task SaveAsync(IInteractionContext<string, string?> context)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Save a Copy", SuggestedFileName = context.Input, DefaultExtension = "pdf" });
+        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = UiText.Get("Save a Copy"), SuggestedFileName = context.Input, DefaultExtension = "pdf" });
         context.SetOutput(file?.TryGetLocalPath());
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        HeadingText.Text = UiText.Format("Save a copy of {0}", model.FileName);
     }
 }

@@ -1,11 +1,11 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
-             x:Class="HyperPdf.App.Views.LayerItemView">
+             x:Class="HyperPdf.App.Views.LayerItemView" xmlns:loc="using:CP.Localisation.Avalonia">
   <StackPanel Orientation="Horizontal" Spacing="8">
     <!-- A label groups layers and cannot be switched. -->
     <TextBlock x:Name="LabelText" FontWeight="SemiBold" VerticalAlignment="Center" />
-    <CheckBox x:Name="LayerBox" views:ControlHelp.Text="{x:Static help:Descriptions.Layer}" />
+    <CheckBox x:Name="LayerBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show or hide this layer on screen. The file does not change.&quot;}" />
     <!-- Says in words that a layer is locked or limited by zoom, so it never relies on colour or a greyed box alone. -->
     <TextBlock x:Name="NoteText" Classes="secondary" VerticalAlignment="Center" />
   </StackPanel>

@@ -59,6 +59,10 @@ public sealed class ManagedMediaPlayer : MediaPlayerBase
     }
 
     /// <inheritdoc />
+    protected override LocalizedMessage DescribeProblem(string? problem) =>
+        problem is null ? LocalizedMessage.Literal(null) : LocalizedMessage.Get(UiText, problem);
+
+    /// <inheritdoc />
     protected override TimeSpan ClockPosition(TimeSpan anchor, long startedAt) =>
         Volatile.Read(ref _clock) is { } clock ? clock.Position : base.ClockPosition(anchor, startedAt);
 

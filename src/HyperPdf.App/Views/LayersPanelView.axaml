@@ -1,14 +1,14 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.LayersPanelView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (LayersPanelView.axaml.cs). -->
   <DockPanel x:Name="LayersPanel">
-    <TextBlock DockPanel.Dock="Top" Classes="secondary" Margin="12,4,12,8" TextWrapping="Wrap" Text="Tick a layer to show it. Layers marked Locked cannot be changed. Only the view changes, not the file." />
+    <TextBlock DockPanel.Dock="Top" Classes="secondary" Margin="12,4,12,8" TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tick a layer to show it. Layers marked Locked cannot be changed. Only the view changes, not the file.&quot;}" />
     <StackPanel DockPanel.Dock="Bottom" Margin="8" Spacing="6">
-      <ComboBox x:Name="ConfigurationBox" AutomationProperties.Name="Layer configuration" views:ControlHelp.Text="{x:Static help:Descriptions.LayerConfiguration}" HorizontalAlignment="Stretch" />
-      <Button x:Name="ResetLayersButton" views:ControlHelp.Text="{x:Static help:Descriptions.ResetLayers}" HorizontalAlignment="Stretch" Content="Reset Layers" />
+      <ComboBox x:Name="ConfigurationBox" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Layer configuration&quot;}" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose one of the layer arrangements the file offers. This sets every layer to that arrangement.&quot;}" HorizontalAlignment="Stretch" />
+      <Button x:Name="ResetLayersButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Put every layer back to how the file sets it. The file does not change.&quot;}" HorizontalAlignment="Stretch" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Reset Layers&quot;}" />
     </StackPanel>
-    <TreeView x:Name="LayerTree" AutomationProperties.Name="Layers" Background="Transparent" />
+    <TreeView x:Name="LayerTree" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Layers&quot;}" Background="Transparent" />
   </DockPanel>
 </UserControl>

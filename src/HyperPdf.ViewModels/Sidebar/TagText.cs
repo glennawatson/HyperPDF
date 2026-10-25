@@ -2,7 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdf.Core.Documents;
 
@@ -17,6 +19,7 @@ internal static class TagText
     /// <summary>The plain name of each standard type, sorted by ordinal type so a binary search finds it; types not listed are shown as the file spells them.</summary>
     private static readonly TagName[] Names =
     [
+
         new("Annot", "Annotation"),
         new("Art", "Article"),
         new("Aside", "Side note"),
@@ -58,7 +61,7 @@ internal static class TagText
         new("TOCI", "Contents entry"),
         new("TR", "Table row"),
         new("Table", "Table"),
-        new("Title", "Title"),
+        new("Title", "Title")
     ];
 
     /// <summary>Gets the plain name of a type.</summary>
@@ -87,8 +90,14 @@ internal static class TagText
             }
         }
 
-        return type.Length > 1 && type[0] == 'H' && int.TryParse(type.AsSpan(1), NumberStyles.None, CultureInfo.InvariantCulture, out var level)
-            ? string.Create(CultureInfo.CurrentCulture, $"Heading {level}")
+        return type.Length > 1 && type[0] == 'H' && int.TryParse(
+            type.AsSpan(1),
+            NumberStyles.None,
+            CultureInfo.InvariantCulture,
+            out var level)
+            ? UiText.Format(
+            "Heading {0}",
+            level)
             : type;
     }
 
@@ -98,30 +107,37 @@ internal static class TagText
     internal static string Row(DocumentTag tag) =>
         tag.AlternateText is { Length: > 0 } description ? $"{Name(tag.Type)}: {Preview(description)}" : Name(tag.Type);
 
+    /// <summary>Retains a tag type for translation when a containing message is displayed.</summary>
+    /// <param name="type">The document's tag type.</param>
+    /// <param name="lowerCase">Whether the displayed name uses lower case.</param>
+    /// <returns>The deferred display argument.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static object Message(string type, bool lowerCase = false) => new TagLabel(type, lowerCase);
+
     /// <summary>Gets what a screen reader says for a row: the name, the page, the description and what is missing.</summary>
     /// <param name="tag">The tag.</param>
     /// <returns>The sentence.</returns>
     internal static string Speak(DocumentTag tag)
     {
         var builder = new StringBuilder(Name(tag.Type));
-        _ = builder.Append(CultureInfo.CurrentCulture, $", level {tag.Depth + 1}");
+        _ = builder.Append(UiText.Format(", level {0}", tag.Depth + 1));
         if (tag.PageIndex >= 0)
         {
-            _ = builder.Append(CultureInfo.CurrentCulture, $", page {tag.PageIndex + 1}");
+            _ = builder.Append(UiText.Format(", page {0}", tag.PageIndex + 1));
         }
 
         if (tag.AlternateText is { Length: > 0 } description)
         {
-            _ = builder.Append(CultureInfo.CurrentCulture, $", described as {description}");
+            _ = builder.Append(UiText.Format(", described as {0}", description));
         }
         else if (tag.Type == "Figure")
         {
-            _ = builder.Append(", has no description");
+            _ = builder.Append(UiText.Get(", has no description"));
         }
 
         if (tag.ChildTagCount > 0)
         {
-            _ = builder.Append(CultureInfo.CurrentCulture, $", contains {tag.ChildTagCount} tags");
+            _ = builder.Append(UiText.Format(", contains {0} tags", tag.ChildTagCount));
         }
 
         return builder.ToString();
@@ -134,6 +150,20 @@ internal static class TagText
 
     /// <summary>A standard type and the plain words for it.</summary>
     /// <param name="Type">The type as the file spells it.</param>
-    /// <param name="Plain">The plain name.</param>
-    private readonly record struct TagName(string Type, string Plain);
+    /// <param name="PlainKey">The plain name.</param>
+    private readonly record struct TagName(string Type, string PlainKey)
+    {
+        /// <summary>Gets the localized display text.</summary>
+        public string Plain => UiText.Get(PlainKey);
+    }
+
+    /// <summary>A tag type retained as a localized message argument.</summary>
+    /// <param name="Type">The document's tag type.</param>
+    /// <param name="LowerCase">Whether the displayed name uses lower case.</param>
+    [DebuggerDisplay("TagLabel: {Type}")]
+    private sealed record TagLabel(string Type, bool LowerCase)
+    {
+        /// <inheritdoc/>
+        public override string ToString() => LowerCase ? Name(Type).ToLower(CultureInfo.CurrentCulture) : Name(Type);
+    }
 }

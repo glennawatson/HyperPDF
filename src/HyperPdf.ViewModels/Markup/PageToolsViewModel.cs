@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Navigation;
 using ReactiveUI;
@@ -13,7 +12,7 @@ namespace HyperPdf.ViewModels.Markup;
 
 /// <summary>Moving around and grabbing content in a tab: the select text, hand, zoom to area and snapshot tools, and auto-scroll.</summary>
 [DebuggerDisplay("PageToolsViewModel: {PageTool}")]
-public sealed partial class PageToolsViewModel : ReactiveObject
+public sealed partial class PageToolsViewModel : ReactiveObject, ILocalisationChildren
 {
     /// <summary>The file name suggested when a snapshot is saved as a picture.</summary>
     private const string SnapshotFileName = "snapshot.png";
@@ -47,7 +46,7 @@ public sealed partial class PageToolsViewModel : ReactiveObject
 
     /// <summary>Gets the auto-scroll bar's text: the speed and how to change it or stop.</summary>
     public string AutoScrollText =>
-        string.Create(CultureInfo.CurrentCulture, $"Scrolling by itself at speed {AutoScrollSpeed} of {AutoScroller.MaxSpeed}. Up and Down change the speed. Escape or a click stops.");
+        UiText.Format("Scrolling by itself at speed {0} of {1}. Up and Down change the speed. Escape or a click stops.", AutoScrollSpeed, AutoScroller.MaxSpeed);
 
     /// <summary>Gets the interaction asking where to save a snapshot when the clipboard cannot hold pictures.</summary>
     public Interaction<string, string?> SaveImageInteraction { get; } = new();
@@ -66,6 +65,10 @@ public sealed partial class PageToolsViewModel : ReactiveObject
         AutoScrollSpeed = speed;
         return true;
     }
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => this.RaisePropertyChanged(nameof(AutoScrollText));
 
     /// <summary>Chooses what dragging on the pages does.</summary>
     /// <param name="tool">The tool.</param>
