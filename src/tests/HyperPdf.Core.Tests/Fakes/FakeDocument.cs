@@ -61,6 +61,9 @@ internal sealed class FakeDocument : IDocument
     /// <summary>Gets the pages recorded ahead, in order.</summary>
     internal List<int> PreparedAhead { get; } = [];
 
+    /// <summary>Gets the pages whose links were read, in order.</summary>
+    internal List<int> LinksRead { get; } = [];
+
     /// <summary>Gets or sets the text of every page.</summary>
     internal string PageText { get; set; } = "alpha beta alpha";
 
@@ -151,7 +154,15 @@ internal sealed class FakeDocument : IDocument
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<PageLink> GetLinks(int pageIndex) => [];
+    public IReadOnlyList<PageLink> GetLinks(int pageIndex)
+    {
+        lock (LinksRead)
+        {
+            LinksRead.Add(pageIndex);
+        }
+
+        return [];
+    }
 
     /// <inheritdoc/>
     public void Find(int pageIndex, string query, SearchOptions options, List<TextMatch> output)

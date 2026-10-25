@@ -101,6 +101,20 @@ public sealed class NeighbourPagePreparerTests
         await Assert.That(document.PreparedAhead).IsEquivalentTo([Next, Further, Previous]);
     }
 
+    /// <summary>The page being read and its neighbours have their links read away from the UI thread, so the first hover finds them ready.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SettledReaderGetsLinksRead()
+    {
+        using var preparer = Create(static () => false, static () => false);
+        var document = Document();
+
+        preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
+        await preparer.Latest.WaitAsync(Patience);
+
+        await Assert.That(document.LinksRead).IsEquivalentTo([Current, Next, Further, Previous]);
+    }
+
     /// <summary>Moving to an earlier page puts the page behind first.</summary>
     /// <returns>A task.</returns>
     [Test]

@@ -155,6 +155,14 @@ public sealed class NeighbourPagePreparer : IDisposable
         }
     }
 
+    /// <summary>
+    /// Reads a page's links here, away from the UI thread. The first read scans the page's text for web addresses, and the
+    /// document keeps the result, so the first pointer move over the page finds it ready.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="page">The page.</param>
+    private static void ReadLinks(IDocument document, int page) => _ = document.GetLinks(page);
+
     /// <summary>Waits for the reader to settle, then prepares each neighbour in turn.</summary>
     /// <param name="document">The document.</param>
     /// <param name="template">The current page's render information; each neighbour reuses its scale, rotation and flags.</param>
@@ -168,6 +176,7 @@ public sealed class NeighbourPagePreparer : IDisposable
         try
         {
             await Task.Delay(_debounce, _time, token).ConfigureAwait(false);
+            ReadLinks(document, template.PageIndex);
             foreach (var page in NeighbourPages.Order(template.PageIndex, document.PageCount, movedBackward))
             {
                 if (_underPressure() || document.IsDisposed)
@@ -221,6 +230,7 @@ public sealed class NeighbourPagePreparer : IDisposable
             {
                 await document.PreparePageAsync(info.PageIndex, attempt.Token).ConfigureAwait(false);
                 _ = document.PrepareAhead(info, attempt.Token);
+                ReadLinks(document, info.PageIndex);
                 prepared = true;
             }
             catch (OperationCanceledException) when (!runToken.IsCancellationRequested)
