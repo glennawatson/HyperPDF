@@ -7,7 +7,6 @@ using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
-using HyperPdf.App.Rendering;
 using HyperPdf.App.Views;
 using HyperPdf.ViewModels;
 
