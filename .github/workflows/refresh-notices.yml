@@ -2,10 +2,6 @@ name: Refresh third-party notices
 on:
   pull_request:
     branches: [main]
-    paths:
-      - src/Directory.Packages.props
-      - src/licenses/components.json
-      - src/licenses/packages.json
 permissions:
   contents: write
   actions: write
@@ -15,7 +11,7 @@ concurrency:
 jobs:
   refresh:
     name: Refresh notices
-    if: github.actor == 'renovate[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
