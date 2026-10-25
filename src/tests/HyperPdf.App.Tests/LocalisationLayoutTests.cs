@@ -173,6 +173,45 @@ public sealed class LocalisationLayoutTests
         }
     }
 
+    /// <summary>OCR actions retain their columns while translated labels fit at larger interface sizes.</summary>
+    /// <param name="culture">The language used for the action labels.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments("en")]
+    [Arguments("fr")]
+    [Arguments("de")]
+    [Arguments("zh-Hans")]
+    [Arguments("ar")]
+    [Arguments("es")]
+    [Arguments("pt")]
+    public async Task OcrActions_TranslatedLabelsFitAtLargeTextSize(string culture)
+    {
+        const double LargeTextSize = 20;
+        const double RowWidth = 500;
+        var previous = UiText.UICulture;
+        InterfaceCulture.Apply(UiText, CultureInfo.GetCultureInfo(culture));
+        var row = new OcrLanguageItemView { Width = RowWidth, FontSize = LargeTextSize };
+        var window = new Window { Content = row, SizeToContent = SizeToContent.WidthAndHeight };
+        var download = row.FindControl<Button>("DownloadLanguageButton")!;
+        var remove = row.FindControl<Button>("RemoveLanguageButton")!;
+        try
+        {
+            window.Show();
+            foreach (var installed in new[] { false, true })
+            {
+                download.IsVisible = !installed;
+                remove.IsVisible = installed;
+                await UiWait.PumpAsync(RenderPasses);
+                await Assert.That(string.Join(Environment.NewLine, LabelProblems(window, culture))).IsEqualTo(string.Empty);
+            }
+        }
+        finally
+        {
+            window.Close();
+            InterfaceCulture.Apply(UiText, previous);
+        }
+    }
+
     /// <summary>Arabic reverses the interface while the PDF canvas keeps its document coordinates.</summary>
     /// <returns>A task.</returns>
     [Test]

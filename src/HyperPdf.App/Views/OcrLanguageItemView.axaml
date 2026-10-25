@@ -8,12 +8,16 @@
               views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tick to find words in this language. Tick more than one for documents that mix languages.&quot;}" />
     <TextBlock x:Name="LanguageStatusText" Grid.Column="1" Classes="secondary" VerticalAlignment="Center" TextWrapping="Wrap" />
     <Panel Grid.Column="2">
-      <Button x:Name="DownloadLanguageButton" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Download&quot;}" HorizontalAlignment="Stretch"
+      <Button x:Name="DownloadLanguageButton" HorizontalAlignment="Stretch"
               AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Download language pack&quot;}"
-              views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Download this language and keep it on this computer, so words in it can be found.&quot;}" />
-      <Button x:Name="RemoveLanguageButton" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove&quot;}" HorizontalAlignment="Stretch"
+              views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Download this language and keep it on this computer, so words in it can be found.&quot;}">
+        <TextBlock Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Download&quot;}" TextWrapping="Wrap" TextAlignment="Center" />
+      </Button>
+      <Button x:Name="RemoveLanguageButton" HorizontalAlignment="Stretch"
               AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove language pack&quot;}"
-              views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Delete this language from this computer to free space. You can download it again later.&quot;}" />
+              views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Delete this language from this computer to free space. You can download it again later.&quot;}">
+        <TextBlock Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove&quot;}" TextWrapping="Wrap" TextAlignment="Center" />
+      </Button>
     </Panel>
   </Grid>
 </UserControl>
