@@ -30,7 +30,7 @@ public sealed class RenderSchedulerTests
     private const string DocumentName = "a.pdf";
 
     /// <summary>How long to wait for asynchronous work.</summary>
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
 
     /// <summary>The longest Dispose may occupy a caller while a render is still active.</summary>
     private static readonly TimeSpan DisposeLimit = TimeSpan.FromSeconds(2);

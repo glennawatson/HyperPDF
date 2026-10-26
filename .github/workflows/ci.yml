@@ -54,7 +54,14 @@ jobs:
             10.x
       - name: Test on net10.0 and net11.0
         working-directory: src
-        run: dotnet test --solution HyperPdf.slnx -c Release -v q --nologo
+        run: dotnet test --solution HyperPdf.slnx -c Release -v q --nologo -- --timeout 20m --diagnostic --diagnostic-verbosity Trace --diagnostic-output-directory "${{ runner.temp }}/test-diagnostics"
+      - name: Upload test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: test-diagnostics-${{ matrix.name }}
+          path: ${{ runner.temp }}/test-diagnostics
+          if-no-files-found: ignore
       - name: Upload failed renderings
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
