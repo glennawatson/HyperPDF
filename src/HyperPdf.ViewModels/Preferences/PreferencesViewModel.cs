@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Layout;
 using HyperPdf.Core.Settings;
@@ -21,10 +20,10 @@ namespace HyperPdf.ViewModels.Preferences;
 /// explicit values of the settings enums.
 /// </summary>
 [DebuggerDisplay("PreferencesViewModel: Preferences")]
-public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
+public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
-    /// <summary>The label of choices that follow the desktop setting.</summary>
-    private const string FollowDesktop = "Follow the desktop";
+    /// <summary>The resource key for the desktop preference.</summary>
+    private const string FollowDesktopKey = "Follow the desktop";
 
     /// <summary>The contrast ratio the comfort rules ask of text.</summary>
     private const double ReadableContrast = 7;
@@ -37,6 +36,9 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
 
     /// <summary>The mask of one colour channel.</summary>
     private const uint ChannelMask = 0xFF;
+
+    /// <summary>The culture names in the order offered by the interface language selector.</summary>
+    private static readonly string[] InterfaceLanguageCodes = [string.Empty, "en", "fr", "de", "zh-Hans", "ar", "es", "pt"];
 
     /// <summary>The interface text sizes offered, in points; index 0 follows the desktop.</summary>
     private static readonly double[] FontSizes = [0, 9, 10, 11, 12, 14, 16];
@@ -70,46 +72,49 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
         Follow();
     }
 
+    /// <summary>Gets the interface languages, named in their own language.</summary>
+    public static IReadOnlyList<string> InterfaceLanguageOptions { get; } = UiText.CreateChoices([FollowDesktopKey, "English", "Français", "Deutsch", "简体中文", "العربية", "Español", "Português"]);
+
     /// <summary>Gets the colour scheme choices.</summary>
-    public static IReadOnlyList<string> ColorSchemeOptions { get; } = [FollowDesktop, "Calm", "High contrast", "Dark", "Light"];
+    public static IReadOnlyList<string> ColorSchemeOptions { get; } = UiText.CreateChoices([FollowDesktopKey, "Calm", "High contrast", "Dark", "Light"]);
 
     /// <summary>Gets the page colour choices.</summary>
     public static IReadOnlyList<string> PageToneOptions { get; } =
-    [
-        "Match the colour scheme", "White", "Soft paper", "Calm night", "Dark", FollowDesktop, "Yellow on black", "Green on black", "White on black", "Custom colours",
-    ];
+    UiText.CreateChoices(
+        ["Match the colour scheme", "White", "Soft paper", "Calm night", "Dark", FollowDesktopKey, "Yellow on black", "Green on black", "White on black", "Custom colours"]);
 
     /// <summary>Gets the opening zoom choices in enum order.</summary>
-    public static IReadOnlyList<string> OpeningZoomOptions { get; } = ["100%", "Fit width", "Fit page"];
+    public static IReadOnlyList<string> OpeningZoomOptions { get; } = UiText.CreateChoices(["100%", "Fit width", "Fit page"]);
 
     /// <summary>Gets the tool bar choices.</summary>
-    public static IReadOnlyList<string> ToolbarOptions { get; } = ["Text beside icons", "Icons only"];
+    public static IReadOnlyList<string> ToolbarOptions { get; } = UiText.CreateChoices(["Text beside icons", "Icons only"]);
 
     /// <summary>Gets the file change choices.</summary>
-    public static IReadOnlyList<string> FileChangeOptions { get; } = ["Reload automatically", "Ask before reloading"];
+    public static IReadOnlyList<string> FileChangeOptions { get; } = UiText.CreateChoices(["Reload automatically", "Ask before reloading"]);
 
     /// <summary>Gets the motion choices.</summary>
-    public static IReadOnlyList<string> MotionOptions { get; } = [FollowDesktop, "Reduced", "Normal"];
+    public static IReadOnlyList<string> MotionOptions { get; } = UiText.CreateChoices([FollowDesktopKey, "Reduced", "Normal"]);
 
     /// <summary>Gets the text cursor choices.</summary>
-    public static IReadOnlyList<string> CaretOptions { get; } = [FollowDesktop, "Steady", "Blinking"];
+    public static IReadOnlyList<string> CaretOptions { get; } = UiText.CreateChoices([FollowDesktopKey, "Steady", "Blinking"]);
 
     /// <summary>Gets the interface text size choices.</summary>
-    public static IReadOnlyList<string> FontSizeOptions { get; } = [FollowDesktop, "9 pt", "10 pt", "11 pt", "12 pt", "14 pt", "16 pt"];
+    public static IReadOnlyList<string> FontSizeOptions { get; } = UiText.CreateChoices([FollowDesktopKey, "9 pt", "10 pt", "11 pt", "12 pt", "14 pt", "16 pt"]);
 
     /// <summary>Gets the colours that can mark fillable form fields, in the order of <see cref="HighlightColors"/>.</summary>
-    public static IReadOnlyList<string> FormHighlightColorOptions { get; } = ["Soft blue", "Soft yellow", "Soft green", "Soft pink", "Soft lilac", "Soft grey"];
+    public static IReadOnlyList<string> FormHighlightColorOptions { get; } = UiText.CreateChoices(["Soft blue", "Soft yellow", "Soft green", "Soft pink", "Soft lilac", "Soft grey"]);
 
     /// <summary>Gets how strongly fillable form fields are marked, in the order of <see cref="HighlightOpacities"/>.</summary>
-    public static IReadOnlyList<string> FormHighlightOpacityOptions { get; } = ["Off", "10%", "20%", "25% (standard)", "40%", "60%", "80%"];
+    public static IReadOnlyList<string> FormHighlightOpacityOptions { get; } = UiText.CreateChoices(["Off", "10%", "20%", "25% (standard)", "40%", "60%", "80%"]);
 
     /// <summary>Gets the Read Aloud voice choices, in the order of <see cref="SpeechEngineChoices"/>.</summary>
     public static IReadOnlyList<string> SpeechEngineOptions { get; } =
-    [
-        "On this computer: MeloTTS, natural and private (Australian, British, American, Indian)",
-        "On this computer: Kokoro (American, British)",
-        "Azure AI Speech with your own key",
-    ];
+    UiText.CreateChoices(
+        ["On this computer: MeloTTS, natural and private (Australian, British, American, Indian)", "On this computer: Kokoro (American, British)", "Azure AI Speech with your own key"]);
+
+    /// <summary>Gets or sets the interface language to use on the next launch.</summary>
+    [Reactive]
+    public partial int InterfaceLanguage { get; set; }
 
     /// <summary>Gets the text recognition languages: which are used, and their packs to download or remove.</summary>
     public OcrLanguagesViewModel OcrLanguages { get; }
@@ -214,11 +219,11 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
         {
             if (!ColorMath.TryParseHex(CustomPaper, out var paper) || !ColorMath.TryParseHex(CustomInk, out var ink))
             {
-                return "Write each colour as six hex digits, such as FFFF00.";
+                return UiText.Get("Write each colour as six hex digits, such as FFFF00.");
             }
 
             var ratio = ColorMath.Contrast(paper, ink);
-            return string.Create(CultureInfo.InvariantCulture, $"Contrast {ratio:0.0} to 1. {(ratio >= ReadableContrast ? "Easy to read." : "Below 7 to 1, which can be hard to read.")}");
+            return UiText.Format("Contrast {0:0.0} to 1. {1}", ratio, (ratio >= ReadableContrast ? UiText.Get("Easy to read.") : UiText.Get("Below 7 to 1, which can be hard to read.")));
         }
     }
 
@@ -254,9 +259,24 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     [Reactive]
     public partial int FormHighlightOpacity { get; set; }
 
+    /// <summary>Gets the persisted culture code for a language selector index.</summary>
+    /// <param name="index">The selected language index.</param>
+    /// <returns>The culture code, or an empty string to follow the desktop.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string GetInterfaceLanguageCode(int index) => InterfaceLanguageCodes[Math.Clamp(index, 0, InterfaceLanguageCodes.Length - 1)];
+
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(CustomToneContrast));
+        LocalisationRefresh.RefreshCore(_services, visited);
+        LocalisationRefresh.RefreshCore(OcrLanguages, visited);
+        LocalisationRefresh.RefreshCore(Sharpness, visited);
+    }
 
     /// <summary>Asks the window to close; the choices are already applied.</summary>
     [ReactiveCommand]
@@ -321,6 +341,7 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     private void Load()
     {
         var settings = _services.Settings;
+        InterfaceLanguage = Math.Max(0, Array.IndexOf(InterfaceLanguageCodes, settings.InterfaceLanguage));
         SpeechEngine = Math.Max(0, Array.IndexOf(SpeechEngineChoices, settings.SpeechEngine));
         AzureKey = settings.AzureSpeechKey;
         TimestampServer = settings.TimestampServer;
@@ -358,17 +379,21 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
     {
         Follow(this.WhenChanged(static x => x.Motion), index => settings.Motion = (MotionPreference)index);
         Follow(this.WhenChanged(static x => x.Caret), index => settings.Caret = (CaretPreference)index);
-        Follow(this.WhenChanged(static x => x.FontSize), index =>
-        {
-            var known = index > 0 && index < FontSizes.Length;
-            settings.InterfaceFontSizePoints = known ? FontSizes[index] : null;
-            if (!known && index != 0)
-            {
-                FontSize = 0;
-            }
-        });
+        Follow(
+            this.WhenChanged(static x => x.FontSize),
+                index =>
+{
+    var known = index > 0 && index < FontSizes.Length;
+    settings.InterfaceFontSizePoints = known ? FontSizes[index] : null;
+    if (!known && index != 0)
+    {
+        FontSize = 0;
+    }
+    });
         Follow(this.WhenChanged(static x => x.FormHighlightColor), index => settings.FormHighlightColor = HighlightColors[Math.Clamp(index, 0, HighlightColors.Length - 1)]);
-        Follow(this.WhenChanged(static x => x.FormHighlightOpacity), index => settings.FormHighlightAlpha = HighlightOpacities[Math.Clamp(index, 0, HighlightOpacities.Length - 1)]);
+        Follow(
+            this.WhenChanged(static x => x.FormHighlightOpacity),
+                index => settings.FormHighlightAlpha = HighlightOpacities[Math.Clamp(index, 0, HighlightOpacities.Length - 1)]);
     }
 
     /// <summary>Writes later changes of the reading and commenting choices to the settings.</summary>
@@ -390,10 +415,10 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
         Follow(this.WhenChanged(static x => x.ShowPreviewOnlyFonts), show => settings.ShowPreviewOnlyFonts = show);
     }
 
-    /// <summary>Writes each later change of a choice to the settings, re-themes and saves.</summary>
-    private void Follow()
+    /// <summary>Follows speech service credentials and the timestamp service address.</summary>
+    /// <param name="settings">The settings receiving later changes.</param>
+    private void FollowServices(AppSettings settings)
     {
-        var settings = _services.Settings;
         Follow(this.WhenChanged(static x => x.SpeechEngine), index =>
         {
             var clamped = Math.Clamp(index, 0, SpeechEngineChoices.Length - 1);
@@ -409,19 +434,29 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable
             settings.AzureSpeechKey = trimmed;
             AzureKey = trimmed;
         });
-        Follow(this.WhenChanged(static x => x.TimestampServer), server =>
-        {
-            var trimmed = server.Trim();
-            settings.TimestampServer = trimmed;
-            TimestampServer = trimmed;
-        });
-        FollowReading(settings);
         Follow(this.WhenChanged(static x => x.AzureRegion), region =>
         {
             var trimmed = region.Trim().ToLowerInvariant();
             settings.AzureSpeechRegion = trimmed;
             AzureRegion = trimmed;
         });
+        Follow(this.WhenChanged(static x => x.TimestampServer), server =>
+        {
+            var trimmed = server.Trim();
+            settings.TimestampServer = trimmed;
+            TimestampServer = trimmed;
+        });
+    }
+
+    /// <summary>Writes each later change of a choice to the settings, re-themes and saves.</summary>
+    private void Follow()
+    {
+        var settings = _services.Settings;
+        Follow(
+            this.WhenChanged(static x => x.InterfaceLanguage),
+            index => settings.InterfaceLanguage = InterfaceLanguageCodes[Math.Clamp(index, 0, InterfaceLanguageCodes.Length - 1)]);
+        FollowServices(settings);
+        FollowReading(settings);
         Follow(this.WhenChanged(static x => x.ColorScheme), index => settings.ColorScheme = (ColorSchemeChoice)index);
         Follow(this.WhenChanged(static x => x.PageTone), index =>
         {

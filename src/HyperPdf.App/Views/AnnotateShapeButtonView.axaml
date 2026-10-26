@@ -1,27 +1,27 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.AnnotateShapeButtonView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AnnotateShapeButtonView.axaml.cs). -->
-  <Button AutomationProperties.Name="Shape" x:Name="ShapeButton" views:ControlHelp.Text="{x:Static help:Descriptions.Shape}" Classes="tool">
+  <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Shape&quot;}" x:Name="ShapeButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose a shape, then drag on the page to draw it.&quot;}" Classes="tool">
     <StackPanel Orientation="Horizontal">
       <Path Classes="icon edit" Data="{StaticResource IconShape}" />
-      <TextBlock x:Name="ShapeText" Classes="label" Text="Shape" />
+      <TextBlock TextWrapping="Wrap" x:Name="ShapeText" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Shape&quot;}" />
     </StackPanel>
     <Button.Flyout>
       <MenuFlyout>
-        <MenuItem x:Name="RectangleItem" views:ControlHelp.Text="{x:Static help:Descriptions.Rectangle}" Header="_Rectangle" />
-        <MenuItem x:Name="EllipseItem" views:ControlHelp.Text="{x:Static help:Descriptions.Ellipse}" Header="_Ellipse" />
-        <MenuItem x:Name="ArrowItem" views:ControlHelp.Text="{x:Static help:Descriptions.Arrow}" Header="_Arrow" />
-        <MenuItem x:Name="LineItem" views:ControlHelp.Text="{x:Static help:Descriptions.Line}" Header="_Line" />
+        <MenuItem x:Name="RectangleItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Draw rectangles. Drag on the page to draw one.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Rectangle&quot;}" />
+        <MenuItem x:Name="EllipseItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Draw ovals and circles. Drag on the page to draw one.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Ellipse&quot;}" />
+        <MenuItem x:Name="ArrowItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Draw arrows. Drag on the page from the tail to the point.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Arrow&quot;}" />
+        <MenuItem x:Name="LineItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Draw straight lines. Drag on the page to draw one.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Line&quot;}" />
         <Separator />
-        <MenuItem x:Name="CalloutItem" views:ControlHelp.Text="{x:Static help:Descriptions.Callout}" Header="_Callout" />
-        <MenuItem x:Name="PolygonItem" views:ControlHelp.Text="{x:Static help:Descriptions.Polygon}" Header="_Polygon" />
-        <MenuItem x:Name="CloudItem" views:ControlHelp.Text="{x:Static help:Descriptions.Cloud}" Header="Cl_oud" />
-        <MenuItem x:Name="PolyLineItem" views:ControlHelp.Text="{x:Static help:Descriptions.PolyLine}" Header="Co_nnected Lines" />
+        <MenuItem x:Name="CalloutItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Write text with an arrow pointing at something. Drag from the thing to where the text goes.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Callout&quot;}" />
+        <MenuItem x:Name="PolygonItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Draw a shape with straight sides. Click each corner, then press Enter or double-click.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Polygon&quot;}" />
+        <MenuItem x:Name="CloudItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Draw a cloud around an area. Click each corner, then press Enter or double-click.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Cl_oud&quot;}" />
+        <MenuItem x:Name="PolyLineItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Draw joined straight lines. Click each point, then press Enter or double-click.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Co_nnected Lines&quot;}" />
         <Separator />
-        <MenuItem x:Name="RedactAreaItem" views:ControlHelp.Text="{x:Static help:Descriptions.RedactArea}" Header="Mark Area to Re_dact" />
-        <MenuItem x:Name="RedactTextItem" views:ControlHelp.Text="{x:Static help:Descriptions.RedactText}" Header="Mark _Text to Redact" />
+        <MenuItem x:Name="RedactAreaItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drag a box on the page to mark an area to redact. Nothing is removed until you apply the redactions. Only the HyperPDF engine can do this.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Mark Area to Re_dact&quot;}" />
+        <MenuItem x:Name="RedactTextItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Select text to mark it to redact. Nothing is removed until you apply the redactions. Only the HyperPDF engine can do this.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Mark _Text to Redact&quot;}" />
       </MenuFlyout>
     </Button.Flyout>
   </Button>

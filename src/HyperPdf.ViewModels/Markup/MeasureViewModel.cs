@@ -20,7 +20,7 @@ namespace HyperPdf.ViewModels.Markup;
 /// declares or one the user types, such as "1 cm = 2 m".
 /// </summary>
 [DebuggerDisplay("MeasureViewModel: {Mode}: {Result}")]
-public sealed partial class MeasureViewModel : ReactiveObject, IDisposable
+public sealed partial class MeasureViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The points of a line: its two ends.</summary>
     private const int LineEnds = 2;
@@ -189,6 +189,10 @@ public sealed partial class MeasureViewModel : ReactiveObject, IDisposable
     /// <summary>Gets the scale in use: the one typed, or failing that true size.</summary>
     /// <returns>The scale.</returns>
     public MeasureScale CurrentScale() => MeasureScale.TryParse(ScaleText, out var scale) ? scale : DefaultScale;
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => LocalisationRefresh.RefreshCore(_owner, visited);
 
     /// <summary>Starts a measurement on a page, taking the page's declared scale when it has one.</summary>
     /// <param name="page">The page.</param>

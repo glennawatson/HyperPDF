@@ -3,9 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Platform.Storage;
+using HyperPdf.App.Controls;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -25,13 +25,14 @@ public sealed partial class ExternalSignWindow : ReactiveUI.Avalonia.ReactiveWin
     public ExternalSignWindow()
     {
         InitializeComponent();
-        KeyBox.ItemTemplate = new FuncDataTemplate<SigningKeyChoice>(static (choice, _) => new TextBlock { Text = choice?.Name });
-        ResultBox.ItemTemplate = new FuncDataTemplate<ExternalResultChoice>(static (choice, _) => new TextBlock { Text = choice?.Name, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+        KeyBox.ItemTemplate = new FuncDataTemplate<SigningKeyChoice>(static (choice, _) => ChoiceViews.CreateLabel(choice, static item => item?.Name));
+        ResultBox.ItemTemplate = new FuncDataTemplate<ExternalResultChoice>(static (choice, _) => ChoiceViews.CreateLabel(choice, static item => item?.Name));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(ItemAutomation.NameItems(KeyBox));
             disposables.Add(ItemAutomation.NameItems(ResultBox));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Sign a copy of {name} with an external signer"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => UiText.Format("Sign a copy of {0} with an external signer", name)));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SignerText, static v => v.CertificateBox.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.KeyChoices, static v => v.KeyBox.ItemsSource));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedKey, static v => v.KeyBox.SelectedItem, static choice => choice, static item => item as SigningKeyChoice));
@@ -78,9 +79,9 @@ public sealed partial class ExternalSignWindow : ReactiveUI.Avalonia.ReactiveWin
     {
         var files = await StorageProvider.OpenFilePickerAsync(new()
         {
-            Title = "Choose the Signer's Certificates",
+            Title = UiText.Get("Choose the Signer's Certificates"),
             AllowMultiple = true,
-            FileTypeFilter = [new("Certificates (.cer, .crt, .pem)") { Patterns = ["*.cer", "*.crt", "*.pem"] }],
+            FileTypeFilter = [new(UiText.Get("Certificates (.cer, .crt, .pem)")) { Patterns = ["*.cer", "*.crt", "*.pem"] }],
         });
         var paths = new List<string>(files.Count);
         foreach (var file in files)
@@ -99,7 +100,7 @@ public sealed partial class ExternalSignWindow : ReactiveUI.Avalonia.ReactiveWin
     /// <returns>A task.</returns>
     private async Task SaveToSignAsync(IInteractionContext<string, string?> context)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Save the Bytes to Sign", SuggestedFileName = context.Input, DefaultExtension = "bin" });
+        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = UiText.Get("Save the Bytes to Sign"), SuggestedFileName = context.Input, DefaultExtension = "bin" });
         context.SetOutput(file?.TryGetLocalPath());
     }
 
@@ -108,7 +109,7 @@ public sealed partial class ExternalSignWindow : ReactiveUI.Avalonia.ReactiveWin
     /// <returns>A task.</returns>
     private async Task OpenSignatureAsync(IInteractionContext<RxVoid, string?> context)
     {
-        var files = await StorageProvider.OpenFilePickerAsync(new() { Title = "Choose the Signer's Answer", AllowMultiple = false });
+        var files = await StorageProvider.OpenFilePickerAsync(new() { Title = UiText.Get("Choose the Signer's Answer"), AllowMultiple = false });
         context.SetOutput(files.Count > 0 ? files[0].TryGetLocalPath() : null);
     }
 
@@ -117,7 +118,18 @@ public sealed partial class ExternalSignWindow : ReactiveUI.Avalonia.ReactiveWin
     /// <returns>A task.</returns>
     private async Task SaveCopyAsync(IInteractionContext<string, string?> context)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Save Signed Copy", SuggestedFileName = context.Input, DefaultExtension = "pdf" });
+        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = UiText.Get("Save Signed Copy"), SuggestedFileName = context.Input, DefaultExtension = "pdf" });
         context.SetOutput(file?.TryGetLocalPath());
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        HeadingText.Text = UiText.Format("Sign a copy of {0} with an external signer", model.FileName);
     }
 }

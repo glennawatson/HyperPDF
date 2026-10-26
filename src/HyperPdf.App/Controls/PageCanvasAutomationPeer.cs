@@ -136,7 +136,7 @@ internal sealed class PageCanvasAutomationPeer : ControlAutomationPeer, IValuePr
     protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Document;
 
     /// <inheritdoc/>
-    protected override string GetLocalizedControlTypeCore() => "document";
+    protected override string GetLocalizedControlTypeCore() => UiText.Get("document");
 
     /// <inheritdoc/>
     protected override string? GetNameCore()

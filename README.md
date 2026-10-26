@@ -21,6 +21,8 @@ Download a package from [GitHub releases](https://github.com/glennawatson/HyperP
 3. Choose **Find** to search or **Focus** for adjustable reading text.
 4. Open **Tabs & settings → Preferences** for appearance and startup settings.
 
+The interface supports English, French, German, Mandarin Chinese, Arabic, Spanish and Portuguese. Choose **Interface language** in Preferences to update existing windows immediately. Arabic uses right-to-left controls while PDF pages keep their document layout. See [interface localisation](docs/localisation/README.md) for language overrides and translation development.
+
 If a PDF needs a recipient certificate, choose your `.p12` or `.pfx` file and enter its password. RSA and elliptic-curve certificates both work. If the file has no private key, or the PDF uses an encryption method the viewer cannot read, the viewer says so. The viewer keeps that choice only while the tab is open. A wrapper PDF names its enclosed document and offers it in **Attachments**; open that file there and enter its document password if asked.
 
 ## Features

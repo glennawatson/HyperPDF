@@ -25,7 +25,8 @@ public sealed partial class RemoveProtectionWindow : ReactiveUI.Avalonia.Reactiv
         InitializeComponent();
         _ = this.WhenActivated(disposables =>
         {
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Remove the protection from a copy of {name}"));
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => UiText.Format("Remove the protection from a copy of {0}", name)));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.NeedsOwnerPassword, static v => v.OwnerRow.IsVisible));
             disposables.Add(this.Bind(ViewModel, static vm => vm.OwnerPassword, static v => v.OwnerBox.Text, static text => text, static text => text ?? string.Empty));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.SaveCommand, static v => v.SaveButton));
@@ -58,7 +59,18 @@ public sealed partial class RemoveProtectionWindow : ReactiveUI.Avalonia.Reactiv
     /// <returns>A task.</returns>
     private async Task SaveAsync(IInteractionContext<string, string?> context)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Save Unprotected Copy", SuggestedFileName = context.Input, DefaultExtension = "pdf" });
+        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = UiText.Get("Save Unprotected Copy"), SuggestedFileName = context.Input, DefaultExtension = "pdf" });
         context.SetOutput(file?.TryGetLocalPath());
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        HeadingText.Text = UiText.Format("Remove the protection from a copy of {0}", model.FileName);
     }
 }

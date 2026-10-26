@@ -7,7 +7,11 @@ using System.Diagnostics;
 namespace HyperPdf.ViewModels.Markup;
 
 /// <summary>A named line or character spacing offered by the text tool.</summary>
-/// <param name="Name">The display name.</param>
+/// <param name="NameKey">The display name.</param>
 /// <param name="Value">The spacing in points or as a line-height multiplier.</param>
 [DebuggerDisplay("{Name}: {Value}")]
-public readonly record struct LineSpacingOption(string Name, float Value);
+public readonly record struct LineSpacingOption(string NameKey, float Value)
+{
+    /// <summary>Gets the localized display text.</summary>
+    public string Name => UiText.Get(NameKey);
+}

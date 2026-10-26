@@ -54,6 +54,9 @@ public abstract class MediaPlayerBase : IMediaPlayback
     /// <summary>Whether the player was disposed.</summary>
     private bool _disposed;
 
+    /// <summary>The retained source text of the latest decoder failure.</summary>
+    private string? _problem;
+
     /// <summary>Initializes a new instance of the <see cref="MediaPlayerBase"/> class.</summary>
     protected MediaPlayerBase() => Changes = new(_changes);
 
@@ -61,7 +64,10 @@ public abstract class MediaPlayerBase : IMediaPlayback
     public AsObservableSignal<MediaSnapshot> Changes { get; }
 
     /// <inheritdoc />
-    public string? Problem { get; private set; }
+    public string? Problem { get => ProblemMessage.Value; private set => _problem = value; }
+
+    /// <summary>Gets the retained failure message, preserving its meaning when the language changes.</summary>
+    public LocalizedMessage ProblemMessage => DescribeProblem(_problem);
 
     /// <inheritdoc />
     public MediaInfo Info
@@ -210,8 +216,13 @@ public abstract class MediaPlayerBase : IMediaPlayback
             CancelRunLocked();
         }
 
-        _changes.OnCompleted();
-        _changes.Dispose();
+        // Publish checks and raises under this gate, so completing here cannot race a picture thread's last frame.
+        lock (_publishGate)
+        {
+            _changes.OnCompleted();
+            _changes.Dispose();
+        }
+
         Dispose(true);
         GC.SuppressFinalize(this);
     }
@@ -229,6 +240,11 @@ public abstract class MediaPlayerBase : IMediaPlayback
 
         return duration > TimeSpan.Zero && position > duration ? duration : position;
     }
+
+    /// <summary>Describes a decoder failure without treating third party text as a translation key.</summary>
+    /// <param name="problem">The decoder failure.</param>
+    /// <returns>The retained failure message.</returns>
+    protected virtual LocalizedMessage DescribeProblem(string? problem) => LocalizedMessage.Literal(problem);
 
     /// <summary>Plays the open file from a position until it ends or the token is cancelled.</summary>
     /// <param name="path">The file.</param>

@@ -25,13 +25,27 @@ internal static class OptimizeReportText
     /// <returns>The words.</returns>
     internal static string DescribeStep(OptimizeStep step) => step switch
     {
+        OptimizeStep.Checking => UiText.Get("Checking the file"),
+        OptimizeStep.Analysing => UiText.Get("Reading the pages"),
+        OptimizeStep.Editing => UiText.Get("Updating the pages"),
+        OptimizeStep.Deduplicating => UiText.Get("Looking for repeated content"),
+        OptimizeStep.Writing => UiText.Get("Writing the new file"),
+        _ => UiText.Get("Finished"),
+    };
+
+    /// <summary>Retains the step as a resource key for a running operation's status.</summary>
+    /// <param name="step">The step.</param>
+    /// <returns>The localized step message.</returns>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal static LocalizedMessage StepMessage(OptimizeStep step) => LocalizedMessage.Get(UiText, step switch
+    {
         OptimizeStep.Checking => "Checking the file",
         OptimizeStep.Analysing => "Reading the pages",
         OptimizeStep.Editing => "Updating the pages",
         OptimizeStep.Deduplicating => "Looking for repeated content",
         OptimizeStep.Writing => "Writing the new file",
         _ => "Finished",
-    };
+    });
 
     /// <summary>Gets how far along the whole run is.</summary>
     /// <param name="progress">The step and its progress.</param>
@@ -49,16 +63,16 @@ internal static class OptimizeReportText
     /// <returns>The words.</returns>
     internal static string DescribeArea(OptimizeArea area) => area switch
     {
-        OptimizeArea.Layout => "File layout",
-        OptimizeArea.Images => "Pictures",
-        OptimizeArea.Streams => "Compression",
-        OptimizeArea.Duplicates => "Repeated content",
-        OptimizeArea.UnusedObjects => "Unused content",
-        OptimizeArea.Fonts => "Fonts",
-        OptimizeArea.Cleanup => "Clean-up",
-        OptimizeArea.Accessibility => "Accessibility",
-        OptimizeArea.TextLayer => "Text layer",
-        _ => "Safety",
+        OptimizeArea.Layout => UiText.Get("File layout"),
+        OptimizeArea.Images => UiText.Get("Pictures"),
+        OptimizeArea.Streams => UiText.Get("Compression"),
+        OptimizeArea.Duplicates => UiText.Get("Repeated content"),
+        OptimizeArea.UnusedObjects => UiText.Get("Unused content"),
+        OptimizeArea.Fonts => UiText.Get("Fonts"),
+        OptimizeArea.Cleanup => UiText.Get("Clean-up"),
+        OptimizeArea.Accessibility => UiText.Get("Accessibility"),
+        OptimizeArea.TextLayer => UiText.Get("Text layer"),
+        _ => UiText.Get("Safety"),
     };
 
     /// <summary>Describes the size change in one sentence.</summary>
@@ -71,18 +85,20 @@ internal static class OptimizeReportText
         var after = AttachmentsViewModel.FormatSize(report.BytesAfter);
         if (report.Mode == OptimizeWriteMode.Copied)
         {
-            return $"Nothing could be changed safely, so the new file is a copy of the original ({before}).";
+            return UiText.Format("Nothing could be changed safely, so the new file is a copy of the original ({0}).", before);
         }
 
         if (report.BytesSaved > 0)
         {
             var share = (report.FractionSaved * Percent).ToString("0", CultureInfo.CurrentCulture);
-            return $"Saved {share}%. The file went from {before} to {after}.";
+            return UiText.Format("Saved {0}%. The file went from {1} to {2}.", share, before, after);
         }
 
         return report.BytesSaved == 0
-            ? $"The file stayed the same size ({before})."
-            : $"The new file is {after}, a little larger than the original {before}. Added accessibility entries or text layers can do this.";
+            ? UiText.Format(
+            "The file stayed the same size ({0}).",
+            before)
+            : UiText.Format("The new file is {0}, a little larger than the original {1}. Added accessibility entries or text layers can do this.", after, before);
     }
 
     /// <summary>Describes everything the reader should know about a finished run, one point per line.</summary>
@@ -92,16 +108,16 @@ internal static class OptimizeReportText
     internal static string[] Lines(OptimizeReport report, string path)
     {
         ArgumentNullException.ThrowIfNull(report);
-        var lines = new List<string> { $"Saved as {Path.GetFileName(path)}.", Headline(report) };
+        var lines = new List<string> { UiText.Format("Saved as {0}.", Path.GetFileName(path)), Headline(report) };
         AddNotes(lines, report);
         foreach (var skip in report.Skipped)
         {
-            lines.Add($"Left alone, {DescribeArea(skip.Area).ToLowerInvariant()}: {skip.Reason}");
+            lines.Add(UiText.Format("Left alone, {0}: {1}", DescribeArea(skip.Area).ToLowerInvariant(), skip.Reason));
         }
 
         foreach (var warning in report.Warnings)
         {
-            lines.Add($"Note: {warning}");
+            lines.Add(UiText.Format("Note: {0}", warning));
         }
 
         return [.. lines];
@@ -128,12 +144,12 @@ internal static class OptimizeReportText
     {
         if (report.WasSigned)
         {
-            lines.Add("This document is signed. Its signatures stay valid because the original bytes were kept, so pictures and fonts were not shrunk.");
+            lines.Add(UiText.Get("This document is signed. Its signatures stay valid because the original bytes were kept, so pictures and fonts were not shrunk."));
         }
 
         if (report.IsEncrypted)
         {
-            lines.Add("The copy is encrypted in the same way as the original.");
+            lines.Add(UiText.Get("The copy is encrypted in the same way as the original."));
         }
 
         if (report.ClaimRemoved is { } removal)
@@ -146,12 +162,12 @@ internal static class OptimizeReportText
         }
         else if (report.PdfAPart > 0)
         {
-            lines.Add($"The document claims PDF/A part {report.PdfAPart}, so only changes that keep it valid were made.");
+            lines.Add(UiText.Format("The document claims PDF/A part {0}, so only changes that keep it valid were made.", report.PdfAPart));
         }
 
         if (report.TagsInferred)
         {
-            lines.Add("A reading structure was guessed from the page layout. Check it with a screen reader before you rely on it.");
+            lines.Add(UiText.Get("A reading structure was guessed from the page layout. Check it with a screen reader before you rely on it."));
         }
 
         if (report.FiguresNeedingAltText <= 0)
@@ -159,7 +175,7 @@ internal static class OptimizeReportText
             return;
         }
 
-        var figures = report.FiguresNeedingAltText == 1 ? "1 picture needs" : string.Create(CultureInfo.CurrentCulture, $"{report.FiguresNeedingAltText} pictures need");
-        lines.Add($"{figures} alternative text (alt text) so a screen reader can describe it. Add it in an accessibility editor.");
+        var figures = report.FiguresNeedingAltText == 1 ? UiText.Get("1 picture needs") : UiText.Format("{0} pictures need", report.FiguresNeedingAltText);
+        lines.Add(UiText.Format("{0} alternative text (alt text) so a screen reader can describe it. Add it in an accessibility editor.", figures));
     }
 }

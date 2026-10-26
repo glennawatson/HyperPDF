@@ -24,13 +24,16 @@ public sealed partial class ExportPagesWindow : ReactiveUI.Avalonia.ReactiveWind
     public ExportPagesWindow()
     {
         InitializeComponent();
-        FormatList.ItemTemplate = new FuncDataTemplate<PageFileFormatInfo>(static (format, _) => ChoiceViews.Create(format?.Name, format?.Description));
-        ScopeList.ItemTemplate = new FuncDataTemplate<ExportPagesScopeChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, null));
+        FormatList.ItemTemplate = new FuncDataTemplate<PageFileFormatInfo>(
+            static (format, _) => ChoiceViews.Create(format, static item => item?.Name, static item => item?.Description));
+        ScopeList.ItemTemplate = new FuncDataTemplate<ExportPagesScopeChoice>(
+            static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static _ => null));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(ItemAutomation.NameItems(FormatList));
             disposables.Add(ItemAutomation.NameItems(ScopeList));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Export pages of {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => UiText.Format("Export pages of {0}", name)));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Formats, static v => v.FormatList.ItemsSource));
             disposables.Add(this.Bind(
                 ViewModel,
@@ -78,7 +81,18 @@ public sealed partial class ExportPagesWindow : ReactiveUI.Avalonia.ReactiveWind
     /// <returns>A task.</returns>
     private async Task SaveAsync(IInteractionContext<string, string?> context)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Export Pages", SuggestedFileName = context.Input });
+        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = UiText.Get("Export Pages"), SuggestedFileName = context.Input });
         context.SetOutput(file?.TryGetLocalPath());
+    }
+
+    /// <summary>Refreshes translated presentation text without changing export choices.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        HeadingText.Text = UiText.Format("Export pages of {0}", model.FileName);
     }
 }

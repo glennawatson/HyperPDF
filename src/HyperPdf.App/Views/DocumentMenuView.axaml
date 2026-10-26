@@ -1,62 +1,62 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.DocumentMenuView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (DocumentMenuView.axaml.cs). -->
-  <Button x:Name="DocumentMenuButton" views:ControlHelp.Text="{x:Static help:Descriptions.DocumentMenu}" AutomationProperties.Name="Document" Classes="tool" Content="Document ▾">
+  <Button x:Name="DocumentMenuButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open the Document menu to save a copy, reload, find the file or see its details.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Document&quot;}" Classes="tool" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Document ▾&quot;}">
     <Button.Flyout>
       <MenuFlyout Placement="BottomEdgeAlignedRight">
-        <MenuItem x:Name="SaveItem" views:ControlHelp.Text="{x:Static help:Descriptions.Save}" Header="_Save" InputGesture="Ctrl+S">
+        <MenuItem x:Name="SaveItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save your annotations and form entries to the file. Shortcut: Ctrl+S&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Save&quot;}" InputGesture="Ctrl+S">
           <MenuItem.Icon>
             <Path Classes="icon add" Data="{StaticResource IconSave}" />
           </MenuItem.Icon>
         </MenuItem>
-        <MenuItem x:Name="SaveAsItem" views:ControlHelp.Text="{x:Static help:Descriptions.SaveAs}" Header="Save _As…" InputGesture="Ctrl+Shift+S">
+        <MenuItem x:Name="SaveAsItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save a copy of the document with a new name or in a new place. Shortcut: Ctrl+Shift+S&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save _As…&quot;}" InputGesture="Ctrl+Shift+S">
           <MenuItem.Icon>
             <Path Classes="icon add" Data="{StaticResource IconSave}" />
           </MenuItem.Icon>
         </MenuItem>
-        <MenuItem x:Name="SaveCopyItem" views:ControlHelp.Text="{x:Static help:Descriptions.SaveCopy}" Header="Save a _Copy…">
+        <MenuItem x:Name="SaveCopyItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save a copy of this document as a standard PDF, an optimised smaller file, a PDF/A archive, a PDF 2.0 file or a flattened copy. Your open file is never changed.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save a _Copy…&quot;}">
           <MenuItem.Icon>
             <Path Classes="icon add" Data="{StaticResource IconDocument}" />
           </MenuItem.Icon>
         </MenuItem>
-        <MenuItem x:Name="ExportPagesItem" views:ControlHelp.Text="{x:Static help:Descriptions.ExportPages}" Header="E_xport Pages as Pictures or Drawings…">
+        <MenuItem x:Name="ExportPagesItem" views:ControlHelp.Text="{views:LiveHelp ExportPages}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;E_xport Pages as Pictures or Drawings…&quot;}">
           <MenuItem.Icon>
             <Path Classes="icon add" Data="{StaticResource IconDocument}" />
           </MenuItem.Icon>
         </MenuItem>
         <Separator />
-        <MenuItem x:Name="ProtectSignMenu" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectSignMenu}" Header="_Protect &amp; Sign">
+        <MenuItem x:Name="ProtectSignMenu" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open the choices to protect with a password, remove protection, apply redactions, or sign and timestamp a copy.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Protect &amp; Sign&quot;}">
           <MenuItem.Icon>
             <Path Classes="icon edit" Data="{StaticResource IconCertificate}" />
           </MenuItem.Icon>
-          <MenuItem x:Name="ProtectItem" views:ControlHelp.Text="{x:Static help:Descriptions.ProtectCopy}" Header="Protect with _Password…" />
-          <MenuItem x:Name="RemoveProtectionItem" views:ControlHelp.Text="{x:Static help:Descriptions.RemoveProtectionCopy}" Header="Remove Pro_tection…" />
+          <MenuItem x:Name="ProtectItem" views:ControlHelp.Text="{views:LiveHelp ProtectCopy}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Protect with _Password…&quot;}" />
+          <MenuItem x:Name="RemoveProtectionItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save a copy of this document without passwords or limits. A document opened with only its reading password needs the owner password. Your open file is never changed.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove Pro_tection…&quot;}" />
           <Separator />
-          <MenuItem x:Name="ApplyRedactionsItem" views:ControlHelp.Text="{x:Static help:Descriptions.ApplyRedactions}" Header="Apply _Redactions…" />
+          <MenuItem x:Name="ApplyRedactionsItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove everything under the marks for good and save a redacted copy. Your open file is never changed.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Apply _Redactions…&quot;}" />
           <Separator />
-          <MenuItem x:Name="ValidationDataItem" views:ControlHelp.Text="{x:Static help:Descriptions.ValidationData}" Header="Add _Validation Data or Timestamp…" />
-          <MenuItem x:Name="ExternalSignItem" views:ControlHelp.Text="{x:Static help:Descriptions.ExternalSign}" Header="Sign with E_xternal Signer…" />
+          <MenuItem x:Name="ValidationDataItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save a copy of this signed document with the data its signatures need to be checked years later, or with a trusted timestamp. Your open file is never changed.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Add _Validation Data or Timestamp…&quot;}" />
+          <MenuItem x:Name="ExternalSignItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sign a copy of this document with a key that stays on a hardware token or with a signing service. Your open file is never changed.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sign with E_xternal Signer…&quot;}" />
         </MenuItem>
         <Separator />
-        <MenuItem x:Name="SelectAllItem" views:ControlHelp.Text="{x:Static help:Descriptions.SelectAll}" Header="Select A_ll Text on Page" InputGesture="Ctrl+A">
+        <MenuItem x:Name="SelectAllItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Select all the text on the current page, ready to copy. Shortcut: Ctrl+A&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Select A_ll Text on Page&quot;}" InputGesture="Ctrl+A">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconCursor}" />
           </MenuItem.Icon>
         </MenuItem>
         <Separator />
-        <MenuItem x:Name="ReloadItem" views:ControlHelp.Text="{x:Static help:Descriptions.Reload}" Header="Re_load" InputGesture="F5">
+        <MenuItem x:Name="ReloadItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Load the file again from the disk. Shortcut: F5&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Re_load&quot;}" InputGesture="F5">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconRotateRight}" />
           </MenuItem.Icon>
         </MenuItem>
-        <MenuItem x:Name="ShowInFolderItem" views:ControlHelp.Text="{x:Static help:Descriptions.ShowInFolder}" Header="Show in _Folder">
+        <MenuItem x:Name="ShowInFolderItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open the folder that holds this file.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show in _Folder&quot;}">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconOpen}" />
           </MenuItem.Icon>
         </MenuItem>
-        <MenuItem x:Name="PropertiesItem" views:ControlHelp.Text="{x:Static help:Descriptions.Properties}" Header="_Properties" InputGesture="Alt+Enter">
+        <MenuItem x:Name="PropertiesItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;See details about this document, such as its title, author and size. Shortcut: Alt+Enter&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Properties&quot;}" InputGesture="Alt+Enter">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconOutline}" />
           </MenuItem.Icon>

@@ -23,7 +23,7 @@ namespace HyperPdf.ViewModels.Signing;
 /// user chooses whether the certificate is remembered, and can forget each remembered one; the password never is.
 /// </summary>
 [DebuggerDisplay("CertificateSignViewModel: {CertificatePath}")]
-public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposable
+public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The distance of a visible signature from the page's edges, in points.</summary>
     private const double VisibleMargin = 36;
@@ -58,6 +58,12 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     /// <summary>The last preview, kept so signing can be refused with its reasons.</summary>
     private SigningPreview? _preview;
 
+    /// <summary>The resource identity of the displayed Error.</summary>
+    private LocalizedMessage _localizedError;
+
+    /// <summary>Whether the last preview attempt found that its document had closed.</summary>
+    private bool _previewDocumentClosed;
+
     /// <summary>Initializes a new instance of the <see cref="CertificateSignViewModel"/> class.</summary>
     /// <param name="remembered">The certificates the user chose to remember, most recently used first.</param>
     public CertificateSignViewModel(IReadOnlyList<RememberedCertificate> remembered)
@@ -86,20 +92,19 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
 
         // Choosing a remembered certificate fills in its file. The box shows whether the named file is remembered, so a
         // newly chosen file is only remembered when the user ticks it.
-        _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedCertificate)
-            .KeepNotNull()
-            .SubscribeSafe(chosen => CertificatePath = chosen.Path, ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedCertificate).KeepNotNull().SubscribeSafe(chosen => CertificatePath = chosen.Path, ErrorTrace.Write));
         _subscriptions.Add(this.WhenChanged(static vm => vm.CertificatePath).SubscribeSafe(path => Remember = IsRemembered(path), ErrorTrace.Write));
         SelectedCertificate = Remembered.Count > 0 ? Remembered[0] : null;
 
         // What will be signed is described again whenever a choice that changes it changes.
-        _subscriptions.Add(this.WhenChanged(
+        _subscriptions.Add(
+            this.WhenChanged(
                 static vm => vm.Reason,
                 static vm => vm.Location,
                 static vm => vm.CertificationIndex,
-                static vm => vm.IsVisibleSignature,
-                static (_, _, _, _) => RxVoid.Default)
-            .SubscribeSafe(_ => UpdatePreview(), ErrorTrace.Write));
+                static vm => vm
+                .IsVisibleSignature,
+                static (_, _, _, _) => RxVoid.Default).SubscribeSafe(_ => UpdatePreview(), ErrorTrace.Write));
 
         // The loaded certificate is open until a newer one replaces it or the window closes, unless it was handed over.
         _subscriptions.Add(this.WhenChanged(static vm => vm.Certificate).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
@@ -155,8 +160,7 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     public partial string Location { get; set; } = string.Empty;
 
     /// <summary>Gets what went wrong with the certificate, or <see langword="null"/>.</summary>
-    [Reactive]
-    public partial string? Error { get; private set; }
+    public string? Error { get => _localizedError.Value; private set => SetError(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the interaction asking for a certificate file.</summary>
     public Interaction<RxVoid, string?> BrowseInteraction { get; } = new();
@@ -173,7 +177,7 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     /// <returns>The request.</returns>
     public SigningRequest BuildRequest(DateTimeOffset time) => new(_pageIndex, Reason, Location, time)
     {
-        Certification = (CertificationLevel)Math.Clamp(CertificationIndex, 0, SigningPreviewText.CertificationChoices.Length - 1),
+        Certification = (CertificationLevel)Math.Clamp(CertificationIndex, 0, SigningPreviewText.CertificationChoices.Count - 1),
         Area = IsVisibleSignature ? VisibleArea : default,
     };
 
@@ -189,6 +193,18 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     /// <inheritdoc/>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <summary>Sets the displayed Error while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetError(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedError, message, nameof(Error));
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        RefreshPreviewText();
+        this.RaisePropertyChanged(nameof(Error));
+    }
 
     /// <summary>Closes the window without signing.</summary>
     /// <returns>Always <see langword="false"/>.</returns>
@@ -207,16 +223,25 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
         try
         {
             _preview = _previewer(BuildRequest(TimeProvider.System.GetUtcNow()));
+            _previewDocumentClosed = false;
         }
         catch (InvalidOperationException)
         {
             // The document was closed or reloaded under the window, so there is nothing to describe.
             _preview = null;
-            PreviewText = CopyFailure.DocumentClosedText;
-            return;
+            _previewDocumentClosed = true;
         }
 
-        PreviewText = SigningPreviewText.Describe(_preview, _timestampServer);
+        RefreshPreviewText();
+    }
+
+    /// <summary>Reformats the retained preview without asking the document to preview signing again.</summary>
+    private void RefreshPreviewText()
+    {
+        if (_previewer is not null)
+        {
+            PreviewText = _previewDocumentClosed ? CopyFailure.DocumentClosedText : SigningPreviewText.Describe(_preview, _timestampServer);
+        }
     }
 
     /// <summary>Determines whether a certificate file is remembered.</summary>
@@ -243,7 +268,7 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
         UpdatePreview();
         if (_preview is { CanSign: false } refused)
         {
-            Error = string.Join(' ', refused.Problems);
+            SetError(LocalizedMessage.Literal(string.Join(' ', refused.Problems)));
             return false;
         }
 
@@ -253,12 +278,12 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
             if (!certificate.HasPrivateKey)
             {
                 certificate.Dispose();
-                Error = "This certificate has no private key, so it cannot sign.";
+                SetError(LocalizedMessage.Get(UiText, "This certificate has no private key, so it cannot sign."));
                 return false;
             }
 
             Certificate = new(certificate);
-            Error = null;
+            SetError(LocalizedMessage.Literal(null));
 
             // The password has done its job; drop it rather than keep it for the life of the window.
             Password = string.Empty;
@@ -266,15 +291,15 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
         }
         catch (CryptographicException)
         {
-            Error = "The password is not right, or the file is not a certificate.";
+            SetError(LocalizedMessage.Get(UiText, "The password is not right, or the file is not a certificate."));
         }
         catch (IOException ex)
         {
-            Error = ex.Message;
+            SetError(LocalizedMessage.Literal(ex.Message));
         }
         catch (UnauthorizedAccessException ex)
         {
-            Error = ex.Message;
+            SetError(LocalizedMessage.Literal(ex.Message));
         }
 
         return false;

@@ -15,6 +15,7 @@ internal static class OwnershipMixins
     /// <typeparam name="T">The resource type.</typeparam>
     /// <param name="resources">The resource held now, or <see langword="null"/> when none is.</param>
     extension<T>(IObservable<T?> resources)
+
         where T : class, IDisposable
     {
         /// <summary>
@@ -24,7 +25,8 @@ internal static class OwnershipMixins
         /// <returns>A stream that never produces a value; subscribe to it to own the resources.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal IObservable<RxVoid> OwnLatest() =>
-            resources.SwitchMap(static resource => resource is null
+            resources.SwitchMap(
+            static resource => resource is null
                 ? Signal.Never<RxVoid>()
                 : Signal.Using(() => resource, static _ => Signal.Never<RxVoid>()));
     }

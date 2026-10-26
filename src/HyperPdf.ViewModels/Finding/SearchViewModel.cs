@@ -17,7 +17,7 @@ namespace HyperPdf.ViewModels.Finding;
 
 /// <summary>Find-in-document state: the query, incremental results and the current hit.</summary>
 [DebuggerDisplay("SearchViewModel: {Query}: {Results.Count}")]
-public sealed partial class SearchViewModel : ReactiveObject, IDisposable
+public sealed partial class SearchViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The number of characters of context shown on each side of a hit.</summary>
     private const int ContextLength = 32;
@@ -47,11 +47,10 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
         _owner = owner;
         _subscriptions =
         [
+
             this.WhenChanged(static x => x.Query, static x => x.MatchCase, static x => x.WholeWord, static x => x.IgnoreDiacritics, static x => x.FoldCompatibility)
                 .Throttle(TypingDelay, RxSchedulers.MainThreadScheduler)
                 .SubscribeSafe(_ => StartSearch(), ErrorTrace.Write),
-
-            // A result picked in the sidebar list moves to its hit; selecting the current hit's result moves nothing.
             this.WhenChanged(static x => x.SelectedResult)
                 .Skip(1)
                 .KeepNotNull()
@@ -59,9 +58,7 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
                 // The filter reads the current hit: a constructor cannot hand 'this' to a state-passing operator.
                 .Where(result => result.Index != CurrentIndex)
                 .SubscribeSafe(result => MoveTo(result.Index), ErrorTrace.Write),
-
-            // The running search stops with the view model, after the subscriptions that could start another.
-            Scope.Create(Cancel),
+            Scope.Create(Cancel)
         ];
     }
 
@@ -163,6 +160,17 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
 
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        if (Query.Length != 0 || Results.Count != 0 || IsSearching)
+        {
+            UpdateStatus();
+        }
+
+        LocalisationRefresh.RefreshCore(_owner, visited);
+    }
+
     /// <summary>Restarts the search after the document reloads.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Refresh() => StartSearch();
@@ -258,7 +266,7 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     private async Task RunSearchAsync(IDocument document, string query, SearchOptions options, int startPage, CancellationToken cancellationToken)
     {
         IsSearching = true;
-        Status = "Searching…";
+        Status = UiText.Get("Searching…");
         try
         {
             await foreach (var page in DocumentSearch.SearchAsync(document, query, options, Math.Max(0, startPage), cancellationToken))
@@ -304,8 +312,8 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable
     /// <summary>Updates the status text.</summary>
     private void UpdateStatus() => Status = Results.Count switch
     {
-        0 when IsSearching => "Searching…",
-        0 => "No results",
-        _ => $"{CurrentIndex + 1} of {Results.Count}{(IsSearching ? "+" : string.Empty)}",
+        0 when IsSearching => UiText.Get("Searching…"),
+        0 => UiText.Get("No results"),
+        _ => UiText.Format("{0} of {1}{2}", CurrentIndex + 1, Results.Count, (IsSearching ? "+" : string.Empty)),
     };
 }

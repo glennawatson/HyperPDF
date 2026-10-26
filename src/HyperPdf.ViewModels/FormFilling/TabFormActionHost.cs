@@ -64,9 +64,10 @@ internal sealed class TabFormActionHost(DocumentTabViewModel owner, bool allowNa
     public ValueTask<bool> SubmitAsync(FormSubmission submission, CancellationToken cancellationToken)
     {
         // Sending needs network plumbing and a consent flow that the viewer does not have, so the action is refused and explained.
-        owner.Notice = string.IsNullOrEmpty(submission.Url)
-            ? "This form asked to send your answers. HyperPDF does not send form data."
-            : $"This form asked to send your answers to {submission.Url}. HyperPDF does not send form data.";
+        owner.SetNotice(
+            string.IsNullOrEmpty(submission.Url)
+                ? LocalizedMessage.Get(UiText, "This form asked to send your answers. HyperPDF does not send form data.")
+                : LocalizedMessage.Format(UiText, "This form asked to send your answers to {0}. HyperPDF does not send form data.", submission.Url));
         return ValueTask.FromResult(false);
     }
 
@@ -96,7 +97,7 @@ internal sealed class TabFormActionHost(DocumentTabViewModel owner, bool allowNa
         var chosen = Path.GetFileName(path);
         var data = await FormDataFiles.ReadAsync(path, cancellationToken).ConfigureAwait(true);
         var result = data is null ? FormDataImportResult.Failed : importer.Import(data);
-        owner.Notice = FormDataFiles.Describe(chosen, result);
+        owner.SetNotice(LocalizedMessage.Literal(FormDataFiles.Describe(chosen, result)));
         return result.Succeeded;
     }
 }

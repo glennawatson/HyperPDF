@@ -22,7 +22,7 @@ namespace HyperPdf.ViewModels.Output;
 /// per file writes a numbered file for each page chosen.
 /// </summary>
 [DebuggerDisplay("ExportPagesViewModel: {FileName}")]
-public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRequest
+public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRequest, ILocalisationChildren
 {
     /// <summary>The ending of the temporary file each export is written to.</summary>
     private const string TemporarySuffix = ".export";
@@ -59,6 +59,15 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
 
     /// <summary>Owns the run in progress until the window closes.</summary>
     private readonly MultipleDisposable _subscriptions = [];
+
+    /// <summary>The retained status message.</summary>
+    private LocalizedMessage _status = LocalizedMessage.Get(UiText, ReadyStatus);
+
+    /// <summary>The retained error message.</summary>
+    private LocalizedMessage _error;
+
+    /// <summary>The retained export summary.</summary>
+    private ExportPagesSummary? _summary;
 
     /// <summary>Initializes a new instance of the <see cref="ExportPagesViewModel"/> class.</summary>
     /// <param name="exporter">The open document's page exporter.</param>
@@ -131,12 +140,10 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
     public partial double ProgressPercent { get; private set; }
 
     /// <summary>Gets what the run is doing now, or how it ended.</summary>
-    [Reactive]
-    public partial string StatusText { get; private set; } = ReadyStatus;
+    public string StatusText { get => _status.Value ?? string.Empty; private set => SetStatus(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets what went wrong, or <see langword="null"/>.</summary>
-    [Reactive]
-    public partial string? Error { get; private set; }
+    public string? Error { get => _error.Value; private set => SetError(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the plain-words summary of the last finished run; empty before one finishes.</summary>
     [Reactive]
@@ -196,6 +203,20 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
         return string.Concat(path.AsSpan(0, path.Length - extension.Length), "-", number, extension);
     }
 
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(StatusText));
+        this.RaisePropertyChanged(nameof(Error));
+        this.RaisePropertyChanged(nameof(Formats));
+        this.RaisePropertyChanged(nameof(SelectedFormat));
+        if (_summary is { Problem: null } summary)
+        {
+            ResultText = ExportPagesText.Describe(summary);
+        }
+
+        LocalisationRefresh.RefreshCore(Scopes, visited);
+    }
+
     /// <summary>Determines whether two paths name the same file.</summary>
     /// <param name="first">The first path.</param>
     /// <param name="second">The second path.</param>
@@ -224,6 +245,16 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
         }
     }
 
+    /// <summary>Sets the displayed message while retaining its resource identity.</summary>
+    /// <param name="message">The retained message.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SetStatus(in LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _status, message, nameof(StatusText));
+
+    /// <summary>Sets the displayed message while retaining its resource identity.</summary>
+    /// <param name="message">The retained message.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SetError(in LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _error, message, nameof(Error));
+
     /// <summary>Stops the export in progress.</summary>
     [ReactiveCommand(CanExecute = nameof(_canCancel))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -243,13 +274,13 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
         var pages = new List<int>();
         if (!TryGetPages(pages))
         {
-            Error = $"Type pages between 1 and {_pageCount}, such as 1-3, 7.";
+            SetError(LocalizedMessage.Format(UiText, "Type pages between 1 and {0}, such as 1-3, 7.", _pageCount));
             return;
         }
 
         if (SelectedFormat.IsRaster && (Dpi < PageFileExportOptions.MinimumDpi || Dpi > PageFileExportOptions.MaximumDpi))
         {
-            Error = $"Choose a resolution between {PageFileExportOptions.MinimumDpi} and {PageFileExportOptions.MaximumDpi} dots to the inch.";
+            SetError(LocalizedMessage.Format(UiText, "Choose a resolution between {0} and {1} dots to the inch.", PageFileExportOptions.MinimumDpi, PageFileExportOptions.MaximumDpi));
             return;
         }
 
@@ -272,20 +303,21 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
         Run = run;
         IsRunning = true;
         ProgressPercent = 0;
+        _summary = null;
         ResultText = string.Empty;
-        StatusText = "Exporting. This can take a while for long files.";
+        SetStatus(LocalizedMessage.Get(UiText, "Exporting. This can take a while for long files."));
         try
         {
             ShowResult(await ExportAllAsync(path, pages, run.Token).ConfigureAwait(true));
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Cancelled. Files finished before you cancelled stay saved.";
+            SetStatus(LocalizedMessage.Get(UiText, "Cancelled. Files finished before you cancelled stay saved."));
         }
         catch (Exception ex) when (CopyFailure.IsExpected(ex) || ex is ArgumentException)
         {
-            Error = $"Could not export: {CopyFailure.Describe(ex)}";
-            StatusText = "The export did not finish.";
+            SetError(LocalizedMessage.Format(UiText, "Could not export: {0}", CopyFailure.Message(ex)));
+            SetStatus(LocalizedMessage.Get(UiText, "The export did not finish."));
         }
         finally
         {
@@ -316,14 +348,14 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
             var target = perPage ? NumberedPath(path, pages[job]) : path;
             if (IsSameFile(target, _sourcePath))
             {
-                return ExportPagesSummary.Refused(OverwriteMessage);
+                return ExportPagesSummary.Refused(LocalizedMessage.Get(UiText, OverwriteMessage));
             }
 
             var chosen = perPage ? pages.GetRange(job, 1) : pages;
             var result = await WriteAsync(target, format.Format, chosen, options, cancellationToken).ConfigureAwait(true);
             if (!result.Written)
             {
-                return ExportPagesSummary.Refused(result.Problem ?? "The file could not be written.");
+                return ExportPagesSummary.Refused(result.Problem is { } problem ? LocalizedMessage.Literal(problem) : LocalizedMessage.Get(UiText, "The file could not be written."));
             }
 
             skipped += result.Skipped;
@@ -375,15 +407,16 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
     /// <param name="summary">What the run did.</param>
     private void ShowResult(ExportPagesSummary summary)
     {
-        if (summary.Problem is { } problem)
+        _summary = summary;
+        if (summary.Problem is not null)
         {
-            Error = problem;
-            StatusText = "The export did not finish.";
+            SetError(summary.ProblemMessage);
+            SetStatus(LocalizedMessage.Get(UiText, "The export did not finish."));
             return;
         }
 
         ProgressPercent = FullBar;
-        StatusText = "Done. The export is saved.";
+        SetStatus(LocalizedMessage.Get(UiText, "Done. The export is saved."));
         ResultText = ExportPagesText.Describe(summary);
     }
 }

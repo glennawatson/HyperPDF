@@ -1,52 +1,52 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.ViewMenuView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (ViewMenuView.axaml.cs). -->
-  <Button x:Name="ViewMenuButton" views:ControlHelp.Text="{x:Static help:Descriptions.ViewMenu}" AutomationProperties.Name="View" Classes="tool" Content="View ▾">
+  <Button x:Name="ViewMenuButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open the View menu to turn pages, change the page layout, choose how dragging works, read or present.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;View&quot;}" Classes="tool" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;View ▾&quot;}">
     <Button.Flyout>
       <MenuFlyout Placement="BottomEdgeAlignedRight">
-        <MenuItem x:Name="RotateLeftItem" views:ControlHelp.Text="{x:Static help:Descriptions.RotateLeft}" Header="Rotate _Left" InputGesture="Ctrl+Left">
+        <MenuItem x:Name="RotateLeftItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Turn the pages a quarter turn to the left. Shortcut: Ctrl+Left&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Rotate _Left&quot;}" InputGesture="Ctrl+Left">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconRotateLeft}" />
           </MenuItem.Icon>
         </MenuItem>
-        <MenuItem x:Name="RotateRightItem" views:ControlHelp.Text="{x:Static help:Descriptions.RotateRight}" Header="Rotate _Right" InputGesture="Ctrl+Right">
+        <MenuItem x:Name="RotateRightItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Turn the pages a quarter turn to the right. Shortcut: Ctrl+Right&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Rotate _Right&quot;}" InputGesture="Ctrl+Right">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconRotateRight}" />
           </MenuItem.Icon>
         </MenuItem>
         <Separator />
-        <MenuItem x:Name="SingleLayoutItem" views:ControlHelp.Text="{x:Static help:Descriptions.SinglePage}" Header="_Single Page" ToggleType="Radio" GroupName="PageLayout" />
-        <MenuItem x:Name="DualLayoutItem" views:ControlHelp.Text="{x:Static help:Descriptions.DualPage}" Header="_Two Pages" ToggleType="Radio" GroupName="PageLayout" />
-        <MenuItem x:Name="CoverLayoutItem" views:ControlHelp.Text="{x:Static help:Descriptions.DualPageCover}" Header="Two Pages with _Cover" ToggleType="Radio" GroupName="PageLayout" />
+        <MenuItem x:Name="SingleLayoutItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show one page in each row. Scroll down for the next page.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Single Page&quot;}" ToggleType="Radio" GroupName="PageLayout" />
+        <MenuItem x:Name="DualLayoutItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show two pages side by side: pages 1 and 2, then 3 and 4. Next page moves to the next pair.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Two Pages&quot;}" ToggleType="Radio" GroupName="PageLayout" />
+        <MenuItem x:Name="CoverLayoutItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the first page alone like a book cover, then pages side by side: 2 and 3, then 4 and 5.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Two Pages with _Cover&quot;}" ToggleType="Radio" GroupName="PageLayout" />
         <Separator />
-        <MenuItem x:Name="VerticalScrollItem" views:ControlHelp.Text="{x:Static help:Descriptions.VerticalScroll}" Header="Scroll _Down" ToggleType="Radio" GroupName="ScrollMode" />
-        <MenuItem x:Name="HorizontalScrollItem" views:ControlHelp.Text="{x:Static help:Descriptions.HorizontalScroll}" Header="Scroll Si_deways" ToggleType="Radio" GroupName="ScrollMode" />
-        <MenuItem x:Name="WrappedScrollItem" views:ControlHelp.Text="{x:Static help:Descriptions.WrappedScroll}" Header="_Wrap Pages" ToggleType="Radio" GroupName="ScrollMode" />
+        <MenuItem x:Name="VerticalScrollItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pages follow one another down the window and you scroll down. This is the usual way to read.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Scroll _Down&quot;}" ToggleType="Radio" GroupName="ScrollMode" />
+        <MenuItem x:Name="HorizontalScrollItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;All pages sit in one row and you scroll from side to side. The mouse wheel moves sideways.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Scroll Si_deways&quot;}" ToggleType="Radio" GroupName="ScrollMode" />
+        <MenuItem x:Name="WrappedScrollItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pages fill each row across the window, then continue on the next row, so a wide window shows several pages.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Wrap Pages&quot;}" ToggleType="Radio" GroupName="ScrollMode" />
         <Separator />
-        <MenuItem x:Name="ReadModeItem" views:ControlHelp.Text="{x:Static help:Descriptions.ReadMode}" Header="Rea_d Mode" InputGesture="Ctrl+H" />
-        <MenuItem x:Name="PresentItem" views:ControlHelp.Text="{x:Static help:Descriptions.Present}" Header="P_resent" InputGesture="Shift+F5" />
-        <MenuItem x:Name="CaretModeItem" views:ControlHelp.Text="{x:Static help:Descriptions.CaretNavigation}" Header="_Caret Navigation" InputGesture="F7" ToggleType="CheckBox" />
-        <MenuItem x:Name="SplitViewItem" views:ControlHelp.Text="{x:Static help:Descriptions.SplitView}" Header="Split _View" ToggleType="CheckBox" />
-        <MenuItem x:Name="PageByPageItem" views:ControlHelp.Text="{x:Static help:Descriptions.PageByPage}" Header="Page _by Page" ToggleType="CheckBox" />
-        <MenuItem x:Name="AutoScrollItem" views:ControlHelp.Text="{x:Static help:Descriptions.AutoScroll}" Header="_Auto-scroll" InputGesture="Ctrl+Shift+H" ToggleType="CheckBox" />
+        <MenuItem x:Name="ReadModeItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Put the tool bars and sidebar away so the pages fill the window. Shortcut: Ctrl+H&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Rea_d Mode&quot;}" InputGesture="Ctrl+H" />
+        <MenuItem x:Name="PresentItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show one page at a time on the full screen. Press Esc to stop. Shortcut: Shift+F5&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;P_resent&quot;}" InputGesture="Shift+F5" />
+        <MenuItem x:Name="CaretModeItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Move through the text with the arrow keys. Hold Shift to select text. Shortcut: F7&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Caret Navigation&quot;}" InputGesture="F7" ToggleType="CheckBox" />
+        <MenuItem x:Name="SplitViewItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show a second view of this document beside the first, to read or compare two places at once. Choose it again to go back to one view.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Split _View&quot;}" ToggleType="CheckBox" />
+        <MenuItem x:Name="PageByPageItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show one page, or one pair of pages, at a time instead of scrolling through all the pages.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Page _by Page&quot;}" ToggleType="CheckBox" />
+        <MenuItem x:Name="AutoScrollItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Scroll down by itself at a calm speed. Up and Down change the speed. Press Esc or click to stop. Shortcut: Ctrl+Shift+H&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Auto-scroll&quot;}" InputGesture="Ctrl+Shift+H" ToggleType="CheckBox" />
         <Separator />
-        <MenuItem x:Name="FirstPageItem" views:ControlHelp.Text="{x:Static help:Descriptions.FirstPage}" Header="_First Page" InputGesture="Ctrl+Home">
+        <MenuItem x:Name="FirstPageItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go to the first page. Home also works when the pages have the keyboard. Shortcut: Ctrl+Home&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_First Page&quot;}" InputGesture="Ctrl+Home">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconPageUp}" />
           </MenuItem.Icon>
         </MenuItem>
-        <MenuItem x:Name="LastPageItem" views:ControlHelp.Text="{x:Static help:Descriptions.LastPage}" Header="Last Pa_ge" InputGesture="Ctrl+End">
+        <MenuItem x:Name="LastPageItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go to the last page. End also works when the pages have the keyboard. Shortcut: Ctrl+End&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Last Pa_ge&quot;}" InputGesture="Ctrl+End">
           <MenuItem.Icon>
             <Path Classes="icon nav" Data="{StaticResource IconPageDown}" />
           </MenuItem.Icon>
         </MenuItem>
         <Separator />
         <!-- What dragging on the pages does. -->
-        <MenuItem x:Name="SelectTextToolItem" views:ControlHelp.Text="{x:Static help:Descriptions.SelectTextTool}" Header="Select Te_xt" ToggleType="Radio" GroupName="PageTool" />
-        <MenuItem x:Name="HandToolItem" views:ControlHelp.Text="{x:Static help:Descriptions.HandTool}" Header="_Hand Tool" ToggleType="Radio" GroupName="PageTool" />
-        <MenuItem x:Name="ZoomAreaToolItem" views:ControlHelp.Text="{x:Static help:Descriptions.ZoomAreaTool}" Header="_Zoom to Area" ToggleType="Radio" GroupName="PageTool" />
+        <MenuItem x:Name="SelectTextToolItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drag over the pages to select text. Clicks follow links.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Select Te_xt&quot;}" ToggleType="Radio" GroupName="PageTool" />
+        <MenuItem x:Name="HandToolItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drag the pages to move them, like moving paper with your hand. Hold Space or the middle mouse button to do this with any tool.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Hand Tool&quot;}" ToggleType="Radio" GroupName="PageTool" />
+        <MenuItem x:Name="ZoomAreaToolItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drag a box around part of a page to zoom in until it fills the view. Press Esc to stop.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Zoom to Area&quot;}" ToggleType="Radio" GroupName="PageTool" />
       </MenuFlyout>
     </Button.Flyout>
   </Button>

@@ -1,29 +1,29 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.StartView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (StartView.axaml.cs). -->
   <Border Background="{DynamicResource AppCanvasBackground}">
-    <Grid RowDefinitions="Auto,*" MaxWidth="720" Margin="32" AutomationProperties.Name="Start" AutomationProperties.LandmarkType="Main">
+    <Grid RowDefinitions="Auto,*" MaxWidth="720" Margin="32" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Start&quot;}" AutomationProperties.LandmarkType="Main">
       <StackPanel Grid.Row="0" Spacing="12" HorizontalAlignment="Center" Margin="0,24,0,24">
         <Path Classes="icon" Width="56" Height="56" StrokeThickness="1.2" Stroke="{DynamicResource AppSecondaryForeground}"
               Data="{StaticResource IconDocument}" HorizontalAlignment="Center" />
-        <TextBlock FontSize="20" HorizontalAlignment="Center" AutomationProperties.HeadingLevel="1" Text="Open a document to get started" />
-        <TextBlock Classes="secondary" HorizontalAlignment="Center" Text="Drop PDF files here, or choose them from a folder." />
-        <Button AutomationProperties.Name="Open…" x:Name="OpenButton" views:ControlHelp.Text="{x:Static help:Descriptions.Open}" HorizontalAlignment="Center" Padding="16,6">
+        <TextBlock TextWrapping="Wrap" FontSize="20" HorizontalAlignment="Center" AutomationProperties.HeadingLevel="1" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open a document to get started&quot;}" />
+        <TextBlock TextWrapping="Wrap" Classes="secondary" HorizontalAlignment="Center" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drop PDF files here, or choose them from a folder.&quot;}" />
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open…&quot;}" x:Name="OpenButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose PDF files to open. Shortcut: Ctrl+O&quot;}" HorizontalAlignment="Center" Padding="16,6">
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Path Classes="icon add" Data="{StaticResource IconOpen}" />
-            <TextBlock Text="Open…" />
+            <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open…&quot;}" />
           </StackPanel>
         </Button>
       </StackPanel>
 
       <DockPanel x:Name="RecentPanel" Grid.Row="1">
         <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="4,0,0,8">
-          <TextBlock Classes="secondary" FontWeight="SemiBold" VerticalAlignment="Center" AutomationProperties.HeadingLevel="2" Text="Recent documents" />
-          <Button x:Name="ClearRecentButton" Grid.Column="1" Content="Clear list" AutomationProperties.Name="Clear recent documents" views:ControlHelp.Text="Remove recent PDFs without deleting files. On Linux, this also clears the desktop's shared recent PDF list." />
+          <TextBlock TextWrapping="Wrap" Classes="secondary" FontWeight="SemiBold" VerticalAlignment="Center" AutomationProperties.HeadingLevel="2" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Recent documents&quot;}" />
+          <Button x:Name="ClearRecentButton" Grid.Column="1" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Clear list&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Clear recent documents&quot;}" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove recent PDFs without deleting files. On Linux, this also clears the desktop&apos;s shared recent PDF list.&quot;}" />
         </Grid>
-        <ListBox x:Name="RecentList" AutomationProperties.Name="Recent documents" Background="Transparent" />
+        <ListBox x:Name="RecentList" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Recent documents&quot;}" Background="Transparent" />
       </DockPanel>
     </Grid>
   </Border>

@@ -31,11 +31,16 @@ public sealed partial class PropertiesViewModel : ReactiveObject
         var info = new FileInfo(tab.FilePath);
         var entries = new List<PropertyEntry>
         {
-            new("Location", tab.FilePath),
-            new("File size", info.Exists ? FormatSize(info.Length) : string.Empty),
-            new("Pages", tab.PageCount.ToString(CultureInfo.CurrentCulture)),
+            new(LocalizedMessage.Get(UiText, "Location"), LocalizedMessage.Literal(tab.FilePath)),
+            new(LocalizedMessage.Get(UiText, "File size"), info.Exists ? FormatSize(info.Length) : LocalizedMessage.Literal(string.Empty)),
+            new(LocalizedMessage.Get(UiText, "Pages"), LocalizedMessage.Literal(tab.PageCount.ToString(CultureInfo.CurrentCulture))),
         };
-        Add(entries, "Colour separations", tab.Separations.Summary);
+
+        if (!string.IsNullOrWhiteSpace(tab.Separations.Summary))
+        {
+            entries.Add(new(LocalizedMessage.Get(UiText, "Colour separations"), tab.Separations.SummaryMessage));
+        }
+
         if (metadata is not null)
         {
             AddMetadata(entries, metadata);
@@ -43,13 +48,16 @@ public sealed partial class PropertiesViewModel : ReactiveObject
 
         if (tab.Source.PageSizes is [var first, ..])
         {
-            entries.Add(new("Page size", string.Create(CultureInfo.CurrentCulture, $"{first.Width * MillimetresPerPoint:0} × {first.Height * MillimetresPerPoint:0} mm")));
+            entries.Add(new(LocalizedMessage.Get(UiText, "Page size"), LocalizedMessage.Format(UiText, "{0:0} × {1:0} mm", first.Width * MillimetresPerPoint, first.Height * MillimetresPerPoint)));
         }
 
         // Every property of the XMP packet is listed, so none needs the file's bytes to be read.
         foreach (var property in DocumentFeature<IDocumentXmpSource>.Get(tab.TryGetDocument())?.GetProperties() ?? [])
         {
-            Add(entries, $"XMP {property.Name}", property.Value);
+            if (!string.IsNullOrWhiteSpace(property.Value))
+            {
+                entries.Add(new(LocalizedMessage.Format(UiText, "XMP {0}", property.Name), LocalizedMessage.Literal(property.Value)));
+            }
         }
 
         Entries = entries;
@@ -82,7 +90,10 @@ public sealed partial class PropertiesViewModel : ReactiveObject
         Add(entries, "Created", metadata.Created?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
         Add(entries, "Modified", metadata.Modified?.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
         Add(entries, "PDF version", metadata.FormatVersion);
-        entries.Add(new(metadata.WrappedFileName is null ? "Encrypted" : "Wrapper encrypted", metadata.IsEncrypted ? "Yes" : "No"));
+        entries.Add(
+            new(
+                LocalizedMessage.Get(UiText, metadata.WrappedFileName is null ? "Encrypted" : "Wrapper encrypted"),
+                LocalizedMessage.Get(UiText, metadata.IsEncrypted ? "Yes" : "No")));
         Add(entries, "Integrity protection (PDF MAC)", metadata.Integrity?.Summary);
         AddFileFacts(entries, metadata);
         Add(entries, "Encrypted file inside", metadata.WrappedFileName);
@@ -94,8 +105,8 @@ public sealed partial class PropertiesViewModel : ReactiveObject
     /// <param name="metadata">The document's metadata.</param>
     private static void AddFileFacts(List<PropertyEntry> entries, DocumentMetadata metadata)
     {
-        entries.Add(new("Linearized", metadata.IsLinearized ? "Yes" : "No"));
-        entries.Add(new("Tagged PDF", metadata.OpenHints.IsTagged ? "Yes" : "No"));
+        entries.Add(new(LocalizedMessage.Get(UiText, "Linearized"), LocalizedMessage.Get(UiText, metadata.IsLinearized ? "Yes" : "No")));
+        entries.Add(new(LocalizedMessage.Get(UiText, "Tagged PDF"), LocalizedMessage.Get(UiText, metadata.OpenHints.IsTagged ? "Yes" : "No")));
     }
 
     /// <summary>Adds a property when it has a value.</summary>
@@ -106,14 +117,14 @@ public sealed partial class PropertiesViewModel : ReactiveObject
     {
         if (!string.IsNullOrWhiteSpace(value))
         {
-            entries.Add(new(name, value));
+            entries.Add(new(LocalizedMessage.Get(UiText, name), LocalizedMessage.Literal(value)));
         }
     }
 
     /// <summary>Formats a byte count.</summary>
     /// <param name="bytes">The bytes.</param>
     /// <returns>The text.</returns>
-    private static string FormatSize(long bytes)
+    private static LocalizedMessage FormatSize(long bytes)
     {
         var size = (double)bytes;
         string[] units = ["bytes", "KiB", "MiB", "GiB"];
@@ -124,6 +135,8 @@ public sealed partial class PropertiesViewModel : ReactiveObject
             unit++;
         }
 
-        return string.Create(CultureInfo.CurrentCulture, $"{size:0.#} {units[unit]}");
+        var number = LocalizedMessage.Literal(string.Create(CultureInfo.CurrentCulture, $"{size:0.#} "));
+        var label = unit == 0 ? LocalizedMessage.Get(UiText, units[unit]) : LocalizedMessage.Literal(units[unit]);
+        return LocalizedMessage.Concat(number, label);
     }
 }

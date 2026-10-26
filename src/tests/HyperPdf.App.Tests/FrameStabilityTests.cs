@@ -129,8 +129,8 @@ public sealed class FrameStabilityTests
     [Test]
     public async Task ScrollingDrawsSettledFrames()
     {
-        using var test = new TestServices();
-        using var main = new MainViewModel(test.Services);
+        var test = new TestServices();
+        var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("scroll.pdf", CreateStripedPdf())]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
@@ -144,11 +144,20 @@ public sealed class FrameStabilityTests
                 worst = Math.Min(worst, await CompareWithSettledAsync(test, window, scroller, () => scroller.Offset = new(scroller.Offset.X, scroller.Offset.Y + ScrollStep), $"scroll-{step}"));
             }
 
+            Mark("scroll asserting");
             await Assert.That(worst).IsGreaterThanOrEqualTo(MinSharpness);
+            Mark("scroll asserted");
         }
         finally
         {
+            Mark("scroll closing");
             window.Close();
+            Mark("scroll closed");
+            Mark("scroll disposing main");
+            main.Dispose();
+            Mark("scroll disposing services");
+            test.Dispose();
+            Mark("scroll disposed");
         }
     }
 
@@ -157,12 +166,12 @@ public sealed class FrameStabilityTests
     [Test]
     public async Task WheelZoomDrawsSettledFrames()
     {
-        using var test = new TestServices();
+        var test = new TestServices();
 
         // Without easing each notch lands at once, so the first frame and the settled frame show the same zoom.
         test.Services.Settings.Motion = MotionPreference.Reduced;
         test.Services.ApplySettings();
-        using var main = new MainViewModel(test.Services);
+        var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("zoom.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
@@ -178,11 +187,20 @@ public sealed class FrameStabilityTests
                 worst = Math.Min(worst, await CompareWithSettledAsync(test, window, scroller, () => window.MouseWheel(anchor, delta, RawInputModifiers.Control), $"zoom-{notch}"));
             }
 
+            Mark("zoom asserting");
             await Assert.That(worst).IsGreaterThanOrEqualTo(MinSharpness);
+            Mark("zoom asserted");
         }
         finally
         {
+            Mark("zoom closing");
             window.Close();
+            Mark("zoom closed");
+            Mark("zoom disposing main");
+            main.Dispose();
+            Mark("zoom disposing services");
+            test.Dispose();
+            Mark("zoom disposed");
         }
     }
 
@@ -227,8 +245,10 @@ public sealed class FrameStabilityTests
     /// <returns>The page canvas.</returns>
     private static async Task<PageCanvas> SettleAsync(TestServices test, Window window)
     {
+        Mark("settle canvas");
         _ = await UiWait.UntilAsync(() => window.GetVisualDescendants().OfType<PageCanvas>().Any());
         var canvas = window.GetVisualDescendants().OfType<PageCanvas>().Single();
+        Mark("settle frames");
         _ = await UiWait.UntilAsync(() =>
         {
             var scroller = canvas.FindAncestorOfType<ScrollViewer>();
@@ -237,9 +257,12 @@ public sealed class FrameStabilityTests
                 return false;
             }
 
+            Mark("settle capture");
             using var frame = window.CaptureRenderedFrame();
+            Mark("settle edges");
             return frame is not null && CountEdges(frame, scroller, window) > ReadyEdges && test.Services.RenderHub.Scheduler.IsIdle;
         });
+        Mark("settled");
         return canvas;
     }
 
@@ -284,16 +307,24 @@ public sealed class FrameStabilityTests
         var client = tab.CanvasClient;
         var beforeGeneration = client.Generation;
         var beforeTiles = test.Services.RenderHub.Cache.Count;
+        Mark($"{name} change");
         change();
+        Mark($"{name} jobs1");
         Dispatcher.UIThread.RunJobs();
+        Mark($"{name} tick");
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Mark($"{name} jobs2");
         Dispatcher.UIThread.RunJobs();
+        Mark($"{name} capture1");
         using var first = window.CaptureRenderedFrame()!;
         var firstGeneration = client.Generation;
         var firstTiles = test.Services.RenderHub.Cache.Count;
+        Mark($"{name} idle");
         _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Scheduler.IsIdle);
 
+        Mark($"{name} capture2");
         using var settled = window.CaptureRenderedFrame()!;
+        Mark($"{name} edges");
         var settledEdges = CountEdges(settled, scroller, window);
         var firstEdges = CountEdges(first, scroller, window);
         var sharpness = settledEdges > 0 ? (double)firstEdges / settledEdges : 1;
@@ -341,6 +372,21 @@ public sealed class FrameStabilityTests
         }
 
         return edges;
+    }
+
+    /// <summary>Records the step a test reached, to find where a hung run stopped.</summary>
+    /// <param name="step">The step.</param>
+    private static void Mark(string step)
+    {
+        var directory = Environment.GetEnvironmentVariable("RUNNER_TEMP");
+        if (string.IsNullOrEmpty(directory))
+        {
+            return;
+        }
+
+        var folder = Path.Combine(directory, "test-diagnostics");
+        _ = Directory.CreateDirectory(folder);
+        File.AppendAllText(Path.Combine(folder, $"frame-progress-{Environment.ProcessId}.log"), $"{TimeProvider.System.GetUtcNow():O} {Environment.CurrentManagedThreadId} {step}\n");
     }
 
     /// <summary>Saves a frame when screenshots are requested.</summary>

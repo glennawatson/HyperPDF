@@ -11,7 +11,8 @@ namespace HyperPdfLibrary.Tests;
 /// <summary>
 /// Caps how many tests of one test process run at once. TUnit's default is four tests per processor, and CI runs several
 /// test processes side by side on a runner with four cores. Many tests spin threads or run browsers, and on Windows that
-/// many runnable threads starved tests until their time limits passed.
+/// many runnable threads starved tests until their time limits passed. Running them one at a time on CI took the macOS
+/// arm64 job from about 18 minutes to its 45 minute limit.
 /// </summary>
 internal sealed class TestParallelLimit : IParallelLimit
 {

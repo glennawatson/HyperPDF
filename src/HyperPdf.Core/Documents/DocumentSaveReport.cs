@@ -38,4 +38,7 @@ public sealed class DocumentSaveReport
     /// without the feature each one names. Empty when none were.
     /// </summary>
     public List<string> RequirementWarnings { get; } = [];
+
+    /// <summary>Gets typed requirement removals whose notices follow interface language changes.</summary>
+    public List<RemovedRequirement> RemovedRequirements { get; } = [];
 }

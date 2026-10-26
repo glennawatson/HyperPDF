@@ -1,8 +1,8 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.RedactionWindow"
-        Title="Apply Redactions" Width="640" Height="920" MinWidth="480" MinHeight="600" WindowStartupLocation="CenterOwner"
+        Title="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Apply Redactions&quot;}" Width="640" Height="920" MinWidth="480" MinHeight="600" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
   <!-- Layout only: bindings are made in code (RedactionWindow.axaml.cs). Every section is always present, so nothing moves while the copy is written. The settings scroll; the warning, summary and buttons stay on screen. -->
   <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="20">
@@ -11,41 +11,41 @@
       <TextBlock x:Name="SummaryText" TextWrapping="Wrap" FontWeight="SemiBold" />
       <TextBlock x:Name="NoteText" Classes="secondary" TextWrapping="Wrap" />
       <Border BorderThickness="2" Padding="10" BorderBrush="{DynamicResource SystemControlForegroundBaseHighBrush}">
-        <TextBlock x:Name="WarningText" TextWrapping="Wrap" AutomationProperties.Name="Warning: redaction cannot be undone after saving" />
+        <TextBlock x:Name="WarningText" TextWrapping="Wrap" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Warning: redaction cannot be undone after saving&quot;}" />
       </Border>
     </StackPanel>
 
     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
       <StackPanel Spacing="12" Margin="0,0,12,0">
-        <TextBlock Text="Pictures under a mark" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <ListBox x:Name="ImageList" views:ControlHelp.Text="{x:Static help:Descriptions.RedactImages}" AutomationProperties.Name="Pictures under a mark" />
+        <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pictures under a mark&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <ListBox x:Name="ImageList" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose what happens to a picture that a mark touches. Use the arrow keys to move between the choices.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pictures under a mark&quot;}" />
 
-        <TextBlock Text="Drawings under a mark" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <ListBox x:Name="LineArtList" views:ControlHelp.Text="{x:Static help:Descriptions.RedactLineArt}" AutomationProperties.Name="Drawings under a mark" />
+        <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drawings under a mark&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <ListBox x:Name="LineArtList" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose what happens to a line or shape that a mark touches. Use the arrow keys to move between the choices.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drawings under a mark&quot;}" />
 
-        <TextBlock Text="Other things under a mark" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-        <CheckBox x:Name="HiddenTextBox" views:ControlHelp.Text="{x:Static help:Descriptions.RedactHiddenText}" Content="Remove hidden text, such as a scan's text layer" />
-        <CheckBox x:Name="LinksBox" views:ControlHelp.Text="{x:Static help:Descriptions.RedactLinks}" Content="Remove links, comments and form fields" />
-        <CheckBox x:Name="MetadataBox" views:ControlHelp.Text="{x:Static help:Descriptions.RedactMetadata}" Content="Remove the document information and metadata" />
+        <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Other things under a mark&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+        <CheckBox x:Name="HiddenTextBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Also remove invisible text under a mark, such as the text layer of a scanned page, so it cannot be searched or copied.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove hidden text, such as a scan&apos;s text layer&quot;}" />
+        <CheckBox x:Name="LinksBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Also remove links, comments and form fields under a mark, with their actions and appearances.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove links, comments and form fields&quot;}" />
+        <CheckBox x:Name="MetadataBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Also remove the title, author and other document information, and the metadata stream.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove the document information and metadata&quot;}" />
       </StackPanel>
     </ScrollViewer>
 
     <StackPanel Grid.Row="2" Spacing="4" Margin="0,12,0,0">
-      <CheckBox x:Name="UnderstandBox" views:ControlHelp.Text="{x:Static help:Descriptions.RedactConfirm}" Content="I understand that removed content cannot be brought back after I save" />
-      <ProgressBar x:Name="RunProgress" IsIndeterminate="False" Minimum="0" Maximum="1" views:ControlHelp.Text="{x:Static help:Descriptions.RedactProgress}" AutomationProperties.Name="Progress of the redaction" />
+      <CheckBox x:Name="UnderstandBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tick this to show you understand that removed content cannot be brought back after the redacted copy is saved.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;I understand that removed content cannot be brought back after I save&quot;}" />
+      <ProgressBar x:Name="RunProgress" IsIndeterminate="False" Minimum="0" Maximum="1" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Moves while the redactions are applied and the copy is written.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Progress of the redaction&quot;}" />
       <TextBlock x:Name="StatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
       <TextBlock x:Name="ErrorText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive" />
       <Border x:Name="ResultBox" BorderThickness="1" Padding="10" Height="100" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{x:Static help:Descriptions.RedactResult}" AutomationProperties.Name="Summary of the redaction" />
+          <SelectableTextBlock x:Name="ResultText" TextWrapping="Wrap" Focusable="True" AutomationProperties.LiveSetting="Polite" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;What was removed, where the redacted copy is saved, and what to check next.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Summary of the redaction&quot;}" />
         </ScrollViewer>
       </Border>
     </StackPanel>
 
     <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
-      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.RedactCancel}" Content="_Cancel" />
-      <Button x:Name="ApplyButton" views:ControlHelp.Text="{x:Static help:Descriptions.RedactApply}" Content="_Apply and Save As…" IsDefault="True" />
-      <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseWindow}" Content="Clos_e" IsCancel="True" />
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop applying the redactions. No file is saved.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Cancel&quot;}" />
+      <Button x:Name="ApplyButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose where to save the redacted copy, then apply the redactions and write it. The open file is never replaced.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Apply and Save As…&quot;}" IsDefault="True" />
+      <Button x:Name="CloseButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close this window. Shortcut: Esc&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Clos_e&quot;}" IsCancel="True" />
     </StackPanel>
   </Grid>
 </Window>

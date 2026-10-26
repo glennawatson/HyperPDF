@@ -4,7 +4,6 @@
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
@@ -21,7 +20,7 @@ namespace HyperPdf.ViewModels.Sidebar;
 /// labels and thumbnails stay as they are, so the pages are never hidden by a damaged structure.
 /// </summary>
 [DebuggerDisplay("DocumentPartsViewModel: {Parts.Count} parts, {Threads.Count} articles")]
-public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
+public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
@@ -41,6 +40,9 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
     /// <summary>Whether the lists are being filled, so the change of selection is not taken as the reader's choice.</summary>
     private bool _updating;
 
+    /// <summary>The article position's retained resource key and page numbers.</summary>
+    private LocalizedMessage _placeText = LocalizedMessage.Literal(string.Empty);
+
     /// <summary>Initializes a new instance of the <see cref="DocumentPartsViewModel"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
     public DocumentPartsViewModel(DocumentTabViewModel owner)
@@ -52,16 +54,8 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
         // The first value of each is the unselected state before the document is read. A choice made while the lists are filled
         // comes from the refill, not the reader; the filters read the view model's own state because a constructor cannot hand
         // 'this' to a state-passing operator.
-        _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedPart)
-            .Skip(1)
-            .KeepNotNull()
-            .Where(_ => !_updating)
-            .SubscribeSafe(GoToPart, ErrorTrace.Write));
-        _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedThread)
-            .Skip(1)
-            .KeepNotNull()
-            .Where(_ => !_updating)
-            .SubscribeSafe(StartArticle, ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedPart).Skip(1).KeepNotNull().Where(_ => !_updating).SubscribeSafe(GoToPart, ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedThread).Skip(1).KeepNotNull().Where(_ => !_updating).SubscribeSafe(StartArticle, ErrorTrace.Write));
     }
 
     /// <summary>Gets the top-level parts of the document.</summary>
@@ -95,8 +89,7 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
     public partial int PlaceIndex { get; private set; }
 
     /// <summary>Gets where the chosen article is read, in words, such as "Place 2 of 3, page 4"; empty when none is chosen.</summary>
-    [Reactive]
-    public partial string PlaceText { get; private set; } = string.Empty;
+    public string PlaceText { get => _placeText.Value ?? string.Empty; private set => SetPlaceText(LocalizedMessage.Literal(value)); }
 
     /// <summary>Lists the document's parts and articles; called when the document loads and when its pages change.</summary>
     public void Refresh()
@@ -124,6 +117,15 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(PlaceText));
+        LocalisationRefresh.RefreshCore(_owner, visited);
+        LocalisationRefresh.RefreshCore(Parts, visited);
+        LocalisationRefresh.RefreshCore(Threads, visited);
+    }
 
     /// <summary>Builds the entries of a level of the parts tree.</summary>
     /// <param name="parts">The document's parts.</param>
@@ -216,8 +218,13 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
 
         PlaceIndex = place;
         _lastPlaces[Threads.IndexOf(thread)] = place;
-        PlaceText = string.Create(CultureInfo.CurrentCulture, $"Place {place + 1} of {thread.Beads.Count}, page {thread.Beads[place].PageIndex + 1}");
+        SetPlaceText(LocalizedMessage.Format(UiText, "Place {0} of {1}, page {2}", place + 1, thread.Beads.Count, thread.Beads[place].PageIndex + 1));
     }
+
+    /// <summary>Updates the position text without changing the article or navigating again.</summary>
+    /// <param name="message">The retained position resource or empty text.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SetPlaceText(in LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _placeText, message, nameof(PlaceText));
 
     /// <summary>Scrolls to a place of an article without adding it to Back history, so stepping through never fills it.</summary>
     /// <param name="thread">The article.</param>

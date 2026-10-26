@@ -152,23 +152,34 @@ public sealed class PrintTests
         var tab = main.SelectedTab!;
         var posterSheets = 0;
         var bookletSheets = 0;
+        Exception? handlerFailure = null;
         using var handler = tab.Printing.PrintPreviewInteraction.RegisterHandler(async context =>
         {
-            var preview = context.Input;
-            preview.LayoutIndex = PosterLayout;
-            var posterReady = await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Sheets.Count == RangePages * PosterSheetsPerPage);
-            await Assert.That(posterReady).IsTrue().Because($"valid {preview.IsValid}, building {preview.IsBuilding}, sheets {preview.Sheets.Count} of {RangePages * PosterSheetsPerPage}.");
-            posterSheets = preview.Sheets.Count;
-            preview.LayoutIndex = BookletLayout;
-            var bookletReady = await WaitAsync(() => IsBookletReady(preview));
-            var wanted = Booklet.SheetCount(RangePages) * BookletSides;
-            var bookletState = $"valid {preview.IsValid}, building {preview.IsBuilding}, destination {preview.Destination}, sheets {preview.Sheets.Count} of {wanted}.";
-            await Assert.That(bookletReady).IsTrue().Because(bookletState);
-            bookletSheets = preview.Sheets.Count;
-            context.SetOutput(true);
+            // The command swallows an exception thrown here, so keep it to report below instead of a bare count mismatch.
+            try
+            {
+                var preview = context.Input;
+                preview.LayoutIndex = PosterLayout;
+                var posterReady = await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Sheets.Count == RangePages * PosterSheetsPerPage);
+                await Assert.That(posterReady).IsTrue().Because($"valid {preview.IsValid}, building {preview.IsBuilding}, sheets {preview.Sheets.Count} of {RangePages * PosterSheetsPerPage}.");
+                posterSheets = preview.Sheets.Count;
+                preview.LayoutIndex = BookletLayout;
+                var bookletReady = await WaitAsync(() => IsBookletReady(preview));
+                var wanted = Booklet.SheetCount(RangePages) * BookletSides;
+                var bookletState = $"valid {preview.IsValid}, building {preview.IsBuilding}, destination {preview.Destination}, sheets {preview.Sheets.Count} of {wanted}.";
+                await Assert.That(bookletReady).IsTrue().Because(bookletState);
+                bookletSheets = preview.Sheets.Count;
+                context.SetOutput(true);
+            }
+            catch (Exception ex)
+            {
+                handlerFailure = ex;
+                context.SetOutput(false);
+            }
         });
 
         _ = await tab.Printing.PrintCommand.Execute().ToTask();
+        await Assert.That(handlerFailure?.ToString()).IsNull();
 
         await Assert.That(posterSheets).IsEqualTo(RangePages * PosterSheetsPerPage);
         await Assert.That(bookletSheets).IsEqualTo(Booklet.SheetCount(RangePages) * BookletSides);

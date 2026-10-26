@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using ReactiveUI;
 using ReactiveUI.Binding;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Views;
 
@@ -12,12 +13,19 @@ namespace HyperPdf.App.Views;
 [DebuggerDisplay("NoticeBarsView: {ViewModel}")]
 public sealed partial class NoticeBarsView : ReactiveUI.Avalonia.ReactiveUserControl<DocumentTabViewModel>
 {
+    /// <summary>The collapsed detail action's resource key.</summary>
+    private const string DetailsKey = "Details";
+
+    /// <summary>The expanded detail action's resource key.</summary>
+    private const string HideDetailsKey = "Hide details";
+
     /// <summary>Initializes a new instance of the <see cref="NoticeBarsView"/> class.</summary>
     public NoticeBarsView()
     {
         InitializeComponent();
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.ContentWarning, static v => v.ContentWarningText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.ContentWarning, static v => v.ContentWarningBar.IsVisible, static warning => warning is not null));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Notices.DismissContentWarningCommand, static v => v.DismissContentWarningButton));
@@ -32,7 +40,7 @@ public sealed partial class NoticeBarsView : ReactiveUI.Avalonia.ReactiveUserCon
                 ViewModel,
                 static vm => vm.Notices.RepairDetails,
                 static v => v.ToggleRepairDetailsButton.Content,
-                static details => details is null ? "Details" : "Hide details"));
+                static details => details is null ? UiText.Get(DetailsKey) : UiText.Get(HideDetailsKey)));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Notices.ToggleRepairDetailsCommand, static v => v.ToggleRepairDetailsButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Notices.DismissRepairNoticeCommand, static v => v.DismissRepairNoticeButton));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Notices.RequirementNotice, static v => v.RequirementNoticeText.Text));
@@ -43,7 +51,7 @@ public sealed partial class NoticeBarsView : ReactiveUI.Avalonia.ReactiveUserCon
                 ViewModel,
                 static vm => vm.Notices.RequirementDetails,
                 static v => v.ToggleRequirementDetailsButton.Content,
-                static details => details is null ? "Details" : "Hide details"));
+                static details => details is null ? UiText.Get(DetailsKey) : UiText.Get(HideDetailsKey)));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Notices.ToggleRequirementDetailsCommand, static v => v.ToggleRequirementDetailsButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Notices.DismissRequirementNoticeCommand, static v => v.DismissRequirementNoticeButton));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Notice, static v => v.NoticeText.Text));
@@ -53,5 +61,17 @@ public sealed partial class NoticeBarsView : ReactiveUI.Avalonia.ReactiveUserCon
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.ReloadCommand, static v => v.ReloadButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.DismissReloadCommand, static v => v.DismissReloadButton));
         });
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        ToggleRepairDetailsButton.Content = model.Notices.RepairDetails is null ? UiText.Get(DetailsKey) : UiText.Get(HideDetailsKey);
+        ToggleRequirementDetailsButton.Content = model.Notices.RequirementDetails is null ? UiText.Get(DetailsKey) : UiText.Get(HideDetailsKey);
     }
 }

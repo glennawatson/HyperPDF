@@ -20,7 +20,7 @@ namespace HyperPdf.ViewModels.Finding;
 /// shows its page with the words found.
 /// </summary>
 [DebuggerDisplay("FolderSearchViewModel: {Query} in {Folder}: {Results.Count} results")]
-public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable
+public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The most matches kept per file.</summary>
     private const int MaxMatchesPerFile = 200;
@@ -39,6 +39,9 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable
 
     /// <summary>Counts the searches started, so a search that finishes late can tell it was replaced.</summary>
     private int _version;
+
+    /// <summary>The resource identity and counts of the displayed search status.</summary>
+    private LocalizedMessage _status = LocalizedMessage.Get(UiText, "Choose a folder and the words to find.");
 
     /// <summary>Initializes a new instance of the <see cref="FolderSearchViewModel"/> class.</summary>
     /// <param name="services">The services.</param>
@@ -89,8 +92,7 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable
     public partial bool IsSearching { get; private set; }
 
     /// <summary>Gets what the search is doing or found, such as "12 matches in 3 of 40 files".</summary>
-    [Reactive]
-    public partial string Status { get; private set; } = "Choose a folder and the words to find.";
+    public string Status => _status.Value ?? string.Empty;
 
     /// <summary>Runs a search to the end, for tests and callers that wait.</summary>
     /// <returns>A task.</returns>
@@ -104,7 +106,7 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable
         Results.Clear();
         if (string.IsNullOrWhiteSpace(Query) || !Directory.Exists(Folder))
         {
-            Status = "Choose a folder and the words to find.";
+            SetStatus(LocalizedMessage.Get(UiText, "Choose a folder and the words to find."));
             IsSearching = false;
             return Task.CompletedTask;
         }
@@ -132,18 +134,30 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _lifetime.Dispose();
 
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(Status));
+        LocalisationRefresh.RefreshCore(_services, visited);
+    }
+
     /// <summary>Counts matches in words: "1 match", "3 matches".</summary>
     /// <param name="count">The count.</param>
     /// <returns>The words.</returns>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private static string Matches(int count) => string.Create(CultureInfo.CurrentCulture, $"{count} {(count == 1 ? "match" : "matches")}");
+    private static LocalizedMessage Matches(int count) =>
+        LocalizedMessage.Concat(
+            LocalizedMessage.Literal($"{count.ToString(CultureInfo.CurrentCulture)} "),
+            LocalizedMessage.Get(UiText, count == 1 ? "match" : "matches"));
 
     /// <summary>Summarises the matches and the files they are in: "12 matches in 3 files".</summary>
     /// <param name="matches">The matches.</param>
     /// <param name="files">The files with matches.</param>
     /// <returns>The words.</returns>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    private static string Summary(int matches, int files) => string.Create(CultureInfo.CurrentCulture, $"{Matches(matches)} in {files} {(files == 1 ? "file" : "files")}");
+    private static LocalizedMessage Summary(int matches, int files) =>
+        LocalizedMessage.Format(UiText, "{0} in {1} {2}", Matches(matches), files, LocalizedMessage.Get(UiText, files == 1 ? "file" : "files"));
 
     /// <summary>Searches the files one by one off the UI thread, adding each file's results as it finishes.</summary>
     /// <param name="folder">The folder.</param>
@@ -175,19 +189,21 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable
                 Add(found);
                 matches += found.Matches.Count;
                 withMatches += found.Matches.Count > 0 ? 1 : 0;
-                Status = string.Create(CultureInfo.CurrentCulture, $"{Summary(matches, withMatches)}; searched {i + 1} of {files.Count}");
+                SetStatus(LocalizedMessage.Format(UiText, "{0}; searched {1} of {2}", Summary(matches, withMatches), i + 1, files.Count));
             }
 
             // A newer search owns the status and the busy flag, so an older one that unwinds late leaves them alone.
             if (run.Version == _version)
             {
-                var stopped = token.IsCancellationRequested ? ", stopped" : string.Empty;
-                Status = files.Count == 0 ? "There are no PDF files in this folder." : string.Create(CultureInfo.CurrentCulture, $"{Summary(matches, withMatches)} of {files.Count}{stopped}");
+                var stopped = token.IsCancellationRequested ? LocalizedMessage.Get(UiText, ", stopped") : LocalizedMessage.Literal(string.Empty);
+                SetStatus(files.Count == 0
+                    ? LocalizedMessage.Get(UiText, "There are no PDF files in this folder.")
+                    : LocalizedMessage.Format(UiText, "{0} of {1}{2}", Summary(matches, withMatches), files.Count, stopped));
             }
         }
         catch (OperationCanceledException) when (run.Version == _version)
         {
-            Status = $"{Matches(matches)}, stopped";
+            SetStatus(LocalizedMessage.Format(UiText, "{0}, stopped", Matches(matches)));
         }
         catch (OperationCanceledException)
         {
@@ -202,13 +218,22 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable
         }
     }
 
+    /// <summary>Retains a status and notifies its displayed text.</summary>
+    /// <param name="message">The resource key and current counts.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SetStatus(in LocalizedMessage message)
+    {
+        _status = message;
+        this.RaisePropertyChanged(nameof(Status));
+    }
+
     /// <summary>Adds a file's results.</summary>
     /// <param name="found">What was found.</param>
     private void Add(FolderSearchFile found)
     {
         if (found.Problem is { } problem)
         {
-            Results.Add(new(found.Path, -1, $"Not searched: it {problem}."));
+            Results.Add(new(found.Path, -1, UiText.Format("Not searched: it {0}.", problem)));
             return;
         }
 
@@ -219,7 +244,7 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable
 
         if (found.IsTruncated)
         {
-            Results.Add(new(found.Path, -1, string.Create(CultureInfo.CurrentCulture, $"Only the first {MaxMatchesPerFile} matches are shown.")));
+            Results.Add(new(found.Path, -1, UiText.Format(UiText.Get("Only the first {0} matches are shown."), MaxMatchesPerFile)));
         }
     }
 

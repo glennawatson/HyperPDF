@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Localisation\HyperPdf.Localisation.csproj" />
     <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
     <ProjectReference Include="..\HyperPdf.Engine\HyperPdf.Engine.csproj" />
     <ProjectReference Include="..\HyperPdf.Ocr\HyperPdf.Ocr.csproj" />

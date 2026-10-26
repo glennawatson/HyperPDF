@@ -23,13 +23,14 @@ public sealed partial class RedactionWindow : ReactiveUI.Avalonia.ReactiveWindow
     public RedactionWindow()
     {
         InitializeComponent();
-        ImageList.ItemTemplate = new FuncDataTemplate<RedactionImageOption>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
-        LineArtList.ItemTemplate = new FuncDataTemplate<RedactionLineArtOption>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
+        ImageList.ItemTemplate = new FuncDataTemplate<RedactionImageOption>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
+        LineArtList.ItemTemplate = new FuncDataTemplate<RedactionLineArtOption>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(ItemAutomation.NameItems(ImageList));
             disposables.Add(ItemAutomation.NameItems(LineArtList));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Apply redactions to {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => UiText.Format("Apply redactions to {0}", name)));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Summary, static v => v.SummaryText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SourceNote, static v => v.NoteText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.SourceNote, static v => v.NoteText.IsVisible, static note => note is not null));
@@ -68,7 +69,18 @@ public sealed partial class RedactionWindow : ReactiveUI.Avalonia.ReactiveWindow
     /// <returns>A task.</returns>
     private async Task SaveAsync(IInteractionContext<string, string?> context)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Save Redacted Copy", SuggestedFileName = context.Input, DefaultExtension = "pdf" });
+        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = UiText.Get("Save Redacted Copy"), SuggestedFileName = context.Input, DefaultExtension = "pdf" });
         context.SetOutput(file?.TryGetLocalPath());
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        HeadingText.Text = UiText.Format("Apply redactions to {0}", model.FileName);
     }
 }

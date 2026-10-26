@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.TextFormatBarView">
@@ -7,71 +7,71 @@
     Text format: shown with the Annotate and Fill & Sign tools, so it stays in one place. It shows the format of the
     text being typed or picked, and changing it changes that text straight away.
   -->
-  <Border x:Name="TextFormatBar" Classes="toolbar subbar" AutomationProperties.Name="Text format" AutomationProperties.ControlTypeOverride="ToolBar">
+  <Border x:Name="TextFormatBar" Classes="toolbar subbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text format&quot;}" AutomationProperties.ControlTypeOverride="ToolBar">
     <WrapPanel Orientation="Horizontal">
-      <TextBlock x:Name="FontFamilyLabel" Classes="secondary" Text="Font" VerticalAlignment="Center" Margin="6,0,4,0" />
-      <ComboBox x:Name="FontFamilyBox" views:ControlHelp.Text="{x:Static help:Descriptions.FontFamily}" Width="190" VerticalAlignment="Center" MaxDropDownHeight="420" />
-      <TextBlock x:Name="FontSizeLabel" Classes="secondary" Text="Size" VerticalAlignment="Center" Margin="10,0,4,0" />
-      <ComboBox x:Name="FontSizeBox" views:ControlHelp.Text="{x:Static help:Descriptions.FontSize}" IsEditable="True" Width="76" VerticalAlignment="Center" />
-      <Button AutomationProperties.Name="Smaller text" x:Name="SmallerTextButton" views:ControlHelp.Text="{x:Static help:Descriptions.ShrinkPageText}" Classes="tool">
+      <TextBlock TextWrapping="Wrap" x:Name="FontFamilyLabel" Classes="secondary" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Font&quot;}" VerticalAlignment="Center" Margin="6,0,4,0" />
+      <ComboBox x:Name="FontFamilyBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the font of the text you type, or of the text you picked. Each font is shown in its own letters.&quot;}" Width="190" VerticalAlignment="Center" MaxDropDownHeight="420" />
+      <TextBlock TextWrapping="Wrap" x:Name="FontSizeLabel" Classes="secondary" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Size&quot;}" VerticalAlignment="Center" Margin="10,0,4,0" />
+      <ComboBox x:Name="FontSizeBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose or type the text size in points.&quot;}" IsEditable="True" Width="76" VerticalAlignment="Center" />
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smaller text&quot;}" x:Name="SmallerTextButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text one point smaller.&quot;}" Classes="tool">
         <StackPanel Orientation="Horizontal">
           <Path Classes="icon edit" Data="{StaticResource IconZoomOut}" />
-          <TextBlock Classes="label" Text="Smaller" />
+          <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smaller&quot;}" />
         </StackPanel>
       </Button>
-      <Button AutomationProperties.Name="Larger text" x:Name="LargerTextButton" views:ControlHelp.Text="{x:Static help:Descriptions.GrowPageText}" Classes="tool">
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Larger text&quot;}" x:Name="LargerTextButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text one point larger.&quot;}" Classes="tool">
         <StackPanel Orientation="Horizontal">
           <Path Classes="icon edit" Data="{StaticResource IconZoomIn}" />
-          <TextBlock Classes="label" Text="Larger" />
+          <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Larger&quot;}" />
         </StackPanel>
       </Button>
       <Rectangle Classes="separator" />
-      <ToggleButton AutomationProperties.Name="Bold" x:Name="BoldToggle" views:ControlHelp.Text="{x:Static help:Descriptions.BoldText}" Classes="tool">
-        <TextBlock Classes="label" Text="Bold" FontWeight="Bold" />
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Bold&quot;}" x:Name="BoldToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text bold, or not. Shortcut: Ctrl+B while typing.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Bold&quot;}" FontWeight="Bold" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Italic" x:Name="ItalicToggle" views:ControlHelp.Text="{x:Static help:Descriptions.ItalicText}" Classes="tool">
-        <TextBlock Classes="label" Text="Italic" FontStyle="Italic" />
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Italic&quot;}" x:Name="ItalicToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text italic, or not. Shortcut: Ctrl+I while typing.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Italic&quot;}" FontStyle="Italic" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Underline text" x:Name="UnderlineToggle" views:ControlHelp.Text="{x:Static help:Descriptions.UnderlineText}" Classes="tool">
-        <TextBlock Classes="label" Text="Underline" TextDecorations="Underline" />
-      </ToggleButton>
-      <Rectangle Classes="separator" />
-      <ToggleButton AutomationProperties.Name="Align left" x:Name="AlignLeftToggle" views:ControlHelp.Text="{x:Static help:Descriptions.AlignLeft}" Classes="tool">
-        <TextBlock Classes="label" Text="Left" />
-      </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Centre" x:Name="AlignCenterToggle" views:ControlHelp.Text="{x:Static help:Descriptions.AlignCenter}" Classes="tool">
-        <TextBlock Classes="label" Text="Centre" />
-      </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Align right" x:Name="AlignRightToggle" views:ControlHelp.Text="{x:Static help:Descriptions.AlignRight}" Classes="tool">
-        <TextBlock Classes="label" Text="Right" />
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Underline text&quot;}" x:Name="UnderlineToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Underline the text, or not. Shortcut: Ctrl+U while typing.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Underline&quot;}" TextDecorations="Underline" />
       </ToggleButton>
       <Rectangle Classes="separator" />
-      <Button AutomationProperties.Name="Text colour" x:Name="TextColourButton" views:ControlHelp.Text="{x:Static help:Descriptions.TextColour}" Classes="tool">
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Align left&quot;}" x:Name="AlignLeftToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Start each line at the left of the text box.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Left&quot;}" />
+      </ToggleButton>
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Centre&quot;}" x:Name="AlignCenterToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Centre each line in the text box.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Centre&quot;}" />
+      </ToggleButton>
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Align right&quot;}" x:Name="AlignRightToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;End each line at the right of the text box.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Right&quot;}" />
+      </ToggleButton>
+      <Rectangle Classes="separator" />
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text colour&quot;}" x:Name="TextColourButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colour of the text you type, or of the text you picked.&quot;}" Classes="tool">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <Border x:Name="TextColourSwatch" Classes="swatch" />
           <TextBlock x:Name="TextColourText" VerticalAlignment="Center" />
         </StackPanel>
         <Button.Flyout>
           <MenuFlyout>
-            <MenuItem x:Name="BlackTextItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextColour}" Header="_Black" />
-            <MenuItem x:Name="DarkBlueTextItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextColour}" Header="_Dark Blue" />
-            <MenuItem x:Name="BlueTextItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextColour}" Header="B_lue" />
-            <MenuItem x:Name="RedTextItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextColour}" Header="_Red" />
-            <MenuItem x:Name="GreenTextItem" views:ControlHelp.Text="{x:Static help:Descriptions.TextColour}" Header="_Green" />
+            <MenuItem x:Name="BlackTextItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colour of the text you type, or of the text you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Black&quot;}" />
+            <MenuItem x:Name="DarkBlueTextItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colour of the text you type, or of the text you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Dark Blue&quot;}" />
+            <MenuItem x:Name="BlueTextItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colour of the text you type, or of the text you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;B_lue&quot;}" />
+            <MenuItem x:Name="RedTextItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colour of the text you type, or of the text you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Red&quot;}" />
+            <MenuItem x:Name="GreenTextItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colour of the text you type, or of the text you picked.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Green&quot;}" />
           </MenuFlyout>
         </Button.Flyout>
       </Button>
       <views:TextSpacingView />
-      <Button AutomationProperties.Name="Text Properties…" x:Name="TextPropertiesButton" views:ControlHelp.Text="{x:Static help:Descriptions.TextProperties}" Classes="tool">
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text Properties…&quot;}" x:Name="TextPropertiesButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Set every text setting with exact numbers, including comb boxes and the wrap width.&quot;}" Classes="tool">
         <StackPanel Orientation="Horizontal">
           <Path Classes="icon edit" Data="{StaticResource IconTextSize}" />
-          <TextBlock Classes="label" Text="Properties…" />
+          <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Properties…&quot;}" />
         </StackPanel>
       </Button>
-      <Button AutomationProperties.Name="Finish Text" x:Name="FinishTextButton" views:ControlHelp.Text="{x:Static help:Descriptions.FinishText}" Classes="tool">
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Finish Text&quot;}" x:Name="FinishTextButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Keep the text you are typing. Shortcut: Ctrl+Enter.&quot;}" Classes="tool">
         <StackPanel Orientation="Horizontal">
           <Path Classes="icon nav" Data="{StaticResource IconDone}" />
-          <TextBlock Classes="label" Text="Finish Text" />
+          <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Finish Text&quot;}" />
         </StackPanel>
       </Button>
     </WrapPanel>

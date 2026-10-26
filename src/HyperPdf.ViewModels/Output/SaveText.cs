@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
 using HyperPdf.Core.Documents;
 
 namespace HyperPdf.ViewModels.Output;
@@ -21,6 +20,17 @@ internal static class SaveText
             note = Join(note, TrapNetworkNotice(outcome.TrapNetworkWarnings));
         }
 
+        if (outcome.RemovedRequirements.Count > 0)
+        {
+            var removed = new string[outcome.RemovedRequirements.Count];
+            for (var index = 0; index < removed.Length; index++)
+            {
+                removed[index] = outcome.RemovedRequirements[index].Text;
+            }
+
+            return Join(note, string.Join(' ', removed));
+        }
+
         return outcome.RequirementWarnings.Count > 0 ? Join(note, RequirementNotices.SaveNotice(outcome.RequirementWarnings)) : note;
     }
 
@@ -34,8 +44,8 @@ internal static class SaveText
         return more switch
         {
             0 => warnings[0],
-            1 => $"{warnings[0]} The same applies to one other page.",
-            _ => string.Create(CultureInfo.InvariantCulture, $"{warnings[0]} The same applies to {more} other pages."),
+            1 => UiText.Format("{0} The same applies to one other page.", warnings[0]),
+            _ => UiText.Format("{0} The same applies to {1} other pages.", warnings[0], more),
         };
     }
 

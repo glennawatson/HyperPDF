@@ -47,7 +47,7 @@ internal static class PageFonts
     internal static string Label(string? family, FontCatalog? catalog) =>
         string.IsNullOrEmpty(family) || catalog?.PreviewFace(family) is not { } face
             ? family ?? string.Empty
-            : $"{family} (saved as {StandardFontFamilies.Closest(family, face.IsSerif, face.IsMonospace)})";
+            : UiText.Format("{0} (saved as {1})", family, StandardFontFamilies.Closest(family, face.IsSerif, face.IsMonospace));
 
     /// <summary>Gets the font names tried for a family, in order.</summary>
     /// <param name="family">The family.</param>

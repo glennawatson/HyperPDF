@@ -110,6 +110,7 @@ internal static class DocumentSave
         ClaimRepaired = report.ClaimRepaired,
         TrapNetworkWarnings = report.TrapNetworkWarnings,
         RequirementWarnings = report.RequirementWarnings,
+        RemovedRequirements = report.RemovedRequirements,
     };
 
     /// <summary>Deletes unpublished output and keeps serialized edits dirty when replacement failed.</summary>

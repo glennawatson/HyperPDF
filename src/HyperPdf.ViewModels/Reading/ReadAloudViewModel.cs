@@ -24,7 +24,7 @@ namespace HyperPdf.ViewModels.Reading;
 /// keeps the place; Previous and Next move a sentence at a time.
 /// </summary>
 [DebuggerDisplay("ReadAloudViewModel: Open={IsOpen}, Playing={IsPlaying}, Page={SpokenPage}")]
-public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
+public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>Bytes in a megabyte.</summary>
     private const double BytesPerMegabyte = 1024 * 1024;
@@ -95,6 +95,9 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     /// </summary>
     private Action? _stopWork;
 
+    /// <summary>The resource identity of the displayed StatusText.</summary>
+    private LocalizedMessage _localizedStatusText = LocalizedMessage.Literal(string.Empty);
+
     /// <summary>Initializes a new instance of the <see cref="ReadAloudViewModel"/> class.</summary>
     /// <param name="owner">The owning tab.</param>
     /// <param name="services">The application services.</param>
@@ -111,7 +114,11 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         _listing = false;
 
         _canDownloadVoice = this.WhenChanged(static vm => vm.IsDownloading).Select(static busy => !busy);
-        _playPauseTextHelper = this.WhenChanged(static vm => vm.IsPlaying).Select(static playing => playing ? "Pause" : "Play").ToProperty(this, static vm => vm.PlayPauseText);
+        _playPauseTextHelper = this.WhenChanged(static vm => vm.IsPlaying).Select(
+            static playing => playing
+                ? UiText
+            .Get("Pause")
+                : UiText.Get("Play")).ToProperty(this, static vm => vm.PlayPauseText);
 
         _subscriptions.Add(_playPauseTextHelper);
         _subscriptions.Add(Scope.Create(CancelWork));
@@ -123,18 +130,19 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
 
         // A voice or speed the reader picks is remembered and used at once; setting up the lists picks nothing. The filter
         // reads the view model's own flag: a constructor cannot hand 'this' to a state-passing operator.
-        _subscriptions.Add(Signal.Merge(
-                this.WhenChanged(static vm => vm.VoiceIndex).Skip(1),
-                this.WhenChanged(static vm => vm.SpeedIndex).Skip(1))
-            .Where(_ => !_listing)
-            .SubscribeSafe(_ => UseChosenVoiceAndSpeed(), ErrorTrace.Write));
+        _subscriptions.Add(
+            Signal.Merge(this.WhenChanged(static vm => vm.VoiceIndex).Skip(1), this.WhenChanged(static vm => vm.SpeedIndex).Skip(1))
+            .Where(_ => !_listing).SubscribeSafe(_ => UseChosenVoiceAndSpeed(), ErrorTrace.Write));
 
         // Each move of the page, sentence or word being read moves the marks version on, which the views follow.
-        _subscriptions.Add(Signal.Merge(
+        _subscriptions.Add(
+            Signal.Merge(
                 this.WhenChanged(static vm => vm.SpokenPage).Skip(1).Select(static _ => RxVoid.Default),
-                this.WhenChanged(static vm => vm.SpokenRange).Skip(1).Select(static _ => RxVoid.Default),
-                this.WhenChanged(static vm => vm.SpokenWord).Skip(1).Select(static _ => RxVoid.Default))
-            .SubscribeSafe(_ => MarksVersion++, ErrorTrace.Write));
+                this.WhenChanged(
+                    static vm
+                    => vm.SpokenRange).Skip(1).Select(static _ => RxVoid.Default),
+                this.WhenChanged(static vm => vm.SpokenWord).Skip(1)
+                .Select(static _ => RxVoid.Default)).SubscribeSafe(_ => MarksVersion++, ErrorTrace.Write));
     }
 
     /// <summary>Gets or sets a value indicating whether the Read Aloud bar is shown. Opening starts reading from the current page.</summary>
@@ -162,8 +170,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     public partial double DownloadProgress { get; private set; }
 
     /// <summary>Gets the steady status, for example "Reading page 3 of 12" or "Paused".</summary>
-    [Reactive]
-    public partial string StatusText { get; private set; } = string.Empty;
+    public string StatusText { get => _localizedStatusText.Value ?? string.Empty; private set => SetStatusText(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the label of the play button: "Pause" while reading, otherwise "Play".</summary>
     [ObservableAsProperty]
@@ -236,7 +243,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         _services.SaveSettings();
         if (IsOpen && !NeedsVoice)
         {
-            StatusText = "Paused";
+            SetStatusText(LocalizedMessage.Get(UiText, "Paused"));
         }
     }
 
@@ -244,10 +251,24 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
 
+    /// <summary>Sets the displayed StatusText while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetStatusText(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedStatusText, message, nameof(StatusText));
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(StatusText));
+        LocalisationRefresh.RefreshCore(_owner, visited);
+        LocalisationRefresh.RefreshCore(_services, visited);
+    }
+
     /// <summary>Describes a size in megabytes.</summary>
     /// <param name="bytes">The bytes.</param>
     /// <returns>For example "95 MB".</returns>
-    internal static string Megabytes(long bytes) => $"{Math.Max(1, Math.Round(bytes / BytesPerMegabyte)):0} MB";
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    internal static string Megabytes(long bytes) => UiText.Format("{0:0} MB", Math.Max(1, Math.Round(bytes / BytesPerMegabyte)));
 
     /// <summary>Finds the offered speed nearest a remembered one.</summary>
     /// <param name="speed">The speed.</param>
@@ -363,7 +384,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         var names = new string[SpeedValues.Length];
         for (var i = 0; i < names.Length; i++)
         {
-            names[i] = i == NormalSpeedIndex ? "Normal speed" : $"{SpeedValues[i]:0.##}× speed";
+            names[i] = i == NormalSpeedIndex ? UiText.Get("Normal speed") : UiText.Format("{0:0.##}× speed", SpeedValues[i]);
         }
 
         return names;
@@ -530,7 +551,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         SpokenRange = TextRange.None;
         SpokenPage = -1;
         _loadedPage = -1;
-        StatusText = string.Empty;
+        SetStatusText(LocalizedMessage.Literal(string.Empty));
         _services.SaveSettings();
     }
 
@@ -618,10 +639,15 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
             var onDevice = _services.Settings.SpeechEngine != SpeechEngineChoice.Azure;
             NeedsVoice = true;
             CanDownloadVoice = onDevice;
-            StatusText = onDevice
-                ? $"The natural voice runs on this computer and needs a one-time download of about {Megabytes(_services.Speech.MissingBytesFor(_services.Settings))}. "
-                    + "What you read is never sent anywhere."
-                : "Enter your Azure Speech key and region in Preferences, or choose the voice on this computer.";
+            SetStatusText(
+                onDevice
+                    ? LocalizedMessage.Concat(
+                        LocalizedMessage.Format(
+                            UiText,
+                            "The natural voice runs on this computer and needs a one-time download of about {0}. ",
+                            Megabytes(_services.Speech.MissingBytesFor(_services.Settings))),
+                        LocalizedMessage.Get(UiText, "What you read is never sent anywhere."))
+                    : LocalizedMessage.Get(UiText, "Enter your Azure Speech key and region in Preferences, or choose the voice on this computer."));
             return false;
         }
 
@@ -629,7 +655,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         CanDownloadVoice = false;
         if (!_services.Audio.IsAvailable)
         {
-            StatusText = "No sound output was found. Reading aloud needs PipeWire or PulseAudio.";
+            SetStatusText(LocalizedMessage.Get(UiText, "No sound output was found. Reading aloud needs PipeWire or PulseAudio."));
             return false;
         }
 
@@ -652,7 +678,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         try
         {
             await ReadSentencesAsync(document, engine, work.Token).ConfigureAwait(true);
-            StatusText = "Finished reading.";
+            SetStatusText(LocalizedMessage.Get(UiText, "Finished reading."));
             SpokenBounds = [];
         }
         catch (OperationCanceledException)
@@ -661,7 +687,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         }
         catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or IOException)
         {
-            StatusText = $"Reading aloud stopped: {ex.Message}";
+            SetStatusText(LocalizedMessage.Format(UiText, "Reading aloud stopped: {0}", ex.Message));
         }
         finally
         {
@@ -694,7 +720,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
             while (await LoadPageAsync(document, token).ConfigureAwait(true))
             {
                 token.ThrowIfCancellationRequested();
-                StatusText = $"Reading page {SpokenPage + 1} of {document.PageCount}";
+                SetStatusText(LocalizedMessage.Format(UiText, "Reading page {0} of {1}", SpokenPage + 1, document.PageCount));
                 var clip = await (prepared ?? engine.SynthesizeAsync(SentenceText(_sentence), voice, speed, token)).ConfigureAwait(true);
                 prepared = _sentence + 1 < _sentences.Count ? engine.SynthesizeAsync(SentenceText(_sentence + 1), voice, speed, token) : null;
                 token.ThrowIfCancellationRequested();
@@ -886,7 +912,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         DownloadProgress = 0;
         try
         {
-            StatusText = "Downloading the voice…";
+            SetStatusText(LocalizedMessage.Get(UiText, "Downloading the voice…"));
             var progress = new Progress<double>(fraction => DownloadProgress = fraction);
             await _services.Speech.DownloadVoice(_services.Settings, progress, work.Token).ConfigureAwait(true);
             IsDownloading = false;
@@ -899,15 +925,15 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable
         }
         catch (OperationCanceledException)
         {
-            StatusText = "The download stopped. Download Voice carries on where it left off.";
+            SetStatusText(LocalizedMessage.Get(UiText, "The download stopped. Download Voice carries on where it left off."));
         }
         catch (HttpRequestException ex)
         {
-            StatusText = $"The voice could not be downloaded: {ex.Message}";
+            SetStatusText(LocalizedMessage.Format(UiText, "The voice could not be downloaded: {0}", ex.Message));
         }
         catch (IOException ex)
         {
-            StatusText = $"The voice could not be saved: {ex.Message}";
+            SetStatusText(LocalizedMessage.Format(UiText, "The voice could not be saved: {0}", ex.Message));
         }
         finally
         {

@@ -64,14 +64,22 @@ public sealed partial class AnnotationsViewModel
 
     /// <summary>Gets the text colours offered, by name.</summary>
     public static IReadOnlyList<TextColorOption> TextColors { get; } =
-        [new(nameof(Black), Black), new("Dark blue", AnnotationColors.Ink), new("Blue", TextBlue), new("Red", TextRed), new("Green", TextGreen)];
+        [
+            new(nameof(Black), Black),
+            new("Dark blue", AnnotationColors.Ink),
+            new("Blue", TextBlue),
+            new("Red", TextRed),
+            new("Green", TextGreen)
+        ];
 
     /// <summary>Gets the line spacings offered, by name.</summary>
     public static IReadOnlyList<LineSpacingOption> LineSpacings { get; } =
         [new(nameof(Single), 1F), new("Normal", TextFormat.DefaultLineSpacing), new("One and a half", OneAndAHalf), new(nameof(Double), DoubleSpacing)];
 
     /// <summary>Gets the character spacings offered, by name, in points.</summary>
-    public static IReadOnlyList<LineSpacingOption> CharacterSpacings { get; } = [new("Tight", TightSpacing), new("Normal", 0F), new("Wide", 1F), new("Wider", WiderSpacing)];
+    public static IReadOnlyList<LineSpacingOption> CharacterSpacings { get; } = [new(
+            "Tight",
+            TightSpacing), new("Normal", 0F), new("Wide", 1F), new("Wider", WiderSpacing)];
 
     /// <summary>Gets the interaction showing the text properties dialog; the output says whether to apply it.</summary>
     public Interaction<TextPropertiesViewModel, bool> TextPropertiesInteraction { get; } = new();
@@ -152,10 +160,13 @@ public sealed partial class AnnotationsViewModel
     public string TextColorName => NameOf(TextColors, TextColor);
 
     /// <summary>Gets the spacing button's label: the line and character spacing by name.</summary>
-    public string SpacingName => $"Spacing: {NameOf(LineSpacings, LineSpacing)}, {NameOf(CharacterSpacings, CharacterSpacing)}";
+    public string SpacingName => UiText.Format("Spacing: {0}, {1}", NameOf(LineSpacings, LineSpacing), NameOf(CharacterSpacings, CharacterSpacing));
 
     /// <summary>Gets the format text is typed in now.</summary>
-    public TextFormat CurrentTextFormat => new TextFormat(FontFamily, FontSize, TextColor)
+    public TextFormat CurrentTextFormat => new TextFormat(
+        FontFamily,
+        FontSize,
+        TextColor)
     {
         IsBold = IsBold,
         IsItalic = IsItalic,
@@ -363,7 +374,7 @@ public sealed partial class AnnotationsViewModel
             }
         }
 
-        return $"{value:0.#} pt";
+        return UiText.Format("{0:0.#} pt", value);
     }
 
     /// <summary>Determines whether an edit leaves a text box as it was.</summary>
@@ -373,7 +384,10 @@ public sealed partial class AnnotationsViewModel
     /// <returns><see langword="true"/> when nothing changed.</returns>
     private static bool IsUnchanged(ITextBoxEditor boxes, PageAnnotation old, TextEditChange change) =>
         boxes.GetTextBox(old.PageIndex, old.Index) is { } before
-        && string.Equals(before.Text, change.Text, StringComparison.Ordinal)
+        && string.Equals(
+        before.Text,
+        change.Text,
+        StringComparison.Ordinal)
         && before.Format == change.Format
         && Math.Abs(before.WrapWidth - change.Edit.WrapWidth) < PlaceTolerance;
 
@@ -492,15 +506,16 @@ public sealed partial class AnnotationsViewModel
     private IDisposable[] WatchTextFormat() =>
     [
 
-        // A format change reformats the picked text box, unless the change came from reading that box's format.
         Signal.Merge(
-                this.WhenChanged(static x => x.FontFamily, static x => x.FontSize, static x => x.TextColor, static (_, _, _) => RxVoid.Default).Skip(1),
-                this.WhenChanged(static x => x.IsBold, static x => x.IsItalic, static x => x.IsUnderline, static (_, _, _) => RxVoid.Default).Skip(1),
-                this.WhenChanged(static x => x.TextAlignment, static x => x.LineSpacing, static x => x.CharacterSpacing, static (_, _, _) => RxVoid.Default).Skip(1),
-                this.WhenChanged(static x => x.CombCells).Skip(1).Select(static _ => RxVoid.Default))
-            .WhereWith(this, static (annotations, _) => !annotations._loadingFormat)
+            this.WhenChanged(static x => x.FontFamily, static x => x.FontSize, static x => x.TextColor, static (_, _, _) => RxVoid.Default).Skip(1),
+            this.WhenChanged(static x => x.IsBold, static x => x.IsItalic, static x => x.IsUnderline, static (_, _, _) => RxVoid.Default).Skip(1),
+            this.WhenChanged(static x => x.TextAlignment, static x => x.LineSpacing, static x => x.CharacterSpacing, static (_, _, _) => RxVoid.Default).Skip(1),
+            this.WhenChanged(static x => x.CombCells).Skip(1).Select(static _ => RxVoid.Default))
+            .WhereWith(
+            this,
+            static (annotations, _) => !annotations._loadingFormat)
             .SubscribeSafe(_ => ReformatSelected(), ErrorTrace.Write),
-        this.WhenChanged(static x => x.Selected).Skip(1).SubscribeSafe(LoadSelectedFormat, ErrorTrace.Write),
+        this.WhenChanged(static x => x.Selected).Skip(1).SubscribeSafe(LoadSelectedFormat, ErrorTrace.Write)
     ];
 
     /// <summary>Reads the installed font families off the UI thread, then offers them.</summary>

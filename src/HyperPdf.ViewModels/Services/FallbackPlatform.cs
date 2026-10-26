@@ -17,7 +17,7 @@ namespace HyperPdf.ViewModels.Services;
 public sealed class FallbackPlatform : IDesktopPlatform
 {
     /// <inheritdoc/>
-    public string Name => "None";
+    public string Name => UiText.Get("None");
 
     /// <inheritdoc/>
     public IDesktopThemeSource? ThemeSource => null;

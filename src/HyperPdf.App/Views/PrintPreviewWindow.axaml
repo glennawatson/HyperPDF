@@ -1,30 +1,32 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.PrintPreviewWindow"
-        Title="Print" Width="1040" Height="720" MinWidth="760" MinHeight="480" WindowStartupLocation="CenterOwner"
+        Width="1040" Height="720" MinWidth="760" MinHeight="480" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
   <!-- Modelled on a browser's print preview: the sheets that will print on the left, a few settings on the right. -->
   <Grid ColumnDefinitions="*,340">
-    <ListBox x:Name="SheetList" AutomationProperties.Name="Preview sheets" Grid.Column="0" Classes="sheets" Background="{DynamicResource AppCanvasBackground}" Padding="0,16" />
+    <ListBox x:Name="SheetList" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Preview sheets&quot;}" Grid.Column="0" Classes="sheets" Background="{DynamicResource AppCanvasBackground}" Padding="0,16" />
 
     <Border Grid.Column="1" Background="{DynamicResource AppHeaderBackground}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1,0,0,0">
       <Grid RowDefinitions="Auto,*,Auto" Margin="20">
         <DockPanel Margin="0,0,0,20">
           <TextBlock x:Name="SummaryText" DockPanel.Dock="Right" Classes="secondary" VerticalAlignment="Center" />
-          <TextBlock Text="Print" FontSize="18" VerticalAlignment="Center" AutomationProperties.HeadingLevel="1" />
+          <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Print&quot;}" FontSize="18" VerticalAlignment="Center" AutomationProperties.HeadingLevel="1" />
         </DockPanel>
         <StackPanel Grid.Row="1" Spacing="14">
           <views:PrintPrinterSettingsView x:Name="PrinterSettings" />
           <views:PrintSheetSettingsView />
           <TextBlock x:Name="PrinterHint" Classes="secondary" TextWrapping="Wrap" Margin="0,8,0,0"
-                     Text="The printer, copies and paper are chosen in the next step." />
-          <Button x:Name="SystemDialogButton" views:ControlHelp.Text="{x:Static help:Descriptions.SystemPrintDialog}" Classes="link" Margin="0,4,0,0" HorizontalAlignment="Left"
-                  Content="Print using system dialog… (Ctrl+Shift+P)" />
+                     Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;The printer, copies and paper are chosen in the next step.&quot;}" />
+          <Button x:Name="SystemDialogButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Print with your computer&apos;s own print window instead. Shortcut: Ctrl+Shift+P&quot;}" Classes="link" Margin="0,4,0,0" HorizontalContentAlignment="Stretch"
+                  AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Print using system dialog… (Ctrl+Shift+P)&quot;}">
+            <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Print using system dialog… (Ctrl+Shift+P)&quot;}" />
+          </Button>
         </StackPanel>
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-          <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.Cancel}" Content="Cancel" IsCancel="True" />
-          <Button x:Name="PrintButton" views:ControlHelp.Text="{x:Static help:Descriptions.PrintNext}" Content="Print…" IsDefault="True" />
+          <Button x:Name="CancelButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close this window without making any changes. Shortcut: Esc&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Cancel&quot;}" IsCancel="True" />
+          <Button x:Name="PrintButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go on to print with these settings.&quot;}" IsDefault="True" />
         </StackPanel>
       </Grid>
     </Border>

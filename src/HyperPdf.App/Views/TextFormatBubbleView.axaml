@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.TextFormatBubbleView">
@@ -7,25 +7,25 @@
     The few formats people reach for while typing, next to the text so the eyes and the pointer stay where the work is.
     The buttons do not take the keyboard, so the caret stays in the text; the full Text format bar has everything else.
   -->
-  <Border x:Name="Bubble" Classes="toolbar subbar" AutomationProperties.Name="Quick text format" AutomationProperties.ControlTypeOverride="ToolBar">
+  <Border x:Name="Bubble" Classes="toolbar subbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Quick text format&quot;}" AutomationProperties.ControlTypeOverride="ToolBar">
     <StackPanel Orientation="Horizontal" Spacing="2">
-      <ToggleButton AutomationProperties.Name="Bold" x:Name="BoldToggle" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.BoldText}" Classes="tool">
-        <TextBlock Classes="label" Text="Bold" FontWeight="Bold" />
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Bold&quot;}" x:Name="BoldToggle" Focusable="False" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text bold, or not. Shortcut: Ctrl+B while typing.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Bold&quot;}" FontWeight="Bold" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Italic" x:Name="ItalicToggle" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.ItalicText}" Classes="tool">
-        <TextBlock Classes="label" Text="Italic" FontStyle="Italic" />
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Italic&quot;}" x:Name="ItalicToggle" Focusable="False" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text italic, or not. Shortcut: Ctrl+I while typing.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Italic&quot;}" FontStyle="Italic" />
       </ToggleButton>
-      <ToggleButton AutomationProperties.Name="Underline text" x:Name="UnderlineToggle" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.UnderlineText}" Classes="tool">
-        <TextBlock Classes="label" Text="Underline" TextDecorations="Underline" />
+      <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Underline text&quot;}" x:Name="UnderlineToggle" Focusable="False" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Underline the text, or not. Shortcut: Ctrl+U while typing.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Underline&quot;}" TextDecorations="Underline" />
       </ToggleButton>
-      <Button AutomationProperties.Name="Smaller text" x:Name="SmallerTextButton" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.ShrinkPageText}" Classes="tool">
-        <TextBlock Classes="label" Text="Smaller" />
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smaller text&quot;}" x:Name="SmallerTextButton" Focusable="False" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text one point smaller.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smaller&quot;}" />
       </Button>
-      <Button AutomationProperties.Name="Larger text" x:Name="LargerTextButton" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.GrowPageText}" Classes="tool">
-        <TextBlock Classes="label" Text="Larger" />
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Larger text&quot;}" x:Name="LargerTextButton" Focusable="False" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text one point larger.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Larger&quot;}" />
       </Button>
-      <Button AutomationProperties.Name="Finish Text" x:Name="FinishTextButton" Focusable="False" views:ControlHelp.Text="{x:Static help:Descriptions.FinishText}" Classes="tool">
-        <TextBlock Classes="label" Text="Done" />
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Finish Text&quot;}" x:Name="FinishTextButton" Focusable="False" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Keep the text you are typing. Shortcut: Ctrl+Enter.&quot;}" Classes="tool">
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Done&quot;}" />
       </Button>
     </StackPanel>
   </Border>

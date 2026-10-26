@@ -16,8 +16,8 @@ internal static class FormDataFiles
     /// <summary>The longest file name shown to the reader.</summary>
     private const int MaxDisplayLength = 80;
 
-    /// <summary>The name shown when the form names no file.</summary>
-    private const string UnnamedFile = "a data file";
+    /// <summary>Gets the name shown when the form names no file.</summary>
+    private static string UnnamedFile => UiText.Get("a data file");
 
     /// <summary>Gets a name safe to show in a question: the last part of the path the form gave, without control characters, cut to a sensible length.</summary>
     /// <param name="file">The file as the form names it, or <see langword="null"/>.</param>
@@ -77,14 +77,16 @@ internal static class FormDataFiles
     {
         if (!result.Succeeded)
         {
-            return $"{name} is not a valid FDF or XFDF file, or is too large. The form is unchanged.";
+            return UiText.Format("{0} is not a valid FDF or XFDF file, or is too large. The form is unchanged.", name);
         }
 
         var applied = result.FieldsApplied + result.AnnotationsApplied;
         var skipped = result.FieldsSkipped + result.AnnotationsSkipped;
         var summary = applied == 0
-            ? $"{name} had nothing that fits this form."
-            : $"Imported {applied} {(applied == 1 ? "entry" : "entries")} from {name}.";
-        return skipped == 0 ? summary : $"{summary} {skipped} {(skipped == 1 ? "entry was" : "entries were")} ignored.";
+            ? UiText.Format(
+            "{0} had nothing that fits this form.",
+            name)
+            : UiText.Format("Imported {0} {1} from {2}.", applied, (applied == 1 ? UiText.Get("entry") : UiText.Get("entries")), name);
+        return skipped == 0 ? summary : UiText.Format("{0} {1} {2} ignored.", summary, skipped, (skipped == 1 ? UiText.Get("entry was") : UiText.Get("entries were")));
     }
 }

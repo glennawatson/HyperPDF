@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Rendering;
@@ -11,7 +10,7 @@ using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Rendering;
 
-/// <summary>Tests for <see cref="RenderScheduler"/>.</summary>
+/// <summary>Tests for <see cref="RenderScheduler"/>. Every wait is on a signal the scheduler or the fake document raises; the test run's own cancellation ends a wait that never comes.</summary>
 public sealed class RenderSchedulerTests
 {
     /// <summary>The edge of test tiles.</summary>
@@ -29,19 +28,11 @@ public sealed class RenderSchedulerTests
     /// <summary>The test document file name.</summary>
     private const string DocumentName = "a.pdf";
 
-    /// <summary>How long to wait for asynchronous work.</summary>
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
-
-    /// <summary>The longest Dispose may occupy a caller while a render is still active.</summary>
-    private static readonly TimeSpan DisposeLimit = TimeSpan.FromSeconds(2);
-
-    /// <summary>How often the test checks whether its blocked render completed.</summary>
-    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(10);
-
     /// <summary>Verifies a request is rendered and handed back once.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task RendersAndCompletes()
+    public async Task RendersAndCompletes(CancellationToken cancellationToken)
     {
         using var completed = new SemaphoreSlim(0);
         using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
@@ -51,7 +42,7 @@ public sealed class RenderSchedulerTests
         var key = Key(0);
 
         await Assert.That(scheduler.Request(Request(key, document, client, RenderPriority.Visible))).IsTrue();
-        await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+        await completed.WaitAsync(cancellationToken);
         await Assert.That(scheduler.TryTakeCompleted(out var tile)).IsTrue();
 
         await Assert.That(tile.Key).IsEqualTo(key);
@@ -61,12 +52,12 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>Slow page preparation releases the render thread and resumes the waiting page afterwards.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task PreparationDoesNotBlockOtherPages()
+    public async Task PreparationDoesNotBlockOtherPages(CancellationToken cancellationToken)
     {
         using var completed = new SemaphoreSlim(0);
-        using var timeout = new CancellationTokenSource(Timeout);
         using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
         using var completions = scheduler.Completed.SubscribeSafe(_ => completed.Release(), static _ => { });
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -82,16 +73,16 @@ public sealed class RenderSchedulerTests
         var client = new RenderClient();
 
         _ = scheduler.Request(Request(Key(0), waiting, client, RenderPriority.Visible));
-        await entered.Task.WaitAsync(timeout.Token);
+        await entered.Task.WaitAsync(cancellationToken);
         _ = scheduler.Request(Request(Key(1), ready, client, RenderPriority.Visible));
-        await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+        await completed.WaitAsync(cancellationToken);
         await Assert.That(scheduler.TryTakeCompleted(out var first)).IsTrue();
         await Assert.That(first.Key).IsEqualTo(Key(1));
         await Assert.That(waiting.RenderCount).IsEqualTo(0);
         first.Surface.Dispose();
 
         _ = release.TrySetResult();
-        await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+        await completed.WaitAsync(cancellationToken);
         await Assert.That(scheduler.TryTakeCompleted(out var second)).IsTrue();
         await Assert.That(second.Key).IsEqualTo(Key(0));
         await Assert.That(waiting.RenderCount).IsEqualTo(1);
@@ -99,13 +90,13 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>Switching away cancels in-progress page preparation before a stale tile can render.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task TabCancellationStopsInProgressPreparation()
+    public async Task TabCancellationStopsInProgressPreparation(CancellationToken cancellationToken)
     {
         using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
         using var tab = CancellationTokenSource.CreateLinkedTokenSource(scheduler.ShutdownToken);
-        using var timeout = new CancellationTokenSource(Timeout);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -125,22 +116,23 @@ public sealed class RenderSchedulerTests
         };
         var request = Request(Key(0), document, new(), RenderPriority.Visible) with { CancellationToken = tab.Token };
         await Assert.That(scheduler.Request(request)).IsTrue();
-        await entered.Task.WaitAsync(timeout.Token);
+        await entered.Task.WaitAsync(cancellationToken);
 
-        var started = Stopwatch.GetTimestamp();
         await tab.CancelAsync();
         scheduler.Invalidate(request.Key.DocumentId);
-        await stopped.Task.WaitAsync(timeout.Token);
 
-        await Assert.That(Stopwatch.GetElapsedTime(started)).IsLessThan(DisposeLimit);
+        // The preparation only ends because the tab's token reached it: nothing else releases it.
+        await stopped.Task.WaitAsync(cancellationToken);
+        await Assert.That(release.Task.IsCompleted).IsFalse();
         await Assert.That(document.RenderCount).IsEqualTo(0);
         await Assert.That(scheduler.TryTakeCompleted(out _)).IsFalse();
     }
 
     /// <summary>A synchronous preparation failure leaves the render thread available for the next page.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task PreparationFailureDoesNotStopRendering()
+    public async Task PreparationFailureDoesNotStopRendering(CancellationToken cancellationToken)
     {
         using var completed = new SemaphoreSlim(0);
         using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
@@ -152,7 +144,7 @@ public sealed class RenderSchedulerTests
         _ = scheduler.Request(Request(Key(0), failed, client, RenderPriority.Visible));
         _ = scheduler.Request(Request(Key(1), ready, client, RenderPriority.Visible));
 
-        await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+        await completed.WaitAsync(cancellationToken);
         await Assert.That(scheduler.TryTakeCompleted(out var tile)).IsTrue();
         await Assert.That(tile.Key).IsEqualTo(Key(1));
         await Assert.That(scheduler.IsPending(Key(0))).IsFalse();
@@ -161,13 +153,14 @@ public sealed class RenderSchedulerTests
 
     /// <summary>A render that throws a damaged-file or read exception loses only its tile.</summary>
     /// <param name="failureKind">Which exception the render throws.</param>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
     [Arguments(nameof(InvalidDataException))]
     [Arguments(nameof(IOException))]
     [Arguments(nameof(FormatException))]
     [Arguments(nameof(OverflowException))]
-    public async Task RenderFailureDoesNotStopRendering(string failureKind)
+    public async Task RenderFailureDoesNotStopRendering(string failureKind, CancellationToken cancellationToken)
     {
         using var completed = new SemaphoreSlim(0);
         using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
@@ -187,7 +180,7 @@ public sealed class RenderSchedulerTests
         _ = scheduler.Request(Request(Key(0), failed, client, RenderPriority.Visible));
         _ = scheduler.Request(Request(Key(1), ready, client, RenderPriority.Visible));
 
-        await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+        await completed.WaitAsync(cancellationToken);
         await Assert.That(scheduler.TryTakeCompleted(out var tile)).IsTrue();
         await Assert.That(tile.Key).IsEqualTo(Key(1));
         await Assert.That(scheduler.IsPending(Key(0))).IsFalse();
@@ -213,9 +206,10 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>Verifies requests made stale by advancing the client generation are never rendered.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task DropsStaleRequests()
+    public async Task DropsStaleRequests(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
         using var completed = new SemaphoreSlim(0);
@@ -229,7 +223,7 @@ public sealed class RenderSchedulerTests
 
         // Occupy the render thread so the following requests queue up.
         _ = scheduler.Request(Request(new(BlockerDocument, 0, 1, PageRotation.None, 0, 0, 0), blocker, blockerClient, RenderPriority.Visible));
-        _ = blocker.Started.Wait(Timeout);
+        blocker.Started.Wait(cancellationToken);
         for (var page = 0; page < stalePages; page++)
         {
             _ = scheduler.Request(Request(Key(page), document, client, RenderPriority.Visible));
@@ -240,15 +234,7 @@ public sealed class RenderSchedulerTests
         _ = scheduler.Request(Request(Key(WantedPage), document, client, RenderPriority.Visible) with { Generation = generation });
         gate.Set();
 
-        var taken = new List<TileKey>();
-        while (taken.Count < WantedPage && await completed.WaitAsync(Timeout))
-        {
-            while (scheduler.TryTakeCompleted(out var tile))
-            {
-                taken.Add(tile.Key);
-                tile.Surface.Dispose();
-            }
-        }
+        var taken = await CompletedTiles.CollectAsync(scheduler, completed, WantedPage, cancellationToken);
 
         await Assert.That(document.RenderCount).IsEqualTo(1);
         await Assert.That(taken).Contains(Key(WantedPage));
@@ -256,9 +242,10 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>Verifies higher priority work runs first.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task RunsHigherPriorityFirst()
+    public async Task RunsHigherPriorityFirst(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
         using var completed = new SemaphoreSlim(0);
@@ -271,20 +258,12 @@ public sealed class RenderSchedulerTests
         const int expectedTiles = 3;
 
         _ = scheduler.Request(Request(blockerKey, blocker, client, RenderPriority.Visible));
-        _ = blocker.Started.Wait(Timeout);
+        blocker.Started.Wait(cancellationToken);
         _ = scheduler.Request(Request(Key(0), document, client, RenderPriority.Thumbnail));
         _ = scheduler.Request(Request(Key(1), document, client, RenderPriority.VisiblePreview));
         gate.Set();
 
-        var order = new List<TileKey>();
-        while (order.Count < expectedTiles && await completed.WaitAsync(Timeout))
-        {
-            while (scheduler.TryTakeCompleted(out var tile))
-            {
-                order.Add(tile.Key);
-                tile.Surface.Dispose();
-            }
-        }
+        var order = await CompletedTiles.CollectAsync(scheduler, completed, expectedTiles, cancellationToken);
 
         await Assert.That(order).IsEquivalentTo([blockerKey, Key(1), Key(0)]);
         await Assert.That(order[0]).IsEqualTo(blockerKey);
@@ -292,9 +271,10 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>Verifies a tile rendered before its page changed is dropped, and the page is rendered again.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task DropsTilesRenderedBeforeAnEdit()
+    public async Task DropsTilesRenderedBeforeAnEdit(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
         using var completed = new SemaphoreSlim(0);
@@ -305,7 +285,7 @@ public sealed class RenderSchedulerTests
         const int renders = 2;
 
         _ = scheduler.Request(Request(Key(0), document, client, RenderPriority.Visible));
-        _ = document.Started.Wait(Timeout);
+        document.Started.Wait(cancellationToken);
         scheduler.Invalidate(Key(0).DocumentId);
         var requeued = scheduler.Request(Request(Key(0), document, client, RenderPriority.Visible));
         gate.Set();
@@ -313,7 +293,7 @@ public sealed class RenderSchedulerTests
         var taken = 0;
         while (document.RenderCount < renders || scheduler.IsPending(Key(0)))
         {
-            _ = await completed.WaitAsync(Timeout);
+            await completed.WaitAsync(cancellationToken);
             while (scheduler.TryTakeCompleted(out var tile))
             {
                 taken++;
@@ -327,9 +307,10 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>Verifies a pending tile renders from the latest request, such as a document that was reopened.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task RendersTheLatestRequest()
+    public async Task RendersTheLatestRequest(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
         using var completed = new SemaphoreSlim(0);
@@ -341,20 +322,19 @@ public sealed class RenderSchedulerTests
         var client = new RenderClient();
 
         _ = scheduler.Request(Request(new(BlockerDocument, 0, 1, PageRotation.None, 0, 0, 0), blocker, client, RenderPriority.Visible));
-        _ = blocker.Started.Wait(Timeout);
+        blocker.Started.Wait(cancellationToken);
         _ = scheduler.Request(Request(Key(0), closed, client, RenderPriority.Visible));
         closed.Dispose();
         var merged = scheduler.Request(Request(Key(0), reopened, client, RenderPriority.Visible));
         gate.Set();
 
         var found = false;
-        while (!found && await completed.WaitAsync(Timeout))
+        var order = new List<TileKey>();
+        while (!found)
         {
-            while (scheduler.TryTakeCompleted(out var tile))
-            {
-                found |= tile.Key == Key(0);
-                tile.Surface.Dispose();
-            }
+            await completed.WaitAsync(cancellationToken);
+            CompletedTiles.Drain(scheduler, order);
+            found = order.Contains(Key(0));
         }
 
         await Assert.That(merged).IsFalse();
@@ -363,9 +343,10 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>Verifies a pending tile requested again at a more urgent priority no longer waits behind less urgent work.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task RaisesThePriorityOfAPendingTile()
+    public async Task RaisesThePriorityOfAPendingTile(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
         using var completed = new SemaphoreSlim(0);
@@ -378,21 +359,13 @@ public sealed class RenderSchedulerTests
         const int expectedTiles = 3;
 
         _ = scheduler.Request(Request(blockerKey, blocker, client, RenderPriority.Visible));
-        _ = blocker.Started.Wait(Timeout);
+        blocker.Started.Wait(cancellationToken);
         _ = scheduler.Request(Request(Key(0), document, client, RenderPriority.Prefetch));
         _ = scheduler.Request(Request(Key(1), document, client, RenderPriority.Thumbnail));
         _ = scheduler.Request(Request(Key(1), document, client, RenderPriority.Visible));
         gate.Set();
 
-        var order = new List<TileKey>();
-        while (order.Count < expectedTiles && await completed.WaitAsync(Timeout))
-        {
-            while (scheduler.TryTakeCompleted(out var tile))
-            {
-                order.Add(tile.Key);
-                tile.Surface.Dispose();
-            }
-        }
+        var order = await CompletedTiles.CollectAsync(scheduler, completed, expectedTiles, cancellationToken);
 
         await Assert.That(order).IsEquivalentTo([blockerKey, Key(1), Key(0)]);
         await Assert.That(order[1]).IsEqualTo(Key(1));
@@ -400,9 +373,10 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>Verifies the request's page tone recolours rendered pixels.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task AppliesPageTone()
+    public async Task AppliesPageTone(CancellationToken cancellationToken)
     {
         const uint paper = 0x2A2826U;
         const uint ink = 0xD2CDC5U;
@@ -414,7 +388,7 @@ public sealed class RenderSchedulerTests
         var request = Request(Key(0), document, new(), RenderPriority.Visible) with { Tone = new(paper, ink) };
 
         _ = scheduler.Request(request);
-        _ = await completed.WaitAsync(Timeout);
+        await completed.WaitAsync(cancellationToken);
         _ = scheduler.TryTakeCompleted(out var tile);
 
         // The fake renders page 0 as all-zero bytes (black), which the tone maps to the ink colour.
@@ -423,9 +397,10 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>A preparation surface records content without asking the document for CPU pixels.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task PreparationSurfaceSkipsCpuRaster()
+    public async Task PreparationSurfaceSkipsCpuRaster(CancellationToken cancellationToken)
     {
         using var completed = new SemaphoreSlim(0);
         var factory = new PreparationSurfaceFactory();
@@ -435,7 +410,7 @@ public sealed class RenderSchedulerTests
         var key = Key(0);
 
         _ = scheduler.Request(Request(key, document, new(), RenderPriority.Visible));
-        await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+        await completed.WaitAsync(cancellationToken);
         await Assert.That(scheduler.TryTakeCompleted(out var tile)).IsTrue();
         await Assert.That(tile.Surface).IsTypeOf<PreparationSurface>();
         await Assert.That(((PreparationSurface)tile.Surface).PrepareCount).IsEqualTo(1);
@@ -444,9 +419,10 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>A completed prepared tile is released when its client advances before collection.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task PreparedTileDropsAfterGenerationAdvance()
+    public async Task PreparedTileDropsAfterGenerationAdvance(CancellationToken cancellationToken)
     {
         using var completed = new SemaphoreSlim(0);
         var factory = new PreparationSurfaceFactory();
@@ -457,7 +433,7 @@ public sealed class RenderSchedulerTests
         var key = Key(0);
 
         _ = scheduler.Request(Request(key, document, client, RenderPriority.Visible));
-        await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+        await completed.WaitAsync(cancellationToken);
         _ = client.Advance();
 
         await Assert.That(scheduler.TryTakeCompleted(out _)).IsFalse();
@@ -469,9 +445,10 @@ public sealed class RenderSchedulerTests
     /// A tile requested again by a newer generation while it renders is delivered once, as when a page keeps scrolling
     /// past while its tile takes longer than a frame.
     /// </summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task ActiveRenderIsKeptAfterGenerationAdvance()
+    public async Task ActiveRenderIsKeptAfterGenerationAdvance(CancellationToken cancellationToken)
     {
         const int frames = 3;
         using var gate = new ManualResetEventSlim(false);
@@ -483,7 +460,7 @@ public sealed class RenderSchedulerTests
         var key = Key(0);
 
         _ = scheduler.Request(Request(key, document, client, RenderPriority.Visible));
-        await document.FirstRenderStarted.WaitAsync(Timeout);
+        await document.FirstRenderStarted.WaitAsync(cancellationToken);
         var requeued = false;
         for (var frame = 0; frame < frames; frame++)
         {
@@ -495,7 +472,7 @@ public sealed class RenderSchedulerTests
         var taken = 0;
         while (scheduler.IsPending(key))
         {
-            await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+            await completed.WaitAsync(cancellationToken);
             while (scheduler.TryTakeCompleted(out var tile))
             {
                 taken++;
@@ -509,26 +486,29 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>A tile whose client moved on while it rendered, without asking for it again, is discarded.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task ActiveRenderDropsWhenNoLongerRequested()
+    public async Task ActiveRenderDropsWhenNoLongerRequested(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
+        using var completed = new SemaphoreSlim(0);
         using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
+        using var completions = scheduler.Completed.SubscribeSafe(_ => completed.Release(), static _ => { });
         using var document = new FakeDocument(DocumentName, FakeEngine.A4) { Gate = gate };
-        using var timeout = new CancellationTokenSource(Timeout);
-        using var timer = new PeriodicTimer(PollInterval);
         var client = new RenderClient();
         var key = Key(0);
 
         _ = scheduler.Request(Request(key, document, client, RenderPriority.Visible));
-        await document.FirstRenderStarted.WaitAsync(Timeout);
+        await document.FirstRenderStarted.WaitAsync(cancellationToken);
         _ = client.Advance();
         gate.Set();
 
+        // The finished tile is signalled like any other and discarded when the client collects it.
         var taken = 0;
-        while (scheduler.IsPending(key) && await timer.WaitForNextTickAsync(timeout.Token))
+        while (scheduler.IsPending(key))
         {
+            await completed.WaitAsync(cancellationToken);
             while (scheduler.TryTakeCompleted(out var tile))
             {
                 taken++;
@@ -541,9 +521,10 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>A tile requested for a reopened document while the old one renders is rendered again from the new one.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task ActiveRenderIsReplacedForANewDocument()
+    public async Task ActiveRenderIsReplacedForANewDocument(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
         using var completed = new SemaphoreSlim(0);
@@ -555,14 +536,14 @@ public sealed class RenderSchedulerTests
         var key = Key(0);
 
         _ = scheduler.Request(Request(key, closed, client, RenderPriority.Visible));
-        await closed.FirstRenderStarted.WaitAsync(Timeout);
+        await closed.FirstRenderStarted.WaitAsync(cancellationToken);
         var requeued = scheduler.Request(Request(key, reopened, client, RenderPriority.Visible));
         gate.Set();
 
         var taken = 0;
         while (scheduler.IsPending(key))
         {
-            await Assert.That(await completed.WaitAsync(Timeout)).IsTrue();
+            await completed.WaitAsync(cancellationToken);
             while (scheduler.TryTakeCompleted(out var tile))
             {
                 taken++;
@@ -576,55 +557,46 @@ public sealed class RenderSchedulerTests
     }
 
     /// <summary>Closing a viewer does not wait for an active render to release the UI thread.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task DisposeReturnsWhileRenderIsActive()
+    public async Task DisposeReturnsWhileRenderIsActive(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
         var scheduler = new RenderScheduler(new FakeSurfaceFactory());
         using var document = new FakeDocument(DocumentName, FakeEngine.A4) { Gate = gate };
-        using var timeout = new CancellationTokenSource(Timeout);
-        using var timer = new PeriodicTimer(PollInterval);
         var key = Key(0);
-        TimeSpan elapsed;
+        int rendersWhenDisposeReturned;
         try
         {
             _ = scheduler.Request(Request(key, document, new(), RenderPriority.Visible));
-            await document.FirstRenderStarted.WaitAsync(timeout.Token);
+            await document.FirstRenderStarted.WaitAsync(cancellationToken);
         }
         finally
         {
-            var started = Stopwatch.GetTimestamp();
+            // The render is held at the gate, so a Dispose that returns did not wait for it to finish.
             scheduler.Dispose();
-            elapsed = Stopwatch.GetElapsedTime(started);
+            rendersWhenDisposeReturned = document.RenderCount;
             gate.Set();
         }
 
-        // The render finishes after the gate opens, so it gets its own bound rather than what the start used up.
-        using var finishTimeout = new CancellationTokenSource(Timeout);
-        while (document.RenderCount == 0)
-        {
-            if (!await timer.WaitForNextTickAsync(finishTimeout.Token))
-            {
-                break;
-            }
-        }
+        await document.FirstRenderFinished.WaitAsync(cancellationToken);
 
-        await Assert.That(elapsed).IsLessThan(DisposeLimit);
+        await Assert.That(rendersWhenDisposeReturned).IsEqualTo(0);
         await Assert.That(document.RenderCount).IsEqualTo(1);
     }
 
     /// <summary>Disposal cancels queued page preparation before any tile surface is created.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task DisposeCancelsAwaitingPreparation()
+    public async Task DisposeCancelsAwaitingPreparation(CancellationToken cancellationToken)
     {
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var factory = new PreparationSurfaceFactory();
         var scheduler = new RenderScheduler(factory);
         using var document = new FakeDocument(DocumentName, FakeEngine.A4);
-        using var timeout = new CancellationTokenSource(Timeout);
         Task? pending = null;
         document.Preparation = (pageIndex, token) =>
         {
@@ -637,7 +609,7 @@ public sealed class RenderSchedulerTests
         try
         {
             _ = scheduler.Request(Request(Key(0), document, new(), RenderPriority.Visible));
-            await entered.Task.WaitAsync(timeout.Token);
+            await entered.Task.WaitAsync(cancellationToken);
         }
         finally
         {

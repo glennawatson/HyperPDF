@@ -10,11 +10,17 @@ namespace HyperPdf.ViewModels.Output;
 /// <summary>Writes a protected or unprotected copy to a temporary file and moves it into place only when the copy was made.</summary>
 internal static class ProtectedCopyFile
 {
-    /// <summary>Why a chosen destination was refused.</summary>
-    internal const string OverwriteMessage = "That would replace the file you have open. Choose a different name for the copy.";
-
     /// <summary>The ending of the temporary file the copy is written to.</summary>
     private const string TemporarySuffix = ".protect";
+
+    /// <summary>The resource key for a destination that would overwrite the open document.</summary>
+    private const string OverwriteKey = "That would replace the file you have open. Choose a different name for the copy.";
+
+    /// <summary>Gets why a chosen destination was refused.</summary>
+    internal static string OverwriteMessage => UiText.Get(OverwriteKey);
+
+    /// <summary>Gets the retained resource for a refused destination.</summary>
+    internal static LocalizedMessage OverwriteStatus => LocalizedMessage.Get(UiText, OverwriteKey);
 
     /// <summary>Determines whether two paths name the same file.</summary>
     /// <param name="first">The first path.</param>

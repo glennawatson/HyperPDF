@@ -37,8 +37,12 @@ public sealed record OcrSetup(
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "hyperpdf", "tessdata");
 
     /// <summary>Gets what to say when the text recogniser cannot start. It never asks the person to install anything.</summary>
-    public static string EngineUnavailableText =>
-        "Text recognition could not start on this computer, so the pages were left as they are. Please report this so it can be fixed.";
+    public static string EngineUnavailableText => EngineUnavailableMessage.ToString();
+
+    /// <summary>Gets the retained resource explaining why recognition could not start.</summary>
+    public static LocalizedMessage EngineUnavailableMessage => LocalizedMessage.Get(
+        UiText,
+        "Text recognition could not start on this computer, so the pages were left as they are. Please report this so it can be fixed.");
 
     /// <summary>Gets the downloads and file facts owned by this setup.</summary>
     private OcrLanguagePackDownloader Downloads { get; init; } = new();

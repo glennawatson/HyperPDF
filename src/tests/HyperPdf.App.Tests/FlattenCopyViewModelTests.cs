@@ -2,6 +2,10 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
+using Avalonia.Controls;
+using Avalonia.VisualTree;
+using HyperPdf.App.Views;
 using HyperPdf.Core.Flattening;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels;
@@ -15,6 +19,9 @@ public sealed class FlattenCopyViewModelTests
     /// <summary>The pages of the generated documents.</summary>
     private const int Pages = 2;
 
+    /// <summary>The passes needed to arrange existing translated choice controls.</summary>
+    private const int CultureRenderPasses = 3;
+
     /// <summary>The document name.</summary>
     private const string SourceName = "form.pdf";
 
@@ -23,6 +30,53 @@ public sealed class FlattenCopyViewModelTests
 
     /// <summary>The longest wait for a run to start.</summary>
     private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>A completed report changes language without saving again or replacing its document state.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    [Category("Localisation")]
+    public async Task CompletedReport_ChangesLanguageAndRetainsResult()
+    {
+        var previous = UiText.UICulture;
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        var source = test.CreateDocument(SourceName, TestPdf.Create(Pages));
+        await TestServices.OpenAndWaitAsync(main, [source]);
+        var document = main.SelectedTab!.TryGetDocument();
+        var writer = new FakeFlattenCopyWriter();
+        using var vm = new FlattenCopyViewModel(writer, source);
+        var destination = Path.Combine(test.Directory, "retained-report.pdf");
+        using var handler = vm.SaveInteraction.RegisterHandler(context => context.SetOutput(destination));
+        var window = new FlattenCopyWindow { ViewModel = vm };
+        try
+        {
+            InterfaceCulture.Apply(UiText, CultureInfo.GetCultureInfo("en"));
+            _ = await vm.SaveCommand.Execute().ToTask();
+            window.Show();
+            var result = vm.Result;
+            var selected = vm.SelectedScope;
+            foreach (var language in new[] { "fr", "de", "zh-Hans", "ar", "es", "pt", "en" })
+            {
+                InterfaceCulture.Apply(UiText, CultureInfo.GetCultureInfo(language));
+                LocalisationRefresh.Refresh(vm);
+                CP.Localisation.Avalonia.LocalisationWindows.Refresh(window);
+                await UiWait.PumpAsync(CultureRenderPasses);
+                await AssertChoiceLabelsAsync(window, vm);
+                await Assert.That(vm.ResultText).Contains(UiText.Format("Saved as {0}. Your open file was not changed.", Path.GetFileName(destination)));
+                await Assert.That(vm.StatusText).IsEqualTo(UiText.Get("Done. The copy is saved."));
+                await Assert.That(ReferenceEquals(vm.Result, result)).IsTrue();
+                await Assert.That(ReferenceEquals(vm.SelectedScope, selected)).IsTrue();
+                await Assert.That(vm.SavedPath).IsEqualTo(destination);
+                await Assert.That(ReferenceEquals(main.SelectedTab.TryGetDocument(), document)).IsTrue();
+                await Assert.That(writer.Calls).IsEqualTo(1);
+            }
+        }
+        finally
+        {
+            window.Close();
+            InterfaceCulture.Apply(UiText, previous);
+        }
+    }
 
     /// <summary>The window starts with the suggested options and a name after the open file.</summary>
     /// <returns>A task.</returns>
@@ -194,6 +248,20 @@ public sealed class FlattenCopyViewModelTests
         await TestServices.OpenAndWaitAsync(main, [destination]);
         await Assert.That(await UiWait.UntilAsync(() => main.SelectedTab!.IsLoaded)).IsTrue();
         await Assert.That(main.Tabs.Single(t => t.FilePath == destination).Source.PageSizes.Length).IsEqualTo(Pages);
+    }
+
+    /// <summary>Checks the actual displayed choice retains live translated text.</summary>
+    /// <param name="window">The existing copy window.</param>
+    /// <param name="model">Its unchanged request.</param>
+    /// <returns>A task.</returns>
+    private static async Task AssertChoiceLabelsAsync(FlattenCopyWindow window, FlattenCopyViewModel model)
+    {
+        var list = window.FindControl<ListBox>("ScopeList")!;
+        var labels = list.GetVisualDescendants().OfType<TextBlock>().Select(static label => label.Text).ToArray();
+        await Assert.That(labels).Contains(model.SelectedScope!.Name);
+        await Assert.That(labels).Contains(model.SelectedScope.Description);
+        var selected = list.ContainerFromItem(model.SelectedScope)!;
+        await Assert.That(Avalonia.Automation.AutomationProperties.GetName(selected)).Contains(model.SelectedScope.Name);
     }
 
     /// <summary>Gets the temporary file a copy is written to before it is moved into place.</summary>

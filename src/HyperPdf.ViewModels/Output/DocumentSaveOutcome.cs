@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Archiving;
+using HyperPdf.Core.Documents;
 
 namespace HyperPdf.ViewModels.Output;
 
@@ -16,7 +17,10 @@ internal readonly record struct DocumentSaveOutcome(bool Saved, string? Error, A
     /// <param name="saved">Whether the destination was replaced.</param>
     /// <param name="error">A file-system error to show to the reader, or <see langword="null"/>.</param>
     internal DocumentSaveOutcome(bool saved, string? error)
-        : this(saved, error, null)
+        : this(
+        saved,
+        error,
+        null)
     {
     }
 
@@ -28,4 +32,7 @@ internal readonly record struct DocumentSaveOutcome(bool Saved, string? Error, A
 
     /// <summary>Gets the warnings about document requirements the save removed; empty when it removed none.</summary>
     internal IReadOnlyList<string> RequirementWarnings { get; init; } = [];
+
+    /// <summary>Gets typed requirement removals whose text follows the interface culture.</summary>
+    internal IReadOnlyList<RemovedRequirement> RemovedRequirements { get; init; } = [];
 }

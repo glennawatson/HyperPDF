@@ -18,7 +18,7 @@ namespace HyperPdf.ViewModels.Output;
 /// </summary>
 /// <typeparam name="TRequest">The view model of the window the command opens.</typeparam>
 [DebuggerDisplay("TabCopyAction: {MenuText}")]
-public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposable
+public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposable, ILocalisationChildren
     where TRequest : class, ICopyWindowRequest
 {
     /// <summary>The owning tab.</summary>
@@ -46,7 +46,7 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
     {
         _owner = owner;
         _spec = spec;
-        MenuText = spec.UnavailableText;
+        MenuText = UiText.Get(spec.UnavailableText);
         _canRun = Changed
             .Where(static change => change.PropertyName == nameof(CanRun))
             .Select(static change => change.Sender is TabCopyAction<TRequest> { CanRun: true })
@@ -69,6 +69,15 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _lifetime.Dispose();
 
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        MenuText = UiText.Get(CanRun ? _spec.AvailableText : _spec.UnavailableText);
+        LocalisationRefresh.RefreshCore(Volatile.Read(ref _open), visited);
+        LocalisationRefresh.RefreshCore(_owner, visited);
+    }
+
     /// <summary>Stops the run in the command's window and closes it, because the document it works on is going away.</summary>
     /// <returns><see langword="true"/> when a window was open.</returns>
     internal bool CloseWindow()
@@ -79,7 +88,11 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
         }
 
         // Executing a command is a cold stream that completes once the command has run, so the subscription ends by itself.
-        _ = request.CloseCommand.Execute().SubscribeSafe(static _ => { }, ErrorTrace.Write);
+        _ = request.CloseCommand.Execute().SubscribeSafe(
+            static _ =>
+{
+    },
+            ErrorTrace.Write);
         return true;
     }
 
@@ -89,7 +102,7 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
     {
         var can = _spec.IsAvailable(document);
         CanRun = can;
-        MenuText = can ? _spec.AvailableText : _spec.UnavailableText;
+        MenuText = UiText.Get(can ? _spec.AvailableText : _spec.UnavailableText);
     }
 
     /// <summary>Shows the command's window for the tab's document.</summary>

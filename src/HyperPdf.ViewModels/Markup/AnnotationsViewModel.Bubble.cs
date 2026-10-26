@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
@@ -154,7 +153,7 @@ public sealed partial class AnnotationsViewModel
         _ = CommitText();
         Selected = annotation;
         var item = CreateItem(editor, annotation, _owner.GetPageDisplay(annotation.PageIndex));
-        var heading = string.Create(CultureInfo.CurrentCulture, $"{item.Heading} · {item.AuthorName}");
+        var heading = $"{item.Heading} · {item.AuthorName}";
         BubbleNoteText = annotation.Contents;
         BubbleReplyText = string.Empty;
         IsReplyingInBubble = startReply;
@@ -175,7 +174,7 @@ public sealed partial class AnnotationsViewModel
 
         _ = CommitText();
         var bounds = new PageRect(location.X, location.Y, NoteIconSide, NoteIconSide);
-        var heading = string.Create(CultureInfo.CurrentCulture, $"New Note · Page {_owner.GetPageDisplay(page)}");
+        var heading = UiText.Format("New Note · Page {0}", _owner.GetPageDisplay(page));
         BubbleNoteText = string.Empty;
         BubbleReplyText = string.Empty;
         IsReplyingInBubble = false;
@@ -317,7 +316,7 @@ public sealed partial class AnnotationsViewModel
         if (Find(annotation.PageIndex, annotation.Index) is { } updated && Editor is { } editor)
         {
             var item = CreateItem(editor, updated, _owner.GetPageDisplay(updated.PageIndex));
-            var heading = string.Create(CultureInfo.CurrentCulture, $"{item.Heading} · {item.AuthorName}");
+            var heading = $"{item.Heading} · {item.AuthorName}";
             ActiveBubble = new(updated.PageIndex, updated.Bounds, updated.Color, heading, item.RepliesText, updated, null);
         }
         else
@@ -353,7 +352,10 @@ public sealed partial class AnnotationsViewModel
     /// <param name="annotation">The annotation.</param>
     private void SaveExistingBubbleNote(PageAnnotation annotation)
     {
-        if (!string.Equals(BubbleNoteText, annotation.Contents, StringComparison.Ordinal)
+        if (!string.Equals(
+            BubbleNoteText,
+            annotation.Contents,
+            StringComparison.Ordinal)
             && EditorForChange()?.SetContents(annotation.PageIndex, annotation.Index, BubbleNoteText) == true)
         {
             Record(new AnnotationContentsChanged(annotation.PageIndex, annotation.Index, annotation.Contents, BubbleNoteText));

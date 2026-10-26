@@ -1,23 +1,23 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.TabsMenuView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (TabsMenuView.axaml.cs). -->
-  <Button AutomationProperties.Name="Tabs and settings" x:Name="TabsMenuButton" views:ControlHelp.Text="{x:Static help:Descriptions.TabsMenu}" Classes="tool" Content="Tabs &amp; settings ▾" Margin="0,0,4,0">
+  <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tabs and settings&quot;}" x:Name="TabsMenuButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open the menu for tabs and settings, such as Preferences, page colour and closed tabs.&quot;}" Classes="tool" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tabs &amp; settings ▾&quot;}" Margin="0,0,4,0">
     <Button.Flyout>
       <MenuFlyout Placement="BottomEdgeAlignedRight">
-        <MenuItem x:Name="OpenMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.Open}" Header="_Open…" InputGesture="Ctrl+O" />
-        <MenuItem x:Name="RecentMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.OpenRecent}" Header="Open _Recent" />
-        <MenuItem x:Name="ClearRecentMenuItem" views:ControlHelp.Text="Remove recent PDFs without deleting files. On Linux, this also clears the desktop's shared recent PDF list." Header="Clear Recent List" />
-        <MenuItem x:Name="NewWindowMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.NewWindow}" Header="_New Window" InputGesture="Ctrl+N" />
-        <MenuItem x:Name="ReopenMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.ReopenClosedTabs}" Header="_Reopen Closed Tabs" InputGesture="Ctrl+Shift+T" />
-        <MenuItem x:Name="SearchFolderMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.SearchFolder}" Header="_Search in Folder…" InputGesture="Ctrl+Shift+F" />
+        <MenuItem x:Name="OpenMenuItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose PDF files to open. Shortcut: Ctrl+O&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Open…&quot;}" InputGesture="Ctrl+O" />
+        <MenuItem x:Name="RecentMenuItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open a document you had open recently. It opens at the page you left it on.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open _Recent&quot;}" />
+        <MenuItem x:Name="ClearRecentMenuItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove recent PDFs without deleting files. On Linux, this also clears the desktop&apos;s shared recent PDF list.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Clear Recent List&quot;}" />
+        <MenuItem x:Name="NewWindowMenuItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open another window showing this document at the same page, to read two places side by side. Shortcut: Ctrl+N&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_New Window&quot;}" InputGesture="Ctrl+N" />
+        <MenuItem x:Name="ReopenMenuItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open the tabs you closed again. Shortcut: Ctrl+Shift+T&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Reopen Closed Tabs&quot;}" InputGesture="Ctrl+Shift+T" />
+        <MenuItem x:Name="SearchFolderMenuItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Search for words in every PDF in a folder. Shortcut: Ctrl+Shift+F&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Search in Folder…&quot;}" InputGesture="Ctrl+Shift+F" />
         <Separator />
-        <MenuItem x:Name="PageToneMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.ComfortPageColour}" Header="_Comfort Page Colour" InputGesture="Ctrl+I" ToggleType="CheckBox" />
-        <MenuItem x:Name="PreferencesMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.Preferences}" Header="_Preferences…" InputGesture="Ctrl+OemComma" />
-        <MenuItem x:Name="LicencesMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.Licences}" Header="About and _Licences…" />
+        <MenuItem x:Name="PageToneMenuItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the pages in a softer colour that is easier on the eyes. Shortcut: Ctrl+I&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Comfort Page Colour&quot;}" InputGesture="Ctrl+I" ToggleType="CheckBox" />
+        <MenuItem x:Name="PreferencesMenuItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Change how the app looks and works. Shortcut: Ctrl+Comma&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Preferences…&quot;}" InputGesture="Ctrl+OemComma" />
+        <MenuItem x:Name="LicencesMenuItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Read the licence for this app and for every component it includes or downloads.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;About and _Licences…&quot;}" />
         <Separator />
-        <MenuItem x:Name="CloseAllMenuItem" views:ControlHelp.Text="{x:Static help:Descriptions.CloseAllTabs}" Header="Close _All Tabs" />
+        <MenuItem x:Name="CloseAllMenuItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close every open tab.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close _All Tabs&quot;}" />
       </MenuFlyout>
     </Button.Flyout>
   </Button>

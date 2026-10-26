@@ -47,7 +47,7 @@ public static class AnnotationColors
         {
             if (value == color || Deep(value) == color)
             {
-                return name;
+                return UiText.Get(name);
             }
         }
 

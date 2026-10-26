@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>HyperPdf.Localisation</RootNamespace>
+    <NeutralLanguage>en</NeutralLanguage>
+    <LocalisationGenerateOnly>true</LocalisationGenerateOnly>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Localisation.Core" />
+    <PackageReference Include="Localisation.Generators" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

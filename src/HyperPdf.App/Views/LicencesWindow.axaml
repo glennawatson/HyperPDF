@@ -1,23 +1,23 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.LicencesWindow"
-        Title="About and Licences" Width="900" Height="640" MinWidth="620" MinHeight="420" WindowStartupLocation="CenterOwner"
+        Title="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;About and Licences&quot;}" Width="900" Height="640" MinWidth="620" MinHeight="420" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
   <!-- Layout only: bindings are made in code (LicencesWindow.axaml.cs). Every licence heading opens to show its components. -->
   <Grid RowDefinitions="Auto,*,Auto" Margin="16" RowSpacing="12">
     <StackPanel Spacing="4">
-      <TextBlock Text="About and Licences" AutomationProperties.HeadingLevel="1" FontWeight="SemiBold" FontSize="20" />
-      <TextBlock x:Name="VersionText" Classes="secondary" AutomationProperties.Name="Application version" />
+      <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;About and Licences&quot;}" AutomationProperties.HeadingLevel="1" FontWeight="SemiBold" FontSize="20" />
+      <TextBlock TextWrapping="Wrap" x:Name="VersionText" Classes="secondary" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Application version&quot;}" />
       <TextBlock Classes="secondary" TextWrapping="Wrap"
-                 Text="HyperPDF is free software under the MIT licence, shown first. The components below are grouped by licence. Some are downloaded only when you turn a feature on." />
+                 Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;HyperPDF is free software under the MIT licence, shown first. The components below are grouped by licence. Some are downloaded only when you turn a feature on.&quot;}" />
     </StackPanel>
     <Grid Grid.Row="1" ColumnDefinitions="300,16,*">
       <DockPanel>
-        <TextBlock x:Name="SearchLabel" DockPanel.Dock="Top" Text="Search components" />
-        <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Margin="0,4,0,4" views:ControlHelp.Text="{x:Static help:Descriptions.LicenceSearch}" AutomationProperties.Name="Search components" PlaceholderText="Name, licence or where it comes from" />
+        <TextBlock TextWrapping="Wrap" x:Name="SearchLabel" DockPanel.Dock="Top" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Search components&quot;}" />
+        <TextBox x:Name="SearchBox" DockPanel.Dock="Top" Margin="0,4,0,4" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type part of a name, a licence such as MIT, or where a component comes from, to narrow the list.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Search components&quot;}" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Name, licence or where it comes from&quot;}" />
         <TextBlock x:Name="SummaryText" DockPanel.Dock="Top" Classes="secondary" Margin="0,0,0,4" AutomationProperties.LiveSetting="Polite" />
-        <TreeView x:Name="LicenceTree" views:ControlHelp.Text="{x:Static help:Descriptions.LicenceTree}" AutomationProperties.Name="Licences and components">
+        <TreeView x:Name="LicenceTree" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose a component to read its licence. Components are grouped by licence. Use the arrow keys to move.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Licences and components&quot;}">
           <TreeView.Styles>
             <Style Selector="TreeViewItem">
               <Setter Property="IsExpanded" Value="True" />
@@ -27,14 +27,14 @@
       </DockPanel>
       <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*" RowSpacing="8">
         <TextBlock x:Name="DetailTitleText" AutomationProperties.HeadingLevel="2" FontWeight="SemiBold" FontSize="16" TextWrapping="Wrap" />
-        <SelectableTextBlock x:Name="DetailsText" Grid.Row="1" TextWrapping="Wrap" AutomationProperties.Name="Details of the chosen component" />
-        <TextBox x:Name="LicenceTextBox" Grid.Row="2" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" views:ControlHelp.Text="{x:Static help:Descriptions.LicenceText}" AutomationProperties.Name="Licence text" />
+        <SelectableTextBlock x:Name="DetailsText" Grid.Row="1" TextWrapping="Wrap" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Details of the chosen component&quot;}" />
+        <TextBox x:Name="LicenceTextBox" Grid.Row="2" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;The full licence text of the chosen component. You can select and copy parts of it.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Licence text&quot;}" />
       </Grid>
     </Grid>
     <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto">
-      <Button x:Name="CopyButton" views:ControlHelp.Text="{x:Static help:Descriptions.CopyLicence}" Content="_Copy licence text" />
+      <Button x:Name="CopyButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Copy the full licence text of the chosen component to the clipboard.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Copy licence text&quot;}" />
       <TextBlock x:Name="StatusText" Grid.Column="1" Margin="12,0" VerticalAlignment="Center" Classes="secondary" AutomationProperties.LiveSetting="Polite" />
-      <Button x:Name="CloseButton" Grid.Column="2" views:ControlHelp.Text="{x:Static help:Descriptions.CloseWindow}" Content="Close" IsCancel="True" />
+      <Button x:Name="CloseButton" Grid.Column="2" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close this window. Shortcut: Esc&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close&quot;}" IsCancel="True" />
     </Grid>
   </Grid>
 </Window>

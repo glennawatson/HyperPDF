@@ -1,29 +1,29 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.MediaPanelView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (MediaPanelView.axaml.cs). -->
   <Grid x:Name="MediaPanel" RowDefinitions="Auto,*,Auto,Auto">
     <TextBlock Margin="8,6" TextWrapping="Wrap" Classes="secondary" FontSize="11"
-               Text="Sound and video in this document. Nothing plays by itself: choose an item, then press Play, save it, or open it with your system's player." />
-    <ListBox x:Name="MediaList" Grid.Row="1" AutomationProperties.Name="Media" Background="Transparent" />
+               Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sound and video in this document. Nothing plays by itself: choose an item, then press Play, save it, or open it with your system&apos;s player.&quot;}" />
+    <ListBox x:Name="MediaList" Grid.Row="1" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Media&quot;}" Background="Transparent" />
     <StackPanel Grid.Row="2" Margin="8,4" Spacing="6">
       <Image x:Name="MediaPictureImage" MaxHeight="220" Stretch="Uniform" AutomationProperties.AccessibilityView="Raw" />
-      <TextBlock x:Name="MediaCaptionText" TextWrapping="Wrap" AutomationProperties.Name="Caption" AutomationProperties.LiveSetting="Polite" />
-      <Slider x:Name="MediaPositionSlider" Minimum="0" SmallChange="5" LargeChange="30" AutomationProperties.Name="Position" views:ControlHelp.Text="{x:Static help:Descriptions.MediaPosition}" />
+      <TextBlock x:Name="MediaCaptionText" TextWrapping="Wrap" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Caption&quot;}" AutomationProperties.LiveSetting="Polite" />
+      <Slider x:Name="MediaPositionSlider" Minimum="0" SmallChange="5" LargeChange="30" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Position&quot;}" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drag to move to another place in the sound or video. With the keyboard, the arrow keys move five seconds and Page Up or Page Down move thirty.&quot;}" />
       <TextBlock x:Name="MediaClockText" Classes="secondary" FontSize="11" />
       <TextBlock x:Name="MediaStatusText" TextWrapping="Wrap" Classes="secondary" FontSize="11" AutomationProperties.LiveSetting="Polite" />
       <WrapPanel>
-        <Button x:Name="MediaPlayButton" Margin="0,0,6,6" views:ControlHelp.Text="{x:Static help:Descriptions.PlayMedia}" Content="Play Media" />
-        <Button x:Name="MediaPauseButton" Margin="0,0,6,6" views:ControlHelp.Text="{x:Static help:Descriptions.PauseMedia}" Content="Pause Media" />
-        <Button x:Name="MediaStopButton" Margin="0,0,6,6" views:ControlHelp.Text="{x:Static help:Descriptions.StopMedia}" Content="Stop Media" />
-        <Button x:Name="MediaSkipBackButton" Margin="0,0,6,6" views:ControlHelp.Text="{x:Static help:Descriptions.SkipMediaBack}" Content="Back 10 s" />
-        <Button x:Name="MediaSkipForwardButton" Margin="0,0,6,6" views:ControlHelp.Text="{x:Static help:Descriptions.SkipMediaForward}" Content="Forward 10 s" />
+        <Button x:Name="MediaPlayButton" Margin="0,0,6,6" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Play the chosen sound or video here. It starts only when you press this.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Play Media&quot;}" />
+        <Button x:Name="MediaPauseButton" Margin="0,0,6,6" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pause the sound or video where it is.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pause Media&quot;}" />
+        <Button x:Name="MediaStopButton" Margin="0,0,6,6" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop the sound or video and go back to the start.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop Media&quot;}" />
+        <Button x:Name="MediaSkipBackButton" Margin="0,0,6,6" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go back ten seconds.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Back 10 s&quot;}" />
+        <Button x:Name="MediaSkipForwardButton" Margin="0,0,6,6" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go forward ten seconds.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Forward 10 s&quot;}" />
       </WrapPanel>
     </StackPanel>
     <StackPanel Grid.Row="3" Margin="8" Spacing="6">
-      <Button x:Name="OpenMediaButton" views:ControlHelp.Text="{x:Static help:Descriptions.OpenMedia}" HorizontalAlignment="Stretch" Content="Open in Player…" />
-      <Button x:Name="SaveMediaButton" views:ControlHelp.Text="{x:Static help:Descriptions.SaveMedia}" HorizontalAlignment="Stretch" Content="Save Media…" />
+      <Button x:Name="OpenMediaButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open the chosen sound or video with your system&apos;s player, after you agree. Nothing plays until you choose it.&quot;}" HorizontalAlignment="Stretch" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open in Player…&quot;}" />
+      <Button x:Name="SaveMediaButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save the chosen sound or video as a file.&quot;}" HorizontalAlignment="Stretch" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save Media…&quot;}" />
     </StackPanel>
   </Grid>
 </UserControl>

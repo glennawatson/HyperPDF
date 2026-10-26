@@ -34,13 +34,11 @@ public sealed class RenderSchedulerQueueOrderTests
     /// <summary>How many tiles the batch tests request.</summary>
     private const int BatchSize = 5;
 
-    /// <summary>How long to wait for asynchronous work.</summary>
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
-
     /// <summary>A tile requested at a lower priority renders after tiles requested later at a higher one.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task DemotedTileRendersAfterNewVisibleTiles()
+    public async Task DemotedTileRendersAfterNewVisibleTiles(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
         using var completed = new SemaphoreSlim(0);
@@ -52,23 +50,24 @@ public sealed class RenderSchedulerQueueOrderTests
         var blockerKey = new TileKey(BlockerDocument, 0, 1, PageRotation.None, 0, 0, 0);
 
         _ = scheduler.Request(Request(blockerKey, blocker, client, RenderPriority.Visible));
-        _ = blocker.Started.Wait(Timeout);
+        blocker.Started.Wait(cancellationToken);
         _ = scheduler.Request(Request(Key(0), document, client, RenderPriority.Visible));
         _ = scheduler.Request(Request(Key(0), document, client, RenderPriority.Prefetch));
         _ = scheduler.Request(Request(Key(1), document, client, RenderPriority.Visible));
         _ = scheduler.Request(Request(Key(LastPage), document, client, RenderPriority.Visible));
         gate.Set();
 
-        var order = await Collect(scheduler, completed, BatchSize - 1);
+        var order = await CompletedTiles.CollectAsync(scheduler, completed, BatchSize - 1, cancellationToken);
 
         await Assert.That(order).IsEquivalentTo([blockerKey, Key(1), Key(LastPage), Key(0)]);
         await Assert.That(order[3]).IsEqualTo(Key(0));
     }
 
     /// <summary>Visible work follows requests through demotion, removal and completion.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task VisibleWorkFollowsPendingRequests()
+    public async Task VisibleWorkFollowsPendingRequests(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
         using var completed = new SemaphoreSlim(0);
@@ -85,16 +84,17 @@ public sealed class RenderSchedulerQueueOrderTests
         await Assert.That(scheduler.HasVisibleWork).IsTrue();
         gate.Set();
 
-        _ = await Collect(scheduler, completed, 1);
+        _ = await CompletedTiles.CollectAsync(scheduler, completed, 1, cancellationToken);
 
         await Assert.That(scheduler.HasVisibleWork).IsFalse();
         await Assert.That(scheduler.IsIdle).IsTrue();
     }
 
     /// <summary>A batch of visible requests raises the visible-work signal once and queues every tile.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task BatchRequestSignalsOnceAndQueuesEveryTile()
+    public async Task BatchRequestSignalsOnceAndQueuesEveryTile(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
         using var completed = new SemaphoreSlim(0);
@@ -113,7 +113,7 @@ public sealed class RenderSchedulerQueueOrderTests
         var queued = scheduler.RequestBatch(batch);
         var merged = scheduler.RequestBatch(batch);
         gate.Set();
-        var order = await Collect(scheduler, completed, BatchSize);
+        var order = await CompletedTiles.CollectAsync(scheduler, completed, BatchSize, cancellationToken);
 
         await Assert.That(queued).IsEqualTo(BatchSize);
         await Assert.That(merged).IsEqualTo(0);
@@ -166,9 +166,10 @@ public sealed class RenderSchedulerQueueOrderTests
     }
 
     /// <summary>Invalidating two documents at once discards started work of both.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task InvalidatingTwoDocumentsDropsBothStartedTiles()
+    public async Task InvalidatingTwoDocumentsDropsBothStartedTiles(CancellationToken cancellationToken)
     {
         using var gate = new ManualResetEventSlim(false);
         using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
@@ -177,33 +178,13 @@ public sealed class RenderSchedulerQueueOrderTests
         var firstKey = new TileKey(1, 0, 1, PageRotation.None, 0, 0, 0);
 
         _ = scheduler.Request(Request(firstKey, first, client, RenderPriority.Visible));
-        _ = first.Started.Wait(Timeout);
+        first.Started.Wait(cancellationToken);
         scheduler.Invalidate(1, OtherDocument);
         var pending = scheduler.IsPending(firstKey);
         gate.Set();
 
         await Assert.That(pending).IsFalse();
         await Assert.That(scheduler.HasVisibleWork).IsFalse();
-    }
-
-    /// <summary>Takes finished tiles in the order they finish.</summary>
-    /// <param name="scheduler">The scheduler.</param>
-    /// <param name="completed">Released by each completion notification.</param>
-    /// <param name="count">The number of tiles to wait for.</param>
-    /// <returns>The keys in finish order.</returns>
-    private static async Task<List<TileKey>> Collect(RenderScheduler scheduler, SemaphoreSlim completed, int count)
-    {
-        var order = new List<TileKey>();
-        while (order.Count < count && await completed.WaitAsync(Timeout))
-        {
-            while (scheduler.TryTakeCompleted(out var tile))
-            {
-                order.Add(tile.Key);
-                tile.Surface.Dispose();
-            }
-        }
-
-        return order;
     }
 
     /// <summary>Creates a key for a page.</summary>

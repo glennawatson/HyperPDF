@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Input;
 using HyperPdf.App.Controls;
@@ -24,6 +23,7 @@ public sealed partial class NavigationBarView : ReactiveUI.Avalonia.ReactiveUser
         InitializeComponent();
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SidebarVisible, static v => v.SidebarToggle.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.GoBackCommand, static v => v.BackButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.GoForwardCommand, static v => v.ForwardButton));
@@ -31,7 +31,7 @@ public sealed partial class NavigationBarView : ReactiveUI.Avalonia.ReactiveUser
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.NextPageCommand, static v => v.NextPageButton));
             disposables.Add(this.Bind(ViewModel, static vm => vm.PageEntry, static v => v.PageBox.Text, static entry => entry, static text => text ?? string.Empty));
             disposables.Add(PageBox.KeyDowns.Enter.AsVoid.InvokeCommand(this, static v => v.ViewModel!.GoToPageEntryCommand));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.PageCount, static v => v.PageCountText.Text, static count => string.Create(CultureInfo.CurrentCulture, $"of {count}")));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.PageCount, static v => v.PageCountText.Text, static count => UiText.Format("of {0}", count)));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.ZoomOutCommand, static v => v.ZoomOutButton));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.ZoomInCommand, static v => v.ZoomInButton));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ZoomText, static v => v.ZoomButton.Content));
@@ -55,5 +55,16 @@ public sealed partial class NavigationBarView : ReactiveUI.Avalonia.ReactiveUser
                 .SelectWith(PageBox, static (box, _) => box)
                 .FocusSelectingAll());
         });
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        PageCountText.Text = UiText.Format("of {0}", model.PageCount);
     }
 }

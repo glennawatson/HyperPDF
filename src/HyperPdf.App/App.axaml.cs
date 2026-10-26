@@ -49,6 +49,10 @@ public sealed class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+        CP.Localisation.Avalonia.LocalisationWindows.ApplyDirection(this, UiText);
+        _lifetime.Add(UiText.CultureChanges
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .SubscribeSafe(culture => CP.Localisation.Avalonia.LocalisationWindows.Refresh(this, UiText, culture), ErrorTrace.Write));
 
         // The Calm fallback until the services resolve the user's choice, so even a bare lifetime is fully themed.
         DesktopThemeApplier.Apply(this, ThemeResolver.Resolve(new(), null));

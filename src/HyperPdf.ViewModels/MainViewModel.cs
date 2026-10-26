@@ -22,7 +22,7 @@ namespace HyperPdf.ViewModels;
 
 /// <summary>The main window: the open tabs, the start page and window level commands.</summary>
 [DebuggerDisplay("MainViewModel: {Tabs.Count} tabs")]
-public sealed partial class MainViewModel : ReactiveObject, IDisposable
+public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The number of recent documents shown on the start page.</summary>
     private const int RecentCount = 24;
@@ -51,6 +51,12 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     /// <summary>The tab whose cancellable work currently owns selection.</summary>
     private DocumentTabViewModel? _activeTab;
 
+    /// <summary>The folder search, created only when the reader opens it.</summary>
+    private FolderSearchViewModel? _folderSearch;
+
+    /// <summary>The retained interface message, separate from document and exception text.</summary>
+    private LocalizedMessage _statusMessage;
+
     /// <summary>The tint and sharpness last given to the tabs, or <see langword="null"/> before the first change.</summary>
     private TabSettings? _appliedTabSettings;
 
@@ -68,25 +74,27 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         _subscriptions.Add(services.Theme.Select(static theme => theme.PageTone).SubscribeSafe(ShareTone, ErrorTrace.Write));
 
         // The window made last answers a request to open a document, so it opens once. The handler needs this view model.
-        _subscriptions.Add(services.OpenDocumentInteraction.RegisterHandler(context =>
-        {
-            Open([context.Input]);
-            context.SetOutput(RxVoid.Default);
+        _subscriptions.Add(
+            services.OpenDocumentInteraction.RegisterHandler(
+                    context =>
+{
+    Open([context.Input]);
+    context.SetOutput(RxVoid.Default);
         }));
         _subscriptions.Add(services.WhenChanged(static x => x.SettingsVersion).Skip(1).SubscribeSafe(_ => TakeSettings(), ErrorTrace.Write));
         _subscriptions.Add(this.WhenChanged(static x => x.TabQuery).Skip(1).SubscribeSafe(_ => RefreshFoundTabs(), ErrorTrace.Write));
 
         // Leaving a tab stops its work and puts away a second view of another document; the tab shown starts its work.
-        _subscriptions.Add(this.WhenChanged(static x => x.SelectedTab)
-            .Skip(1)
-            .Do(LeaveActiveTab)
-            .KeepNotNull()
-            .SubscribeSafe(static tab => tab.IsSelected = true, ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.SelectedTab).Skip(1).Do(LeaveActiveTab).KeepNotNull().SubscribeSafe(static tab => tab.IsSelected = true, ErrorTrace.Write));
 
         // The window title follows the shown tab's name, which changes when its document loads.
-        _subscriptions.Add(this.WhenChanged(static x => x.SelectedTab)
-            .SwitchMap(static tab => tab is null ? Signal.Never<string>() : tab.WhenChanged(static t => t.WindowName))
-            .SubscribeSafe(_ => RaiseWindowTitle(), ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.SelectedTab).SwitchMap(
+                static tab => tab is null
+                    ? Signal.Never<string>()
+                    : tab
+                .WhenChanged(static t => t.WindowName)).SubscribeSafe(_ => RaiseWindowTitle(), ErrorTrace.Write));
         _subscriptions.Add(this.WhenChanged(static x => x.PageToneEnabled).Skip(1).SubscribeSafe(ApplyPageTone, ErrorTrace.Write));
         _subscriptions.Add(Scope.Create(ReleaseTabs));
     }
@@ -149,7 +157,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>Gets the window title.</summary>
-    public string WindowTitle => SelectedTab is { } tab ? $"{tab.WindowName} — Hyper PDF Viewer" : "Hyper PDF Viewer";
+    public string WindowTitle => SelectedTab is { } tab ? UiText.Format("{0} — Hyper PDF Viewer", tab.WindowName) : "Hyper PDF Viewer";
 
     /// <summary>Gets or sets a value indicating whether pages are drawn in the comfort page colour rather than plain white.</summary>
     [Reactive]
@@ -160,8 +168,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     public partial PageTone PageTone { get; private set; } = PageTone.None;
 
     /// <summary>Gets a status message, for example a failed download; it stays until dismissed.</summary>
-    [Reactive]
-    public partial string? StatusMessage { get; private set; }
+    public string? StatusMessage { get => _statusMessage.Value; private set => SetStatusMessage(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets or sets a value indicating whether the tab finder is open; a command sets it to open the finder, and closing the finder clears it.</summary>
     [Reactive]
@@ -181,7 +188,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     public Interaction<FolderSearchViewModel, RxVoid> ShowFolderSearchInteraction { get; } = new();
 
     /// <summary>Gets the folder search, kept so its results stay while the window is closed and opened again.</summary>
-    public FolderSearchViewModel FolderSearch => field ??= new(_services, OpenAt);
+    public FolderSearchViewModel FolderSearch => _folderSearch ??= new(_services, OpenAt);
 
     /// <summary>Opens files, file URIs or web addresses, selecting the last one. Already open files are selected instead.</summary>
     /// <param name="items">Paths or URIs.</param>
@@ -371,9 +378,9 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         }
 
         var request = new ConfirmRequest(
-            unsaved == 1 ? "Close without saving?" : $"Close {unsaved} documents without saving?",
-            "Annotations and form entries you have not saved will be lost. Choose Cancel, then Save (Ctrl+S) to keep them.",
-            "Close Without Saving");
+            unsaved == 1 ? LocalizedMessage.Get(UiText, "Close without saving?") : LocalizedMessage.Format(UiText, "Close {0} documents without saving?", unsaved),
+            LocalizedMessage.Get(UiText, "Annotations and form entries you have not saved will be lost. Choose Cancel, then Save (Ctrl+S) to keep them."),
+            LocalizedMessage.Get(UiText, "Close Without Saving"));
         IsConfirmingDiscard = true;
         try
         {
@@ -400,9 +407,9 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         if (tab.HasUnsavedChanges)
         {
             var request = new ConfirmRequest(
-                $"Close {tab.FileName} without saving?",
-                "Annotations and form entries you have not saved will be lost. Choose Cancel, then Save (Ctrl+S) to keep them.",
-                "Close Without Saving");
+                LocalizedMessage.Format(UiText, "Close {0} without saving?", tab.FileName),
+                LocalizedMessage.Get(UiText, "Annotations and form entries you have not saved will be lost. Choose Cancel, then Save (Ctrl+S) to keep them."),
+                LocalizedMessage.Get(UiText, "Close Without Saving"));
             if (!await ConfirmInteraction.Handle(request).ToTask().ConfigureAwait(true))
             {
                 return;
@@ -419,7 +426,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     {
         if (SelectedTab is { } tab)
         {
-            tab.Notice = text;
+            tab.SetNotice(LocalizedMessage.Literal(text));
         }
     }
 
@@ -451,6 +458,18 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(WindowTitle));
+        this.RaisePropertyChanged(nameof(StatusMessage));
+        LocalisationRefresh.RefreshCore(_folderSearch, visited);
+        LocalisationRefresh.RefreshCore(_services, visited);
+        LocalisationRefresh.RefreshCore(_activeTab, visited);
+        LocalisationRefresh.RefreshCore(Tabs, visited);
+        LocalisationRefresh.RefreshCore(FoundTabs, visited);
+    }
 
     /// <summary>Converts a path or <c>file://</c> URI to a full local path.</summary>
     /// <param name="item">The item.</param>
@@ -647,7 +666,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     /// <returns>A task.</returns>
     private async Task OpenRemoteAsync(Uri uri)
     {
-        StatusMessage = $"Downloading {uri.Host}…";
+        SetStatusMessage(LocalizedMessage.Format(UiText, "Downloading {0}…", uri.Host));
         var token = _lifetime;
         try
         {
@@ -664,7 +683,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
         }
         catch (HttpRequestException ex)
         {
-            StatusMessage = $"Download failed: {ex.Message}";
+            SetStatusMessage(LocalizedMessage.Format(UiText, "Download failed: {0}", ex.Message));
         }
         catch (InvalidDataException ex)
         {
@@ -717,7 +736,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     {
         if (SelectedTab is { } tab && !await _services.FileManager.ShowItemAsync(tab.FilePath, CancellationToken.None).ConfigureAwait(true))
         {
-            StatusMessage = "No file manager is available.";
+            SetStatusMessage(LocalizedMessage.Get(UiText, "No file manager is available."));
         }
     }
 
@@ -772,7 +791,10 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
             return count == 0 || await ConfirmDiscardAsync().ConfigureAwait(true);
         }
 
-        var request = new ConfirmRequest($"Close {count} tabs?", "You can reopen them together with Reopen Closed Tabs (Ctrl+Shift+T).", "Close Tabs");
+        var request = new ConfirmRequest(
+            LocalizedMessage.Format(UiText, "Close {0} tabs?", count),
+            LocalizedMessage.Get(UiText, "You can reopen them together with Reopen Closed Tabs (Ctrl+Shift+T)."),
+            LocalizedMessage.Get(UiText, "Close Tabs"));
         return await ConfirmInteraction.Handle(request).ToTask().ConfigureAwait(true);
     }
 
@@ -845,6 +867,11 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void DismissStatus() => StatusMessage = null;
+
+    /// <summary>Publishes a status while retaining its resource identity for culture changes.</summary>
+    /// <param name="message">The resource message or literal exception text.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SetStatusMessage(in LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _statusMessage, message, nameof(StatusMessage));
 
     /// <summary>Switches between the comfort page colour and plain white pages.</summary>
     [ReactiveCommand]

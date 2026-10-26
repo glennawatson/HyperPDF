@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.FocusToolbarView">
@@ -13,41 +13,41 @@
   <Border Classes="toolbar">
     <Grid ColumnDefinitions="*,Auto">
       <StackPanel Orientation="Horizontal" Spacing="2">
-        <Button x:Name="SmallerButton" views:ControlHelp.Text="{x:Static help:Descriptions.SmallerText}" Classes="tool" AutomationProperties.Name="Smaller text">
-          <TextBlock Classes="label" Text="A−" />
+        <Button x:Name="SmallerButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text smaller.&quot;}" Classes="tool" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smaller text&quot;}">
+          <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;A−&quot;}" />
         </Button>
-        <Button x:Name="LargerButton" views:ControlHelp.Text="{x:Static help:Descriptions.LargerText}" Classes="tool" AutomationProperties.Name="Larger text">
-          <TextBlock Classes="label" Text="A+" />
+        <Button x:Name="LargerButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the text larger.&quot;}" Classes="tool" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Larger text&quot;}">
+          <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;A+&quot;}" />
         </Button>
-        <Button AutomationProperties.Name="Text Settings" x:Name="TextSettingsButton" views:ControlHelp.Text="{x:Static help:Descriptions.TextSettings}" Classes="tool">
-          <TextBlock Classes="label" Text="Text Settings" />
+        <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text Settings&quot;}" x:Name="TextSettingsButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Change the text size, spacing, width, colour and typeface.&quot;}" Classes="tool">
+          <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text Settings&quot;}" />
           <Button.Flyout>
             <Flyout Placement="BottomEdgeAlignedLeft">
               <Grid Classes="focusSettings" ColumnDefinitions="Auto,240" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="10" ColumnSpacing="16" Margin="8">
-                <TextBlock Grid.Row="0" Text="Text size" />
-                <Slider x:Name="SizeSlider" views:ControlHelp.Text="{x:Static help:Descriptions.TextSize}" Grid.Row="0" Grid.Column="1" Minimum="12" Maximum="32" SmallChange="1" LargeChange="2"
-                        AutomationProperties.Name="Text size" />
-                <TextBlock Grid.Row="1" Text="Line spacing" />
-                <Slider x:Name="LineSlider" views:ControlHelp.Text="{x:Static help:Descriptions.LineSpacing}" Grid.Row="1" Grid.Column="1" Minimum="1.2" Maximum="2.4" SmallChange="0.1" LargeChange="0.2"
-                        AutomationProperties.Name="Line spacing" />
-                <TextBlock Grid.Row="2" Text="Paragraph spacing" />
-                <Slider x:Name="ParagraphSlider" views:ControlHelp.Text="{x:Static help:Descriptions.ParagraphSpacing}" Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="2.5" SmallChange="0.1" LargeChange="0.5"
-                        AutomationProperties.Name="Paragraph spacing" />
-                <TextBlock Grid.Row="3" Text="Text width" />
-                <Slider x:Name="WidthSlider" views:ControlHelp.Text="{x:Static help:Descriptions.TextWidth}" Grid.Row="3" Grid.Column="1" Minimum="40" Maximum="110" SmallChange="2" LargeChange="10"
-                        AutomationProperties.Name="Text width" />
-                <TextBlock Grid.Row="4" Text="Page colour" />
-                <ComboBox x:Name="ColourBox" views:ControlHelp.Text="{x:Static help:Descriptions.FocusPageColour}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="Page colour" />
-                <TextBlock Grid.Row="5" Text="Typeface" />
-                <ComboBox x:Name="FontBox" views:ControlHelp.Text="{x:Static help:Descriptions.Typeface}" Grid.Row="5" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="Typeface" />
-                <CheckBox x:Name="BandCheck" views:ControlHelp.Text="{x:Static help:Descriptions.FocusBand}" Grid.Row="6" Grid.ColumnSpan="2" Content="Dim text away from what is read aloud" />
-                <CheckBox x:Name="WordCheck" views:ControlHelp.Text="{x:Static help:Descriptions.WordMark}" Grid.Row="7" Grid.ColumnSpan="2" Content="Mark the word being read aloud" />
+                <TextBlock TextWrapping="Wrap" Grid.Row="0" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text size&quot;}" />
+                <Slider x:Name="SizeSlider" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Change the size of the text.&quot;}" Grid.Row="0" Grid.Column="1" Minimum="12" Maximum="32" SmallChange="1" LargeChange="2"
+                        AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text size&quot;}" />
+                <TextBlock TextWrapping="Wrap" Grid.Row="1" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Line spacing&quot;}" />
+                <Slider x:Name="LineSlider" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Change the space between lines.&quot;}" Grid.Row="1" Grid.Column="1" Minimum="1.2" Maximum="2.4" SmallChange="0.1" LargeChange="0.2"
+                        AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Line spacing&quot;}" />
+                <TextBlock TextWrapping="Wrap" Grid.Row="2" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Paragraph spacing&quot;}" />
+                <Slider x:Name="ParagraphSlider" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Change the space between paragraphs.&quot;}" Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="2.5" SmallChange="0.1" LargeChange="0.5"
+                        AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Paragraph spacing&quot;}" />
+                <TextBlock TextWrapping="Wrap" Grid.Row="3" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text width&quot;}" />
+                <Slider x:Name="WidthSlider" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Change how wide the column of text is.&quot;}" Grid.Row="3" Grid.Column="1" Minimum="40" Maximum="110" SmallChange="2" LargeChange="10"
+                        AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text width&quot;}" />
+                <TextBlock TextWrapping="Wrap" Grid.Row="4" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Page colour&quot;}" />
+                <ComboBox x:Name="ColourBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the colour behind the text.&quot;}" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Page colour&quot;}" />
+                <TextBlock TextWrapping="Wrap" Grid.Row="5" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Typeface&quot;}" />
+                <ComboBox x:Name="FontBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the typeface for the text.&quot;}" Grid.Row="5" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Typeface&quot;}" />
+                <CheckBox x:Name="BandCheck" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Dim the text away from the part being read aloud.&quot;}" Grid.Row="6" Grid.ColumnSpan="2" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Dim text away from what is read aloud&quot;}" />
+                <CheckBox x:Name="WordCheck" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Mark each word as it is read aloud.&quot;}" Grid.Row="7" Grid.ColumnSpan="2" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Mark the word being read aloud&quot;}" />
               </Grid>
             </Flyout>
           </Button.Flyout>
         </Button>
       </StackPanel>
-      <Button Grid.Column="1" x:Name="BackToPagesButton" views:ControlHelp.Text="{x:Static help:Descriptions.BackToPages}" Content="Back to Pages" />
+      <Button Grid.Column="1" x:Name="BackToPagesButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Leave Focus Mode and show the pages again. Shortcut: Ctrl+4&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Back to Pages&quot;}" />
     </Grid>
   </Border>
 </UserControl>

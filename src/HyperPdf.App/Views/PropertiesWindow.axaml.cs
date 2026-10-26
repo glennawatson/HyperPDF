@@ -3,9 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
+using HyperPdf.App.Controls;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -32,7 +34,8 @@ public sealed partial class PropertiesWindow : ReactiveUI.Avalonia.ReactiveWindo
         EntryList.ItemTemplate = new FuncDataTemplate<PropertyEntry>(static (entry, _) => CreateRow(entry));
         _ = this.WhenActivated(disposables =>
         {
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Title, static v => v.Title, static title => $"Properties — {title}"));
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Title, static v => v.Title, static title => UiText.Format("Properties — {0}", title)));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Entries, static v => v.EntryList.ItemsSource));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
@@ -47,11 +50,28 @@ public sealed partial class PropertiesWindow : ReactiveUI.Avalonia.ReactiveWindo
     /// <returns>The row.</returns>
     private static Grid CreateRow(PropertyEntry? entry)
     {
-        var name = new TextBlock { Text = entry?.Name, HorizontalAlignment = HorizontalAlignment.Right, TextWrapping = Avalonia.Media.TextWrapping.Wrap, Margin = new(0, 0, ColumnGap, 0) };
+        var name = ChoiceViews.CreateLabel(entry, static item => item?.DisplayName);
+        name.HorizontalAlignment = HorizontalAlignment.Right;
+        name.Margin = new(0, 0, ColumnGap, 0);
         name.Classes.Add("secondary");
-        var value = new SelectableTextBlock { Text = entry?.Value, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        var value = new SelectableTextBlock
+        {
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            [!TextBlock.TextProperty] = UiText.CultureChanges.SelectWith(entry, static (item, _) => item?.DisplayValue).ToBinding(),
+        };
         Grid.SetColumn(value, 1);
         FieldLabels.Link((value, name));
         return new Grid { ColumnDefinitions = [new(NameColumnWidth, GridUnitType.Pixel), new(1, GridUnitType.Star)], Margin = new(0, RowGap), Children = { name, value } };
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        Title = UiText.Format("Properties — {0}", model.Title);
     }
 }

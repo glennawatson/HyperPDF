@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <PublishAot>false</PublishAot>
+    <Description>Isolated throughput and allocation benchmarks for generated interface resources.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\HyperPdf.Localisation\HyperPdf.Localisation.csproj" />
+    <ProjectReference Include="..\HyperPdf.Benchmarks.Generator\HyperPdf.Benchmarks.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <PackageReference Include="BenchmarkDotNet" />
+    <Compile Include="..\HyperPdf.Benchmarks\UiTextBenchmarks.cs" Link="UiTextBenchmarks.cs" />
+    <Compile Include="..\HyperPdf.Benchmarks\AllocationHarness\*.cs" Link="AllocationHarness\%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

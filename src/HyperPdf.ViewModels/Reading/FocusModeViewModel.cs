@@ -21,7 +21,7 @@ namespace HyperPdf.ViewModels.Reading;
 /// followed and marked, and Read from Here starts reading at a paragraph.
 /// </summary>
 [DebuggerDisplay("FocusModeViewModel: On={IsOn}")]
-public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
+public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The smallest text size.</summary>
     private const double MinFontSize = 12;
@@ -75,10 +75,10 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
         WordHighlight = settings.ReadAloudHighlight == ReadAloudHighlight.SentenceAndWord;
 
         // What is read aloud is marked as it moves on, and again when the band is turned on or off.
-        _subscriptions.Add(Signal.Merge(
+        _subscriptions.Add(
+            Signal.Merge(
                 owner.ReadAloud.WhenChanged(static reader => reader.MarksVersion).Skip(1).Select(static _ => RxVoid.Default),
-                this.WhenChanged(static x => x.FocusBand).Skip(1).Select(static _ => RxVoid.Default))
-            .SubscribeSafe(_ => MarkSpoken(), ErrorTrace.Write));
+                this.WhenChanged(static x => x.FocusBand).Skip(1).Select(static _ => RxVoid.Default)).SubscribeSafe(_ => MarkSpoken(), ErrorTrace.Write));
 
         // Opening shows the place being viewed; closing returns to the pages at the place read.
         var switches = this.WhenChanged(static x => x.IsOn).Skip(1);
@@ -86,39 +86,41 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
         _subscriptions.Add(switches.Where(static on => !on).SubscribeSafe(_ => ReturnToPages(), ErrorTrace.Write));
 
         // Text that changes while Focus Mode is open (a reload, recognised text, moved pages) is shown at once.
-        _subscriptions.Add(Signal.Merge(
+        _subscriptions.Add(
+            Signal.Merge(
                 owner.Reading.WhenChanged(static reading => reading.Version).Skip(1),
-                owner.WhenChanged(static tab => tab.LayoutVersion).Skip(1))
-            .WithLatestFrom(this.WhenChanged(static x => x.IsOn), static (_, on) => on)
-            .Where(static on => on)
-            .SubscribeSafe(_ => Open(), ErrorTrace.Write));
+                owner.WhenChanged(
+                    static tab => tab
+                    .LayoutVersion).Skip(1)).WithLatestFrom(this.WhenChanged(static x => x.IsOn), static (_, on) => on).Where(static on => on).SubscribeSafe(_ => Open(), ErrorTrace.Write));
 
         // Each setting is saved as it changes; the setters have already kept it in range.
-        _subscriptions.Add(this.WhenChanged(static x => x.FontSize).Skip(1)
-            .SubscribeSafe(size => Save(size, static (saved, value) => saved.FocusFontSize = value), ErrorTrace.Write));
-        _subscriptions.Add(this.WhenChanged(static x => x.LineSpacing).Skip(1)
-            .SubscribeSafe(spacing => Save(spacing, static (saved, value) => saved.FocusLineSpacing = value), ErrorTrace.Write));
-        _subscriptions.Add(this.WhenChanged(static x => x.ParagraphSpacing).Skip(1)
-            .SubscribeSafe(spacing => Save(spacing, static (saved, value) => saved.FocusParagraphSpacing = value), ErrorTrace.Write));
-        _subscriptions.Add(this.WhenChanged(static x => x.TextWidth).Skip(1)
-            .SubscribeSafe(width => Save(width, static (saved, value) => saved.FocusTextWidth = (int)value), ErrorTrace.Write));
-        _subscriptions.Add(this.WhenChanged(static x => x.PageColour).Skip(1)
-            .SubscribeSafe(colour => Save(colour, static (saved, value) => saved.FocusPageColour = (FocusPageColour)value), ErrorTrace.Write));
-        _subscriptions.Add(this.WhenChanged(static x => x.Font).Skip(1)
-            .SubscribeSafe(font => Save(font, static (saved, value) => saved.FocusFont = (FocusFont)value), ErrorTrace.Write));
-        _subscriptions.Add(this.WhenChanged(static x => x.FocusBand).Skip(1)
-            .SubscribeSafe(on => Save(on, static (saved, value) => saved.FocusBand = value), ErrorTrace.Write));
-        _subscriptions.Add(this.WhenChanged(static x => x.WordHighlight).Skip(1)
-            .SubscribeSafe(
-                on => Save(on, static (saved, value) => saved.ReadAloudHighlight = value ? ReadAloudHighlight.SentenceAndWord : ReadAloudHighlight.Sentence),
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.FontSize).Skip(1).SubscribeSafe(size => Save(size, static (saved, value) => saved.FocusFontSize = value), ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.LineSpacing).Skip(1).SubscribeSafe(spacing => Save(spacing, static (saved, value) => saved.FocusLineSpacing = value), ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.ParagraphSpacing).Skip(1).SubscribeSafe(spacing => Save(spacing, static (saved, value) => saved.FocusParagraphSpacing = value), ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.TextWidth).Skip(1).SubscribeSafe(width => Save(width, static (saved, value) => saved.FocusTextWidth = (int)value), ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.PageColour).Skip(1).SubscribeSafe(colour => Save(colour, static (saved, value) => saved.FocusPageColour = (FocusPageColour)value), ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.Font).Skip(1).SubscribeSafe(font => Save(font, static (saved, value) => saved.FocusFont = (FocusFont)value), ErrorTrace.Write));
+        _subscriptions.Add(this.WhenChanged(static x => x.FocusBand).Skip(1).SubscribeSafe(on => Save(on, static (saved, value) => saved.FocusBand = value), ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.WordHighlight).Skip(1).SubscribeSafe(
+                    on => Save(
+                    on,
+                    static (saved, value) => saved
+                    .ReadAloudHighlight = value ? ReadAloudHighlight.SentenceAndWord : ReadAloudHighlight.Sentence),
                 ErrorTrace.Write));
     }
 
     /// <summary>Gets the page colour choices.</summary>
-    public static IReadOnlyList<string> PageColourOptions { get; } = ["Match the pages", "Soft paper", "Sage", "Calm night", "White"];
+    public static IReadOnlyList<string> PageColourOptions { get; } = UiText.CreateChoices(["Match the pages", "Soft paper", "Sage", "Calm night", "White"]);
 
     /// <summary>Gets the typeface choices.</summary>
-    public static IReadOnlyList<string> FontOptions { get; } = ["Sans serif", "Serif"];
+    public static IReadOnlyList<string> FontOptions { get; } = UiText.CreateChoices(["Sans serif", "Serif"]);
 
     /// <summary>Gets or sets a value indicating whether Focus Mode is shown instead of the pages.</summary>
     [Reactive]
@@ -213,6 +215,13 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
 
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        LocalisationRefresh.RefreshCore(_owner, visited);
+        LocalisationRefresh.RefreshCore(_services, visited);
+    }
+
     /// <summary>Creates the pages if needed and brings the place being viewed into view.</summary>
     private void Open()
     {
@@ -224,7 +233,7 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable
             var pages = new FocusPageViewModel[_owner.PageCount];
             for (var i = 0; i < pages.Length; i++)
             {
-                pages[i] = new(i, $"Page {i + 1}", _owner.GetReadingDocument);
+                pages[i] = new(i, UiText.Format("Page {0}", i + 1), _owner.GetReadingDocument);
             }
 
             _builtFor = key;

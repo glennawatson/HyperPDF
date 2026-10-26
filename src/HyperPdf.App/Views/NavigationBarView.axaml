@@ -1,64 +1,64 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.NavigationBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (NavigationBarView.axaml.cs). -->
   <!-- Wraps rather than clips when the window is narrow, so no control is ever hidden. -->
   <WrapPanel Orientation="Horizontal">
-    <ToggleButton AutomationProperties.Name="Sidebar" x:Name="SidebarToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Sidebar}" Classes="tool">
+    <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sidebar&quot;}" x:Name="SidebarToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show or hide the sidebar with page pictures, the outline and search results. Shortcut: F9&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon nav" Data="{StaticResource IconSidebar}" />
-        <TextBlock Classes="label" Text="Sidebar" />
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sidebar&quot;}" />
       </StackPanel>
     </ToggleButton>
     <Rectangle Classes="separator" />
-    <Button AutomationProperties.Name="Back" x:Name="BackButton" views:ControlHelp.Text="{x:Static help:Descriptions.Back}" Classes="tool">
+    <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Back&quot;}" x:Name="BackButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go back to where you were before a jump, like Back in a web browser. Jumps come from links, the outline, search results and page numbers. Shortcut: Alt+Left&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">
         <Path Classes="icon nav" Data="{StaticResource IconBack}" />
-        <TextBlock Classes="label" Text="Back" />
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Back&quot;}" />
       </StackPanel>
     </Button>
-    <Button AutomationProperties.Name="Forward" x:Name="ForwardButton" views:ControlHelp.Text="{x:Static help:Descriptions.Forward}" Classes="tool">
+    <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Forward&quot;}" x:Name="ForwardButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go forward again after going Back, like Forward in a web browser. Shortcut: Alt+Right&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">
-        <TextBlock Classes="label leading" Text="Forward" />
+        <TextBlock TextWrapping="Wrap" Classes="label leading" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Forward&quot;}" />
         <Path Classes="icon nav" Data="{StaticResource IconForward}" />
       </StackPanel>
     </Button>
     <Rectangle Classes="separator" />
     <!-- One group on one centre line: the arrows together, then the page box and the page count. -->
     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-      <Button AutomationProperties.Name="Previous page" x:Name="PreviousPageButton" views:ControlHelp.Text="{x:Static help:Descriptions.PreviousPage}" Classes="tool">
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Previous page&quot;}" x:Name="PreviousPageButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go to the previous page. Shortcut: Page Up&quot;}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconPageUp}" />
       </Button>
-      <Button AutomationProperties.Name="Next page" x:Name="NextPageButton" views:ControlHelp.Text="{x:Static help:Descriptions.NextPage}" Classes="tool">
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Next page&quot;}" x:Name="NextPageButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go to the next page. Shortcut: Page Down&quot;}" Classes="tool">
         <Path Classes="icon nav" Data="{StaticResource IconPageDown}" />
       </Button>
-      <TextBox x:Name="PageBox" views:ControlHelp.Text="{x:Static help:Descriptions.PageNumber}" AutomationProperties.Name="Page number" Width="56" Height="30" MinHeight="30" Margin="4,0,0,0" Padding="6,0" VerticalAlignment="Center"
+      <TextBox x:Name="PageBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type a page number, then press Enter to go to that page. Shortcut: Ctrl+L&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Page number&quot;}" Width="56" Height="30" MinHeight="30" Margin="4,0,0,0" Padding="6,0" VerticalAlignment="Center"
                VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
       <TextBlock x:Name="PageCountText" Classes="secondary" VerticalAlignment="Center" Margin="6,0" />
     </StackPanel>
     <Rectangle Classes="separator" />
-    <Button AutomationProperties.Name="Zoom out" x:Name="ZoomOutButton" views:ControlHelp.Text="{x:Static help:Descriptions.ZoomOut}" Classes="tool">
+    <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Zoom out&quot;}" x:Name="ZoomOutButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the pages smaller. Shortcut: Ctrl+Minus&quot;}" Classes="tool">
       <Path Classes="icon nav" Data="{StaticResource IconZoomOut}" />
     </Button>
     <!-- Named by its content, the zoom, which is announced when it changes. -->
-    <Button x:Name="ZoomButton" views:ControlHelp.Text="{x:Static help:Descriptions.ZoomMenu}" AutomationProperties.LiveSetting="Polite" Classes="tool" MinWidth="64">
+    <Button x:Name="ZoomButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Shows the current zoom. Choose to fit the width, fit the whole page or pick a set size.&quot;}" AutomationProperties.LiveSetting="Polite" Classes="tool" MinWidth="64">
       <Button.Flyout>
         <MenuFlyout>
-          <MenuItem x:Name="FitWidthItem" views:ControlHelp.Text="{x:Static help:Descriptions.FitWidth}" Header="Fit _Width" InputGesture="Ctrl+2" />
-          <MenuItem x:Name="FitPageItem" views:ControlHelp.Text="{x:Static help:Descriptions.FitPage}" Header="Fit _Page" InputGesture="Ctrl+1" />
+          <MenuItem x:Name="FitWidthItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the page fill the width of the window. Shortcut: Ctrl+2&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fit _Width&quot;}" InputGesture="Ctrl+2" />
+          <MenuItem x:Name="FitPageItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the whole page fit in the window. Shortcut: Ctrl+1&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fit _Page&quot;}" InputGesture="Ctrl+1" />
           <Separator />
-          <MenuItem x:Name="Zoom50Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom50}" Header="50%" />
-          <MenuItem x:Name="Zoom75Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom75}" Header="75%" />
-          <MenuItem x:Name="Zoom100Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom100}" Header="100%" InputGesture="Ctrl+0" />
-          <MenuItem x:Name="Zoom125Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom125}" Header="125%" />
-          <MenuItem x:Name="Zoom150Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom150}" Header="150%" />
-          <MenuItem x:Name="Zoom200Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom200}" Header="200%" />
-          <MenuItem x:Name="Zoom400Item" views:ControlHelp.Text="{x:Static help:Descriptions.Zoom400}" Header="400%" />
+          <MenuItem x:Name="Zoom50Item" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the pages at half their real size.&quot;}" Header="50%" />
+          <MenuItem x:Name="Zoom75Item" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the pages at three quarters of their real size.&quot;}" Header="75%" />
+          <MenuItem x:Name="Zoom100Item" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the pages at their real size. Shortcut: Ctrl+0&quot;}" Header="100%" InputGesture="Ctrl+0" />
+          <MenuItem x:Name="Zoom125Item" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the pages a quarter bigger than their real size.&quot;}" Header="125%" />
+          <MenuItem x:Name="Zoom150Item" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the pages one and a half times their real size.&quot;}" Header="150%" />
+          <MenuItem x:Name="Zoom200Item" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the pages twice their real size.&quot;}" Header="200%" />
+          <MenuItem x:Name="Zoom400Item" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the pages four times their real size.&quot;}" Header="400%" />
         </MenuFlyout>
       </Button.Flyout>
     </Button>
-    <Button AutomationProperties.Name="Zoom in" x:Name="ZoomInButton" views:ControlHelp.Text="{x:Static help:Descriptions.ZoomIn}" Classes="tool">
+    <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Zoom in&quot;}" x:Name="ZoomInButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the pages bigger. Shortcut: Ctrl+Plus&quot;}" Classes="tool">
       <Path Classes="icon nav" Data="{StaticResource IconZoomIn}" />
     </Button>
   </WrapPanel>

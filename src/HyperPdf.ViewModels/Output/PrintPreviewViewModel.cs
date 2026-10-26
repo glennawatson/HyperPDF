@@ -4,7 +4,6 @@
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Platform;
@@ -24,7 +23,7 @@ namespace HyperPdf.ViewModels.Output;
 /// picks the printer; Save as PDF writes it where the user chooses.
 /// </summary>
 [DebuggerDisplay("PrintPreviewViewModel: {Summary}")]
-public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
+public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The booklet's place in <see cref="LayoutChoices"/>.</summary>
     private const int BookletLayout = 1;
@@ -64,6 +63,9 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
 
     /// <summary>Whether the reader chose the system print dialog, so listing the printers does not change the choice.</summary>
     private bool _systemDialogChosen;
+
+    /// <summary>The retained summary message.</summary>
+    private LocalizedMessage _summary;
 
     /// <summary>Initializes a new instance of the <see cref="PrintPreviewViewModel"/> class.</summary>
     /// <param name="tab">The tab being printed.</param>
@@ -123,13 +125,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets the layout choices: pages in order, a booklet, or posters of 2, 3 or 4 sheets across.</summary>
     public static IReadOnlyList<string> LayoutChoices { get; } =
-    [
-        "Pages in order",
-        "Booklet (fold in half)",
-        "Poster, 2 × 2 sheets a page",
-        "Poster, 3 × 3 sheets a page",
-        "Poster, 4 × 4 sheets a page",
-    ];
+    UiText.CreateChoices(["Pages in order", "Booklet (fold in half)", "Poster, 2 × 2 sheets a page", "Poster, 3 × 3 sheets a page", "Poster, 4 × 4 sheets a page"]);
 
     /// <summary>Gets the document's file name, for the window title.</summary>
     public string FileName => _tab.FileName;
@@ -216,8 +212,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     public partial bool IsBuilding { get; private set; }
 
     /// <summary>Gets the sheet count, or what to fix, for the top of the settings panel.</summary>
-    [Reactive]
-    public partial string Summary { get; private set; } = string.Empty;
+    public string Summary { get => _summary.Value ?? string.Empty; private set => SetSummary(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the sheets that will print.</summary>
     public ObservableCollection<PrintPreviewPage> Sheets { get; } = [];
@@ -239,7 +234,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     /// <summary>Describes a sheet count.</summary>
     /// <param name="sheets">The sheets.</param>
     /// <returns>The description.</returns>
-    public static string DescribeSheets(int sheets) => sheets == 1 ? "1 sheet" : string.Create(CultureInfo.CurrentCulture, $"{sheets} sheets");
+    public static string DescribeSheets(int sheets) => sheets == 1 ? UiText.Get("1 sheet") : UiText.Format("{0} sheets", sheets);
 
     /// <summary>Gets the layout the settings describe.</summary>
     /// <returns>The layout.</returns>
@@ -265,6 +260,15 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
         var path = Preview?.HandOver();
         ClosePreview();
         return path;
+    }
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(Summary));
+        LocalisationRefresh.RefreshCore(Sheets, visited);
+        LocalisationRefresh.RefreshCore(_tab, visited);
+        LocalisationRefresh.RefreshCore(_services, visited);
     }
 
     /// <summary>Writes the chosen pages to a new temporary file.</summary>
@@ -331,6 +335,11 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
     [ReactiveCommand(CanExecute = nameof(_ready))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool Confirm() => true;
+
+    /// <summary>Sets the displayed message while retaining its resource identity.</summary>
+    /// <param name="message">The retained message.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SetSummary(in LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _summary, message, nameof(Summary));
 
     /// <summary>Lists the printers off the UI thread and chooses the default one, when there are any.</summary>
     /// <returns>A task.</returns>
@@ -420,7 +429,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
             } exporter || !ChoosePages())
         {
             IsValid = false;
-            Summary = PageChoice == PrintPageChoice.Custom ? "Type pages like 1-3, 7" : "Nothing to print";
+            SetSummary(LocalizedMessage.Get(UiText, PageChoice == PrintPageChoice.Custom ? "Type pages like 1-3, 7" : "Nothing to print"));
             IsBuilding = false;
             return RxVoid.Default;
         }
@@ -457,7 +466,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
         if (path is null)
         {
             IsValid = false;
-            Summary = "Could not prepare the pages";
+            SetSummary(LocalizedMessage.Get(UiText, "Could not prepare the pages"));
             IsBuilding = false;
             return;
         }
@@ -467,11 +476,11 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable
         var sizes = preview.Document.GetPageSizes();
         for (var i = 0; i < sizes.Length; i++)
         {
-            Sheets.Add(new(preview.Document, i, sizes[i], string.Create(CultureInfo.CurrentCulture, $"{i + 1} of {sizes.Length}")));
+            Sheets.Add(new(preview.Document, i, sizes[i], LocalizedMessage.Format(UiText, "{0} of {1}", i + 1, sizes.Length)));
         }
 
         SelectedSheetIndex = Math.Min(selected, sizes.Length - 1);
-        Summary = DescribeSheets(sizes.Length);
+        SetSummary(sizes.Length == 1 ? LocalizedMessage.Get(UiText, "1 sheet") : LocalizedMessage.Format(UiText, "{0} sheets", sizes.Length));
         IsValid = true;
         IsBuilding = false;
     }

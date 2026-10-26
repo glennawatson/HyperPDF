@@ -14,9 +14,9 @@ internal static class PrintDestinationMixins
         /// <summary>Gets the main button's text: Print sends at once, the others open a dialog next.</summary>
         internal string ButtonText => destination switch
         {
-            PrintDestination.Printer => "Print",
-            PrintDestination.SaveAsPdf => "Save…",
-            _ => "Print…",
+            PrintDestination.Printer => UiText.Get("Print"),
+            PrintDestination.SaveAsPdf => UiText.Get("Save…"),
+            _ => UiText.Get("Print…"),
         };
     }
 }

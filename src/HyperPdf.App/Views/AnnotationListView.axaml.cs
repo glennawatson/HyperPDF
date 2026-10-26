@@ -21,9 +21,9 @@ public sealed partial class AnnotationListView : ReactiveUI.Avalonia.ReactiveUse
     {
         InitializeComponent();
         AnnotationList.ItemTemplate = new FuncDataTemplate<AnnotationItemViewModel>(static (_, _) => new AnnotationItemView());
-        AnnotationTypeBox.ItemsSource = AnnotationsViewModel.TypeFilterOptions;
-        AnnotationColourBox.ItemsSource = AnnotationsViewModel.ColorFilterOptions;
-        AnnotationSortBox.ItemsSource = AnnotationsViewModel.SortOptions;
+        ChoiceViews.SetChoices(AnnotationTypeBox, AnnotationsViewModel.TypeFilterOptions);
+        ChoiceViews.SetChoices(AnnotationColourBox, AnnotationsViewModel.ColorFilterOptions);
+        ChoiceViews.SetChoices(AnnotationSortBox, AnnotationsViewModel.SortOptions);
         FieldLabels.Link(
             (AnnotationTypeBox, AnnotationTypeLabel),
             (AnnotationColourBox, AnnotationColourLabel),
@@ -69,8 +69,8 @@ public sealed partial class AnnotationListView : ReactiveUI.Avalonia.ReactiveUse
         {
             ItemsSource = new Control[]
             {
-                new MenuItem { Header = "_Edit Note…", Command = tab.Annotations.EditNoteCommand, CommandParameter = menu.Item },
-                new MenuItem { Header = "_Delete", Command = tab.Annotations.DeleteCommand, CommandParameter = menu.Item },
+                new MenuItem { Header = UiText.Get("_Edit Note…"), Command = tab.Annotations.EditNoteCommand, CommandParameter = menu.Item },
+                new MenuItem { Header = UiText.Get("_Delete"), Command = tab.Annotations.DeleteCommand, CommandParameter = menu.Item },
             },
         }.Open(menu.Source);
     }

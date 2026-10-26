@@ -16,13 +16,19 @@ namespace HyperPdf.ViewModels.Viewing;
 /// fallback pages, and a file that was damaged and repaired to be shown.
 /// </summary>
 [DebuggerDisplay("TabNoticesViewModel: {ContentWarning} {RepairNotice}")]
-public sealed partial class TabNoticesViewModel : ReactiveObject
+public sealed partial class TabNoticesViewModel : ReactiveObject, ILocalisationChildren
 {
     /// <summary>The tab's document source.</summary>
     private readonly DocumentSource _source;
 
     /// <summary>What the document's requirements mean for the viewer.</summary>
     private RequirementReport _requirements = RequirementReport.None;
+
+    /// <summary>The integrity result behind an existing warning.</summary>
+    private DocumentIntegrity? _integrity;
+
+    /// <summary>The repairs already read for the expanded details.</summary>
+    private IReadOnlyList<RepairNote> _repairs = [];
 
     /// <summary>Initializes a new instance of the <see cref="TabNoticesViewModel"/> class.</summary>
     /// <param name="source">The tab's document source.</param>
@@ -88,7 +94,50 @@ public sealed partial class TabNoticesViewModel : ReactiveObject
     /// document whose protection was not checked is never described as intact.
     /// </summary>
     /// <param name="metadata">The document's metadata, or <see langword="null"/>.</param>
-    internal void CheckIntegrity(DocumentMetadata? metadata) => IntegrityNotice = IntegrityWarnings.Describe(metadata?.Integrity);
+    internal void CheckIntegrity(DocumentMetadata? metadata)
+    {
+        _integrity = metadata?.Integrity;
+        IntegrityNotice = IntegrityWarnings.Describe(_integrity);
+    }
+
+    /// <summary>Translates visible notices without restoring dismissed notices or changing their expanded state.</summary>
+    /// <param name="visited">Objects already refreshed in the current traversal.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => RefreshCulture();
+
+    /// <summary>Translates visible notices without restoring dismissed notices or changing their expanded state.</summary>
+    internal void RefreshCulture()
+    {
+        if (ContentWarning is not null)
+        {
+            ContentWarning = ContentWarnings.Describe(UnsupportedContent);
+        }
+
+        if (RepairNotice is not null)
+        {
+            RepairNotice = RepairWarnings.Summary;
+        }
+
+        if (RepairDetails is not null)
+        {
+            RepairDetails = RepairWarnings.Describe(_repairs);
+        }
+
+        if (RequirementNotice is not null)
+        {
+            RequirementNotice = RequirementNotices.Describe(_requirements);
+        }
+
+        if (RequirementDetails is not null)
+        {
+            RequirementDetails = RequirementNotices.DescribeDetails(_requirements);
+        }
+
+        if (IntegrityNotice is not null)
+        {
+            IntegrityNotice = IntegrityWarnings.Describe(_integrity);
+        }
+    }
 
     /// <summary>Checks the whole document on a background thread, a page at a time so pages keep drawing meanwhile.</summary>
     /// <param name="document">The document.</param>
@@ -170,7 +219,8 @@ public sealed partial class TabNoticesViewModel : ReactiveObject
             return;
         }
 
-        RepairDetails = DocumentFeature<IRepairReport>.Get(_source.Acquire()) is { } report ? RepairWarnings.Describe(report.GetRepairs()) : null;
+        _repairs = DocumentFeature<IRepairReport>.Get(_source.Acquire()) is { } report ? report.GetRepairs() : [];
+        RepairDetails = RepairWarnings.Describe(_repairs);
     }
 
     /// <summary>Shows or hides the list of unmet requirements.</summary>

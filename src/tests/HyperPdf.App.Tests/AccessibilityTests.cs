@@ -7,6 +7,7 @@ using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using HyperPdf.App.Theming;
 using HyperPdf.App.Views;
@@ -113,8 +114,17 @@ public sealed class AccessibilityTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("actions.pdf", Pages)]);
         test.Services.Settings.ToolbarStyle = style;
         test.Services.ApplySettings();
-        DesktopThemeApplier.Apply(Application.Current!, test.Services.CurrentTheme);
+        var theme = test.Services.CurrentTheme;
         var window = new MainWindow { DataContext = main, Width = width, Height = WindowHeight };
+
+        // The theme goes on this window alone. Writing it to the application notifies every window earlier tests left
+        // behind, which takes minutes each time on a macOS runner late in the run.
+        DesktopThemeApplier.ApplyResources(window.Resources, theme.Scheme, theme);
+        if (!theme.ShowLabels)
+        {
+            window.Styles.Add(new Style(static x => x.OfType<TextBlock>().Class("label")) { Setters = { new Setter(Visual.IsVisibleProperty, false) } });
+        }
+
         window.Show();
         try
         {
@@ -134,7 +144,6 @@ public sealed class AccessibilityTests
         finally
         {
             window.Close();
-            DesktopThemeApplier.Apply(Application.Current!, ThemeResolver.Resolve(new(), null));
         }
     }
 

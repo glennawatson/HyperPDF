@@ -15,7 +15,7 @@ namespace HyperPdf.App.Rendering;
 public sealed class AvaloniaRenderHead : IRenderHead
 {
     /// <inheritdoc/>
-    public System.Reflection.Assembly NoticesAssembly => typeof(AvaloniaRenderHead).Assembly;
+    public string NoticesFolder => AppContext.BaseDirectory;
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

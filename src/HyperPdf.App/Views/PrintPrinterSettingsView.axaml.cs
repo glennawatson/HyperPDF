@@ -3,11 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Media;
 using HyperPdf.Core.Printing;
 using ReactiveUI;
 using ReactiveUI.Binding;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.App.Views;
 
@@ -19,7 +22,11 @@ public sealed partial class PrintPrinterSettingsView : ReactiveUI.Avalonia.React
     public PrintPrinterSettingsView()
     {
         InitializeComponent();
-        DestinationBox.ItemTemplate = new FuncDataTemplate<PrintTarget>(static (target, _) => new TextBlock { Text = target?.Label });
+        DestinationBox.ItemTemplate = new FuncDataTemplate<PrintTarget>(static (target, _) => new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            [!TextBlock.TextProperty] = UiText.CultureChanges.SelectWith(target, static (item, _) => item?.Label).ToBinding(),
+        });
         FieldLabels.Link(
             (DestinationBox, DestinationLabel),
             (PagesBox, PagesLabel),

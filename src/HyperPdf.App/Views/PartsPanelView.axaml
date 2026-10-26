@@ -1,25 +1,25 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.PartsPanelView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (PartsPanelView.axaml.cs). -->
   <DockPanel x:Name="PartsPanel">
     <TextBlock DockPanel.Dock="Top" Classes="secondary" Margin="12,4,12,8" TextWrapping="Wrap"
-               Text="Choose a part to go to its first page, or an article to read it place by place. The outline and page numbers still work." />
+               Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose a part to go to its first page, or an article to read it place by place. The outline and page numbers still work.&quot;}" />
     <!-- Articles: shown only when the file has some. Previous and Next keep the place in the chosen article. -->
     <StackPanel x:Name="ThreadSection" DockPanel.Dock="Bottom" Margin="8" Spacing="6">
-      <TextBlock Text="Articles" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-      <ListBox x:Name="ThreadList" AutomationProperties.Name="Articles" MaxHeight="180" Background="Transparent" />
+      <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Articles&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <ListBox x:Name="ThreadList" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Articles&quot;}" MaxHeight="180" Background="Transparent" />
       <TextBlock x:Name="PlaceText" Classes="secondary" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
       <StackPanel Orientation="Horizontal" Spacing="6">
-        <Button x:Name="PreviousPlaceButton" views:ControlHelp.Text="{x:Static help:Descriptions.PreviousPlace}" Content="Previous place" />
-        <Button x:Name="NextPlaceButton" views:ControlHelp.Text="{x:Static help:Descriptions.NextPlace}" Content="Next place" />
+        <Button x:Name="PreviousPlaceButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go back to the place before this one in the chosen article.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Previous place&quot;}" />
+        <Button x:Name="NextPlaceButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go to the next place in the chosen article, in the order the file gives.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Next place&quot;}" />
       </StackPanel>
     </StackPanel>
     <!-- Parts: shown only when the file has some. -->
     <DockPanel x:Name="PartSection">
-      <TextBlock DockPanel.Dock="Top" Margin="8,0" Text="Parts" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
-      <TreeView x:Name="PartTree" AutomationProperties.Name="Document parts" Background="Transparent" />
+      <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top" Margin="8,0" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Parts&quot;}" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" />
+      <TreeView x:Name="PartTree" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Document parts&quot;}" Background="Transparent" />
     </DockPanel>
   </DockPanel>
 </UserControl>

@@ -15,9 +15,19 @@ internal static class ProtectionChecks
     /// <summary>Gets the choices of encryption, strongest first.</summary>
     internal static IReadOnlyList<ProtectionFormatChoice> Formats { get; } =
     [
-        new(ProtectionFormat.Strong, "Strong (AES-256, suggested)", "The strongest common choice. Programs that follow PDF 2.0 open it; most current readers do."),
-        new(ProtectionFormat.Compatible, "Compatible (AES-128)", "Older programs open it too. This is the only choice that can stop screen readers, so leave that permission on unless you are sure."),
-        new(ProtectionFormat.Authenticated, "Strong with change detection (AES-256 GCM)", "Also detects changed data. Few programs open it yet; test it with the people who must read the file."),
+
+        new(
+            ProtectionFormat.Strong,
+            "Strong (AES-256, suggested)",
+            "The strongest common choice. Programs that follow PDF 2.0 open it; most current readers do."),
+        new(
+            ProtectionFormat.Compatible,
+            "Compatible (AES-128)",
+            "Older programs open it too. This is the only choice that can stop screen readers, so leave that permission on unless you are sure."),
+        new(
+            ProtectionFormat.Authenticated,
+            "Strong with change detection (AES-256 GCM)",
+            "Also detects changed data. Few programs open it yet; test it with the people who must read the file.")
     ];
 
     /// <summary>Finds the first thing wrong with the passwords and permissions.</summary>
@@ -30,24 +40,26 @@ internal static class ProtectionChecks
         ArgumentNullException.ThrowIfNull(request);
         if (!string.Equals(request.UserPassword, userRepeat, StringComparison.Ordinal))
         {
-            return "The two reading passwords are not the same. Type the reading password again.";
+            return UiText.Get("The two reading passwords are not the same. Type the reading password again.");
         }
 
         if (!string.Equals(request.OwnerPassword, ownerRepeat, StringComparison.Ordinal))
         {
-            return "The two owner passwords are not the same. Type the owner password again.";
+            return UiText.Get("The two owner passwords are not the same. Type the owner password again.");
         }
 
         var unrestricted = request.Permissions == ProtectionPermissions.All;
         if (unrestricted && request.UserPassword.Length == 0 && request.OwnerPassword.Length == 0)
         {
-            return "Type a reading password or an owner password. Without one, the file would not be protected.";
+            return UiText.Get("Type a reading password or an owner password. Without one, the file would not be protected.");
         }
 
         var separateOwner = request.OwnerPassword.Length > 0 && !string.Equals(request.OwnerPassword, request.UserPassword, StringComparison.Ordinal);
         return unrestricted || separateOwner
             ? null
-            : "To limit what people can do, add an owner password that differs from the reading password. Otherwise the reading password would also give every permission.";
+            : UiText.Get(
+            "To limit what people can do, add an owner password that differs from the reading password. Otherwise the reading password would "
+            + "also give every permission.");
     }
 
     /// <summary>Words the warning for a cleared accessibility permission.</summary>
@@ -62,8 +74,10 @@ internal static class ProtectionChecks
         }
 
         return choice?.Format == ProtectionFormat.Compatible
-            ? "Warning: people who use a screen reader will not be able to read this file. Leave this on unless you are sure no one needs it."
-            : "The PDF 2.0 standard no longer lets a file block screen readers, so this choice has no effect on the strong formats and they can still read the file.";
+            ? UiText.Get("Warning: people who use a screen reader will not be able to read this file. Leave this on unless you are sure no one needs it.")
+            : UiText.Get(
+            "The PDF 2.0 standard no longer lets a file block screen readers, so this choice has no effect on the strong formats and they can "
+            + "still read the file.");
     }
 
     /// <summary>Words the outcome of a run, one point per line.</summary>
@@ -76,10 +90,10 @@ internal static class ProtectionChecks
         ArgumentNullException.ThrowIfNull(result);
         if (!result.Written)
         {
-            return [$"No file was saved, so {action} did not happen. Here is why:", $"• {result.Refusal}"];
+            return [UiText.Format("No file was saved, so {0} did not happen. Here is why:", action), $"• {result.Refusal}"];
         }
 
-        var lines = new List<string>(result.Notes.Count + SummaryExtraLines) { $"Saved as {Path.GetFileName(path)}. Your open file was not changed." };
+        var lines = new List<string>(result.Notes.Count + SummaryExtraLines) { UiText.Format("Saved as {0}. Your open file was not changed.", Path.GetFileName(path)) };
         foreach (var note in result.Notes)
         {
             lines.Add($"• {note}");

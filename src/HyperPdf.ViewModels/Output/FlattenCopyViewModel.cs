@@ -20,16 +20,10 @@ namespace HyperPdf.ViewModels.Output;
 /// never replaced; the copy is written to a temporary file and moved into place only once it is complete.
 /// </summary>
 [DebuggerDisplay("FlattenCopyViewModel: {FileName}")]
-public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRequest
+public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRequest, ILocalisationChildren
 {
     /// <summary>The ending of the temporary file the copy is written to.</summary>
     private const string TemporarySuffix = ".flatten";
-
-    /// <summary>Why a chosen destination was refused.</summary>
-    private const string OverwriteMessage = "That would replace the file you have open. Choose a different name for the copy.";
-
-    /// <summary>The status shown before anything has happened.</summary>
-    private const string ReadyStatus = "Ready. Choose what to flatten, then Save Copy.";
 
     /// <summary>The index of the suggested scope, form fields and all markup.</summary>
     private const int SuggestedScope = 2;
@@ -52,6 +46,15 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
     /// <summary>Owns the run in progress until the window closes.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
+    /// <summary>The completed report and destination retained for language changes.</summary>
+    private (FlattenCopyResult Report, string Path)? _resultDescription;
+
+    /// <summary>The resource identity of the displayed StatusText.</summary>
+    private LocalizedMessage _localizedStatusText = LocalizedMessage.Get(UiText, "Ready. Choose what to flatten, then Save Copy.");
+
+    /// <summary>The resource identity of the displayed Error.</summary>
+    private LocalizedMessage _localizedError;
+
     /// <summary>Initializes a new instance of the <see cref="FlattenCopyViewModel"/> class.</summary>
     /// <param name="writer">The open document's flattened copy writer.</param>
     /// <param name="sourcePath">The path of the open document.</param>
@@ -72,17 +75,28 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
     /// <summary>Gets the choices of what to flatten.</summary>
     public IReadOnlyList<FlattenScopeChoice> Scopes { get; } =
     [
-        new(FlattenCopyScope.FormFields, "Form fields only", "Filled-in fields, check boxes and buttons become part of the page. Comments, highlights and links stay as they are."),
-        new(FlattenCopyScope.CommentsAndMarkup, "Comments and markup only", "Comments, highlights, stamps and drawings become part of the page. Form fields and links stay as they are."),
-        new(FlattenCopyScope.EverythingButLinks, "Form fields and all markup (suggested)", "Everything you can see on top of the page becomes part of it. Links stay clickable."),
-        new(FlattenCopyScope.Everything, "Everything, including link outlines", "As above, and the outlines of links are drawn on the page too."),
+
+        new(
+            FlattenCopyScope.FormFields,
+            "Form fields only",
+            "Filled-in fields, check boxes and buttons become part of the page. Comments, highlights and links stay as they are."),
+        new(
+            FlattenCopyScope.CommentsAndMarkup,
+            "Comments and markup only",
+            "Comments, highlights, stamps and drawings become part of the page. Form fields and links stay as they are."),
+        new(
+            FlattenCopyScope.EverythingButLinks,
+            "Form fields and all markup (suggested)",
+            "Everything you can see on top of the page becomes part of it. Links stay clickable."),
+        new(FlattenCopyScope.Everything, "Everything, including link outlines", "As above, and the outlines of links are drawn on the page too.")
     ];
 
     /// <summary>Gets the choices of which look to keep.</summary>
     public IReadOnlyList<FlattenLookChoice> Looks { get; } =
     [
+
         new(FlattenCopyLook.Screen, "As it looks on screen", "Keeps what you see on screen. Items marked not to show on screen are left out."),
-        new(FlattenCopyLook.Print, "As it prints", "Keeps what would print. Items not marked to print are left out."),
+        new(FlattenCopyLook.Print, "As it prints", "Keeps what would print. Items not marked to print are left out.")
     ];
 
     /// <summary>Gets the name of the open document.</summary>
@@ -112,12 +126,10 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
     public partial double ProgressPercent { get; private set; }
 
     /// <summary>Gets what the run is doing now, or how it ended.</summary>
-    [Reactive]
-    public partial string StatusText { get; private set; } = ReadyStatus;
+    public string StatusText { get => _localizedStatusText.Value ?? string.Empty; private set => SetStatusText(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets what went wrong, or <see langword="null"/>.</summary>
-    [Reactive]
-    public partial string? Error { get; private set; }
+    public string? Error { get => _localizedError.Value; private set => SetError(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the plain-words summary of the last finished run; empty before one finishes.</summary>
     [Reactive]
@@ -132,10 +144,7 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
     public partial string? SavedPath { get; private set; }
 
     /// <summary>Gets the options the window currently describes.</summary>
-    public FlattenCopyOptions Options => new(
-        SelectedScope?.Scope ?? FlattenCopyScope.EverythingButLinks,
-        SelectedLook?.Look ?? FlattenCopyLook.Screen,
-        TurnPagesUpright);
+    public FlattenCopyOptions Options => new(SelectedScope?.Scope ?? FlattenCopyScope.EverythingButLinks, SelectedLook?.Look ?? FlattenCopyLook.Screen, TurnPagesUpright);
 
     /// <summary>Gets the file name suggested for the copy.</summary>
     public string SuggestedName => $"{Path.GetFileNameWithoutExtension(FileName)} (flattened).pdf";
@@ -147,6 +156,26 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <summary>Sets the displayed StatusText while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetStatusText(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedStatusText, message, nameof(StatusText));
+
+    /// <summary>Sets the displayed Error while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetError(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedError, message, nameof(Error));
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        RefreshResultText();
+        this.RaisePropertyChanged(nameof(StatusText));
+        this.RaisePropertyChanged(nameof(Error));
+        LocalisationRefresh.RefreshCore(Scopes, visited);
+        LocalisationRefresh.RefreshCore(Looks, visited);
+    }
 
     /// <summary>Determines whether two paths name the same file.</summary>
     /// <param name="first">The first path.</param>
@@ -191,7 +220,7 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
     [ReactiveCommand(CanExecute = nameof(_canSave))]
     private async Task SaveAsync()
     {
-        Error = null;
+        SetError(LocalizedMessage.Literal(null));
         var path = await SaveInteraction.Handle(SuggestedName).ToTask().ConfigureAwait(true);
         if (string.IsNullOrEmpty(path))
         {
@@ -200,7 +229,7 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
 
         if (IsSameFile(path, _sourcePath))
         {
-            Error = OverwriteMessage;
+            SetError(LocalizedMessage.Get(UiText, "That would replace the file you have open. Choose a different name for the copy."));
             return;
         }
 
@@ -208,20 +237,21 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
         Run = run;
         IsRunning = true;
         ProgressPercent = 0;
+        _resultDescription = null;
         ResultText = string.Empty;
-        StatusText = "Making a flattened copy. This can take a while for long files.";
+        SetStatusText(LocalizedMessage.Get(UiText, "Making a flattened copy. This can take a while for long files."));
         try
         {
             ShowResult(await WriteAsync(path, Options, run.Token).ConfigureAwait(true), path);
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Cancelled. No file was saved.";
+            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
         }
         catch (Exception ex) when (CopyFailure.IsExpected(ex))
         {
-            Error = $"Could not save the copy: {CopyFailure.Describe(ex)}";
-            StatusText = "The copy was not saved.";
+            SetError(LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(ex)));
+            SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
         }
         finally
         {
@@ -276,7 +306,20 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
         Result = result;
         SavedPath = result.Flattened ? path : null;
         ProgressPercent = result.Flattened ? FullBar : 0;
-        StatusText = result.Flattened ? "Done. The copy is saved." : "The copy could not be made. See the reasons below.";
+        SetStatusText(result.Flattened ? LocalizedMessage.Get(UiText, "Done. The copy is saved.") : LocalizedMessage.Get(UiText, "The copy could not be made. See the reasons below."));
+        _resultDescription = (result, path);
+        RefreshResultText();
+    }
+
+    /// <summary>Rewords the retained report without repeating the operation.</summary>
+    private void RefreshResultText()
+    {
+        if (_resultDescription is not { } description)
+        {
+            return;
+        }
+
+        var(result, path) = description;
         ResultText = OptimizeReportText.Join(FlattenCopyText.Lines(result, path));
     }
 }

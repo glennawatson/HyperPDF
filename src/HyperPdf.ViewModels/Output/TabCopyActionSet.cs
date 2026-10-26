@@ -15,7 +15,7 @@ namespace HyperPdf.ViewModels.Output;
 /// why, when the open document's engine cannot make that copy.
 /// </summary>
 [DebuggerDisplay("TabCopyActionSet")]
-public sealed class TabCopyActionSet : ReactiveObject, IDisposable
+public sealed class TabCopyActionSet : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>Owns every copy action, and so the window each one has open.</summary>
     private readonly MultipleDisposable _subscriptions;
@@ -74,6 +74,22 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        LocalisationRefresh.RefreshCore(SaveCopy, visited);
+        LocalisationRefresh.RefreshCore(Optimize, visited);
+        LocalisationRefresh.RefreshCore(Archive, visited);
+        LocalisationRefresh.RefreshCore(Pdf20, visited);
+        LocalisationRefresh.RefreshCore(Flatten, visited);
+        LocalisationRefresh.RefreshCore(ExportPages, visited);
+        LocalisationRefresh.RefreshCore(Protect, visited);
+        LocalisationRefresh.RefreshCore(Unprotect, visited);
+        LocalisationRefresh.RefreshCore(Redact, visited);
+        LocalisationRefresh.RefreshCore(Validation, visited);
+        LocalisationRefresh.RefreshCore(ExternalSign, visited);
+    }
 
     /// <summary>Stops the run in every open copy window and closes it, because the document they work on is going away.</summary>
     /// <returns><see langword="true"/> when a window was open.</returns>

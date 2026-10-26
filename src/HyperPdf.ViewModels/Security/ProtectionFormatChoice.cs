@@ -9,11 +9,17 @@ namespace HyperPdf.ViewModels.Security;
 
 /// <summary>One choice of encryption in the protect window.</summary>
 /// <param name="Format">The encryption.</param>
-/// <param name="Name">The name shown.</param>
-/// <param name="Description">What it means, in plain words.</param>
+/// <param name="NameKey">The name shown.</param>
+/// <param name="DescriptionKey">What it means, in plain words.</param>
 [DebuggerDisplay("ProtectionFormatChoice: {Name}")]
-public sealed record ProtectionFormatChoice(ProtectionFormat Format, string Name, string Description)
+public sealed record ProtectionFormatChoice(ProtectionFormat Format, string NameKey, string DescriptionKey)
 {
+    /// <summary>Gets the localized display text.</summary>
+    public string Name => UiText.Get(NameKey);
+
+    /// <summary>Gets the localized display text.</summary>
+    public string Description => UiText.Get(DescriptionKey);
+
     /// <inheritdoc/>
     public override string ToString() => Name;
 }

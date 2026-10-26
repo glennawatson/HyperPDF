@@ -61,10 +61,12 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
         var recoveryRequests = new Signal<RxVoid>();
         _requestRecovery = recoveryRequests.OnNext;
         _subscriptions.Add(Scope.Create(MarkClosed));
-        _subscriptions.Add(Scheduler.Completed
+        _subscriptions.Add(
+            Scheduler.Completed
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SubscribeSafe(_ => Drain(), ErrorTrace.Write));
-        _subscriptions.Add(recoveryRequests
+        _subscriptions.Add(
+            recoveryRequests
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SubscribeSafe(_ => RecoverSoftware(), ErrorTrace.Write));
         _subscriptions.Add(recoveryRequests);

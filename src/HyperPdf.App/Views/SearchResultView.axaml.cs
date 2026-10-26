@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -21,14 +20,18 @@ public sealed partial class SearchResultView : ReactiveUI.Avalonia.ReactiveUserC
 
         // A search result is an immutable record with no change notification, so OneWayBind cannot observe it.
         // The view follows which one it shows instead.
-        _ = this.WhenActivated(disposables => disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(Show, ErrorTrace.Write)));
+        _ = this.WhenActivated(disposables =>
+        {
+            disposables.Add(this.WhenChanged(static v => v.ViewModel).SubscribeSafe(Show, ErrorTrace.Write));
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => Show(ViewModel), ErrorTrace.Write));
+        });
     }
 
     /// <summary>Shows a search result.</summary>
     /// <param name="result">The result.</param>
     private void Show(SearchResultItemViewModel? result)
     {
-        PageText.Text = result is null ? null : string.Create(CultureInfo.CurrentCulture, $"Page {result.PageNumber}");
+        PageText.Text = result is null ? null : UiText.Format("Page {0}", result.PageNumber);
         ContextText.Text = result?.Context;
     }
 }

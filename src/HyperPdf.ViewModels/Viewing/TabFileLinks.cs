@@ -11,7 +11,7 @@ namespace HyperPdf.ViewModels.Viewing;
 
 /// <summary>Links to other files: other PDFs open in a tab; other files open with the desktop's app once the reader agrees.</summary>
 [DebuggerDisplay("TabFileLinks: {_owner.FileName}")]
-public sealed class TabFileLinks : ReactiveObject
+public sealed class TabFileLinks : ReactiveObject, ILocalisationChildren
 {
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
@@ -36,7 +36,7 @@ public sealed class TabFileLinks : ReactiveObject
         var name = Path.GetFileName(fullPath);
         if (!File.Exists(fullPath))
         {
-            _owner.Notice = $"The linked file {name} was not found. It may have been moved or not sent with this document.";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "The linked file {0} was not found. It may have been moved or not sent with this document.", name));
             return false;
         }
 
@@ -48,7 +48,7 @@ public sealed class TabFileLinks : ReactiveObject
 
         if (LinkedFiles.IsRunnable(fullPath))
         {
-            _owner.Notice = $"{name} is a program or script. HyperPDF never starts programs from documents.";
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "{0} is a program or script. HyperPDF never starts programs from documents.", name));
             return false;
         }
 
@@ -61,6 +61,10 @@ public sealed class TabFileLinks : ReactiveObject
         return true;
     }
 
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => LocalisationRefresh.RefreshCore(_owner, visited);
+
     /// <summary>Follows a link to another file, or to a document embedded in this one.</summary>
     /// <param name="target">The target.</param>
     internal void NavigateToFile(in LinkTarget target)
@@ -69,13 +73,13 @@ public sealed class TabFileLinks : ReactiveObject
         {
             _owner.SidebarVisible = true;
             _owner.SidebarMode = SidebarMode.Attachments;
-            _owner.Notice = "This link opens a document attached to this one. Choose it in Attachments, then Open Attachment.";
+            _owner.SetNotice(LocalizedMessage.Get(UiText, "This link opens a document attached to this one. Choose it in Attachments, then Open Attachment."));
             return;
         }
 
         if (LinkedFiles.Resolve(_owner.FilePath, target.Uri ?? string.Empty) is not { } path)
         {
-            _owner.Notice = "This link points to a file that cannot be opened from here.";
+            _owner.SetNotice(LocalizedMessage.Get(UiText, "This link points to a file that cannot be opened from here."));
             return;
         }
 

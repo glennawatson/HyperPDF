@@ -1,40 +1,40 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.SidebarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (SidebarView.axaml.cs). -->
-  <Border x:Name="Sidebar" Width="220" Classes="sidebar" AutomationProperties.Name="Sidebar" AutomationProperties.LandmarkType="Navigation">
+  <Border x:Name="Sidebar" Width="220" Classes="sidebar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sidebar&quot;}" AutomationProperties.LandmarkType="Navigation">
     <DockPanel>
       <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Center" Margin="4">
-        <ToggleButton AutomationProperties.Name="Thumbnails" x:Name="ThumbnailsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Thumbnails}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Thumbnails&quot;}" x:Name="ThumbnailsToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show a small picture of each page. Choose one to go to that page.&quot;}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconThumbnails}" />
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Outline" x:Name="OutlineToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Outline}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Outline&quot;}" x:Name="OutlineToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the document&apos;s headings. Choose one to go to it.&quot;}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconOutline}" />
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Search results" x:Name="SearchResultsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.SearchResults}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Search results&quot;}" x:Name="SearchResultsToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show every place your search found. Choose one to go to it.&quot;}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconSearch}" />
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Annotations" x:Name="AnnotationsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Annotations}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Annotations&quot;}" x:Name="AnnotationsToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the highlights, notes and other annotations in this document.&quot;}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconAnnotations}" />
         </ToggleButton>
         <!-- Only shown when the document has embedded files. -->
-        <ToggleButton AutomationProperties.Name="Attachments" x:Name="AttachmentsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Attachments}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Attachments&quot;}" x:Name="AttachmentsToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the files attached to this document.&quot;}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconAttachment}" />
         </ToggleButton>
         <!-- Only shown when the document has layers. -->
-        <ToggleButton AutomationProperties.Name="Layers" x:Name="LayersToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Layers}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Layers&quot;}" x:Name="LayersToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the document&apos;s layers so you can hide or show them.&quot;}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconLayers}" />
         </ToggleButton>
         <!-- Only shown when the document has parts or article threads. -->
-        <ToggleButton AutomationProperties.Name="Parts and articles" x:Name="PartsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Parts}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Parts and articles&quot;}" x:Name="PartsToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the document&apos;s parts and article threads, if it has any.&quot;}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconParts}" />
         </ToggleButton>
         <!-- Only shown when the document has sound or video. -->
-        <ToggleButton AutomationProperties.Name="Media" x:Name="MediaToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Media}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Media&quot;}" x:Name="MediaToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the sound and video in this document. They never play by themselves.&quot;}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconMedia}" />
         </ToggleButton>
-        <ToggleButton AutomationProperties.Name="Tags" x:Name="TagsToggle" views:ControlHelp.Text="{x:Static help:Descriptions.Tags}" Classes="tool">
+        <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tags&quot;}" x:Name="TagsToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the tags that tell a screen reader how this document reads, and fix them.&quot;}" Classes="tool">
           <Path Classes="icon nav" Data="{StaticResource IconTags}" />
         </ToggleButton>
       </StackPanel>
@@ -44,10 +44,10 @@
         <views:AnnotationListView />
         <DockPanel x:Name="SearchPanel">
           <StackPanel DockPanel.Dock="Top" Margin="8,4,8,4" Spacing="4">
-            <TextBox x:Name="SidebarSearchBox" views:ControlHelp.Text="{x:Static help:Descriptions.SearchBox}" AutomationProperties.Name="Find in document" MinHeight="28" Padding="8,3" HorizontalAlignment="Stretch" PlaceholderText="Find in document" />
+            <TextBox x:Name="SidebarSearchBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the words to find. Press Enter for the next result or Shift+Enter for the one before.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find in document&quot;}" MinHeight="28" Padding="8,3" HorizontalAlignment="Stretch" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find in document&quot;}" />
             <TextBlock x:Name="SidebarSearchStatus" AutomationProperties.LiveSetting="Polite" Classes="secondary" TextWrapping="Wrap" />
           </StackPanel>
-          <ListBox x:Name="SearchResultList" AutomationProperties.Name="Search results" Background="Transparent" />
+          <ListBox x:Name="SearchResultList" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Search results&quot;}" Background="Transparent" />
         </DockPanel>
         <views:LayersPanelView />
         <views:PartsPanelView />

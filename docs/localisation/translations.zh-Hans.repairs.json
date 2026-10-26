@@ -1,0 +1,16 @@
+{
+  "The file's index of its parts was missing or wrong, so it was rebuilt.": "文件的组成部分索引缺失或有误，已重新构建。",
+  "There was extra data before the start of the file, which was skipped.": "文件开头之前存在多余数据，已跳过。",
+  "A part of the file was not where the index said, so it was found by searching.": "文件的某个组成部分不在索引指定的位置，已通过搜索找到。",
+  "A block of data had the wrong length, so its end was found by searching.": "某个数据块的长度有误，已通过搜索找到其末尾。",
+  "A block of data was never closed, so it was read to the end of its part.": "某个数据块缺少结束标记，已读取至其所属部分的末尾。",
+  "A block of data ended early, so the part that could be read is used.": "某个数据块提前结束，将使用能够读取的部分。",
+  "The file's main entry was missing, so it was found by searching.": "文件的主入口缺失，已通过搜索找到。",
+  "The file's closing section was missing, so it was made from what was found.": "文件的结尾部分缺失，已根据找到的数据重新创建。",
+  "The list of pages was broken, so the pages were found by searching.": "页面列表已损坏，已通过搜索找到各个页面。",
+  "A page had a size that was reversed or empty, so it was corrected.": "某个页面的尺寸颠倒或为空，已修正。",
+  "A font had bad letter widths, so the usable ones are used.": "某种字体的字符宽度有误，将使用其中可用的宽度值。",
+  "A font had a bad letter table, so the usable part is used.": "某种字体的字符表有误，将使用其中可用的部分。",
+  "A font had bad details, which were ignored.": "某种字体的详细信息有误，已忽略。",
+  "A part of the file was damaged and was repaired.": "文件的某个组成部分已损坏，现已修复。"
+}

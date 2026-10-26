@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.ConfirmWindow"
@@ -9,8 +9,8 @@
     <TextBlock x:Name="TitleText" FontSize="16" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1" />
     <TextBlock x:Name="MessageText" Classes="secondary" TextWrapping="Wrap" />
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
-      <Button x:Name="ConfirmButton" views:ControlHelp.Text="{x:Static help:Descriptions.Confirm}" />
-      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.Cancel}" Content="Cancel" IsDefault="True" IsCancel="True" />
+      <Button x:Name="ConfirmButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Go ahead with what this window asks about.&quot;}" />
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close this window without making any changes. Shortcut: Esc&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Cancel&quot;}" IsDefault="True" IsCancel="True" />
     </StackPanel>
   </StackPanel>
 </Window>

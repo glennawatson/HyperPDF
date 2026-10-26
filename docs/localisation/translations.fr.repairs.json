@@ -1,0 +1,16 @@
+{
+  "The file's index of its parts was missing or wrong, so it was rebuilt.": "L’index des éléments du fichier était absent ou incorrect ; il a donc été reconstruit.",
+  "There was extra data before the start of the file, which was skipped.": "Des données supplémentaires précédaient le début du fichier ; elles ont été ignorées.",
+  "A part of the file was not where the index said, so it was found by searching.": "Un élément du fichier ne se trouvait pas à l’endroit indiqué par l’index ; une recherche a permis de le retrouver.",
+  "A block of data had the wrong length, so its end was found by searching.": "Un bloc de données avait une longueur incorrecte ; sa fin a été trouvée par recherche.",
+  "A block of data was never closed, so it was read to the end of its part.": "Un bloc de données n’avait pas de marque de fin ; il a été lu jusqu’à la fin de son élément.",
+  "A block of data ended early, so the part that could be read is used.": "Un bloc de données se terminait trop tôt ; seule la partie lisible est utilisée.",
+  "The file's main entry was missing, so it was found by searching.": "L’entrée principale du fichier était absente ; une recherche a permis de la retrouver.",
+  "The file's closing section was missing, so it was made from what was found.": "La section finale du fichier était absente ; elle a été recréée à partir des éléments trouvés.",
+  "The list of pages was broken, so the pages were found by searching.": "La liste des pages était endommagée ; une recherche a permis de retrouver les pages.",
+  "A page had a size that was reversed or empty, so it was corrected.": "Les dimensions d’une page étaient inversées ou nulles ; elles ont été corrigées.",
+  "A font had bad letter widths, so the usable ones are used.": "Les largeurs de certains caractères d’une police étaient incorrectes ; seules les valeurs utilisables sont conservées.",
+  "A font had a bad letter table, so the usable part is used.": "La table de caractères d’une police était incorrecte ; seule la partie utilisable est conservée.",
+  "A font had bad details, which were ignored.": "Certains renseignements d’une police étaient incorrects et ont été ignorés.",
+  "A part of the file was damaged and was repaired.": "Un élément du fichier était endommagé et a été réparé."
+}

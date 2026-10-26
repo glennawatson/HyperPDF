@@ -52,7 +52,7 @@ internal static class SignedCopyFile
     {
         ArgumentNullException.ThrowIfNull(outcome);
         var lines = new string[outcome.Notes.Count + 1];
-        lines[0] = $"Saved as {Path.GetFileName(path)}.";
+        lines[0] = UiText.Format("Saved as {0}.", Path.GetFileName(path));
         for (var i = 0; i < outcome.Notes.Count; i++)
         {
             lines[i + 1] = $"• {outcome.Notes[i]}";

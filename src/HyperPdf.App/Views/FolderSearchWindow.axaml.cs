@@ -58,7 +58,7 @@ public sealed partial class FolderSearchWindow : ReactiveUI.Avalonia.ReactiveWin
     /// <returns>A task.</returns>
     private async Task ChooseFolderAsync(IInteractionContext<RxVoid, string?> context)
     {
-        var folders = await StorageProvider.OpenFolderPickerAsync(new() { Title = "Search in Folder", AllowMultiple = false });
+        var folders = await StorageProvider.OpenFolderPickerAsync(new() { Title = UiText.Get("Search in Folder"), AllowMultiple = false });
         context.SetOutput(folders.Count > 0 ? folders[0].TryGetLocalPath() : null);
     }
 }

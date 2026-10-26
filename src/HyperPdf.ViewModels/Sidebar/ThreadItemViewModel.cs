@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
 
@@ -20,7 +19,7 @@ public sealed class ThreadItemViewModel : ReactiveObject
         ArgumentNullException.ThrowIfNull(thread);
         Title = thread.Title;
         Beads = thread.Beads;
-        Summary = string.Create(CultureInfo.CurrentCulture, $"{Beads.Count} {(Beads.Count == 1 ? "place" : "places")}");
+        Summary = $"{Beads.Count} {(Beads.Count == 1 ? UiText.Get("place") : UiText.Get("places"))}";
         SpokenName = $"{Title}, {Summary}";
     }
 

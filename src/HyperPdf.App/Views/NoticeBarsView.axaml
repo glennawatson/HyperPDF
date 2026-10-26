@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.NoticeBarsView">
@@ -8,7 +8,7 @@
     <Border x:Name="ContentWarningBar" Classes="toolbar">
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock x:Name="ContentWarningText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
-        <Button Grid.Column="1" x:Name="DismissContentWarningButton" views:ControlHelp.Text="{x:Static help:Descriptions.DismissContentWarning}" Content="Dismiss" />
+        <Button Grid.Column="1" x:Name="DismissContentWarningButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Hide this message about parts of the document HyperPDF cannot show. It comes back next time the document opens.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Dismiss&quot;}" />
       </Grid>
     </Border>
 
@@ -16,7 +16,7 @@
     <Border x:Name="IntegrityNoticeBar" Classes="toolbar">
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock x:Name="IntegrityNoticeText" AutomationProperties.LiveSetting="Assertive" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
-        <Button Grid.Column="1" x:Name="DismissIntegrityNoticeButton" views:ControlHelp.Text="{x:Static help:Descriptions.DismissIntegrityNotice}" Content="Dismiss" />
+        <Button Grid.Column="1" x:Name="DismissIntegrityNoticeButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Hide this message about the document&apos;s integrity protection. It comes back next time the document opens.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Dismiss&quot;}" />
       </Grid>
     </Border>
 
@@ -24,8 +24,8 @@
     <Border x:Name="RepairNoticeBar" Classes="toolbar">
       <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto">
         <TextBlock x:Name="RepairNoticeText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
-        <Button Grid.Column="1" x:Name="ToggleRepairDetailsButton" views:ControlHelp.Text="{x:Static help:Descriptions.ToggleRepairDetails}" Content="Details" />
-        <Button Grid.Column="2" x:Name="DismissRepairNoticeButton" views:ControlHelp.Text="{x:Static help:Descriptions.DismissRepairNotice}" Content="Dismiss" />
+        <Button Grid.Column="1" x:Name="ToggleRepairDetailsButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show or hide what was wrong with the file and how it was repaired.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Details&quot;}" />
+        <Button Grid.Column="2" x:Name="DismissRepairNoticeButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Hide this message about the repaired file. It comes back next time the document opens.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Dismiss&quot;}" />
         <TextBlock Grid.Row="1" Grid.ColumnSpan="3" x:Name="RepairDetailsText" VerticalAlignment="Center" Margin="6,4" TextWrapping="Wrap" />
       </Grid>
     </Border>
@@ -34,8 +34,8 @@
     <Border x:Name="RequirementNoticeBar" Classes="toolbar">
       <Grid ColumnDefinitions="*,Auto,Auto" RowDefinitions="Auto,Auto">
         <TextBlock x:Name="RequirementNoticeText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
-        <Button Grid.Column="1" x:Name="ToggleRequirementDetailsButton" views:ControlHelp.Text="{x:Static help:Descriptions.ToggleRequirementDetails}" Content="Details" />
-        <Button Grid.Column="2" x:Name="DismissRequirementNoticeButton" views:ControlHelp.Text="{x:Static help:Descriptions.DismissRequirementNotice}" Content="Dismiss" />
+        <Button Grid.Column="1" x:Name="ToggleRequirementDetailsButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show or hide which features the file needs that HyperPDF does not fully provide.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Details&quot;}" />
+        <Button Grid.Column="2" x:Name="DismissRequirementNoticeButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Hide this message about features the file needs. It comes back next time the document opens.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Dismiss&quot;}" />
         <TextBlock Grid.Row="1" Grid.ColumnSpan="3" x:Name="RequirementDetailsText" VerticalAlignment="Center" Margin="6,4" TextWrapping="Wrap" />
       </Grid>
     </Border>
@@ -44,17 +44,17 @@
     <Border x:Name="NoticeBar" Classes="toolbar">
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock x:Name="NoticeText" AutomationProperties.LiveSetting="Assertive" VerticalAlignment="Center" Margin="6,0" TextWrapping="Wrap" />
-        <Button Grid.Column="1" x:Name="DismissNoticeButton" views:ControlHelp.Text="{x:Static help:Descriptions.DismissMessage}" Content="Dismiss" />
+        <Button Grid.Column="1" x:Name="DismissNoticeButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Hide this message.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Dismiss&quot;}" />
       </Grid>
     </Border>
 
     <!-- Shown when the user chose to be asked before reloading a changed file, or has unsaved edits. -->
     <Border x:Name="ReloadBar" Classes="toolbar">
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock x:Name="ReloadText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" Text="This PDF changed on disk. Reload it?" />
+        <TextBlock TextWrapping="Wrap" x:Name="ReloadText" AutomationProperties.LiveSetting="Polite" VerticalAlignment="Center" Margin="6,0" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;This PDF changed on disk. Reload it?&quot;}" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
-          <Button x:Name="ReloadButton" views:ControlHelp.Text="{x:Static help:Descriptions.ReloadChanged}" Content="Reload" />
-          <Button x:Name="DismissReloadButton" views:ControlHelp.Text="{x:Static help:Descriptions.DismissReload}" Content="Dismiss" />
+          <Button x:Name="ReloadButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Load the changed file from the disk.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Reload&quot;}" />
+          <Button x:Name="DismissReloadButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Keep what is on screen now and hide this message.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Dismiss&quot;}" />
         </StackPanel>
       </Grid>
     </Border>

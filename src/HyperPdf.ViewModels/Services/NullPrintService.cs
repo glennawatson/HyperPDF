@@ -26,5 +26,5 @@ public sealed class NullPrintService : IPrintService
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task<PrintOutcome> SubmitAsync(string filePath, string title, PrintJobOptions options, CancellationToken cancellationToken) =>
-        Task.FromResult(new PrintOutcome(false, "Printing is not available on this desktop."));
+        Task.FromResult(new PrintOutcome(false, UiText.Get("Printing is not available on this desktop.")));
 }

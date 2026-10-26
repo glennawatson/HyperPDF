@@ -19,14 +19,8 @@ namespace HyperPdf.ViewModels.Markup;
 /// Escape cancels placing without changing the document. Remembering a mark is the user's choice.
 /// </summary>
 [DebuggerDisplay("FillAndSignViewModel: Fill & Sign: {IsActive}, placing {Placement}")]
-public sealed partial class FillAndSignViewModel : ReactiveObject
+public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisationChildren
 {
-    /// <summary>The steps shown while a mark is being placed.</summary>
-    public static readonly string PlacingHint = "Arrow keys move it; hold Shift for small steps. + and − resize it. Page Up and Page Down change page. Enter places it. Escape cancels.";
-
-    /// <summary>The hint shown while filling forms.</summary>
-    public static readonly string FillingHint = "Click a form field to fill it in, or click anywhere on the page and type. Tab moves between fields.";
-
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
 
@@ -54,6 +48,12 @@ public sealed partial class FillAndSignViewModel : ReactiveObject
         _isPlacing = this.WhenChanged(static vm => vm.Placement).Select(static placement => placement is not null);
         _canChangePlaced = this.WhenChanged(static vm => vm.HasPlacedMark, static vm => vm.Placement, static (placed, placement) => placed && placement is null);
     }
+
+    /// <summary>Gets the steps shown while a mark is being placed.</summary>
+    public static string PlacingHint => UiText.Get("Arrow keys move it; hold Shift for small steps. + and − resize it. Page Up and Page Down change page. Enter places it. Escape " + "cancels.");
+
+    /// <summary>Gets the hint shown while filling forms.</summary>
+    public static string FillingHint => UiText.Get("Click a form field to fill it in, or click anywhere on the page and type. Tab moves between fields.");
 
     /// <summary>Gets the interaction showing the window that makes a signature or initials; the output says whether to use it.</summary>
     public Interaction<SignatureMarkViewModel, bool> MarkInteraction { get; } = new();
@@ -169,7 +169,7 @@ public sealed partial class FillAndSignViewModel : ReactiveObject
         _adjusting = null;
         if (Annotations.PlaceMark(placement.Page, placement.Bounds, placement.Mark) is not { } placed)
         {
-            _owner.Notice = "The mark could not be placed on this page.";
+            _owner.SetNotice(LocalizedMessage.Get(UiText, "The mark could not be placed on this page."));
             return false;
         }
 
@@ -201,6 +201,14 @@ public sealed partial class FillAndSignViewModel : ReactiveObject
         }
 
         return true;
+    }
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(Hint));
+        LocalisationRefresh.RefreshCore(_owner, visited);
+        LocalisationRefresh.RefreshCore(_services, visited);
     }
 
     /// <summary>Picks what to remember after the mark window closes.</summary>

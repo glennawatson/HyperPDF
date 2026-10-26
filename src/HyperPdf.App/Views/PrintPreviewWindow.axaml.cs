@@ -23,8 +23,9 @@ public sealed partial class PrintPreviewWindow : ReactiveUI.Avalonia.ReactiveWin
         SheetList.ItemTemplate = new FuncDataTemplate<PrintPreviewPage>(static (_, _) => new PrintPreviewPageView());
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(ItemAutomation.NameItems(SheetList));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.Title, static name => $"Print {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.Title, static name => UiText.Format("Print {0}", name)));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Summary, static v => v.SummaryText.Text));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Sheets, static v => v.SheetList.ItemsSource));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedSheetIndex, static v => v.SheetList.SelectedIndex));
@@ -44,5 +45,17 @@ public sealed partial class PrintPreviewWindow : ReactiveUI.Avalonia.ReactiveWin
             // Start on the first setting; the sheets are a preview, so the keyboard begins where choices are made.
             _ = PrinterSettings.DestinationBox.Focus();
         });
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        Title = UiText.Format("Print {0}", model.FileName);
+        PrintButton.Content = model.Destination.ButtonText;
     }
 }

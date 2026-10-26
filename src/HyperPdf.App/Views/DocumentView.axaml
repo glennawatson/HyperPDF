@@ -1,17 +1,17 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.DocumentView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding, in the views this one is made of. -->
   <DockPanel>
     <!-- Read mode's only control: the way back to the tool bars. -->
-    <Border x:Name="ReadModeBar" DockPanel.Dock="Top" Classes="toolbar subbar" AutomationProperties.Name="Read mode" AutomationProperties.ControlTypeOverride="ToolBar">
+    <Border x:Name="ReadModeBar" DockPanel.Dock="Top" Classes="toolbar subbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Read mode&quot;}" AutomationProperties.ControlTypeOverride="ToolBar">
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock x:Name="ReadModeTitle" Classes="secondary" VerticalAlignment="Center" Margin="12,0" TextTrimming="CharacterEllipsis" />
-        <Button Grid.Column="1" AutomationProperties.Name="Leave Read Mode" x:Name="LeaveReadModeButton" views:ControlHelp.Text="{x:Static help:Descriptions.LeaveReadMode}" Classes="tool">
+        <Button Grid.Column="1" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Leave Read Mode&quot;}" x:Name="LeaveReadModeButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Bring back the tool bars and sidebar. Shortcut: Esc or Ctrl+H&quot;}" Classes="tool">
           <StackPanel Orientation="Horizontal">
             <Path Classes="icon nav" Data="{StaticResource IconDone}" />
-            <TextBlock Classes="label" Text="Leave Read Mode" />
+            <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Leave Read Mode&quot;}" />
           </StackPanel>
         </Button>
       </Grid>
@@ -19,7 +19,7 @@
     <!-- Everything above the pages; hidden while presenting or reading. -->
     <StackPanel x:Name="Chrome" DockPanel.Dock="Top">
       <!-- Named menus keep related actions together. Their labels stay visible in icons-only mode. -->
-      <Border x:Name="MainToolBar" Classes="toolbar" AutomationProperties.Name="Tool bar" AutomationProperties.LandmarkType="Navigation" AutomationProperties.ControlTypeOverride="ToolBar">
+      <Border x:Name="MainToolBar" Classes="toolbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tool bar&quot;}" AutomationProperties.LandmarkType="Navigation" AutomationProperties.ControlTypeOverride="ToolBar">
         <!-- Rows in reading order, so Tab moves through the top row before the one beneath it. -->
         <StackPanel>
           <views:NavigationBarView x:Name="Navigation" />
@@ -41,8 +41,8 @@
 
     <Grid ColumnDefinitions="Auto,Auto,*">
       <views:SidebarView x:Name="SidebarPane" Grid.Column="0" />
-      <GridSplitter x:Name="SidebarSplitter" views:ControlHelp.Text="{x:Static help:Descriptions.SidebarSplitter}" Grid.Column="1" Width="1" Background="{DynamicResource AppBorderBrush}" />
-      <views:PageCanvasView x:Name="PageArea" Grid.Column="2" AutomationProperties.Name="Pages" AutomationProperties.LandmarkType="Main" />
+      <GridSplitter x:Name="SidebarSplitter" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Drag to make the sidebar wider or narrower.&quot;}" Grid.Column="1" Width="1" Background="{DynamicResource AppBorderBrush}" />
+      <views:PageCanvasView x:Name="PageArea" Grid.Column="2" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pages&quot;}" AutomationProperties.LandmarkType="Main" />
     </Grid>
   </DockPanel>
 </UserControl>

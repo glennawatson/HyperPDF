@@ -1,11 +1,11 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.TabBarView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (TabBarView.axaml.cs). -->
   <Border Classes="tabbar">
     <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-      <ListBox x:Name="TabStrip" AutomationProperties.Name="Open documents" Classes="tabstrip"
+      <ListBox x:Name="TabStrip" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open documents&quot;}" Classes="tabstrip"
                ScrollViewer.HorizontalScrollBarVisibility="Hidden" ScrollViewer.VerticalScrollBarVisibility="Disabled">
         <ListBox.ItemsPanel>
           <ItemsPanelTemplate>
@@ -15,10 +15,10 @@
         </ListBox.ItemsPanel>
       </ListBox>
       <views:TabFinderView x:Name="TabFinder" Grid.Column="1" />
-      <Button AutomationProperties.Name="Open" x:Name="OpenButton" views:ControlHelp.Text="{x:Static help:Descriptions.Open}" Grid.Column="2" Classes="tool">
+      <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open&quot;}" x:Name="OpenButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose PDF files to open. Shortcut: Ctrl+O&quot;}" Grid.Column="2" Classes="tool">
         <StackPanel Orientation="Horizontal">
           <Path Classes="icon add" Data="{StaticResource IconAdd}" />
-          <TextBlock Classes="label" Text="Open" />
+          <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Open&quot;}" />
         </StackPanel>
       </Button>
       <views:TabsMenuView x:Name="TabsMenu" Grid.Column="3" />

@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Flattening;
 
@@ -23,7 +22,7 @@ internal static class FlattenCopyText
         ArgumentNullException.ThrowIfNull(result);
         if (!result.Flattened)
         {
-            var problems = new List<string>(result.Problems.Count + 1) { "The copy could not be flattened, so no file was saved. Here is why:" };
+            var problems = new List<string>(result.Problems.Count + 1) { UiText.Get("The copy could not be flattened, so no file was saved. Here is why:") };
             foreach (var problem in result.Problems)
             {
                 problems.Add($"• {problem.Description}");
@@ -34,13 +33,13 @@ internal static class FlattenCopyText
 
         var lines = new List<string>(result.Notes.Count + HeadingLines)
         {
-            $"Saved as {Path.GetFileName(path)}. Your open file was not changed.",
-            $"{Count(result.FormFieldsFlattened, "form field")} now part of the page and can no longer be filled in.",
-            $"{Count(result.AnnotationsFlattened, "comment, highlight or other mark")} now part of the page and can no longer be edited.",
+            UiText.Format("Saved as {0}. Your open file was not changed.", Path.GetFileName(path)),
+            UiText.Format("{0} now part of the page and can no longer be filled in.", Count(result.FormFieldsFlattened, UiText.Get("form field"))),
+            UiText.Format("{0} now part of the page and can no longer be edited.", Count(result.AnnotationsFlattened, UiText.Get("comment, highlight or other mark"))),
         };
         if (result.FormRemoved)
         {
-            lines.Add("The form was removed, because every field was flattened.");
+            lines.Add(UiText.Get("The form was removed, because every field was flattened."));
         }
 
         foreach (var note in result.Notes)
@@ -57,5 +56,5 @@ internal static class FlattenCopyText
     /// <returns>The words, such as "3 form fields are".</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string Count(int count, string noun) =>
-        string.Create(CultureInfo.InvariantCulture, $"{count} {noun}{(count == 1 ? " is" : "s are")}");
+        $"{count} {noun}{(count == 1 ? UiText.Get(" is") : UiText.Get("s are"))}";
 }

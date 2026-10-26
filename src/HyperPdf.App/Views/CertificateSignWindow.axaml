@@ -1,50 +1,50 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.CertificateSignWindow"
-        Title="Sign with Certificate" Width="520" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner"
+        Title="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sign with Certificate&quot;}" Width="520" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
   <StackPanel Margin="20" Spacing="12">
     <TextBlock Classes="secondary" TextWrapping="Wrap"
-               Text="Signs a copy of this document with your digital certificate. People who open it can check who signed it and that it has not changed since." />
+               Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Signs a copy of this document with your digital certificate. People who open it can check who signed it and that it has not changed since.&quot;}" />
     <Grid x:Name="RememberedRow" ColumnDefinitions="110,*,Auto">
-      <TextBlock Text="Remembered" VerticalAlignment="Center" />
-      <ComboBox x:Name="RememberedBox" views:ControlHelp.Text="{x:Static help:Descriptions.RememberedCertificates}" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="Remembered certificates" />
-      <Button x:Name="ForgetButton" views:ControlHelp.Text="{x:Static help:Descriptions.ForgetCertificate}" Grid.Column="2" Margin="8,0,0,0" AutomationProperties.Name="Forget certificate" Content="Forget" />
+      <TextBlock TextWrapping="Wrap" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remembered&quot;}" VerticalAlignment="Center" />
+      <ComboBox x:Name="RememberedBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pick a certificate you asked this computer to remember.&quot;}" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remembered certificates&quot;}" />
+      <Button x:Name="ForgetButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Forget the picked certificate. The certificate file itself is not changed.&quot;}" Grid.Column="2" Margin="8,0,0,0" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Forget certificate&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Forget&quot;}" />
     </Grid>
     <Grid ColumnDefinitions="110,*,Auto">
-      <TextBlock x:Name="CertificateLabel" Text="Certificate" VerticalAlignment="Center" />
-      <TextBox x:Name="CertificateBox" views:ControlHelp.Text="{x:Static help:Descriptions.CertificateFile}" Grid.Column="1" AutomationProperties.Name="Certificate file" PlaceholderText=".p12 or .pfx file" />
-      <Button x:Name="BrowseButton" views:ControlHelp.Text="{x:Static help:Descriptions.ChooseCertificate}" Grid.Column="2" Margin="8,0,0,0" AutomationProperties.Name="Choose certificate file" Content="Choose…" />
+      <TextBlock TextWrapping="Wrap" x:Name="CertificateLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Certificate&quot;}" VerticalAlignment="Center" />
+      <TextBox x:Name="CertificateBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type where your certificate file is, a .p12 or .pfx file.&quot;}" Grid.Column="1" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Certificate file&quot;}" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;.p12 or .pfx file&quot;}" />
+      <Button x:Name="BrowseButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose your certificate file from a folder.&quot;}" Grid.Column="2" Margin="8,0,0,0" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose certificate file&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose…&quot;}" />
     </Grid>
     <Grid ColumnDefinitions="110,*">
-      <TextBlock x:Name="PasswordLabel" Text="Password" VerticalAlignment="Center" />
-      <TextBox x:Name="PasswordBox" views:ControlHelp.Text="{x:Static help:Descriptions.CertificatePassword}" Grid.Column="1" PasswordChar="●" AutomationProperties.Name="Certificate password" />
+      <TextBlock TextWrapping="Wrap" x:Name="PasswordLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Password&quot;}" VerticalAlignment="Center" />
+      <TextBox x:Name="PasswordBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the password for your certificate. It is never saved.&quot;}" Grid.Column="1" PasswordChar="●" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Certificate password&quot;}" />
     </Grid>
-    <CheckBox x:Name="RememberCheck" Margin="110,0,0,0" views:ControlHelp.Text="{x:Static help:Descriptions.RememberCertificate}"
-              Content="Remember this certificate on this computer. The password is never saved." />
+    <CheckBox x:Name="RememberCheck" Margin="110,0,0,0" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Offer this certificate next time. Only where the file is and the name in it are kept, never the password.&quot;}"
+              Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remember this certificate on this computer. The password is never saved.&quot;}" />
     <Grid ColumnDefinitions="110,*">
-      <TextBlock x:Name="ReasonLabel" Text="Reason" VerticalAlignment="Center" />
-      <TextBox x:Name="ReasonBox" views:ControlHelp.Text="{x:Static help:Descriptions.SigningReason}" Grid.Column="1" AutomationProperties.Name="Reason" PlaceholderText="Optional, for example Approved" />
-    </Grid>
-    <Grid ColumnDefinitions="110,*">
-      <TextBlock x:Name="LocationLabel" Text="Location" VerticalAlignment="Center" />
-      <TextBox x:Name="LocationBox" views:ControlHelp.Text="{x:Static help:Descriptions.SigningLocation}" Grid.Column="1" AutomationProperties.Name="Location" PlaceholderText="Optional" />
+      <TextBlock TextWrapping="Wrap" x:Name="ReasonLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Reason&quot;}" VerticalAlignment="Center" />
+      <TextBox x:Name="ReasonBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Optional. Type why you are signing, such as Approved.&quot;}" Grid.Column="1" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Reason&quot;}" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Optional, for example Approved&quot;}" />
     </Grid>
     <Grid ColumnDefinitions="110,*">
-      <TextBlock x:Name="KindLabel" Text="Signature" VerticalAlignment="Center" />
-      <ComboBox x:Name="KindBox" views:ControlHelp.Text="{x:Static help:Descriptions.SignatureKind}" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="Signature kind" />
+      <TextBlock TextWrapping="Wrap" x:Name="LocationLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Location&quot;}" VerticalAlignment="Center" />
+      <TextBox x:Name="LocationBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Optional. Type where you are signing.&quot;}" Grid.Column="1" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Location&quot;}" PlaceholderText="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Optional&quot;}" />
     </Grid>
-    <CheckBox x:Name="VisibleCheck" Margin="110,0,0,0" views:ControlHelp.Text="{x:Static help:Descriptions.VisibleSignature}"
-              Content="Show the signature on the page, in the bottom left corner." />
+    <Grid ColumnDefinitions="110,*">
+      <TextBlock TextWrapping="Wrap" x:Name="KindLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Signature&quot;}" VerticalAlignment="Center" />
+      <ComboBox x:Name="KindBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose a plain approval, or certify the document and say which later changes are allowed.&quot;}" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Signature kind&quot;}" />
+    </Grid>
+    <CheckBox x:Name="VisibleCheck" Margin="110,0,0,0" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Draws the signer, reason, location and date on the page, so people can see the signature.&quot;}"
+              Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Show the signature on the page, in the bottom left corner.&quot;}" />
     <StackPanel x:Name="PreviewPanel" Spacing="4">
-      <TextBlock x:Name="PreviewHeading" Classes="secondary" Text="What will be signed" />
-      <TextBlock x:Name="PreviewText" Focusable="True" TextWrapping="Wrap" AutomationProperties.Name="What will be signed" AutomationProperties.LiveSetting="Polite" />
+      <TextBlock TextWrapping="Wrap" x:Name="PreviewHeading" Classes="secondary" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;What will be signed&quot;}" />
+      <TextBlock x:Name="PreviewText" Focusable="True" TextWrapping="Wrap" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;What will be signed&quot;}" AutomationProperties.LiveSetting="Polite" />
     </StackPanel>
     <TextBlock x:Name="ErrorText" AutomationProperties.LiveSetting="Assertive" TextWrapping="Wrap" />
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-      <Button x:Name="CancelButton" views:ControlHelp.Text="{x:Static help:Descriptions.Cancel}" Content="Cancel" IsCancel="True" />
-      <Button x:Name="SignButton" views:ControlHelp.Text="{x:Static help:Descriptions.Sign}" Content="Sign…" IsDefault="True" />
+      <Button x:Name="CancelButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close this window without making any changes. Shortcut: Esc&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Cancel&quot;}" IsCancel="True" />
+      <Button x:Name="SignButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose where to save the signed copy, then sign it.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sign…&quot;}" IsDefault="True" />
     </StackPanel>
   </StackPanel>
 </Window>

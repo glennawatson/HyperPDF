@@ -124,18 +124,11 @@ internal static class DesktopThemeApplier
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Color ToColor(uint rgb) => Color.FromUInt32(Opaque | rgb);
 
-    /// <summary>Converts 0xRRGGBB and an alpha to a colour.</summary>
-    /// <param name="rgb">The colour.</param>
-    /// <param name="alpha">The alpha.</param>
-    /// <returns>The Avalonia colour.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Color ToColor(uint rgb, byte alpha) => Color.FromUInt32(((uint)alpha << AlphaShift) | rgb);
-
-    /// <summary>Sets the application brushes.</summary>
-    /// <param name="resources">The application resources.</param>
+    /// <summary>Sets the theme's brushes in a resource dictionary, so a single window can show a theme without changing the application.</summary>
+    /// <param name="resources">The resources to fill, such as the application's or a window's.</param>
     /// <param name="scheme">The scheme.</param>
     /// <param name="theme">The theme.</param>
-    private static void ApplyResources(IResourceDictionary resources, ColorScheme scheme, ResolvedTheme theme)
+    internal static void ApplyResources(IResourceDictionary resources, ColorScheme scheme, ResolvedTheme theme)
     {
         var tints = scheme.Tints;
         resources["AppWindowBackground"] = Brush(ColorMath.Shade(scheme.Window, TabBarShade));
@@ -161,6 +154,13 @@ internal static class DesktopThemeApplier
         resources["AppPaperBrush"] = Brush(paper);
         resources["AppDimBrush"] = new SolidColorBrush(ToColor(paper, DimAlpha));
     }
+
+    /// <summary>Converts 0xRRGGBB and an alpha to a colour.</summary>
+    /// <param name="rgb">The colour.</param>
+    /// <param name="alpha">The alpha.</param>
+    /// <returns>The Avalonia colour.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Color ToColor(uint rgb, byte alpha) => Color.FromUInt32(((uint)alpha << AlphaShift) | rgb);
 
     /// <summary>Builds a Fluent palette from a scheme.</summary>
     /// <param name="scheme">The scheme.</param>

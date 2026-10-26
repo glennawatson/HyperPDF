@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.SignaturesWindow"
@@ -6,6 +6,6 @@
         Background="{DynamicResource AppWindowBackground}">
   <StackPanel Margin="20" Spacing="16">
     <ItemsControl x:Name="SignatureList" />
-    <Button x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseWindow}" HorizontalAlignment="Right" Content="Close" IsDefault="True" IsCancel="True" />
+    <Button x:Name="CloseButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close this window. Shortcut: Esc&quot;}" HorizontalAlignment="Right" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close&quot;}" IsDefault="True" IsCancel="True" />
   </StackPanel>
 </Window>

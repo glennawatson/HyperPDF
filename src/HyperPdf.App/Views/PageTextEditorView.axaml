@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:controls="using:HyperPdf.App.Controls"
              xmlns:views="using:HyperPdf.App.Views"
@@ -7,7 +7,7 @@
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (PageTextEditorView.axaml.cs). -->
   <Canvas>
     <!-- Text typed on the page sits where it will be written, in its own font, size and colour. -->
-    <TextBox x:Name="PageTextEditor" views:ControlHelp.Text="{x:Static help:Descriptions.PageText}" AutomationProperties.Name="Text on page" Classes="pagetext" AcceptsReturn="True" IsVisible="False" />
+    <TextBox x:Name="PageTextEditor" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type here. Enter starts a new line, a click elsewhere keeps the text and Escape cancels. Shortcut: Ctrl+Enter&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Text on page&quot;}" Classes="pagetext" AcceptsReturn="True" IsVisible="False" />
     <!-- Underlines the typed text, which the editor cannot do itself; the pointer passes through it. -->
     <controls:PageTextUnderline x:Name="PageTextUnderline" IsHitTestVisible="False" RenderTransformOrigin="0%,0%" />
     <!-- The quick formats sit just above the text, so nobody has to look to the top of the window. -->

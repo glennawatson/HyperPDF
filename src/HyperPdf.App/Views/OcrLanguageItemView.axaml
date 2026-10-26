@@ -1,19 +1,23 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.OcrLanguageItemView">
   <!-- Fixed columns, so a row's buttons never move when its pack is downloaded or removed. -->
   <Grid ColumnDefinitions="170,*,110" ColumnSpacing="8" Margin="0,2">
     <CheckBox x:Name="UseLanguageBox" Grid.Column="0"
-              views:ControlHelp.Text="{x:Static help:Descriptions.UseLanguage}" />
+              views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Tick to find words in this language. Tick more than one for documents that mix languages.&quot;}" />
     <TextBlock x:Name="LanguageStatusText" Grid.Column="1" Classes="secondary" VerticalAlignment="Center" TextWrapping="Wrap" />
     <Panel Grid.Column="2">
-      <Button x:Name="DownloadLanguageButton" Content="Download" HorizontalAlignment="Stretch"
-              AutomationProperties.Name="Download language pack"
-              views:ControlHelp.Text="{x:Static help:Descriptions.DownloadLanguage}" />
-      <Button x:Name="RemoveLanguageButton" Content="Remove" HorizontalAlignment="Stretch"
-              AutomationProperties.Name="Remove language pack"
-              views:ControlHelp.Text="{x:Static help:Descriptions.RemoveLanguage}" />
+      <Button x:Name="DownloadLanguageButton" HorizontalAlignment="Stretch"
+              AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Download language pack&quot;}"
+              views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Download this language and keep it on this computer, so words in it can be found.&quot;}">
+        <TextBlock Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Download&quot;}" TextWrapping="Wrap" TextAlignment="Center" />
+      </Button>
+      <Button x:Name="RemoveLanguageButton" HorizontalAlignment="Stretch"
+              AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove language pack&quot;}"
+              views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Delete this language from this computer to free space. You can download it again later.&quot;}">
+        <TextBlock Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove&quot;}" TextWrapping="Wrap" TextAlignment="Center" />
+      </Button>
     </Panel>
   </Grid>
 </UserControl>

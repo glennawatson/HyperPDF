@@ -1,24 +1,24 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.AnnotateStampButtonView">
   <!-- Layout only: every binding is made in code with ReactiveUI.Binding (AnnotateStampButtonView.axaml.cs). -->
-  <Button AutomationProperties.Name="Stamp" x:Name="StampButton" views:ControlHelp.Text="{x:Static help:Descriptions.Stamp}" Classes="tool">
+  <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stamp&quot;}" x:Name="StampButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose a stamp, then click on the page to place it.&quot;}" Classes="tool">
     <StackPanel Orientation="Horizontal">
       <Path Classes="icon add" Data="{StaticResource IconStamp}" />
-      <TextBlock x:Name="StampText" Classes="label" Text="Stamp" />
+      <TextBlock TextWrapping="Wrap" x:Name="StampText" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stamp&quot;}" />
     </StackPanel>
     <Button.Flyout>
       <MenuFlyout>
-        <MenuItem x:Name="ApprovedItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampApproved}" Header="_Approved" />
-        <MenuItem x:Name="ReviewedItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampReviewed}" Header="_Reviewed" />
-        <MenuItem x:Name="DraftItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampDraft}" Header="_Draft" />
-        <MenuItem x:Name="ConfidentialItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampConfidential}" Header="_Confidential" />
-        <MenuItem x:Name="FinalItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampFinal}" Header="_Final" />
-        <MenuItem x:Name="NotApprovedItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampNotApproved}" Header="_Not Approved" />
+        <MenuItem x:Name="ApprovedItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use the Approved stamp. Click on the page to place it.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Approved&quot;}" />
+        <MenuItem x:Name="ReviewedItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use the Reviewed stamp. Click on the page to place it.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Reviewed&quot;}" />
+        <MenuItem x:Name="DraftItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use the Draft stamp. Click on the page to place it.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Draft&quot;}" />
+        <MenuItem x:Name="ConfidentialItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use the Confidential stamp. Click on the page to place it.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Confidential&quot;}" />
+        <MenuItem x:Name="FinalItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use the Final stamp. Click on the page to place it.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Final&quot;}" />
+        <MenuItem x:Name="NotApprovedItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Use the Not Approved stamp. Click on the page to place it.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Not Approved&quot;}" />
         <Separator />
-        <MenuItem x:Name="CustomStampItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampCustom}" Header="_Your Own Words…" />
-        <MenuItem x:Name="PictureStampItem" views:ControlHelp.Text="{x:Static help:Descriptions.StampPicture}" Header="_Picture…" />
+        <MenuItem x:Name="CustomStampItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type your own words for a stamp, then click on the page to place it.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Your Own Words…&quot;}" />
+        <MenuItem x:Name="PictureStampItem" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose a picture file to use as a stamp, then click on the page to place it.&quot;}" Header="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Picture…&quot;}" />
       </MenuFlyout>
     </Button.Flyout>
   </Button>

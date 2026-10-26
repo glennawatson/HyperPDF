@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
@@ -35,8 +34,12 @@ public sealed partial class SignaturesWindow : ReactiveUI.Avalonia.ReactiveWindo
         SignatureList.ItemTemplate = new FuncDataTemplate<DocumentSignature>(static (signature, _) => CreateEntry(signature));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(
+                _ => SignatureList.ItemTemplate = new FuncDataTemplate<DocumentSignature>(static (signature, _) => CreateEntry(signature)),
+                ErrorTrace.Write));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Signatures, static v => v.SignatureList.ItemsSource));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.Title, static name => $"Signatures — {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.Title, static name => UiText.Format("Signatures — {0}", name)));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.CloseCommand, static v => v.CloseButton));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.CloseCommand)
                 .SwitchMap(static closed => closed)
@@ -56,17 +59,17 @@ public sealed partial class SignaturesWindow : ReactiveUI.Avalonia.ReactiveWindo
             return panel;
         }
 
-        var who = signature.SignerName.Length > 0 ? signature.SignerName : "Unknown signer";
-        who = signature.IsDocumentTimestamp ? $"Document timestamp by {who}" : who;
+        var who = signature.SignerName.Length > 0 ? signature.SignerName : UiText.Get("Unknown signer");
+        who = signature.IsDocumentTimestamp ? UiText.Format("Document timestamp by {0}", who) : who;
         var heading = new TextBlock { Text = who, FontWeight = FontWeight.SemiBold };
 
         // Each signer starts a section, so a screen reader can move from one signature to the next by heading.
         AutomationProperties.SetHeadingLevel(heading, SignerHeadingLevel);
         panel.Children.Add(heading);
         panel.Children.Add(new TextBlock { Text = signature.Summary, TextWrapping = TextWrapping.Wrap });
-        AddDetail(panel, signature.SigningTime is { } time ? string.Create(CultureInfo.CurrentCulture, $"Signed {time.ToLocalTime():f}") : null);
-        AddDetail(panel, signature.Reason.Length > 0 ? $"Reason: {signature.Reason}" : null);
-        AddDetail(panel, signature.Issuer.Length > 0 ? $"Certificate issued by {signature.Issuer}" : null);
+        AddDetail(panel, signature.SigningTime is { } time ? UiText.Format("Signed {0:f}", time.ToLocalTime()) : null);
+        AddDetail(panel, signature.Reason.Length > 0 ? UiText.Format("Reason: {0}", signature.Reason) : null);
+        AddDetail(panel, signature.Issuer.Length > 0 ? UiText.Format("Certificate issued by {0}", signature.Issuer) : null);
         AddDetail(panel, signature.TimestampSummary.Length > 0 ? signature.TimestampSummary : null);
         AddDetail(panel, signature.Detail.Length > 0 ? signature.Detail : null);
         return panel;
@@ -85,5 +88,16 @@ public sealed partial class SignaturesWindow : ReactiveUI.Avalonia.ReactiveWindo
         var line = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
         line.Classes.Add("secondary");
         panel.Children.Add(line);
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        Title = UiText.Format("Signatures — {0}", model.FileName);
     }
 }

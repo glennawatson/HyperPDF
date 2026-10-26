@@ -21,7 +21,7 @@ namespace HyperPdf.ViewModels.Viewing;
 /// restarts any wait, and nothing changes by itself unless the settings say so.
 /// </summary>
 [DebuggerDisplay("PagePresentationViewModel: {Current}")]
-public sealed partial class PagePresentationViewModel : ReactiveObject, IDisposable
+public sealed partial class PagePresentationViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The tab that presents.</summary>
     private readonly DocumentTabViewModel _owner;
@@ -47,14 +47,13 @@ public sealed partial class PagePresentationViewModel : ReactiveObject, IDisposa
         _services = services;
         _subscriptions =
         [
+
             owner.WhenChanged(static tab => tab.IsPresenting, static tab => tab.CurrentPageIndex, static (presenting, page) => new Showing(presenting, page))
                 .DistinctUntilChanged()
                 .SubscribeSafe(Show, ErrorTrace.Write),
-
-            // Each step waits out the time its page asked for; the next step, or the end of presenting, ends the wait.
             this.WhenChanged(static vm => vm.Current)
                 .SwitchMap(WaitForAdvance)
-                .SubscribeSafe(_ => Advance(), ErrorTrace.Write),
+                .SubscribeSafe(_ => Advance(), ErrorTrace.Write)
         ];
     }
 
@@ -66,13 +65,18 @@ public sealed partial class PagePresentationViewModel : ReactiveObject, IDisposa
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
 
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        LocalisationRefresh.RefreshCore(_owner, visited);
+        LocalisationRefresh.RefreshCore(_services, visited);
+    }
+
     /// <summary>Waits the time a step's page asked to stay, or never when it asked for none.</summary>
     /// <param name="step">The step.</param>
     /// <returns>A stream that ticks once when the wait is over.</returns>
     private static IObservable<RxVoid> WaitForAdvance(PresentationStep? step) =>
-        step?.AdvanceAfterSeconds is { } seconds
-            ? Signal.Timer(TimeSpan.FromSeconds(seconds), RxSchedulers.MainThreadScheduler).Select(static _ => RxVoid.Default)
-            : Signal.Never<RxVoid>();
+        step?.AdvanceAfterSeconds is { } seconds ? Signal.Timer(TimeSpan.FromSeconds(seconds), RxSchedulers.MainThreadScheduler).Select(static _ => RxVoid.Default) : Signal.Never<RxVoid>();
 
     /// <summary>Plans how the page now shown appears.</summary>
     /// <param name="showing">Whether the tab presents, and the page shown.</param>
@@ -97,7 +101,7 @@ public sealed partial class PagePresentationViewModel : ReactiveObject, IDisposa
         }
 
         _approximationTold = true;
-        _owner.Notice = $"A page asks for a {step.Style} transition. It is shown as a simpler effect.";
+        _owner.SetNotice(LocalizedMessage.Format(UiText, "A page asks for a {0} transition. It is shown as a simpler effect.", step.Style));
     }
 
     /// <summary>Moves to the next page when the page shown asked to move on, unless it is the last.</summary>

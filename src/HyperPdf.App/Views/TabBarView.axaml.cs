@@ -66,12 +66,12 @@ public sealed partial class TabBarView : ReactiveUI.Avalonia.ReactiveUserControl
         {
             ItemsSource = new Control[]
             {
-                new MenuItem { Header = "_Close", Command = viewModel.CloseTabCommand, CommandParameter = menu.Item, InputGesture = new(Key.W, KeyModifiers.Control) },
-                new MenuItem { Header = "Close _Other Tabs", Command = viewModel.CloseOtherTabsCommand, CommandParameter = menu.Item },
-                new MenuItem { Header = "Close _All Tabs", Command = viewModel.CloseAllTabsCommand },
+                new MenuItem { Header = UiText.Get("_Close"), Command = viewModel.CloseTabCommand, CommandParameter = menu.Item, InputGesture = new(Key.W, KeyModifiers.Control) },
+                new MenuItem { Header = UiText.Get("Close _Other Tabs"), Command = viewModel.CloseOtherTabsCommand, CommandParameter = menu.Item },
+                new MenuItem { Header = UiText.Get("Close _All Tabs"), Command = viewModel.CloseAllTabsCommand },
                 new Separator(),
-                new MenuItem { Header = "_Save", Command = menu.Item.SaveCommand, IsEnabled = menu.Item.HasUnsavedChanges },
-                new MenuItem { Header = "Re_load", Command = menu.Item.ReloadCommand },
+                new MenuItem { Header = UiText.Get("_Save"), Command = menu.Item.SaveCommand, IsEnabled = menu.Item.HasUnsavedChanges },
+                new MenuItem { Header = UiText.Get("Re_load"), Command = menu.Item.ReloadCommand },
             },
         }.Open(menu.Source);
 }

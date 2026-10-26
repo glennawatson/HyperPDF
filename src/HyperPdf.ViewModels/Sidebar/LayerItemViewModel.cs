@@ -13,7 +13,7 @@ namespace HyperPdf.ViewModels.Sidebar;
 /// layer is shown but cannot be changed.
 /// </summary>
 [DebuggerDisplay("LayerItemViewModel: {Name} visible={IsVisible}")]
-public sealed partial class LayerItemViewModel : ReactiveObject
+public sealed partial class LayerItemViewModel : ReactiveObject, ILocalisationChildren
 {
     /// <summary>Initializes a new instance of the <see cref="LayerItemViewModel"/> class for an unlocked layer without sublayers.</summary>
     /// <param name="id">The layer's id.</param>
@@ -78,4 +78,8 @@ public sealed partial class LayerItemViewModel : ReactiveObject
     /// <summary>Gets or sets a value indicating whether the entry is expanded.</summary>
     [Reactive]
     public partial bool IsExpanded { get; set; }
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => LocalisationRefresh.RefreshCore(Children, visited);
 }

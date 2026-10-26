@@ -20,7 +20,7 @@ namespace HyperPdf.ViewModels.Sidebar;
 /// are listed but cannot be changed, and Reset returns every layer to the file's own states.
 /// </summary>
 [DebuggerDisplay("LayersViewModel: {Items.Count} top-level entries")]
-public sealed partial class LayersViewModel : ReactiveObject, IDisposable
+public sealed partial class LayersViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
@@ -55,16 +55,17 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
         // The first value is the unselected state before the document is read. A choice made while the tree is rebuilt
         // comes from the rebuild, not the reader. The filter reads the view model's own state: a constructor cannot hand
         // 'this' to a state-passing operator.
-        _subscriptions.Add(this.WhenChanged(static x => x.SelectedConfigurationIndex)
-            .Skip(1)
-            .Where(position => !_updating && (uint)position < (uint)_configurationIds.Count)
-            .SubscribeSafe(UseConfiguration, ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static x => x.SelectedConfigurationIndex).Skip(1).Where(
+                    position => !_updating && (uint)position < (uint)_configurationIds
+                .Count).SubscribeSafe(UseConfiguration, ErrorTrace.Write));
 
         // A file whose layer list follows the visible pages lists its layers again for each page.
-        _subscriptions.Add(owner.WhenChanged(static tab => tab.CurrentPageIndex)
-            .Skip(1)
-            .WhereWith(owner, static (tab, _) => DocumentFeature<ILayerSource>.Get(tab.TryGetDocument()) is { ListMode: DocumentLayerListMode.VisiblePages })
-            .SubscribeSafe(_ => RefreshForPage(), ErrorTrace.Write));
+        _subscriptions.Add(
+            owner.WhenChanged(static tab => tab.CurrentPageIndex).Skip(1).WhereWith(
+                owner,
+                static (tab, _) => DocumentFeature<ILayerSource>
+                .Get(tab.TryGetDocument()) is { ListMode: DocumentLayerListMode.VisiblePages }).SubscribeSafe(_ => RefreshForPage(), ErrorTrace.Write));
 
         // Refilling the tree replaces the subscriptions to the old entries' check boxes.
         _subscriptions.Add(this.WhenChanged(static x => x.ItemChanges).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
@@ -127,6 +128,14 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        LocalisationRefresh.RefreshCore(_owner, visited);
+        LocalisationRefresh.RefreshCore(_byId, visited);
+        LocalisationRefresh.RefreshCore(Items, visited);
+    }
 
     /// <summary>Builds the entries of a level of the tree.</summary>
     /// <param name="nodes">The file's entries.</param>
@@ -268,9 +277,7 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable
             _byId[item.Id] = item;
 
             // The first value is the layer's current state, which the document already has.
-            itemChanges.Add(item.WhenChanged(static x => x.IsVisible)
-                .Skip(1)
-                .SubscribeSafe(visible => SetVisible(item, visible), ErrorTrace.Write));
+            itemChanges.Add(item.WhenChanged(static x => x.IsVisible).Skip(1).SubscribeSafe(visible => SetVisible(item, visible), ErrorTrace.Write));
         }
 
         foreach (var child in item.Children)

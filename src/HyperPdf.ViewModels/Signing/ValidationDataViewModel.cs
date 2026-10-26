@@ -20,17 +20,8 @@ namespace HyperPdf.ViewModels.Signing;
 /// note the signer gives. The open file is never replaced.
 /// </summary>
 [DebuggerDisplay("ValidationDataViewModel: {FileName}")]
-public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindowRequest
+public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindowRequest, ILocalisationChildren
 {
-    /// <summary>Why a chosen destination was refused.</summary>
-    private const string OverwriteMessage = "That would replace the file you have open. Choose a different name for the copy.";
-
-    /// <summary>Why a timestamp cannot be added.</summary>
-    private const string NoServerMessage = "No timestamp server is set. Type its address in Preferences, then try again.";
-
-    /// <summary>The status shown before anything has happened.</summary>
-    private const string ReadyStatus = "Ready. Choose what to add, then Save Copy.";
-
     /// <summary>The bar's value once a copy is saved.</summary>
     private const double FullBar = 100;
 
@@ -54,6 +45,15 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
 
     /// <summary>Whether a run is in progress, so it can be cancelled.</summary>
     private readonly IObservable<bool> _canCancel;
+
+    /// <summary>The completed report and destination retained for language changes.</summary>
+    private (SigningOutcome Report, string Path)? _resultDescription;
+
+    /// <summary>The resource identity of the displayed StatusText.</summary>
+    private LocalizedMessage _localizedStatusText = LocalizedMessage.Get(UiText, "Ready. Choose what to add, then Save Copy.");
+
+    /// <summary>The resource identity of the displayed Error.</summary>
+    private LocalizedMessage _localizedError;
 
     /// <summary>Initializes a new instance of the <see cref="ValidationDataViewModel"/> class that looks answers up over HTTP.</summary>
     /// <param name="signer">The open document's signer.</param>
@@ -104,14 +104,17 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
     /// <summary>Gets the choices: validation data first, then a timestamp.</summary>
     public IReadOnlyList<ValidationActionChoice> Actions { get; } =
     [
+
         new(
             ValidationAction.AddValidationData,
             "Add validation data",
-            "Stores the certificates and the revocation answers (OCSP and CRL) each signature needs, so it can still be checked after the certificates expire. This looks them up on the internet."),
+            "Stores the certificates and the revocation answers (OCSP and CRL) each signature needs, so it can still be checked after the "
+                + "certificates expire. This looks them up on the internet."),
         new(
             ValidationAction.AddTimestamp,
             "Add a document timestamp",
-            "Stamps the whole file with a trusted time from the timestamp server in Preferences, so you can show later that it existed now. Add validation data first, so the stamp covers it."),
+            "Stamps the whole file with a trusted time from the timestamp server in Preferences, so you can show later that it existed now. Add "
+                + "validation data first, so the stamp covers it.")
     ];
 
     /// <summary>Gets the name of the open document.</summary>
@@ -137,12 +140,10 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
     public partial double ProgressPercent { get; private set; }
 
     /// <summary>Gets what the run is doing now, or how it ended.</summary>
-    [Reactive]
-    public partial string StatusText { get; private set; } = ReadyStatus;
+    public string StatusText { get => _localizedStatusText.Value ?? string.Empty; private set => SetStatusText(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets what went wrong, or <see langword="null"/>.</summary>
-    [Reactive]
-    public partial string? Error { get; private set; }
+    public string? Error { get => _localizedError.Value; private set => SetError(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the plain-words summary of the last finished run; empty before one finishes.</summary>
     [Reactive]
@@ -168,6 +169,25 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
 
+    /// <summary>Sets the displayed StatusText while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetStatusText(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedStatusText, message, nameof(StatusText));
+
+    /// <summary>Sets the displayed Error while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetError(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedError, message, nameof(Error));
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        RefreshResultText();
+        this.RaisePropertyChanged(nameof(StatusText));
+        this.RaisePropertyChanged(nameof(Error));
+        LocalisationRefresh.RefreshCore(Actions, visited);
+    }
+
     /// <summary>Stops the copy in progress.</summary>
     [ReactiveCommand(CanExecute = nameof(_canCancel))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -183,10 +203,10 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
     [ReactiveCommand(CanExecute = nameof(_canSave))]
     private async Task SaveAsync()
     {
-        Error = null;
+        SetError(LocalizedMessage.Literal(null));
         if (Action == ValidationAction.AddTimestamp && _timestamper is null)
         {
-            Error = NoServerMessage;
+            SetError(LocalizedMessage.Get(UiText, "No timestamp server is set. Type its address in Preferences, then try again."));
             return;
         }
 
@@ -198,7 +218,7 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
 
         if (SignedCopyFile.IsSameFile(path, _sourcePath))
         {
-            Error = OverwriteMessage;
+            SetError(LocalizedMessage.Get(UiText, "That would replace the file you have open. Choose a different name for the copy."));
             return;
         }
 
@@ -206,25 +226,30 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
         Run = run;
         IsRunning = true;
         ProgressPercent = 0;
+        _resultDescription = null;
         ResultText = string.Empty;
-        StatusText = Action == ValidationAction.AddTimestamp ? "Asking the timestamp server for a trusted time." : "Looking up the certificates and revocation answers. This can take a while.";
+        SetStatusText(
+            Action == ValidationAction.AddTimestamp
+                ? LocalizedMessage.Get(UiText, "Asking the timestamp server for a trusted time.")
+                : LocalizedMessage.Get(UiText, "Looking up the certificates and revocation answers. This can take a while."));
         try
         {
             var outcome = await RunAsync(run.Token).ConfigureAwait(true);
             await SignedCopyFile.WriteAsync(outcome, path, run.Token).ConfigureAwait(true);
             SavedPath = path;
             ProgressPercent = FullBar;
-            StatusText = "Done. The copy is saved.";
-            ResultText = OptimizeReportText.Join(SignedCopyFile.Lines(outcome, path));
+            SetStatusText(LocalizedMessage.Get(UiText, "Done. The copy is saved."));
+            _resultDescription = (outcome, path);
+            RefreshResultText();
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Cancelled. No file was saved.";
+            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
         }
         catch (Exception ex) when (CopyFailure.IsExpected(ex) || ex is HttpRequestException)
         {
-            Error = $"Could not save the copy: {CopyFailure.Describe(ex)}";
-            StatusText = "The copy was not saved.";
+            SetError(LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(ex)));
+            SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
         }
         finally
         {
@@ -248,7 +273,24 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
         // Building the update is CPU work, so it starts on the pool; the lookups then await. The captures are the choices
         // made when the run started, so a change in the window cannot alter a run in progress.
         return action == ValidationAction.AddTimestamp
-            ? Task.Run(() => _signer.AddDocumentTimestampAsync(_timestamper!, SigningDigest.Sha256, cancellationToken).AsTask(), cancellationToken)
+            ? Task.Run(
+            () => _signer.AddDocumentTimestampAsync(
+                _timestamper!,
+                SigningDigest.Sha256,
+                cancellationToken).AsTask(),
+            cancellationToken)
             : Task.Run(() => _signer.AddValidationDataAsync(_revocation, includeVri, cancellationToken).AsTask(), cancellationToken);
+    }
+
+    /// <summary>Rewords the retained report without repeating the operation.</summary>
+    private void RefreshResultText()
+    {
+        if (_resultDescription is not { } description)
+        {
+            return;
+        }
+
+        var(outcome, path) = description;
+        ResultText = OptimizeReportText.Join(SignedCopyFile.Lines(outcome, path));
     }
 }

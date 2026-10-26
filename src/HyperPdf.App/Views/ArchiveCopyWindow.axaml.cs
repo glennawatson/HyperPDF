@@ -23,11 +23,12 @@ public sealed partial class ArchiveCopyWindow : ReactiveUI.Avalonia.ReactiveWind
     public ArchiveCopyWindow()
     {
         InitializeComponent();
-        LevelList.ItemTemplate = new FuncDataTemplate<ArchiveLevelChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
+        LevelList.ItemTemplate = new FuncDataTemplate<ArchiveLevelChoice>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(ItemAutomation.NameItems(LevelList));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Save a PDF/A copy of {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => UiText.Format("Save a PDF/A copy of {0}", name)));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Levels, static v => v.LevelList.ItemsSource));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedLevel, static v => v.LevelList.SelectedItem, static choice => choice, static item => item as ArchiveLevelChoice));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.IsRunning, static v => v.LevelList.IsEnabled, static running => !running));
@@ -56,7 +57,18 @@ public sealed partial class ArchiveCopyWindow : ReactiveUI.Avalonia.ReactiveWind
     /// <returns>A task.</returns>
     private async Task SaveAsync(IInteractionContext<string, string?> context)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Save PDF/A Copy", SuggestedFileName = context.Input, DefaultExtension = "pdf" });
+        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = UiText.Get("Save PDF/A Copy"), SuggestedFileName = context.Input, DefaultExtension = "pdf" });
         context.SetOutput(file?.TryGetLocalPath());
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        HeadingText.Text = UiText.Format("Save a PDF/A copy of {0}", model.FileName);
     }
 }

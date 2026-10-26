@@ -20,7 +20,7 @@ namespace HyperPdf.ViewModels.Preferences;
 /// time text is recognised. Packs download one at a time with steady progress and can be stopped.
 /// </summary>
 [DebuggerDisplay("OcrLanguagesViewModel: Downloading={IsDownloading}")]
-public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
+public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The application services.</summary>
     private readonly AppServices _services;
@@ -36,6 +36,9 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
 
     /// <summary>Stops the download in progress, or <see langword="null"/> when none runs; the download owns its cancellation source.</summary>
     private Action? _stopDownload;
+
+    /// <summary>The resource identity of the displayed StatusText.</summary>
+    private LocalizedMessage _localizedStatusText = LocalizedMessage.Literal(string.Empty);
 
     /// <summary>Initializes a new instance of the <see cref="OcrLanguagesViewModel"/> class.</summary>
     /// <param name="services">The application services.</param>
@@ -53,8 +56,8 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
 
         IsEngineInstalled = services.Ocr.IsEngineInstalled();
         Note = IsEngineInstalled
-            ? "English is included. Other languages download from the Tesseract project on GitHub when you choose them, "
-                + $"and are kept on this computer in {services.Ocr.LanguageDirectory}. Recognised text never leaves this computer."
+            ? UiText.Get("English is included. Other languages download from the Tesseract project on GitHub when you choose them, ")
+            + UiText.Format("and are kept on this computer in {0}. Recognised text never leaves this computer.", services.Ocr.LanguageDirectory)
             : OcrSetup.EngineUnavailableText;
         _isDownloading = this.WhenChanged(static vm => vm.IsDownloading);
 
@@ -80,12 +83,24 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
     public partial double DownloadProgress { get; private set; }
 
     /// <summary>Gets the outcome of the last download or removal, for example "German downloaded.".</summary>
-    [Reactive]
-    public partial string StatusText { get; private set; } = string.Empty;
+    public string StatusText { get => _localizedStatusText.Value ?? string.Empty; private set => SetStatusText(LocalizedMessage.Literal(value)); }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <summary>Sets the displayed StatusText while retaining its resource identity.</summary>
+    /// <param name="message">The message.</param>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public void SetStatusText(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedStatusText, message, nameof(StatusText));
+
+    /// <inheritdoc/>
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(Items));
+        this.RaisePropertyChanged(nameof(StatusText));
+        LocalisationRefresh.RefreshCore(_services, visited);
+    }
 
     /// <summary>Describes packs for people, for example "English and German".</summary>
     /// <param name="packs">The packs.</param>
@@ -103,7 +118,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
             names[i] = packs[i].Name;
         }
 
-        return names.Length == 1 ? names[0] : $"{string.Join(", ", names, 0, names.Length - 1)} and {names[^1]}";
+        return names.Length == 1 ? names[0] : UiText.Format("{0} and {1}", string.Join(", ", names, 0, names.Length - 1), names[^1]);
     }
 
     /// <summary>Downloads packs, then refreshes each language's state.</summary>
@@ -123,30 +138,30 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
         Refresh();
         try
         {
-            StatusText = $"Downloading {DescribePacks(packs)}…";
+            SetStatusText(LocalizedMessage.Format(UiText, "Downloading {0}…", DescribePacks(packs)));
             var progress = new Progress<double>(fraction => DownloadProgress = fraction);
             await _services.Ocr.DownloadAsync(packs, progress, download.Token).ConfigureAwait(true);
-            StatusText = $"{DescribePacks(packs)} downloaded.";
+            SetStatusText(LocalizedMessage.Format(UiText, "{0} downloaded.", DescribePacks(packs)));
         }
         catch (OperationCanceledException)
         {
-            StatusText = "The download stopped. Nothing was half saved; download again when you are ready.";
+            SetStatusText(LocalizedMessage.Get(UiText, "The download stopped. Nothing was half saved; download again when you are ready."));
         }
         catch (HttpRequestException ex)
         {
-            StatusText = $"The language pack could not be downloaded: {ex.Message}";
+            SetStatusText(LocalizedMessage.Format(UiText, "The language pack could not be downloaded: {0}", ex.Message));
         }
         catch (InvalidDataException ex)
         {
-            StatusText = ex.Message;
+            SetStatusText(LocalizedMessage.Literal(ex.Message));
         }
         catch (IOException ex)
         {
-            StatusText = $"The language pack could not be saved: {ex.Message}";
+            SetStatusText(LocalizedMessage.Format(UiText, "The language pack could not be saved: {0}", ex.Message));
         }
         catch (UnauthorizedAccessException ex)
         {
-            StatusText = $"The language pack could not be saved: {ex.Message}";
+            SetStatusText(LocalizedMessage.Format(UiText, "The language pack could not be saved: {0}", ex.Message));
         }
         finally
         {
@@ -163,15 +178,15 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
         try
         {
             _services.Ocr.Remove(item.Pack);
-            StatusText = $"{item.Name} removed.";
+            SetStatusText(LocalizedMessage.Format(UiText, "{0} removed.", item.Name));
         }
         catch (IOException ex)
         {
-            StatusText = $"{item.Name} could not be removed: {ex.Message}";
+            SetStatusText(LocalizedMessage.Format(UiText, "{0} could not be removed: {1}", item.Name, ex.Message));
         }
         catch (UnauthorizedAccessException ex)
         {
-            StatusText = $"{item.Name} could not be removed: {ex.Message}";
+            SetStatusText(LocalizedMessage.Format(UiText, "{0} could not be removed: {1}", item.Name, ex.Message));
         }
 
         Refresh();
@@ -187,15 +202,15 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
     {
         if (downloaded)
         {
-            return "Downloaded";
+            return UiText.Get("Downloaded");
         }
 
         if (bundled)
         {
-            return "Included";
+            return UiText.Get("Included");
         }
 
-        return onComputer ? "On this computer" : $"Not downloaded, {OcrLanguageCatalog.DescribeSize(pack.Bytes)}";
+        return onComputer ? UiText.Get("On this computer") : UiText.Format("Not downloaded, {0}", OcrLanguageCatalog.DescribeSize(pack.Bytes));
     }
 
     /// <summary>Stops the download in progress, keeping packs already finished.</summary>
@@ -218,8 +233,8 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
         Refresh(items);
 
         // A tick or untick on any row writes the chosen languages to the settings.
-        _subscriptions.Add(Signal.Merge(Array.ConvertAll(items, static item => item.WhenChanged(static row => row.IsSelected).Skip(1)))
-            .SubscribeSafe(_ => SaveSelection(), ErrorTrace.Write));
+        _subscriptions.Add(
+            Signal.Merge(Array.ConvertAll(items, static item => item.WhenChanged(static row => row.IsSelected).Skip(1))).SubscribeSafe(_ => SaveSelection(), ErrorTrace.Write));
         return items;
     }
 
@@ -240,7 +255,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
             item.IsDownloaded = downloaded;
             item.CanDownload = !downloaded && !bundled && !onComputer && !IsDownloading;
             item.CanRemove = downloaded && !IsDownloading;
-            item.StatusText = DescribeState(downloaded, bundled, onComputer, item.Pack);
+            item.SetStatusText(LocalizedMessage.Literal(DescribeState(downloaded, bundled, onComputer, item.Pack)));
         }
     }
 
@@ -258,7 +273,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable
 
         codes.AddRange(_otherCodes);
         _services.Settings.OcrLanguage = OcrLanguageCatalog.Format(codes);
-        StatusText = codes.Count == 0 ? "No language is ticked, so English is used." : string.Empty;
+        SetStatusText(codes.Count == 0 ? LocalizedMessage.Get(UiText, "No language is ticked, so English is used.") : LocalizedMessage.Literal(string.Empty));
         _services.SaveSettings();
     }
 }

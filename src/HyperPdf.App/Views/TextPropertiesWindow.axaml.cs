@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using HyperPdf.App.Controls;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -21,8 +22,8 @@ public sealed partial class TextPropertiesWindow : ReactiveUI.Avalonia.ReactiveW
     {
         InitializeComponent();
         FamilyInput.ItemTemplate = new FuncDataTemplate<string>((name, _) => new TextBlock { Text = name, FontFamily = PageFonts.Get(ViewModel?.PageFontFamilies, name) });
-        AlignmentInput.ItemsSource = TextPropertiesViewModel.Alignments;
-        ColourInput.ItemsSource = TextPropertiesViewModel.ColorNames;
+        ChoiceViews.SetChoices(AlignmentInput, TextPropertiesViewModel.Alignments);
+        ChoiceViews.SetChoices(ColourInput, TextPropertiesViewModel.ColorNames);
         FieldLabels.Link(
             (ContentInput, TextLabel),
             (FamilyInput, FamilyLabel),

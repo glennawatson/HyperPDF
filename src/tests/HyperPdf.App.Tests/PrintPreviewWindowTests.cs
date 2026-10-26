@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.VisualTree;
@@ -112,14 +111,16 @@ public sealed class PrintPreviewWindowTests
     /// <summary>Verifies that the system print action uses readable text even with a dark desktop accent.</summary>
     /// <param name="choice">The interface scheme.</param>
     /// <param name="navyAccent">Whether the desktop supplies a dark blue accent.</param>
+    /// <param name="cancellationToken">Cancellation when the test exceeds its time limit.</param>
     /// <returns>A task.</returns>
     [Test]
+    [Timeout(TimeoutMilliseconds)]
     [Arguments(ColorSchemeChoice.Calm, false)]
     [Arguments(ColorSchemeChoice.Dark, false)]
     [Arguments(ColorSchemeChoice.Light, false)]
     [Arguments(ColorSchemeChoice.HighContrast, false)]
     [Arguments(ColorSchemeChoice.Calm, true)]
-    public async Task SystemDialogTextIsReadable(ColorSchemeChoice choice, bool navyAccent)
+    public async Task SystemDialogTextIsReadable(ColorSchemeChoice choice, bool navyAccent, CancellationToken cancellationToken)
     {
         using var test = new TestServices();
         test.Services.Settings.ColorScheme = choice;
@@ -130,14 +131,18 @@ public sealed class PrintPreviewWindowTests
             theme = theme with { Scheme = theme.Scheme with { Accent = NavyAccent } };
         }
 
-        DesktopThemeApplier.Apply(Application.Current!, theme);
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("print-colour.pdf", 1)]);
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         var window = new PrintPreviewWindow { ViewModel = preview };
+
+        // The theme goes on this window's own resources. Writing it to the application's resources notifies every
+        // window earlier tests opened and left behind, which takes minutes on a macOS runner late in the run.
+        DesktopThemeApplier.ApplyResources(window.Resources, theme.Scheme, theme);
         window.Show();
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             await Assert.That(await UiWait.UntilAsync(() => preview.IsValid && !preview.IsBuilding)).IsTrue();
             var button = window.FindControl<Button>("SystemDialogButton")!;
             var text = button.GetVisualDescendants().OfType<TextBlock>().Single();
@@ -147,7 +152,6 @@ public sealed class PrintPreviewWindowTests
         finally
         {
             window.Close();
-            DesktopThemeApplier.Apply(Application.Current!, ThemeResolver.Resolve(new(), null));
         }
     }
 

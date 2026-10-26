@@ -1,0 +1,16 @@
+{
+  "The file's index of its parts was missing or wrong, so it was rebuilt.": "The file's index of its parts was missing or wrong, so it was rebuilt.",
+  "There was extra data before the start of the file, which was skipped.": "There was extra data before the start of the file, which was skipped.",
+  "A part of the file was not where the index said, so it was found by searching.": "A part of the file was not where the index said, so it was found by searching.",
+  "A block of data had the wrong length, so its end was found by searching.": "A block of data had the wrong length, so its end was found by searching.",
+  "A block of data was never closed, so it was read to the end of its part.": "A block of data was never closed, so it was read to the end of its part.",
+  "A block of data ended early, so the part that could be read is used.": "A block of data ended early, so the part that could be read is used.",
+  "The file's main entry was missing, so it was found by searching.": "The file's main entry was missing, so it was found by searching.",
+  "The file's closing section was missing, so it was made from what was found.": "The file's closing section was missing, so it was made from what was found.",
+  "The list of pages was broken, so the pages were found by searching.": "The list of pages was broken, so the pages were found by searching.",
+  "A page had a size that was reversed or empty, so it was corrected.": "A page had a size that was reversed or empty, so it was corrected.",
+  "A font had bad letter widths, so the usable ones are used.": "A font had bad letter widths, so the usable ones are used.",
+  "A font had a bad letter table, so the usable part is used.": "A font had a bad letter table, so the usable part is used.",
+  "A font had bad details, which were ignored.": "A font had bad details, which were ignored.",
+  "A part of the file was damaged and was repaired.": "A part of the file was damaged and was repaired."
+}

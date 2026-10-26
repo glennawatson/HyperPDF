@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
              xmlns:views="using:HyperPdf.App.Views"
              x:Class="HyperPdf.App.Views.FillSignBarView">
@@ -7,81 +7,81 @@
     Fill & Sign tools: form fields are filled by clicking them. A signature or initials is typed, drawn or taken from a
     picture, previewed on the page, then placed. While placing, the same row shows the placing steps and buttons.
   -->
-  <Border x:Name="FillSignBar" Classes="toolbar subbar" AutomationProperties.Name="Fill and Sign tools" AutomationProperties.ControlTypeOverride="ToolBar">
+  <Border x:Name="FillSignBar" Classes="toolbar subbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fill and Sign tools&quot;}" AutomationProperties.ControlTypeOverride="ToolBar">
     <Grid ColumnDefinitions="*,Auto">
       <StackPanel>
         <WrapPanel>
-          <ToggleButton AutomationProperties.Name="Add Text" x:Name="AddTextTool" views:ControlHelp.Text="{x:Static help:Descriptions.AddText}" Classes="tool">
+          <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Add Text&quot;}" x:Name="AddTextTool" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Click anywhere on the page and type, as on paper. Click a form field to fill it in.&quot;}" Classes="tool">
             <StackPanel Orientation="Horizontal">
               <Path Classes="icon add" Data="{StaticResource IconText}" />
-              <TextBlock Classes="label" Text="Add Text" />
+              <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Add Text&quot;}" />
             </StackPanel>
           </ToggleButton>
-          <Button AutomationProperties.Name="Signature…" x:Name="SignatureButton" views:ControlHelp.Text="{x:Static help:Descriptions.SignatureMark}" Classes="tool">
+          <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Signature…&quot;}" x:Name="SignatureButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type, draw or choose a picture of your signature, then place it on the page.&quot;}" Classes="tool">
             <StackPanel Orientation="Horizontal">
               <Path Classes="icon edit" Data="{StaticResource IconSignature}" />
-              <TextBlock Classes="label" Text="Signature…" />
+              <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Signature…&quot;}" />
             </StackPanel>
           </Button>
-          <Button AutomationProperties.Name="Initials…" x:Name="InitialsButton" views:ControlHelp.Text="{x:Static help:Descriptions.InitialsMark}" Classes="tool">
+          <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Initials…&quot;}" x:Name="InitialsButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type, draw or choose a picture of your initials, then place them on the page.&quot;}" Classes="tool">
             <StackPanel Orientation="Horizontal">
               <Path Classes="icon edit" Data="{StaticResource IconText}" />
-              <TextBlock Classes="label" Text="Initials…" />
+              <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Initials…&quot;}" />
             </StackPanel>
           </Button>
-          <Button AutomationProperties.Name="Sign with Certificate…" x:Name="CertificateSignButton" views:ControlHelp.Text="{x:Static help:Descriptions.CertificateSign}" Classes="tool">
+          <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sign with Certificate…&quot;}" x:Name="CertificateSignButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sign a copy of the document with your digital certificate, a .p12 or .pfx file.&quot;}" Classes="tool">
             <StackPanel Orientation="Horizontal">
               <Path Classes="icon edit" Data="{StaticResource IconCertificate}" />
-              <TextBlock Classes="label" Text="Sign with Certificate…" />
+              <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Sign with Certificate…&quot;}" />
             </StackPanel>
           </Button>
           <StackPanel x:Name="PlacingTools" Orientation="Horizontal">
-            <Button AutomationProperties.Name="Place" x:Name="PlaceMarkButton" views:ControlHelp.Text="{x:Static help:Descriptions.PlaceMark}" Classes="tool">
+            <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Place&quot;}" x:Name="PlaceMarkButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Put the signature on the page where the preview is. Shortcut: Enter&quot;}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon add" Data="{StaticResource IconDone}" />
-                <TextBlock Classes="label" Text="Place" />
+                <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Place&quot;}" />
               </StackPanel>
             </Button>
-            <Button AutomationProperties.Name="Bigger" x:Name="BiggerMarkButton" views:ControlHelp.Text="{x:Static help:Descriptions.BiggerMark}" Classes="tool">
+            <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Bigger&quot;}" x:Name="BiggerMarkButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the signature being placed bigger. Shortcut: +&quot;}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon edit" Data="{StaticResource IconZoomIn}" />
-                <TextBlock Classes="label" Text="Bigger" />
+                <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Bigger&quot;}" />
               </StackPanel>
             </Button>
-            <Button AutomationProperties.Name="Smaller" x:Name="SmallerMarkButton" views:ControlHelp.Text="{x:Static help:Descriptions.SmallerMark}" Classes="tool">
+            <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smaller&quot;}" x:Name="SmallerMarkButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Make the signature being placed smaller. Shortcut: -&quot;}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon edit" Data="{StaticResource IconZoomOut}" />
-                <TextBlock Classes="label" Text="Smaller" />
+                <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Smaller&quot;}" />
               </StackPanel>
             </Button>
-            <Button AutomationProperties.Name="Cancel Placing" x:Name="CancelPlacementButton" views:ControlHelp.Text="{x:Static help:Descriptions.CancelPlacement}" Classes="tool">
+            <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Cancel Placing&quot;}" x:Name="CancelPlacementButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop placing the signature. The document is not changed. Shortcut: Escape&quot;}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon remove" Data="{StaticResource IconClose}" />
-                <TextBlock Classes="label" Text="Cancel" />
+                <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Cancel&quot;}" />
               </StackPanel>
             </Button>
           </StackPanel>
           <StackPanel x:Name="PlacedTools" Orientation="Horizontal">
-            <Button AutomationProperties.Name="Adjust Mark" x:Name="AdjustMarkButton" views:ControlHelp.Text="{x:Static help:Descriptions.AdjustMark}" Classes="tool">
+            <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Adjust Mark&quot;}" x:Name="AdjustMarkButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Pick up the signature you just placed so you can move or resize it again.&quot;}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon edit" Data="{StaticResource IconCursor}" />
-                <TextBlock Classes="label" Text="Adjust" />
+                <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Adjust&quot;}" />
               </StackPanel>
             </Button>
-            <Button AutomationProperties.Name="Remove Mark" x:Name="RemoveMarkButton" views:ControlHelp.Text="{x:Static help:Descriptions.RemoveMark}" Classes="tool">
+            <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove Mark&quot;}" x:Name="RemoveMarkButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Take the signature you just placed off the page.&quot;}" Classes="tool">
               <StackPanel Orientation="Horizontal">
                 <Path Classes="icon remove" Data="{StaticResource IconClose}" />
-                <TextBlock Classes="label" Text="Remove" />
+                <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove&quot;}" />
               </StackPanel>
             </Button>
           </StackPanel>
         </WrapPanel>
         <TextBlock x:Name="FillSignHint" Classes="secondary" TextWrapping="Wrap" Margin="8,0,8,4" />
       </StackPanel>
-      <Button Grid.Column="1" AutomationProperties.Name="Done" x:Name="FillSignDoneButton" views:ControlHelp.Text="{x:Static help:Descriptions.FillSignDone}" Classes="tool">
+      <Button Grid.Column="1" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Done&quot;}" x:Name="FillSignDoneButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Put the Fill &amp; Sign tools away.&quot;}" Classes="tool">
         <StackPanel Orientation="Horizontal">
           <Path Classes="icon nav" Data="{StaticResource IconDone}" />
-          <TextBlock Classes="label" Text="Done" />
+          <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Done&quot;}" />
         </StackPanel>
       </Button>
     </Grid>

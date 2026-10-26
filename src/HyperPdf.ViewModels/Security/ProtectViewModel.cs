@@ -18,9 +18,6 @@ namespace HyperPdf.ViewModels.Security;
 [DebuggerDisplay("ProtectViewModel: {FileName}")]
 public sealed partial class ProtectViewModel : ProtectionRunViewModel
 {
-    /// <summary>The status shown before anything has happened.</summary>
-    private const string ReadyStatus = "Ready. Choose Save Protected Copy to make the file.";
-
     /// <summary>The protector the open document provides.</summary>
     private readonly IDocumentProtector _protector;
 
@@ -33,7 +30,7 @@ public sealed partial class ProtectViewModel : ProtectionRunViewModel
         ArgumentNullException.ThrowIfNull(protector);
         _protector = protector;
         Status = protector.GetStatus();
-        StatusText = ReadyStatus;
+        SetStatusText(LocalizedMessage.Get(UiText, "Ready. Choose Save Protected Copy to make the file."));
         SelectedFormat = ProtectionChecks.Formats[0];
         _accessibilityWarningHelper = this.WhenChanged(static vm => vm.AllowAccessibility, static vm => vm.SelectedFormat, ProtectionChecks.AccessibilityWarning)
             .ToProperty(this, static vm => vm.AccessibilityWarning);
@@ -143,18 +140,18 @@ public sealed partial class ProtectViewModel : ProtectionRunViewModel
     [ReactiveCommand(CanExecute = nameof(CanStart))]
     private async Task SaveAsync()
     {
-        Error = null;
+        SetError(LocalizedMessage.Literal(null));
         var request = CreateRequest();
         if (ProtectionChecks.Problem(request, UserPasswordRepeat, OwnerPasswordRepeat) is { } problem)
         {
-            Error = problem;
+            SetError(LocalizedMessage.Literal(problem));
             return;
         }
 
         await RunAsync(
             SuggestedName,
-            "Protecting the copy. This can take a while for long files.",
-            "the protection",
+            LocalizedMessage.Get(UiText, "Protecting the copy. This can take a while for long files."),
+            LocalizedMessage.Get(UiText, "the protection"),
             (stream, token) => _protector.ProtectAsync(request, stream, token)).ConfigureAwait(true);
     }
 }

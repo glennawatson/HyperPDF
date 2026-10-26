@@ -1,0 +1,16 @@
+{
+  "The file's index of its parts was missing or wrong, so it was rebuilt.": "Das Verzeichnis der Dateibestandteile fehlte oder war fehlerhaft und wurde deshalb neu aufgebaut.",
+  "There was extra data before the start of the file, which was skipped.": "Vor dem Dateianfang befanden sich zusätzliche Daten, die übersprungen wurden.",
+  "A part of the file was not where the index said, so it was found by searching.": "Ein Dateibestandteil befand sich nicht an der im Verzeichnis angegebenen Stelle und wurde durch Suchen gefunden.",
+  "A block of data had the wrong length, so its end was found by searching.": "Ein Datenblock hatte eine falsche Länge, deshalb wurde sein Ende durch Suchen gefunden.",
+  "A block of data was never closed, so it was read to the end of its part.": "Ein Datenblock wurde nicht abgeschlossen und deshalb bis zum Ende seines Bestandteils gelesen.",
+  "A block of data ended early, so the part that could be read is used.": "Ein Datenblock endete vorzeitig, deshalb wird der lesbare Teil verwendet.",
+  "The file's main entry was missing, so it was found by searching.": "Der Haupteintrag der Datei fehlte und wurde durch Suchen gefunden.",
+  "The file's closing section was missing, so it was made from what was found.": "Der abschließende Abschnitt der Datei fehlte und wurde aus den gefundenen Daten erstellt.",
+  "The list of pages was broken, so the pages were found by searching.": "Die Seitenliste war beschädigt, deshalb wurden die Seiten durch Suchen gefunden.",
+  "A page had a size that was reversed or empty, so it was corrected.": "Die Abmessungen einer Seite waren vertauscht oder leer und wurden korrigiert.",
+  "A font had bad letter widths, so the usable ones are used.": "Eine Schrift hatte fehlerhafte Zeichenbreiten, deshalb werden die brauchbaren Werte verwendet.",
+  "A font had a bad letter table, so the usable part is used.": "Eine Schrift hatte eine fehlerhafte Zeichentabelle, deshalb wird der brauchbare Teil verwendet.",
+  "A font had bad details, which were ignored.": "Eine Schrift hatte fehlerhafte Angaben, die ignoriert wurden.",
+  "A part of the file was damaged and was repaired.": "Ein Dateibestandteil war beschädigt und wurde repariert."
+}

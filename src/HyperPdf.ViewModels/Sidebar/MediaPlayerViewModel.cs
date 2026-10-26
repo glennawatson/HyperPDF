@@ -21,20 +21,13 @@ namespace HyperPdf.ViewModels.Sidebar;
 /// opening it with the system player still work.
 /// </summary>
 [DebuggerDisplay("MediaPlayerViewModel: {State}")]
-public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
+public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>How far the skip buttons move, in seconds.</summary>
     private const double SkipSeconds = 10;
 
     /// <summary>How far a slider value may be from the position and still be taken as the player moving it, in seconds.</summary>
     private const double FollowTolerance = 0.6;
-
-    /// <summary>What the panel says when media cannot be played here.</summary>
-    private const string CannotPlay =
-        "Sound and video cannot be played here. You can still save the media or open it with your system's player.";
-
-    /// <summary>What the panel says before anything is chosen.</summary>
-    private const string ChooseSomething = "Choose a sound or video, then press Play.";
 
     /// <summary>The seconds in a minute, for showing the time.</summary>
     private const int SecondsPerMinute = 60;
@@ -75,6 +68,9 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     /// <summary>The <see cref="DocumentMedia.Index"/> of the loaded media, or -1.</summary>
     private int _loadedIndex = -1;
 
+    /// <summary>The retained status message.</summary>
+    private LocalizedMessage _status;
+
     /// <summary>Initializes a new instance of the <see cref="MediaPlayerViewModel"/> class.</summary>
     /// <param name="media">The owning media list.</param>
     /// <param name="factory">Makes the player of a piece of media.</param>
@@ -82,7 +78,7 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     {
         _media = media;
         _factory = factory;
-        Status = IdleStatus();
+        SetStatus(IdleMessage());
         Clock = string.Empty;
         Caption = string.Empty;
         _canPlay = this.WhenChanged(static vm => vm.CanPlay);
@@ -102,8 +98,7 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     public partial MediaPlayerState State { get; private set; }
 
     /// <summary>Gets what the panel says about the player, in plain words.</summary>
-    [Reactive]
-    public partial string Status { get; private set; }
+    public string Status { get => _status.Value ?? string.Empty; private set => SetStatus(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the position and length, such as <c>0:03 / 0:10</c>.</summary>
     [Reactive]
@@ -201,12 +196,35 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
         SelectionChanged();
     }
 
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        this.RaisePropertyChanged(nameof(Status));
+        LocalisationRefresh.RefreshCore(_media, visited);
+    }
+
     /// <summary>Shows a time as minutes and seconds.</summary>
     /// <param name="time">The time.</param>
     /// <returns>The time, such as <c>1:05</c>.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string Format(TimeSpan time) =>
         string.Create(CultureInfo.InvariantCulture, $"{(int)time.TotalMinutes}:{(int)time.TotalSeconds % SecondsPerMinute:00}");
+
+    /// <summary>Describes why the player could not play the media.</summary>
+    /// <param name="player">The player, when available.</param>
+    /// <returns>The retained problem message.</returns>
+    private static LocalizedMessage PlayerProblem(IMediaPlayback? player) => player switch
+    {
+        MediaPlayerBase { Problem: not null } managed => managed.ProblemMessage,
+        { Problem: { } problem } => LocalizedMessage.Literal(problem),
+        _ => LocalizedMessage.Get(UiText, "This media could not be played."),
+    };
+
+    /// <summary>Sets the displayed message while retaining its resource identity.</summary>
+    /// <param name="message">The retained message.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SetStatus(in LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _status, message, nameof(Status));
 
     /// <summary>Shows a player snapshot.</summary>
     /// <param name="snapshot">The snapshot.</param>
@@ -220,14 +238,14 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
         Caption = snapshot.Caption;
         FrameVersion = snapshot.FrameVersion;
         Clock = $"{Format(snapshot.Position)} / {Format(snapshot.Duration)}";
-        Status = snapshot.State switch
+        SetStatus(snapshot.State switch
         {
-            MediaPlayerState.Playing => "Playing",
-            MediaPlayerState.Paused => "Paused",
-            MediaPlayerState.Ended => "Finished. Press Play to watch or listen again.",
-            MediaPlayerState.Failed => _player?.Problem ?? "This media could not be played.",
-            _ => "Ready. Press Play.",
-        };
+            MediaPlayerState.Playing => LocalizedMessage.Get(UiText, "Playing"),
+            MediaPlayerState.Paused => LocalizedMessage.Get(UiText, "Paused"),
+            MediaPlayerState.Ended => LocalizedMessage.Get(UiText, "Finished. Press Play to watch or listen again."),
+            MediaPlayerState.Failed => PlayerProblem(_player),
+            _ => LocalizedMessage.Get(UiText, "Ready. Press Play."),
+        });
         Refresh();
     }
 
@@ -251,7 +269,7 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
 
         if (_player is null)
         {
-            Status = IdleStatus();
+            SetStatus(IdleMessage());
         }
 
         Refresh();
@@ -259,15 +277,9 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
 
     /// <summary>Says what the panel should say when nothing is loaded.</summary>
     /// <returns>The words.</returns>
-    private string IdleStatus()
-    {
-        if (!IsAvailable)
-        {
-            return CannotPlay;
-        }
-
-        return _media.Selected is null ? ChooseSomething : "Ready. Press Play.";
-    }
+    private LocalizedMessage IdleMessage() => !IsAvailable
+        ? LocalizedMessage.Get(UiText, "Sound and video cannot be played here. You can still save the media or open it with your system's player.")
+        : LocalizedMessage.Get(UiText, _media.Selected is null ? "Choose a sound or video, then press Play." : "Ready. Press Play.");
 
     /// <summary>Writes the chosen media to a temporary file and opens it in a new player.</summary>
     /// <param name="media">The media.</param>
@@ -275,17 +287,17 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
     private async Task<bool> LoadAsync(DocumentMedia media)
     {
         Release();
-        Status = "Opening…";
+        SetStatus(LocalizedMessage.Get(UiText, "Opening…"));
         if (_factory.Create(_media.ReduceMotion) is not { } player)
         {
-            Status = CannotPlay;
+            SetStatus(IdleMessage());
             return false;
         }
 
         var extracted = await _media.ExtractAsync(media).ConfigureAwait(true);
         if (extracted is null)
         {
-            Status = "This media could not be read from the document.";
+            SetStatus(LocalizedMessage.Get(UiText, "This media could not be read from the document."));
             player.Dispose();
             return false;
         }
@@ -293,7 +305,7 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable
         _folder = Path.GetDirectoryName(extracted);
         if (!await player.OpenAsync(extracted, _media.LifetimeToken).ConfigureAwait(true))
         {
-            Status = player.Problem ?? "This media could not be played.";
+            SetStatus(PlayerProblem(player));
             player.Dispose();
             DeleteFolder();
             return false;

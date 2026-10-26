@@ -5,7 +5,6 @@
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdfLibrary;
@@ -19,7 +18,7 @@ namespace HyperPdf.ViewModels.Viewing;
 
 /// <summary>Edits, reorders, imports and extracts the pages in one open document.</summary>
 [DebuggerDisplay("PageManagementViewModel: {Status}")]
-public sealed partial class PageManagementViewModel : ReactiveObject, IDisposable
+public sealed partial class PageManagementViewModel : ReactiveObject, IDisposable, ILocalisationChildren
 {
     /// <summary>The clockwise page rotation in degrees.</summary>
     private const int ClockwiseDegrees = 90;
@@ -87,10 +86,8 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
         // The sidebar's two-way selection binding either replaces the collection or edits it in place; both select the
         // pages it holds. The first value is the collection the view model starts with, which holds nothing yet.
-        _subscriptions.Add(this.WhenChanged(static vm => vm.SelectedThumbnails)
-            .SwitchMap(static thumbnails => thumbnails.Edits)
-            .Skip(1)
-            .SubscribeSafe(SelectThumbnailPages, ErrorTrace.Write));
+        _subscriptions.Add(
+            this.WhenChanged(static vm => vm.SelectedThumbnails).SwitchMap(static thumbnails => thumbnails.Edits).Skip(1).SubscribeSafe(SelectThumbnailPages, ErrorTrace.Write));
         RefreshState();
     }
 
@@ -140,11 +137,11 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Gets the text for the available undo action.</summary>
     [Reactive]
-    public partial string UndoText { get; private set; } = "Undo";
+    public partial string UndoText { get; private set; } = UiText.Get("Undo");
 
     /// <summary>Gets the text for the available redo action.</summary>
     [Reactive]
-    public partial string RedoText { get; private set; } = "Redo";
+    public partial string RedoText { get; private set; } = UiText.Get("Redo");
 
     /// <summary>Gets the interaction asking which PDF files to insert.</summary>
     public Interaction<RxVoid, string[]> InsertInteraction { get; } = new();
@@ -208,17 +205,26 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <summary>Moves the selected pages to an index in the document after removing the selection.</summary>
     /// <param name="destination">The destination index after removal.</param>
     /// <returns>A task completing after the move.</returns>
-    public Task MoveAsync(int destination) => SelectedPages.Count == 0
-        || (uint)destination > (uint)(_owner.PageCount - SelectedPages.Count)
+    public Task MoveAsync(int destination) => SelectedPages.Count == 0 || (uint)destination > (uint)(_owner
+        .PageCount - SelectedPages.Count)
         ? Task.CompletedTask
         : RunEditAsync(
-            static (manager, request, report, token) => manager.ApplyAsync(request, report, token),
-            new(PageEditKind.Move, CopySelectedPages(), destination),
-            "Could not move pages.");
+        static (manager, request, report, token) => manager
+        .ApplyAsync(request, report, token),
+        new(PageEditKind.Move, CopySelectedPages(), destination),
+        UiText.Get("Could not move pages."));
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <inheritdoc/>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited)
+    {
+        RefreshLabelsAndStatus(GetManager(), SelectedPages.Count);
+        LocalisationRefresh.RefreshCore(_owner, visited);
+    }
 
     /// <summary>Determines whether two paths name the same file.</summary>
     /// <param name="first">The first path.</param>
@@ -317,9 +323,11 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Gets a history command label.</summary>
     /// <param name="label">The edit label.</param>
-    /// <param name="prefix">The command name.</param>
+    /// <param name="command">The command name, used alone when there is no edit.</param>
+    /// <param name="withLabel">The command name with the edit's place in it, so each language orders the words itself.</param>
     /// <returns>The command label.</returns>
-    private static string GetHistoryText(string? label, string prefix) => label is null ? prefix : $"{prefix} {label}";
+    private static string GetHistoryText(string? label, string command, string withLabel) =>
+        label is null ? command : UiText.Format(withLabel, UiText.Get(label));
 
     /// <summary>Checks whether an operation failure can be shown as a user notice.</summary>
     /// <param name="exception">The operation failure.</param>
@@ -376,25 +384,25 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <returns>A task.</returns>
     [ReactiveCommand(CanExecute = nameof(_canDelete))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task DeleteAsync() => RunSelectedEditAsync(PageEditKind.Delete, 0, "Could not delete pages.");
+    private Task DeleteAsync() => RunSelectedEditAsync(PageEditKind.Delete, 0, UiText.Get("Could not delete pages."));
 
     /// <summary>Turns the selected pages clockwise by 90 degrees.</summary>
     /// <returns>A task.</returns>
     [ReactiveCommand(CanExecute = nameof(_canEditSelection))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task RotateClockwiseAsync() => RunSelectedEditAsync(PageEditKind.Rotate, ClockwiseDegrees, "Could not rotate pages.");
+    private Task RotateClockwiseAsync() => RunSelectedEditAsync(PageEditKind.Rotate, ClockwiseDegrees, UiText.Get("Could not rotate pages."));
 
     /// <summary>Turns the selected pages counterclockwise by 90 degrees.</summary>
     /// <returns>A task.</returns>
     [ReactiveCommand(CanExecute = nameof(_canEditSelection))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task RotateCounterclockwiseAsync() => RunSelectedEditAsync(PageEditKind.Rotate, CounterclockwiseDegrees, "Could not rotate pages.");
+    private Task RotateCounterclockwiseAsync() => RunSelectedEditAsync(PageEditKind.Rotate, CounterclockwiseDegrees, UiText.Get("Could not rotate pages."));
 
     /// <summary>Copies the selected pages after the last selected page.</summary>
     /// <returns>A task.</returns>
     [ReactiveCommand(CanExecute = nameof(_canEditSelection))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task DuplicateAsync() => RunSelectedEditAsync(PageEditKind.Duplicate, SelectedPages[^1] + 1, "Could not duplicate pages.");
+    private Task DuplicateAsync() => RunSelectedEditAsync(PageEditKind.Duplicate, SelectedPages[^1] + 1, UiText.Get("Could not duplicate pages."));
 
     /// <summary>Moves the selected pages one position earlier.</summary>
     /// <returns>A task.</returns>
@@ -414,23 +422,23 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Task InsertFilesAsync() => RunAsync(
         async (manager, token) =>
-        {
-            var paths = await InsertInteraction.Handle(RxVoid.Default).ToTask(token).WaitAsync(token).ConfigureAwait(true);
-            if (paths.Length > 0)
-            {
-                var index = SelectedPages.Count > 0 ? SelectedPages[0] : Math.Clamp(_owner.CurrentPageIndex, 0, _owner.PageCount);
-                var previousCount = _owner.PageCount;
-                var report = new PageEditReport();
+{
+    var paths = await InsertInteraction.Handle(RxVoid.Default).ToTask(token).WaitAsync(token).ConfigureAwait(true);
+    if (paths.Length > 0)
+    {
+        var index = SelectedPages.Count > 0 ? SelectedPages[0] : Math.Clamp(_owner.CurrentPageIndex, 0, _owner.PageCount);
+        var previousCount = _owner.PageCount;
+        var report = new PageEditReport();
 
-                // The library reads and rewrites the pages before its first await, so the app starts it on the pool.
-                await Task.Run(() => manager.InsertAsync(index, paths, report, token).AsTask(), token).ConfigureAwait(true);
-                ShowSeparationNotice(report);
-                return new(true, () => CopyRange(index, Math.Max(0, _owner.PageCount - previousCount)));
-            }
+        // The library reads and rewrites the pages before its first await, so the app starts it on the pool.
+        await Task.Run(() => manager.InsertAsync(index, paths, report, token).AsTask(), token).ConfigureAwait(true);
+        ShowSeparationNotice(report);
+        return new(true, () => CopyRange(index, Math.Max(0, _owner.PageCount - previousCount)));
+    }
 
-            return default;
-        },
-        "Could not insert pages.",
+    return default;
+    },
+        UiText.Get("Could not insert pages."),
         true);
 
     /// <summary>Asks for PDF files and appends every page to the document.</summary>
@@ -439,21 +447,21 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Task MergeFilesAsync() => RunAsync(
         async (manager, token) =>
-        {
-            var paths = await MergeFilesInteraction.Handle(RxVoid.Default).ToTask(token).WaitAsync(token).ConfigureAwait(true);
-            if (paths.Length > 0)
-            {
-                var index = _owner.PageCount;
-                var previousCount = _owner.PageCount;
-                var report = new PageEditReport();
-                await Task.Run(() => manager.InsertAsync(index, paths, report, token).AsTask(), token).ConfigureAwait(true);
-                ShowSeparationNotice(report);
-                return new(true, () => CopyRange(index, Math.Max(0, _owner.PageCount - previousCount)));
-            }
+{
+    var paths = await MergeFilesInteraction.Handle(RxVoid.Default).ToTask(token).WaitAsync(token).ConfigureAwait(true);
+    if (paths.Length > 0)
+    {
+        var index = _owner.PageCount;
+        var previousCount = _owner.PageCount;
+        var report = new PageEditReport();
+        await Task.Run(() => manager.InsertAsync(index, paths, report, token).AsTask(), token).ConfigureAwait(true);
+        ShowSeparationNotice(report);
+        return new(true, () => CopyRange(index, Math.Max(0, _owner.PageCount - previousCount)));
+    }
 
-            return default;
-        },
-        "Could not merge pages.",
+    return default;
+    },
+        UiText.Get("Could not merge pages."),
         true);
 
     /// <summary>Asks where to save the selected pages, then writes them as a new PDF.</summary>
@@ -462,42 +470,47 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Task ExtractAsync() => RunAsync(
         async (manager, token) =>
+{
+    var suggestedName = Path.GetFileNameWithoutExtension(_owner.FileName) + ExtractedPagesSuffix;
+    var destination = await ExtractInteraction.Handle(suggestedName).ToTask(token).WaitAsync(token).ConfigureAwait(true);
+    if (string.IsNullOrWhiteSpace(destination))
+    {
+        return default;
+    }
+
+    if (SamePath(destination, _owner.FilePath))
+    {
+        _owner.SetNotice(LocalizedMessage.Get(UiText, "Choose a different file so the open document is not replaced."));
+        return default;
+    }
+
+    var temporary = destination + TemporarySuffix + Guid.NewGuid().ToString("N");
+    try
+    {
+        var report = new PageEditReport();
+        await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, FileBufferSize, FileOptions.Asynchronous))
         {
-            var suggestedName = Path.GetFileNameWithoutExtension(_owner.FileName) + ExtractedPagesSuffix;
-            var destination = await ExtractInteraction.Handle(suggestedName).ToTask(token).WaitAsync(token).ConfigureAwait(true);
-            if (string.IsNullOrWhiteSpace(destination))
-            {
-                return default;
-            }
+            var pages = CopySelectedPages();
+            await Task.Run(() => manager.ExtractAsync(pages, stream, report, token).AsTask(), token).ConfigureAwait(true);
+        }
 
-            if (SamePath(destination, _owner.FilePath))
-            {
-                _owner.Notice = "Choose a different file so the open document is not replaced.";
-                return default;
-            }
-
-            var temporary = destination + TemporarySuffix + Guid.NewGuid().ToString("N");
-            try
-            {
-                var report = new PageEditReport();
-                await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, FileBufferSize, FileOptions.Asynchronous))
-                {
-                    var pages = CopySelectedPages();
-                    await Task.Run(() => manager.ExtractAsync(pages, stream, report, token).AsTask(), token).ConfigureAwait(true);
-                }
-
-                File.Move(temporary, destination, true);
-                _owner.Notice = CopyNotice(report) is { } separations
-                    ? $"Extracted {SelectedPages.Count} pages. {separations}"
-                    : $"Extracted {SelectedPages.Count} pages.";
-                return default;
-            }
-            finally
-            {
-                TryDelete(temporary);
-            }
-        },
-        "Could not extract pages.",
+        File.Move(temporary, destination, true);
+        _owner.SetNotice(
+                CopyNotice(report) is { } separations
+                    ? LocalizedMessage.Format(
+                        UiText,
+                        "Extracted {0} pages. {1}",
+                        SelectedPages.Count,
+                        separations)
+                    : LocalizedMessage.Format(UiText, "Extracted {0} pages.", SelectedPages.Count));
+        return default;
+    }
+    finally
+    {
+        TryDelete(temporary);
+    }
+    },
+        UiText.Get("Could not extract pages."),
         false);
 
     /// <summary>Reverts the latest page edit.</summary>
@@ -519,7 +532,11 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <returns>A task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Task RunSelectedEditAsync(PageEditKind kind, int value, string failureMessage) => RunEditAsync(
-        static (manager, request, report, token) => manager.ApplyAsync(request, report, token),
+        static (
+            manager,
+            request,
+            report,
+            token) => manager.ApplyAsync(request, report, token),
         new(kind, CopySelectedPages(), value),
         failureMessage);
 
@@ -534,16 +551,16 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         PageEditRequest request,
         string failureMessage) =>
         RunAsync(
-            async (manager, token) =>
-            {
-                var oldSelection = CopyPages(request.Pages);
-                var report = new PageEditReport();
-                await Task.Run(() => edit(manager, request, report, token).AsTask(), token).ConfigureAwait(true);
-                ShowSeparationNotice(report);
-                return new(true, () => SelectionAfterEdit(request.Kind, oldSelection, request.Value) ?? Array.Empty<int>());
-            },
-            failureMessage,
-            true);
+        async (manager, token) =>
+{
+    var oldSelection = CopyPages(request.Pages);
+    var report = new PageEditReport();
+    await Task.Run(() => edit(manager, request, report, token).AsTask(), token).ConfigureAwait(true);
+    ShowSeparationNotice(report);
+    return new(true, () => SelectionAfterEdit(request.Kind, oldSelection, request.Value) ?? Array.Empty<int>());
+    },
+        failureMessage,
+        true);
 
     /// <summary>Runs an undo or redo operation.</summary>
     /// <param name="undo">Whether to undo rather than redo.</param>
@@ -551,11 +568,11 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Task RunHistoryAsync(bool undo) => RunAsync(
         async (manager, token) =>
-        {
-            var changed = await Task.Run(() => undo ? manager.UndoAsync(token).AsTask() : manager.RedoAsync(token).AsTask(), token).ConfigureAwait(true);
-            return new(changed, () => SelectedPages);
-        },
-        undo ? "Could not undo the page edit." : "Could not redo the page edit.",
+{
+    var changed = await Task.Run(() => undo ? manager.UndoAsync(token).AsTask() : manager.RedoAsync(token).AsTask(), token).ConfigureAwait(true);
+    return new(changed, () => SelectedPages);
+    },
+        undo ? UiText.Get("Could not undo the page edit.") : UiText.Get("Could not redo the page edit."),
         true);
 
     /// <summary>Runs one backend operation and keeps the UI state on the caller's context.</summary>
@@ -590,7 +607,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         }
         catch (Exception ex) when (IsExpectedFailure(ex))
         {
-            _owner.Notice = $"{failureMessage} {ex.Message}";
+            _owner.SetNotice(LocalizedMessage.Literal($"{failureMessage} {ex.Message}"));
         }
         finally
         {
@@ -605,7 +622,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     {
         if (CopyNotice(report) is { } notice)
         {
-            _owner.Notice = notice;
+            _owner.SetNotice(LocalizedMessage.Literal(notice));
         }
     }
 
@@ -659,8 +676,8 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <param name="selected">The selected page count.</param>
     private void RefreshLabelsAndStatus(IPageManager? manager, int selected)
     {
-        UndoText = GetHistoryText(manager?.UndoLabel, "Undo");
-        RedoText = GetHistoryText(manager?.RedoLabel, "Redo");
+        UndoText = GetHistoryText(manager?.UndoLabel, UiText.Get("Undo"), "Undo {0}");
+        RedoText = GetHistoryText(manager?.RedoLabel, UiText.Get("Redo"), "Redo {0}");
         Status = GetStatus(manager, selected);
     }
 
@@ -672,20 +689,20 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     {
         if (manager is null)
         {
-            return "Page management requires the HyperPDF engine.";
+            return UiText.Get("Page management requires the HyperPDF engine.");
         }
 
         if (IsBusy)
         {
-            return "Updating pages…";
+            return UiText.Get("Updating pages…");
         }
 
         if (selected == 0)
         {
-            return "Select one or more pages.";
+            return UiText.Get("Select one or more pages.");
         }
 
-        return string.Create(CultureInfo.CurrentCulture, $"{selected} {(selected == 1 ? "page" : "pages")} selected.");
+        return UiText.Format("{0} {1} selected.", selected, (selected == 1 ? UiText.Get("page") : UiText.Get("pages")));
     }
 
     /// <summary>Gets the selection to show after a page edit.</summary>

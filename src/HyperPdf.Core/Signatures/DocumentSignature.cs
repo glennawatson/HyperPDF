@@ -35,14 +35,14 @@ public sealed record DocumentSignature(int Index, string SignerName, string Issu
     {
         get
         {
-            var ltv = HasLongTermValidation ? " Long-term validation data is stored in the file." : string.Empty;
+            var ltv = HasLongTermValidation ? UiText.Get(" Long-term validation data is stored in the file.") : string.Empty;
             return Timestamp switch
             {
                 null => ltv.TrimStart(),
-                { IsSupported: false } => $"The timestamp from {Timestamp.Authority} uses a method this computer cannot check.{ltv}",
-                { IsValid: false } => $"The timestamp from {Timestamp.Authority} does not match.{ltv}",
-                { IsTrusted: false } => $"Timestamped {Timestamp.Time:g} by {Timestamp.Authority}, whose certificate is not trusted on this computer.{ltv}",
-                _ => $"Timestamped {Timestamp.Time:g} by {Timestamp.Authority}; the certificate was checked as of that time.{ltv}",
+                { IsSupported: false } => UiText.Format("The timestamp from {0} uses a method this computer cannot check.{1}", Timestamp.Authority, ltv),
+                { IsValid: false } => UiText.Format("The timestamp from {0} does not match.{1}", Timestamp.Authority, ltv),
+                { IsTrusted: false } => UiText.Format("Timestamped {0:g} by {1}, whose certificate is not trusted on this computer.{2}", Timestamp.Time, Timestamp.Authority, ltv),
+                _ => UiText.Format("Timestamped {0:g} by {1}; the certificate was checked as of that time.{2}", Timestamp.Time, Timestamp.Authority, ltv),
             };
         }
     }
@@ -50,17 +50,17 @@ public sealed record DocumentSignature(int Index, string SignerName, string Issu
     /// <summary>Gets a one-line summary in plain words.</summary>
     public string Summary => Integrity switch
     {
-        SignatureIntegrity.Intact when IsDocumentTimestamp && IsTrusted => "Valid document timestamp; the document has not changed since it was stamped.",
-        SignatureIntegrity.ChangedAfterSigning when IsDocumentTimestamp => "The stamped part is unchanged; the document was changed after it was stamped.",
-        SignatureIntegrity.Intact when IsTrusted => "Valid signature; the document has not changed since it was signed.",
-        SignatureIntegrity.Intact => "The document has not changed since it was signed, but the signer's certificate is not trusted on this computer.",
-        SignatureIntegrity.ChangedAfterSigning => "The signed part is unchanged; the document was changed after signing.",
-        SignatureIntegrity.Invalid => "The signature does not match: the signed content was altered or the signature is damaged.",
-        SignatureIntegrity.Unsupported => "This signature could not be checked on this computer: it uses a method this computer cannot check. It is not known to be valid or invalid.",
-        SignatureIntegrity.DigestNotAllowed => "The signature is not valid: it uses a method PDF does not allow.",
-        SignatureIntegrity.CurveDigestNotAllowed => "The signature is not valid: it pairs an elliptic curve with a digest PDF does not allow.",
-        SignatureIntegrity.UnnamedCurve => "The signature is not valid: the signer's certificate does not name its elliptic curve, which PDF requires.",
-        SignatureIntegrity.DigestMismatch => "The signature is not valid: it hashes the signed attributes with a different digest from the content, which PDF does not allow.",
-        _ => "This signature could not be checked.",
+        SignatureIntegrity.Intact when IsDocumentTimestamp && IsTrusted => UiText.Get("Valid document timestamp; the document has not changed since it was stamped."),
+        SignatureIntegrity.ChangedAfterSigning when IsDocumentTimestamp => UiText.Get("The stamped part is unchanged; the document was changed after it was stamped."),
+        SignatureIntegrity.Intact when IsTrusted => UiText.Get("Valid signature; the document has not changed since it was signed."),
+        SignatureIntegrity.Intact => UiText.Get("The document has not changed since it was signed, but the signer's certificate is not trusted on this computer."),
+        SignatureIntegrity.ChangedAfterSigning => UiText.Get("The signed part is unchanged; the document was changed after signing."),
+        SignatureIntegrity.Invalid => UiText.Get("The signature does not match: the signed content was altered or the signature is damaged."),
+        SignatureIntegrity.Unsupported => UiText.Get("This signature could not be checked on this computer: it uses a method this computer cannot check. It is not known to be valid or invalid."),
+        SignatureIntegrity.DigestNotAllowed => UiText.Get("The signature is not valid: it uses a method PDF does not allow."),
+        SignatureIntegrity.CurveDigestNotAllowed => UiText.Get("The signature is not valid: it pairs an elliptic curve with a digest PDF does not allow."),
+        SignatureIntegrity.UnnamedCurve => UiText.Get("The signature is not valid: the signer's certificate does not name its elliptic curve, which PDF requires."),
+        SignatureIntegrity.DigestMismatch => UiText.Get("The signature is not valid: it hashes the signed attributes with a different digest from the content, which PDF does not allow."),
+        _ => UiText.Get("This signature could not be checked."),
     };
 }

@@ -102,7 +102,12 @@ internal static class TabCopyActions
         "Sign with External Signer… (needs the HyperPDF engine)",
         static document => DocumentFeature<IDocumentSigner>.Get(document) is not null,
         static tab => DocumentFeature<IDocumentSigner>.Get(tab.TryGetDocument()) is { } signer
-            ? new(signer, tab.FilePath, Math.Max(0, tab.CurrentPageIndex), TimestampServers.Create(tab.Services.Settings.TimestampServer), tab.Services.RequestOpen)
+            ? new(
+            signer,
+            tab.FilePath,
+            Math.Max(0, tab.CurrentPageIndex),
+            TimestampServers.Create(tab.Services.Settings.TimestampServer),
+            tab.Services.RequestOpen)
             : null);
 
     /// <summary>Counts the areas marked for redaction in a tab's document and the pages they are on.</summary>

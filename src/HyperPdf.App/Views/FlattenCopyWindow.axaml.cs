@@ -23,13 +23,14 @@ public sealed partial class FlattenCopyWindow : ReactiveUI.Avalonia.ReactiveWind
     public FlattenCopyWindow()
     {
         InitializeComponent();
-        ScopeList.ItemTemplate = new FuncDataTemplate<FlattenScopeChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
-        LookList.ItemTemplate = new FuncDataTemplate<FlattenLookChoice>(static (choice, _) => ChoiceViews.Create(choice?.Name, choice?.Description));
+        ScopeList.ItemTemplate = new FuncDataTemplate<FlattenScopeChoice>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
+        LookList.ItemTemplate = new FuncDataTemplate<FlattenLookChoice>(static (choice, _) => ChoiceViews.Create(choice, static item => item?.Name, static item => item?.Description));
         _ = this.WhenActivated(disposables =>
         {
+            disposables.Add(UiText.CultureChanges.SubscribeSafe(_ => RefreshCultureText(), ErrorTrace.Write));
             disposables.Add(ItemAutomation.NameItems(ScopeList));
             disposables.Add(ItemAutomation.NameItems(LookList));
-            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => $"Save a flattened copy of {name}"));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FileName, static v => v.HeadingText.Text, static name => UiText.Format("Save a flattened copy of {0}", name)));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Scopes, static v => v.ScopeList.ItemsSource));
             disposables.Add(this.Bind(ViewModel, static vm => vm.SelectedScope, static v => v.ScopeList.SelectedItem, static choice => choice, static item => item as FlattenScopeChoice));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Looks, static v => v.LookList.ItemsSource));
@@ -63,7 +64,18 @@ public sealed partial class FlattenCopyWindow : ReactiveUI.Avalonia.ReactiveWind
     /// <returns>A task.</returns>
     private async Task SaveAsync(IInteractionContext<string, string?> context)
     {
-        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = "Save Flattened Copy", SuggestedFileName = context.Input, DefaultExtension = "pdf" });
+        var file = await StorageProvider.SaveFilePickerAsync(new() { Title = UiText.Get("Save Flattened Copy"), SuggestedFileName = context.Input, DefaultExtension = "pdf" });
         context.SetOutput(file?.TryGetLocalPath());
+    }
+
+    /// <summary>Refreshes translated presentation text without notifying or changing document state.</summary>
+    private void RefreshCultureText()
+    {
+        if (ViewModel is not { } model)
+        {
+            return;
+        }
+
+        HeadingText.Text = UiText.Format("Save a flattened copy of {0}", model.FileName);
     }
 }

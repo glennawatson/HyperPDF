@@ -403,8 +403,13 @@ public sealed class SharpnessPreferencesTests
         using var test = new TestServices();
         test.Services.Settings.InterfaceFontSizePoints = points > 0 ? points : null;
         test.Services.ApplySettings();
-        DesktopThemeApplier.Apply(Application.Current!, test.Services.CurrentTheme);
+        var theme = test.Services.CurrentTheme;
         var window = new PreferencesWindow { ViewModel = new(test.Services), Width = width };
+
+        // The theme and font go on this window alone. Writing them to the application notifies every window earlier
+        // tests left behind, which takes minutes each time on a macOS runner late in the run.
+        DesktopThemeApplier.ApplyResources(window.Resources, theme.Scheme, theme);
+        DesktopThemeApplier.ApplyFont(window, theme);
         try
         {
             window.Show();
@@ -429,7 +434,6 @@ public sealed class SharpnessPreferencesTests
         {
             window.Close();
             test.Services.Settings.InterfaceFontSizePoints = null;
-            DesktopThemeApplier.Apply(Application.Current!, ThemeResolver.Resolve(new(), null));
         }
     }
 }

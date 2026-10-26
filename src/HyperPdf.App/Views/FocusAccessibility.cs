@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
@@ -51,13 +50,13 @@ internal static class FocusAccessibility
     /// <returns>The description, or <see langword="null"/> for plain paragraphs.</returns>
     internal static string? Description(FocusBlockViewModel block, bool describeStructure) => block.Kind switch
     {
-        ReadingBlockKind.Heading when describeStructure => string.Create(CultureInfo.InvariantCulture, $"Heading level {block.Level}"),
-        ReadingBlockKind.ListItem when describeStructure && block.ListSize > 0 => string.Create(CultureInfo.InvariantCulture, $"List item {block.PositionInList} of {block.ListSize}"),
-        ReadingBlockKind.TableCell when describeStructure && block.Row > 0 => string.Create(CultureInfo.InvariantCulture, $"Table cell, row {block.Row}, column {block.Column}"),
-        ReadingBlockKind.TableCell when describeStructure => "Table cell",
-        ReadingBlockKind.Figure => "Figure",
-        ReadingBlockKind.Caption => "Caption",
-        ReadingBlockKind.Footnote => "Footnote",
+        ReadingBlockKind.Heading when describeStructure => UiText.Format("Heading level {0}", block.Level),
+        ReadingBlockKind.ListItem when describeStructure && block.ListSize > 0 => UiText.Format("List item {0} of {1}", block.PositionInList, block.ListSize),
+        ReadingBlockKind.TableCell when describeStructure && block.Row > 0 => UiText.Format("Table cell, row {0}, column {1}", block.Row, block.Column),
+        ReadingBlockKind.TableCell when describeStructure => UiText.Get("Table cell"),
+        ReadingBlockKind.Figure => UiText.Get("Figure"),
+        ReadingBlockKind.Caption => UiText.Get("Caption"),
+        ReadingBlockKind.Footnote => UiText.Get("Footnote"),
         _ => null,
     };
 }

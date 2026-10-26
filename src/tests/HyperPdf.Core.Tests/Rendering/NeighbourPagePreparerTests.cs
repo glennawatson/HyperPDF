@@ -42,17 +42,11 @@ public sealed class NeighbourPagePreparerTests
     /// <summary>The scale used for the requests.</summary>
     private const float Scale = 1;
 
-    /// <summary>The seconds a test may wait for a run before it fails.</summary>
-    private const int WaitSeconds = 10;
-
-    /// <summary>The wait that a quick page turn must beat, in milliseconds.</summary>
+    /// <summary>The settle wait, in milliseconds, a quick page turn must beat; a manual time provider holds it, so the test never waits it out.</summary>
     private const int LongWaitMilliseconds = 1000;
 
     /// <summary>The pages prepared in the sample runs.</summary>
     private const int NeighbourCount = 3;
-
-    /// <summary>The longest a test waits for a run.</summary>
-    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(WaitSeconds);
 
     /// <summary>Reading forward, the next two pages come first, then the one behind.</summary>
     /// <returns>A task.</returns>
@@ -88,68 +82,73 @@ public sealed class NeighbourPagePreparerTests
     }
 
     /// <summary>After the reader settles, the neighbours are prepared in the order of travel.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task SettledReaderGetsNeighboursPrepared()
+    public async Task SettledReaderGetsNeighboursPrepared(CancellationToken cancellationToken)
     {
         using var preparer = Create(static () => false, static () => false);
         var document = Document();
 
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(Patience);
+        await preparer.Latest.WaitAsync(cancellationToken);
 
         await Assert.That(document.PreparedAhead).IsEquivalentTo([Next, Further, Previous]);
     }
 
     /// <summary>The page being read and its neighbours have their links read away from the UI thread, so the first hover finds them ready.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task SettledReaderGetsLinksRead()
+    public async Task SettledReaderGetsLinksRead(CancellationToken cancellationToken)
     {
         using var preparer = Create(static () => false, static () => false);
         var document = Document();
 
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(Patience);
+        await preparer.Latest.WaitAsync(cancellationToken);
 
         await Assert.That(document.LinksRead).IsEquivalentTo([Current, Next, Further, Previous]);
     }
 
     /// <summary>Moving to an earlier page puts the page behind first.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task BackwardMoveChangesTheOrder()
+    public async Task BackwardMoveChangesTheOrder(CancellationToken cancellationToken)
     {
         using var preparer = Create(static () => false, static () => false);
         var document = Document();
         preparer.Visit(document, Next, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(Patience);
+        await preparer.Latest.WaitAsync(cancellationToken);
         document.PreparedAhead.Clear();
 
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(Patience);
+        await preparer.Latest.WaitAsync(cancellationToken);
 
         await Assert.That(document.PreparedAhead[0]).IsEqualTo(Previous);
     }
 
     /// <summary>Under memory pressure nothing is prepared.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task PressureSkipsPreparation()
+    public async Task PressureSkipsPreparation(CancellationToken cancellationToken)
     {
         using var preparer = Create(static () => false, static () => true);
         var document = Document();
 
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(Patience);
+        await preparer.Latest.WaitAsync(cancellationToken);
 
         await Assert.That(document.PreparedAhead.Count).IsEqualTo(0);
     }
 
     /// <summary>Asking for the same page again does not start another run.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task SamePageDoesNotRestart()
+    public async Task SamePageDoesNotRestart(CancellationToken cancellationToken)
     {
         using var preparer = Create(static () => false, static () => false);
         var document = Document();
@@ -159,30 +158,35 @@ public sealed class NeighbourPagePreparerTests
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
 
         await Assert.That(ReferenceEquals(preparer.Latest, first)).IsTrue();
-        await first.WaitAsync(Patience);
+        await first.WaitAsync(cancellationToken);
     }
 
     /// <summary>A page turn before the wait ends cancels the earlier run, so only the new page's neighbours are prepared.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task QuickTurnCancelsTheEarlierRun()
+    public async Task QuickTurnCancelsTheEarlierRun(CancellationToken cancellationToken)
     {
-        using var preparer = new NeighbourPagePreparer(static () => false, static () => false, TimeSpan.FromMilliseconds(LongWaitMilliseconds), TimeProvider.System);
+        var time = new ManualTimeProvider();
+        using var preparer = new NeighbourPagePreparer(static () => false, static () => false, TimeSpan.FromMilliseconds(LongWaitMilliseconds), time);
         var document = Document();
         preparer.Visit(document, 0, Scale, PageRotation.None, RenderFlags.None);
         var first = preparer.Latest;
 
+        // Both settle waits are still held when the second turn comes, so the first run cannot have prepared anything.
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(Patience);
-        await first.WaitAsync(Patience);
+        time.Release();
+        await preparer.Latest.WaitAsync(cancellationToken);
+        await first.WaitAsync(cancellationToken);
 
         await Assert.That(document.PreparedAhead).IsEquivalentTo([Next, Further, Previous]);
     }
 
     /// <summary>When something on screen needs drawing mid-preparation, the page in hand is cut short, and is prepared again once the screen is served.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task VisibleWorkPreemptsAndThenPreparationResumes()
+    public async Task VisibleWorkPreemptsAndThenPreparationResumes(CancellationToken cancellationToken)
     {
         var screen = new Screen();
         using var preparer = Create(screen.HasWork, static () => false);
@@ -191,28 +195,29 @@ public sealed class NeighbourPagePreparerTests
 
         screen.Busy = true;
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await screen.Started.WaitAsync(Patience);
+        await screen.Started.WaitAsync(cancellationToken);
         preparer.Preempt();
         screen.Busy = false;
-        await preparer.Latest.WaitAsync(Patience);
+        await preparer.Latest.WaitAsync(cancellationToken);
 
         await Assert.That(document.PreparedAhead).IsEquivalentTo([Next, Further, Previous]);
     }
 
     /// <summary>Resetting stops the run and a later visit to the same page starts a new one.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task ResetAllowsTheSamePageAgain()
+    public async Task ResetAllowsTheSamePageAgain(CancellationToken cancellationToken)
     {
         using var preparer = Create(static () => false, static () => false);
         var document = Document();
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(Patience);
+        await preparer.Latest.WaitAsync(cancellationToken);
         document.PreparedAhead.Clear();
 
         preparer.Reset();
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(Patience);
+        await preparer.Latest.WaitAsync(cancellationToken);
 
         await Assert.That(document.PreparedAhead.Count).IsEqualTo(NeighbourCount);
     }

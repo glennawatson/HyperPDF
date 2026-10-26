@@ -94,8 +94,8 @@ public sealed partial class FieldEditorView : ReactiveUI.Avalonia.ReactiveUserCo
             words.Add(text.Substring(range.Start, range.Length));
         }
 
-        var count = misspelled.Count == 1 ? "1 possible spelling mistake" : string.Create(CultureInfo.CurrentCulture, $"{misspelled.Count} possible spelling mistakes");
-        return string.Create(CultureInfo.CurrentCulture, $"{count}: {string.Join(", ", words)}. Open the menu on a word for corrections. {Descriptions.FormField}");
+        var count = misspelled.Count == 1 ? UiText.Get("1 possible spelling mistake") : UiText.Format("{0} possible spelling mistakes", misspelled.Count);
+        return UiText.Format("{0}: {1}. Open the menu on a word for corrections. {2}", count, string.Join(", ", words), Descriptions.FormField);
     }
 
     /// <summary>Determines whether a word is one of the marked words.</summary>
@@ -161,11 +161,11 @@ public sealed partial class FieldEditorView : ReactiveUI.Avalonia.ReactiveUserCo
 
         if (items.Count == 0)
         {
-            items.Add(new MenuItem { Header = "No suggestions", IsEnabled = false });
+            items.Add(new MenuItem { Header = UiText.Get("No suggestions"), IsEnabled = false });
         }
 
         items.Add(new Separator());
-        items.Add(new MenuItem { Header = "_Keep This Spelling", Command = tab.Forms.KeepSpellingCommand, CommandParameter = misspelled });
+        items.Add(new MenuItem { Header = UiText.Get("_Keep This Spelling"), Command = tab.Forms.KeepSpellingCommand, CommandParameter = misspelled });
         new ContextMenu { ItemsSource = items }.Open(FieldEditor);
         e.Handled = true;
     }
@@ -188,7 +188,7 @@ public sealed partial class FieldEditorView : ReactiveUI.Avalonia.ReactiveUserCo
         Width = rect.Width;
         Height = rect.Height;
         FieldEditor.AcceptsReturn = field.IsMultiline && !field.IsComb;
-        AutomationProperties.SetName(FieldEditor, string.IsNullOrWhiteSpace(field.Name) ? "Form field" : field.Name);
+        AutomationProperties.SetName(FieldEditor, string.IsNullOrWhiteSpace(field.Name) ? UiText.Get("Form field") : field.Name);
         FieldEditor.FontSize = field.FontSize > 0 ? field.FontSize * pages.PageScale : Math.Max(MinFieldFontSize, rect.Height * FieldFontShare);
         FieldEditor.MaxLength = field.MaxLength;
         SpaceCombLetters(field, rect.Width);

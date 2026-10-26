@@ -1,0 +1,16 @@
+{
+  "The file's index of its parts was missing or wrong, so it was rebuilt.": "كان فهرس أجزاء الملف مفقودًا أو غير صحيح، لذا أُعيد بناؤه.",
+  "There was extra data before the start of the file, which was skipped.": "كانت هناك بيانات إضافية قبل بداية الملف، فتم تجاوزها.",
+  "A part of the file was not where the index said, so it was found by searching.": "لم يكن أحد أجزاء الملف في الموضع المحدد في الفهرس، لذا عُثر عليه بالبحث.",
+  "A block of data had the wrong length, so its end was found by searching.": "كان طول إحدى كتل البيانات غير صحيح، لذا عُثر على نهايتها بالبحث.",
+  "A block of data was never closed, so it was read to the end of its part.": "لم تُغلق إحدى كتل البيانات، لذا قُرئت حتى نهاية الجزء الذي تنتمي إليه.",
+  "A block of data ended early, so the part that could be read is used.": "انتهت إحدى كتل البيانات مبكرًا، لذا يُستخدم الجزء الذي أمكن قراءته.",
+  "The file's main entry was missing, so it was found by searching.": "كان المدخل الرئيسي للملف مفقودًا، لذا عُثر عليه بالبحث.",
+  "The file's closing section was missing, so it was made from what was found.": "كان القسم الختامي للملف مفقودًا، لذا أُنشئ من البيانات التي عُثر عليها.",
+  "The list of pages was broken, so the pages were found by searching.": "كانت قائمة الصفحات تالفة، لذا عُثر على الصفحات بالبحث.",
+  "A page had a size that was reversed or empty, so it was corrected.": "كانت أبعاد إحدى الصفحات معكوسة أو فارغة، لذا صُححت.",
+  "A font had bad letter widths, so the usable ones are used.": "كانت عروض الأحرف في أحد الخطوط غير صحيحة، لذا تُستخدم القيم الصالحة منها.",
+  "A font had a bad letter table, so the usable part is used.": "كان جدول الأحرف في أحد الخطوط غير صحيح، لذا يُستخدم الجزء الصالح منه.",
+  "A font had bad details, which were ignored.": "كانت بعض تفاصيل أحد الخطوط غير صحيحة، فتم تجاهلها.",
+  "A part of the file was damaged and was repaired.": "كان أحد أجزاء الملف تالفًا وتم إصلاحه."
+}

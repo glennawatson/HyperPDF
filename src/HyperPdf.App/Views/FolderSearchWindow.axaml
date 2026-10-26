@@ -1,37 +1,37 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
         xmlns:views="using:HyperPdf.App.Views"
         x:Class="HyperPdf.App.Views.FolderSearchWindow"
-        Title="Search in Folder" Width="720" Height="560" MinWidth="480" MinHeight="360" WindowStartupLocation="CenterOwner"
+        Title="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Search in Folder&quot;}" Width="720" Height="560" MinWidth="480" MinHeight="360" WindowStartupLocation="CenterOwner"
         Background="{DynamicResource AppWindowBackground}">
   <!-- Layout only: bindings are made in code (FolderSearchWindow.axaml.cs). -->
   <Grid RowDefinitions="Auto,*,Auto" Margin="16">
     <StackPanel Spacing="10">
       <Grid ColumnDefinitions="Auto,*,Auto">
-        <TextBlock x:Name="FolderLabel" Text="Folder" Width="70" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" x:Name="FolderBox" views:ControlHelp.Text="{x:Static help:Descriptions.FolderBox}" AutomationProperties.Name="Folder to search" />
-        <Button Grid.Column="2" x:Name="ChooseFolderButton" views:ControlHelp.Text="{x:Static help:Descriptions.ChooseFolder}" Content="_Choose…" Margin="8,0,0,0" AutomationProperties.Name="Choose folder" />
+        <TextBlock TextWrapping="Wrap" x:Name="FolderLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Folder&quot;}" Width="70" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" x:Name="FolderBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the folder to search.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Folder to search&quot;}" />
+        <Button Grid.Column="2" x:Name="ChooseFolderButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the folder to search.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Choose…&quot;}" Margin="8,0,0,0" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose folder&quot;}" />
       </Grid>
       <Grid ColumnDefinitions="Auto,*,Auto">
-        <TextBlock x:Name="QueryLabel" Text="Find" Width="70" VerticalAlignment="Center" />
-        <TextBox Grid.Column="1" x:Name="QueryBox" views:ControlHelp.Text="{x:Static help:Descriptions.FolderQuery}" AutomationProperties.Name="Words to find" />
+        <TextBlock TextWrapping="Wrap" x:Name="QueryLabel" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find&quot;}" Width="70" VerticalAlignment="Center" />
+        <TextBox Grid.Column="1" x:Name="QueryBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the words to find, then press Enter.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Words to find&quot;}" />
         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
-          <Button x:Name="SearchButton" views:ControlHelp.Text="{x:Static help:Descriptions.SearchFolderStart}" Content="_Search" IsDefault="True" AutomationProperties.Name="Search the folder" />
-          <Button x:Name="StopButton" views:ControlHelp.Text="{x:Static help:Descriptions.StopSearch}" Content="S_top" AutomationProperties.Name="Stop searching" />
+          <Button x:Name="SearchButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Search every PDF in the folder for the words.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Search&quot;}" IsDefault="True" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Search the folder&quot;}" />
+          <Button x:Name="StopButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop searching the folder.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;S_top&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Stop searching&quot;}" />
         </StackPanel>
       </Grid>
       <StackPanel Orientation="Horizontal" Spacing="16" Margin="70,0,0,0">
-        <CheckBox x:Name="MatchCaseBox" views:ControlHelp.Text="{x:Static help:Descriptions.MatchCase}" Content="Match _case" />
-        <CheckBox x:Name="WholeWordBox" views:ControlHelp.Text="{x:Static help:Descriptions.WholeWords}" Content="_Whole words" />
-        <CheckBox x:Name="SubfoldersBox" views:ControlHelp.Text="{x:Static help:Descriptions.Subfolders}" Content="Include sub_folders" />
+        <CheckBox x:Name="MatchCaseBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Only find text with the same capital and small letters.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Match _case&quot;}" />
+        <CheckBox x:Name="WholeWordBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Only find whole words, not parts of longer words.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;_Whole words&quot;}" />
+        <CheckBox x:Name="SubfoldersBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Also search the folders inside this folder.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Include sub_folders&quot;}" />
       </StackPanel>
       <StackPanel Orientation="Horizontal" Spacing="16" Margin="70,0,0,0">
-        <CheckBox x:Name="IgnoreAccentsBox" views:ControlHelp.Text="{x:Static help:Descriptions.IgnoreAccents}" Content="Ignore _accents" />
-        <CheckBox x:Name="SimilarCharactersBox" views:ControlHelp.Text="{x:Static help:Descriptions.SimilarCharacters}" Content="Match s_imilar characters" />
+        <CheckBox x:Name="IgnoreAccentsBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find letters with or without accents, so resume also finds résumé.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Ignore _accents&quot;}" />
+        <CheckBox x:Name="SimilarCharactersBox" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Treat look-alike characters as the same: curly and straight quotes, dashes, and full-width letters.&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Match s_imilar characters&quot;}" />
       </StackPanel>
       <TextBlock x:Name="StatusText" Classes="secondary" AutomationProperties.LiveSetting="Polite" TextWrapping="Wrap" />
     </StackPanel>
-    <ListBox Grid.Row="1" x:Name="ResultList" Margin="0,12,0,0" AutomationProperties.Name="Results" />
-    <Button Grid.Row="2" x:Name="CloseButton" views:ControlHelp.Text="{x:Static help:Descriptions.CloseWindow}" Content="Close" IsCancel="True" HorizontalAlignment="Right" Margin="0,12,0,0" />
+    <ListBox Grid.Row="1" x:Name="ResultList" Margin="0,12,0,0" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Results&quot;}" />
+    <Button Grid.Row="2" x:Name="CloseButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close this window. Shortcut: Esc&quot;}" Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Close&quot;}" IsCancel="True" HorizontalAlignment="Right" Margin="0,12,0,0" />
   </Grid>
 </Window>

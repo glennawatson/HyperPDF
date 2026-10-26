@@ -63,9 +63,9 @@ public sealed partial class AnnotateStampButtonView : ReactiveUI.Avalonia.Reacti
 
         var files = await storage.OpenFilePickerAsync(new()
         {
-            Title = "Choose a Picture for the Stamp",
+            Title = UiText.Get("Choose a Picture for the Stamp"),
             AllowMultiple = false,
-            FileTypeFilter = [new("Pictures (.png, .jpg, .bmp, .webp)") { Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp"] }],
+            FileTypeFilter = [new(UiText.Get("Pictures (.png, .jpg, .bmp, .webp)")) { Patterns = ["*.png", "*.jpg", "*.jpeg", "*.bmp", "*.webp"] }],
         });
         context.SetOutput(files.Count > 0 ? files[0].TryGetLocalPath() : null);
     }

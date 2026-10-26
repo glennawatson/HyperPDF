@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
@@ -59,7 +58,7 @@ public sealed partial class TabsMenuView : ReactiveUI.Avalonia.ReactiveUserContr
         var (entry, viewModel) = prepared;
         entry.Item.Command = viewModel.OpenRecentCommand;
         entry.Item.CommandParameter = entry.Recent;
-        ControlHelp.SetText(entry.Item, string.Create(CultureInfo.CurrentCulture, $"Open {entry.Recent.FileName} from {entry.Recent.Folder}."));
+        ControlHelp.SetText(entry.Item, UiText.Format("Open {0} from {1}.", entry.Recent.FileName, entry.Recent.Folder));
         AutomationProperties.SetName(entry.Item, entry.Recent.FileName);
     }
 }

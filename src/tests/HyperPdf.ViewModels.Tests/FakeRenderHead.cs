@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Reflection;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Tests.Fakes;
 
@@ -35,7 +34,7 @@ public sealed class FakeRenderHead : IRenderHead
     public List<string> ReadPaths { get; } = [];
 
     /// <inheritdoc/>
-    public Assembly NoticesAssembly => typeof(FakeRenderHead).Assembly;
+    public string NoticesFolder { get; set; } = Path.Combine(Path.GetTempPath(), "hyperpdf-no-notices");
 
     /// <inheritdoc/>
     public IOwnedSurfaceFactory CreateSurfaceFactory(Action recoverSoftware)

@@ -21,49 +21,51 @@ public static class ClickTools
         switch (annotations.Tool)
         {
             case AnnotationTool.Note:
-            {
-                if (annotations.HitTest(page, point) is { Kind: AnnotationKind.Note } existing)
                 {
-                    _ = annotations.OpenBubble(existing);
-                }
-                else
-                {
-                    _ = annotations.BeginNoteBubble(page, point);
-                }
+                    if (annotations.HitTest(page, point) is { Kind: AnnotationKind.Note } existing)
+                    {
+                        _ = annotations.OpenBubble(existing);
+                    }
+                    else
+                    {
+                        _ = annotations.BeginNoteBubble(page, point);
+                    }
 
-                break;
-            }
+                    break;
+                }
 
             case AnnotationTool.Text:
-            {
-                if (annotations.HitTest(page, point) is { Kind: AnnotationKind.TextBox } box)
                 {
-                    _ = annotations.EditText(box);
-                    return;
+                    if (annotations.HitTest(page, point) is { Kind: AnnotationKind.TextBox } box)
+                    {
+                        _ = annotations.EditText(box);
+                        return;
+                    }
+
+                    _ = snaps && annotations.RegionAt(page, point) is { } region
+                        ? annotations.BeginInRegion(
+                        page,
+                        region)
+                        : annotations.BeginText(page, point, 0);
+                    break;
                 }
 
-                _ = snaps && annotations.RegionAt(page, point) is { } region
-                    ? annotations.BeginInRegion(page, region)
-                    : annotations.BeginText(page, point, 0);
-                break;
-            }
-
             case AnnotationTool.Stamp:
-            {
-                _ = annotations.AddStamp(page, point);
-                break;
-            }
+                {
+                    _ = annotations.AddStamp(page, point);
+                    break;
+                }
 
             case AnnotationTool.Caret:
-            {
-                _ = annotations.AddCaret(page, point);
-                break;
-            }
+                {
+                    _ = annotations.AddCaret(page, point);
+                    break;
+                }
 
             default:
-            {
-                break;
-            }
+                {
+                    break;
+                }
         }
     }
 }
