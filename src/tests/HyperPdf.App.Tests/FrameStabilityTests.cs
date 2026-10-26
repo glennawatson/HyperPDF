@@ -227,8 +227,10 @@ public sealed class FrameStabilityTests
     /// <returns>The page canvas.</returns>
     private static async Task<PageCanvas> SettleAsync(TestServices test, Window window)
     {
+        Mark("settle canvas");
         _ = await UiWait.UntilAsync(() => window.GetVisualDescendants().OfType<PageCanvas>().Any());
         var canvas = window.GetVisualDescendants().OfType<PageCanvas>().Single();
+        Mark("settle frames");
         _ = await UiWait.UntilAsync(() =>
         {
             var scroller = canvas.FindAncestorOfType<ScrollViewer>();
@@ -237,9 +239,12 @@ public sealed class FrameStabilityTests
                 return false;
             }
 
+            Mark("settle capture");
             using var frame = window.CaptureRenderedFrame();
+            Mark("settle edges");
             return frame is not null && CountEdges(frame, scroller, window) > ReadyEdges && test.Services.RenderHub.Scheduler.IsIdle;
         });
+        Mark("settled");
         return canvas;
     }
 
@@ -284,16 +289,24 @@ public sealed class FrameStabilityTests
         var client = tab.CanvasClient;
         var beforeGeneration = client.Generation;
         var beforeTiles = test.Services.RenderHub.Cache.Count;
+        Mark($"{name} change");
         change();
+        Mark($"{name} jobs1");
         Dispatcher.UIThread.RunJobs();
+        Mark($"{name} tick");
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Mark($"{name} jobs2");
         Dispatcher.UIThread.RunJobs();
+        Mark($"{name} capture1");
         using var first = window.CaptureRenderedFrame()!;
         var firstGeneration = client.Generation;
         var firstTiles = test.Services.RenderHub.Cache.Count;
+        Mark($"{name} idle");
         _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Scheduler.IsIdle);
 
+        Mark($"{name} capture2");
         using var settled = window.CaptureRenderedFrame()!;
+        Mark($"{name} edges");
         var settledEdges = CountEdges(settled, scroller, window);
         var firstEdges = CountEdges(first, scroller, window);
         var sharpness = settledEdges > 0 ? (double)firstEdges / settledEdges : 1;
@@ -341,6 +354,21 @@ public sealed class FrameStabilityTests
         }
 
         return edges;
+    }
+
+    /// <summary>Records the step a test reached, to find where a hung run stopped.</summary>
+    /// <param name="step">The step.</param>
+    private static void Mark(string step)
+    {
+        var directory = Environment.GetEnvironmentVariable("RUNNER_TEMP");
+        if (string.IsNullOrEmpty(directory))
+        {
+            return;
+        }
+
+        var folder = Path.Combine(directory, "test-diagnostics");
+        _ = Directory.CreateDirectory(folder);
+        File.AppendAllText(Path.Combine(folder, "frame-progress.log"), $"{TimeProvider.System.GetUtcNow():O} {Environment.CurrentManagedThreadId} {step}\n");
     }
 
     /// <summary>Saves a frame when screenshots are requested.</summary>
