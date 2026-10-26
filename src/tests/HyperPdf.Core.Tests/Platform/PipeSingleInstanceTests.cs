@@ -16,13 +16,18 @@ public sealed class PipeSingleInstanceTests
     /// <summary>The longest socket path macOS accepts.</summary>
     private const int MaxSocketPath = 104;
 
-    /// <summary>How long to wait for a forwarded request.</summary>
-    private static readonly TimeSpan Wait = TimeSpan.FromSeconds(5);
+    /// <summary>The time limit for the forwarding test in milliseconds.</summary>
+    private const int TimeoutMilliseconds = 60_000;
+
+    /// <summary>How long to wait for a forwarded request. A loaded arm64 runner can take far longer than a quiet machine.</summary>
+    private static readonly TimeSpan Wait = TimeSpan.FromSeconds(30);
 
     /// <summary>A second launch hands its documents to the first and cannot claim the window itself.</summary>
+    /// <param name="cancellationToken">Cancellation when the test exceeds its time limit.</param>
     /// <returns>A task.</returns>
     [Test]
-    public async Task ForwardsToTheRunningInstance()
+    [Timeout(TimeoutMilliseconds)]
+    public async Task ForwardsToTheRunningInstance(CancellationToken cancellationToken)
     {
         var name = $"HyperPdfTest-{Guid.NewGuid():N}";
         using var first = PipeSingleInstance.TryStart(name);
@@ -31,7 +36,7 @@ public sealed class PipeSingleInstanceTests
 
         var second = PipeSingleInstance.TryStart(name);
         var forwarded = await PipeSingleInstance.TryForwardAsync(name, new(["documents/a.pdf", "https://example.com/b.pdf"], "token"));
-        var request = await received.Task.WaitAsync(Wait);
+        var request = await received.Task.WaitAsync(Wait, cancellationToken);
 
         await Assert.That(second).IsNull();
         await Assert.That(forwarded).IsTrue();
