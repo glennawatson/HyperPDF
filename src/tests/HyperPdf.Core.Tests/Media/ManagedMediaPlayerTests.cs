@@ -59,7 +59,7 @@ public sealed class ManagedMediaPlayerTests
     /// <summary>The pictures in the video test file.</summary>
     private const int PictureCount = 30;
 
-    /// <summary>The fewest of those pictures a run must show. The player drops late pictures, and a loaded macOS runner has shown fewer than half of the 30, so only a fraction of the clip is required.</summary>
+    /// <summary>The fewest of those pictures a run must show. The player drops late pictures, and a loaded macOS runner shows fewer than half.</summary>
     private const int FewestShown = 5;
 
     /// <summary>The fewest pictures of the H.265 test file a run must show; a slow runner drops the first ones as late.</summary>
