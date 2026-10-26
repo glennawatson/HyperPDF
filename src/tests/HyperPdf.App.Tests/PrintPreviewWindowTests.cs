@@ -112,18 +112,23 @@ public sealed class PrintPreviewWindowTests
     /// <summary>Verifies that the system print action uses readable text even with a dark desktop accent.</summary>
     /// <param name="choice">The interface scheme.</param>
     /// <param name="navyAccent">Whether the desktop supplies a dark blue accent.</param>
+    /// <param name="cancellationToken">Cancellation when the test exceeds its time limit.</param>
     /// <returns>A task.</returns>
     [Test]
+    [Timeout(TimeoutMilliseconds)]
     [Arguments(ColorSchemeChoice.Calm, false)]
     [Arguments(ColorSchemeChoice.Dark, false)]
     [Arguments(ColorSchemeChoice.Light, false)]
     [Arguments(ColorSchemeChoice.HighContrast, false)]
     [Arguments(ColorSchemeChoice.Calm, true)]
-    public async Task SystemDialogTextIsReadable(ColorSchemeChoice choice, bool navyAccent)
+    public async Task SystemDialogTextIsReadable(ColorSchemeChoice choice, bool navyAccent, CancellationToken cancellationToken)
     {
+        var name = $"{nameof(SystemDialogTextIsReadable)}({choice}, {navyAccent})";
+        StepLog.Mark(name, "start");
         using var test = new TestServices();
         test.Services.Settings.ColorScheme = choice;
         test.Services.ApplySettings();
+        StepLog.Mark(name, "settings applied");
         var theme = test.Services.CurrentTheme;
         if (navyAccent)
         {
@@ -131,14 +136,20 @@ public sealed class PrintPreviewWindowTests
         }
 
         DesktopThemeApplier.Apply(Application.Current!, theme);
+        StepLog.Mark(name, "theme applied");
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("print-colour.pdf", 1)]);
+        StepLog.Mark(name, "document open");
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         var window = new PrintPreviewWindow { ViewModel = preview };
+        StepLog.Mark(name, "window created");
         window.Show();
+        StepLog.Mark(name, "window shown");
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             await Assert.That(await UiWait.UntilAsync(() => preview.IsValid && !preview.IsBuilding)).IsTrue();
+            StepLog.Mark(name, "preview built");
             var button = window.FindControl<Button>("SystemDialogButton")!;
             var text = button.GetVisualDescendants().OfType<TextBlock>().Single();
             var colour = ((ISolidColorBrush)text.Foreground!).Color.ToUInt32() & RgbMask;
@@ -146,8 +157,11 @@ public sealed class PrintPreviewWindowTests
         }
         finally
         {
+            StepLog.Mark(name, "closing");
             window.Close();
+            StepLog.Mark(name, "closed");
             DesktopThemeApplier.Apply(Application.Current!, ThemeResolver.Resolve(new(), null));
+            StepLog.Mark(name, "theme restored");
         }
     }
 
