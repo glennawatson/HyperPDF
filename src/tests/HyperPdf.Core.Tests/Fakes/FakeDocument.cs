@@ -19,6 +19,9 @@ internal sealed class FakeDocument : IDocument
     /// <summary>Completes when the first render begins.</summary>
     private readonly TaskCompletionSource _firstRenderStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    /// <summary>Completes when the first render returns, whether it drew, was refused or threw.</summary>
+    private readonly TaskCompletionSource _firstRenderFinished = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     /// <summary>The number of renders performed.</summary>
     private int _renderCount;
 
@@ -48,6 +51,9 @@ internal sealed class FakeDocument : IDocument
 
     /// <summary>Gets a task completed when the first render begins.</summary>
     internal Task FirstRenderStarted => _firstRenderStarted.Task;
+
+    /// <summary>Gets a task completed when the first render returns.</summary>
+    internal Task FirstRenderFinished => _firstRenderFinished.Task;
 
     /// <summary>Gets or sets an event every render waits on before drawing.</summary>
     internal ManualResetEventSlim? Gate { get; set; }
@@ -107,19 +113,26 @@ internal sealed class FakeDocument : IDocument
         Started.Set();
         _ = _firstRenderStarted.TrySetResult();
         Gate?.Wait();
-        if (RenderFailure is { } failure)
+        try
         {
-            throw failure;
-        }
+            if (RenderFailure is { } failure)
+            {
+                throw failure;
+            }
 
-        if (IsDisposed)
+            if (IsDisposed)
+            {
+                return false;
+            }
+
+            _ = Interlocked.Increment(ref _renderCount);
+            target.Pixels.Fill((byte)info.PageIndex);
+            return true;
+        }
+        finally
         {
-            return false;
+            _ = _firstRenderFinished.TrySetResult();
         }
-
-        _ = Interlocked.Increment(ref _renderCount);
-        target.Pixels.Fill((byte)info.PageIndex);
-        return true;
     }
 
     /// <inheritdoc/>

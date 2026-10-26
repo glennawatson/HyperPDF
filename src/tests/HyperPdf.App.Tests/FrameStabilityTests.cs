@@ -129,8 +129,8 @@ public sealed class FrameStabilityTests
     [Test]
     public async Task ScrollingDrawsSettledFrames()
     {
-        using var test = new TestServices();
-        using var main = new MainViewModel(test.Services);
+        var test = new TestServices();
+        var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("scroll.pdf", CreateStripedPdf())]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
@@ -153,6 +153,11 @@ public sealed class FrameStabilityTests
             Mark("scroll closing");
             window.Close();
             Mark("scroll closed");
+            Mark("scroll disposing main");
+            main.Dispose();
+            Mark("scroll disposing services");
+            test.Dispose();
+            Mark("scroll disposed");
         }
     }
 
@@ -161,12 +166,12 @@ public sealed class FrameStabilityTests
     [Test]
     public async Task WheelZoomDrawsSettledFrames()
     {
-        using var test = new TestServices();
+        var test = new TestServices();
 
         // Without easing each notch lands at once, so the first frame and the settled frame show the same zoom.
         test.Services.Settings.Motion = MotionPreference.Reduced;
         test.Services.ApplySettings();
-        using var main = new MainViewModel(test.Services);
+        var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("zoom.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
@@ -191,6 +196,11 @@ public sealed class FrameStabilityTests
             Mark("zoom closing");
             window.Close();
             Mark("zoom closed");
+            Mark("zoom disposing main");
+            main.Dispose();
+            Mark("zoom disposing services");
+            test.Dispose();
+            Mark("zoom disposed");
         }
     }
 
