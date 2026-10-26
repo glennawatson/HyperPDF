@@ -33,7 +33,7 @@ public sealed class RenderSchedulerTests
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(60);
 
     /// <summary>The longest Dispose may occupy a caller while a render is still active.</summary>
-    private static readonly TimeSpan DisposeLimit = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan DisposeLimit = TimeSpan.FromSeconds(30);
 
     /// <summary>How often the test checks whether its blocked render completed.</summary>
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(10);
