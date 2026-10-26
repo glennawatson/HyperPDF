@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.VisualTree;
@@ -123,33 +122,28 @@ public sealed class PrintPreviewWindowTests
     [Arguments(ColorSchemeChoice.Calm, true)]
     public async Task SystemDialogTextIsReadable(ColorSchemeChoice choice, bool navyAccent, CancellationToken cancellationToken)
     {
-        var name = $"{nameof(SystemDialogTextIsReadable)}({choice}, {navyAccent})";
-        StepLog.Mark(name, "start");
         using var test = new TestServices();
         test.Services.Settings.ColorScheme = choice;
         test.Services.ApplySettings();
-        StepLog.Mark(name, "settings applied");
         var theme = test.Services.CurrentTheme;
         if (navyAccent)
         {
             theme = theme with { Scheme = theme.Scheme with { Accent = NavyAccent } };
         }
 
-        DesktopThemeApplier.Apply(Application.Current!, theme);
-        StepLog.Mark(name, "theme applied");
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("print-colour.pdf", 1)]);
-        StepLog.Mark(name, "document open");
         using var preview = new PrintPreviewViewModel(main.SelectedTab!, test.Services);
         var window = new PrintPreviewWindow { ViewModel = preview };
-        StepLog.Mark(name, "window created");
+
+        // The theme goes on this window's own resources. Writing it to the application's resources notifies every
+        // window earlier tests opened and left behind, which takes minutes on a macOS runner late in the run.
+        DesktopThemeApplier.ApplyResources(window.Resources, theme.Scheme, theme);
         window.Show();
-        StepLog.Mark(name, "window shown");
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
             await Assert.That(await UiWait.UntilAsync(() => preview.IsValid && !preview.IsBuilding)).IsTrue();
-            StepLog.Mark(name, "preview built");
             var button = window.FindControl<Button>("SystemDialogButton")!;
             var text = button.GetVisualDescendants().OfType<TextBlock>().Single();
             var colour = ((ISolidColorBrush)text.Foreground!).Color.ToUInt32() & RgbMask;
@@ -157,11 +151,7 @@ public sealed class PrintPreviewWindowTests
         }
         finally
         {
-            StepLog.Mark(name, "closing");
             window.Close();
-            StepLog.Mark(name, "closed");
-            DesktopThemeApplier.Apply(Application.Current!, ThemeResolver.Resolve(new(), null));
-            StepLog.Mark(name, "theme restored");
         }
     }
 
