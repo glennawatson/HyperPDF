@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using HyperPdf.App.Views;
+using HyperPdf.Core.Media;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
@@ -65,7 +66,11 @@ public sealed class MediaPanelViewTests
             _ = await UiWait.UntilAsync(() => image.Source is WriteableBitmap { PixelSize: { Width: ClipWidth, Height: ClipHeight } });
 
             await Assert.That(image.IsVisible).IsTrue();
-            await Assert.That(pause.IsEffectivelyEnabled).IsTrue();
+
+            // The clip is short, so a slow runner can reach its end before this check; Pause is only enabled while playing.
+            var state = tab.Media.Player.State;
+            await Assert.That(state is MediaPlayerState.Playing or MediaPlayerState.Ended).IsTrue();
+            await Assert.That(pause.IsEffectivelyEnabled == (state == MediaPlayerState.Playing)).IsTrue();
         }
         finally
         {
