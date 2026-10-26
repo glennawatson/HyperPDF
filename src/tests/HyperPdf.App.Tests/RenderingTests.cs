@@ -17,7 +17,6 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Settings;
-using HyperPdf.Core.Theming;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels;
 using ReactiveUI.Primitives;
@@ -234,7 +233,6 @@ public sealed class RenderingTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("schemes.pdf", Pages)]);
         var window = new MainWindow { DataContext = main, Width = WindowWidth, Height = WindowHeight };
         window.Show();
-        var application = Application.Current!;
         try
         {
             ColorSchemeChoice[] choices = [ColorSchemeChoice.Calm, ColorSchemeChoice.HighContrast, ColorSchemeChoice.Dark, ColorSchemeChoice.Light];
@@ -242,12 +240,15 @@ public sealed class RenderingTests
             {
                 test.Services.Settings.ColorScheme = choice;
                 test.Services.ApplySettings();
-                DesktopThemeApplier.Apply(application, test.Services.CurrentTheme);
+
+                // The theme goes on this window's own resources. Writing it to the application's resources notifies every
+                // window earlier tests left behind, which takes minutes each time on a macOS runner late in the run.
+                DesktopThemeApplier.ApplyResources(window.Resources, test.Services.CurrentTheme.Scheme, test.Services.CurrentTheme);
                 _ = await UiWait.UntilAsync(() => test.Services.RenderHub.Cache.Count > ExpectedTiles && test.Services.RenderHub.Scheduler.QueueLength == 0);
                 using var frame = window.CaptureRenderedFrame();
                 Save(frame, $"scheme-{choice}.png");
 
-                var foreground = (ISolidColorBrush)application.Resources["AppForeground"]!;
+                var foreground = (ISolidColorBrush)window.Resources["AppForeground"]!;
                 await Assert.That(foreground.Color.ToUInt32() & RgbMask).IsEqualTo(test.Services.CurrentTheme.Scheme.Text);
                 await Assert.That(main.SelectedTab!.PageTone).IsEqualTo(test.Services.CurrentTheme.PageTone);
             }
@@ -255,7 +256,6 @@ public sealed class RenderingTests
         finally
         {
             window.Close();
-            DesktopThemeApplier.Apply(application, ThemeResolver.Resolve(new(), null));
         }
     }
 
