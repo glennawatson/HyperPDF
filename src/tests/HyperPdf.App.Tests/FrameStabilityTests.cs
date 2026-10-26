@@ -144,11 +144,15 @@ public sealed class FrameStabilityTests
                 worst = Math.Min(worst, await CompareWithSettledAsync(test, window, scroller, () => scroller.Offset = new(scroller.Offset.X, scroller.Offset.Y + ScrollStep), $"scroll-{step}"));
             }
 
+            Mark("scroll asserting");
             await Assert.That(worst).IsGreaterThanOrEqualTo(MinSharpness);
+            Mark("scroll asserted");
         }
         finally
         {
+            Mark("scroll closing");
             window.Close();
+            Mark("scroll closed");
         }
     }
 
@@ -178,11 +182,15 @@ public sealed class FrameStabilityTests
                 worst = Math.Min(worst, await CompareWithSettledAsync(test, window, scroller, () => window.MouseWheel(anchor, delta, RawInputModifiers.Control), $"zoom-{notch}"));
             }
 
+            Mark("zoom asserting");
             await Assert.That(worst).IsGreaterThanOrEqualTo(MinSharpness);
+            Mark("zoom asserted");
         }
         finally
         {
+            Mark("zoom closing");
             window.Close();
+            Mark("zoom closed");
         }
     }
 
