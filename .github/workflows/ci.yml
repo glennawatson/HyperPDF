@@ -17,7 +17,7 @@ jobs:
       solutionFile: HyperPdf.slnx
       minverTagPrefix: ''
       uploadCodecov: false
-      testTimeout: '25m'
+      testTimeout: '45m'
       dotnetVersions: |
         11.x
         10.x

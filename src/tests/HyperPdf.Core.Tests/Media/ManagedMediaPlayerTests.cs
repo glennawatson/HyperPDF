@@ -89,8 +89,8 @@ public sealed class ManagedMediaPlayerTests
     /// <summary>The test file with H.264 pictures, AAC sound and text.</summary>
     private const string VideoFile = "av-h264-aac-text.mp4";
 
-    /// <summary>How long to wait for the player.</summary>
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
+    /// <summary>How long to wait for the player. Playback runs by the wall clock, so a slow, loaded arm64 runner needs far longer than the clips last.</summary>
+    private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(2);
 
     /// <summary>Verifies opening reads the sound and plays nothing.</summary>
     /// <returns>A task.</returns>
