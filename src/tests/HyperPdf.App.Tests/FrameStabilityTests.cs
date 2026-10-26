@@ -368,7 +368,7 @@ public sealed class FrameStabilityTests
 
         var folder = Path.Combine(directory, "test-diagnostics");
         _ = Directory.CreateDirectory(folder);
-        File.AppendAllText(Path.Combine(folder, "frame-progress.log"), $"{TimeProvider.System.GetUtcNow():O} {Environment.CurrentManagedThreadId} {step}\n");
+        File.AppendAllText(Path.Combine(folder, $"frame-progress-{Environment.ProcessId}.log"), $"{TimeProvider.System.GetUtcNow():O} {Environment.CurrentManagedThreadId} {step}\n");
     }
 
     /// <summary>Saves a frame when screenshots are requested.</summary>
