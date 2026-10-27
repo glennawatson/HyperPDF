@@ -37,7 +37,9 @@ public sealed class TransitionCurtainTests
     [Test]
     public async Task WipeShrinksFromFullToNothing()
     {
-        var started = Get(Run(TransitionEffect.Wipe, 0, false, false, 0));
+        // A long effect, so a slow machine's delay between starting and measuring still leaves it at the start.
+        var slow = Run(TransitionEffect.Wipe, 0, false, false, 0);
+        var started = Get(slow with { Step = slow.Step with { DurationSeconds = LongAgoSeconds } });
         var over = Get(Run(TransitionEffect.Wipe, 0, false, false, -LongAgoSeconds));
 
         await Assert.That(started.Rectangles.Length).IsEqualTo(1);
