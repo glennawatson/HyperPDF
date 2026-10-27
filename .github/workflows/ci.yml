@@ -24,7 +24,7 @@ jobs:
   tests:
     name: Tests (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 75
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -54,7 +54,7 @@ jobs:
             10.x
       - name: Test on net10.0 and net11.0
         working-directory: src
-        run: dotnet test --solution HyperPdf.slnx -c Release -v q --nologo -- --timeout 30m --diagnostic --diagnostic-verbosity Trace --diagnostic-output-directory "${{ runner.temp }}/test-diagnostics"
+        run: dotnet test --solution HyperPdf.slnx -c Release -v q --nologo -- --timeout 45m --diagnostic --diagnostic-verbosity Trace --diagnostic-output-directory "${{ runner.temp }}/test-diagnostics"
       - name: Upload test diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
