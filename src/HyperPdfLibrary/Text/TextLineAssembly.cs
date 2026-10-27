@@ -223,7 +223,10 @@ internal static class TextLineAssembly
         for (var k = state.Recent.Count - 1; k >= limit; k--)
         {
             var recent = state.Recent[k];
-            if (recent.Code == code && ReferenceEquals(recent.Font, run.Font) && IsNear(recent.Origin, origin, MathF.Max(MathF.Abs(em), MathF.Abs(recent.Em))))
+            var tolerance = MathF.Max(MathF.Abs(em), MathF.Abs(recent.Em));
+
+            // Text of size zero all sits at one point, so its glyphs are the text itself and never a second pass of fake bold.
+            if (tolerance > 0 && recent.Code == code && ReferenceEquals(recent.Font, run.Font) && IsNear(recent.Origin, origin, tolerance))
             {
                 return true;
             }

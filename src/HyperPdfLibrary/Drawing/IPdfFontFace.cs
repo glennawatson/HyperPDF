@@ -35,6 +35,11 @@ public interface IPdfFontFace : IDisposable
     /// <returns>The advance.</returns>
     float GetAdvance(int glyph);
 
+    /// <summary>Gets the bytes of one of the font's OpenType tables, so the library can read the glyph substitutions the font offers.</summary>
+    /// <param name="tag">The four-character table tag, such as <c>GSUB</c>.</param>
+    /// <returns>The table, or empty when the font has none or the backend cannot give it.</returns>
+    ReadOnlyMemory<byte> GetTable(string tag) => default;
+
     /// <summary>Builds an independent managed glyph outline.</summary>
     /// <param name="glyph">The glyph identifier.</param>
     /// <returns>The outline, or null.</returns>

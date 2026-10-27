@@ -19,7 +19,8 @@ public static class ContentWarnings
         | UnsupportedContent.Multimedia
         | UnsupportedContent.ThreeD
         | UnsupportedContent.Portfolio
-        | UnsupportedContent.UnreadableImages);
+        | UnsupportedContent.UnreadableImages
+        | UnsupportedContent.UnreadableStreams);
 
     /// <summary>Describes what cannot be shown, and what to do about it.</summary>
     /// <param name="content">The unsupported parts.</param>
@@ -49,6 +50,7 @@ public static class ContentWarnings
             (UnsupportedContent.ThreeD, "3D models"),
             (UnsupportedContent.Portfolio, "a PDF portfolio"),
             (UnsupportedContent.UnreadableImages, "images in an unknown format"),
+            (UnsupportedContent.UnreadableStreams, "page parts packed with a compression it does not know"),
         ];
 
         /// <summary>Gets the message for every supported combination of flags.</summary>
@@ -88,6 +90,11 @@ public static class ContentWarnings
             if ((content & UnsupportedContent.UnreadableImages) != 0)
             {
                 _ = builder.Append("Those images show as grey boxes with a cross. ");
+            }
+
+            if ((content & UnsupportedContent.UnreadableStreams) != 0)
+            {
+                _ = builder.Append("Those parts are left out of the page. ");
             }
 
             return builder.Append("To use everything, open it in Adobe Acrobat Reader.").ToString();

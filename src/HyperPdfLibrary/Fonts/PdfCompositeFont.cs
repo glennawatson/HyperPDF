@@ -184,6 +184,7 @@ internal sealed class PdfCompositeFont : PdfFont
             glyph = fallback.GetGlyph(codePoint);
         }
 
-        return glyph == 0 ? null : face.BuildOutline(glyph);
+        // Text written down a column takes the font's upright forms of brackets, punctuation and the long vowel mark.
+        return glyph == 0 ? null : face.BuildOutline(IsVertical ? face.GetVerticalGlyph(glyph, codePoint) : glyph);
     }
 }
