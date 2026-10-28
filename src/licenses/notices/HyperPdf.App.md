@@ -1636,9 +1636,10 @@ SOFTWARE.
 ````
 
 ### Tmds.DBus.Protocol
-- Version: 0.95.1
+- Version: 0.95.2
 - Origin: NuGet package
 - Copyright: Tom Deseyn
+- Link: https://tmds.github.io/Tmds.DBus
 
 ````text
 MIT License
