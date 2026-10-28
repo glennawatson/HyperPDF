@@ -57,7 +57,7 @@
     <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="$(SkiaVersion)" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="$(SkiaVersion)" />
     <PackageVersion Include="Refit" Version="16.4.0" />
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.0" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
   </ItemGroup>
 
   <ItemGroup Label="Testing">
