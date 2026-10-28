@@ -31,6 +31,9 @@ internal readonly record struct TextRunFrame(Vector2 Axis, Vector2 Normal, Vecto
     {
         var matrix = run.Matrix;
         var raw = run.Font.IsVertical ?new Vector2(-matrix.M21, -matrix.M22) : new Vector2(matrix.M11, matrix.M12);
+
+        // A negative font size turns the glyphs half a turn, so they advance against the matrix's axis.
+        raw = run.FontSize < 0 ? -raw : raw;
         var length = raw.Length();
         var axis = length > 0 && float.IsFinite(length) ? raw / length : Vector2.UnitX;
         return new(axis, new(-axis.Y, axis.X), matrix.Translation, run.FontSize * (length > 0 && float.IsFinite(length) ? length : 1));

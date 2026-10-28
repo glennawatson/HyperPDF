@@ -5,6 +5,7 @@
 using System.Text.RegularExpressions;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
+using TUnit.Assertions.Enums;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -27,10 +28,19 @@ public sealed partial class PdfDifferencesCaseTests
     /// <summary>The code point of the Eastern Arabic-Indic digit zero.</summary>
     private const char EasternArabicZero = '٠';
 
+    /// <summary>The case whose image uses an unknown filter.</summary>
+    private const string ImageCase = "pdfdiff-unknownfilter-imagexobject";
+
+    /// <summary>The case whose form XObject uses an unknown filter.</summary>
+    private const string FormCase = "pdfdiff-unknownfilter-formxobject";
+
+    /// <summary>The case whose font program uses an unknown filter.</summary>
+    private const string FontCase = "pdfdiff-unknownfilter-font";
+
     /// <summary>The ids of the processable unknown filter cases, which still show their text.</summary>
     private static readonly string[] ProcessableUnknownFilters =
     [
-        "pdfdiff-unknownfilter-font", "pdfdiff-unknownfilter-formxobject", "pdfdiff-unknownfilter-icc", "pdfdiff-unknownfilter-imagexobject",
+        FontCase, FormCase, "pdfdiff-unknownfilter-icc", ImageCase,
         "pdfdiff-unknownfilter-linearized", "pdfdiff-unknownfilter-outlineobjstm", "pdfdiff-unknownfilter-xrefstm",
     ];
 
@@ -43,8 +53,8 @@ public sealed partial class PdfDifferencesCaseTests
         "pdfdiff-defaultrgbcolourspaces", "pdfdiff-indexedcs-negative-and-high", "pdfdiff-inlineabbreviations", "pdfdiff-largemitrelimit-beziers",
         "pdfdiff-largemitrelimit", "pdfdiff-linecap-degenerate", "pdfdiff-cuthereexample", "pdfdiff-negative-dashphase", "pdfdiff-negativefontsize",
         "pdfdiff-overlappingglyphclipping", "pdfdiff-pdf-versions1", "pdfdiff-pdf-versions2", "pdfdiff-pdf-versions3", "pdfdiff-pagelabelstest",
-        "pdfdiff-textclippingmodechanges", "pdfdiff-type3test", "pdfdiff-unknownfilter-font", "pdfdiff-unknownfilter-formxobject", "pdfdiff-unknownfilter-icc",
-        "pdfdiff-unknownfilter-imagexobject", "pdfdiff-unknownfilter-linearized", "pdfdiff-unknownfilter-outlineobjstm",
+        "pdfdiff-textclippingmodechanges", "pdfdiff-type3test", FontCase, FormCase, "pdfdiff-unknownfilter-icc",
+        ImageCase, "pdfdiff-unknownfilter-linearized", "pdfdiff-unknownfilter-outlineobjstm",
         "pdfdiff-unknownfilter-pagecontentstream", "pdfdiff-unknownfilter-objstm", "pdfdiff-unknownfilter-xrefstm", "pdfdiff-verticaltext",
         "pdfdiff-real-world-1", "pdfdiff-real-world-2",
     ];
@@ -52,6 +62,11 @@ public sealed partial class PdfDifferencesCaseTests
     /// <summary>Gets the ids of the cases that say a PDF 1.6 file, for <c>[MethodDataSource]</c>.</summary>
     /// <returns>The ids.</returns>
     public static IEnumerable<string> VersionIds() => ["pdfdiff-pdf-versions1", "pdfdiff-pdf-versions2", "pdfdiff-pdf-versions3"];
+
+    /// <summary>Gets the ids of the cases whose page draws an image, form, font or content stream with a filter nobody knows, for <c>[MethodDataSource]</c>.</summary>
+    /// <returns>The ids.</returns>
+    public static IEnumerable<string> UnknownFilterIds() =>
+        [ImageCase, FormCase, FontCase, "pdfdiff-unknownfilter-pagecontentstream"];
 
     /// <summary>Gets the ids of the cases that keep their text although a stream uses an unknown filter, for <c>[MethodDataSource]</c>.</summary>
     /// <returns>The ids.</returns>
@@ -124,6 +139,55 @@ public sealed partial class PdfDifferencesCaseTests
         using var document = new HyperPdfEngine().Open(ReferencePdfFile.RequirePaths(id)[0], null);
 
         await Assert.That(document.GetText(0, 0, document.GetCharacterCount(0))).Contains("Hello!");
+    }
+
+    /// <summary>An image whose filter is unknown is left out instead of drawn as noise on black, and the reader is told in words.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LeavesOutAnImageWithAnUnknownFilterAndSaysSo()
+    {
+        using var document = new HyperPdfEngine().Open(ReferencePdfFile.RequirePaths(ImageCase)[0], null);
+
+        var content = DocumentFeature<IContentCheck>.Cast(document)!.CheckPage(0);
+        var warning = ContentWarnings.Describe(content);
+
+        await Assert.That(content & UnsupportedContent.UnreadableImages).IsEqualTo(UnsupportedContent.UnreadableImages);
+        await Assert.That(warning).IsNotNull().And.Contains("images in an unknown format");
+    }
+
+    /// <summary>Every case that names an unknown filter on a stream the page can do without tells the reader part of the page was left out.</summary>
+    /// <param name="id">The case.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [MethodDataSource(nameof(UnknownFilterIds))]
+    public async Task SaysWhenAPageUsesAFilterTheViewerCannotRead(string id)
+    {
+        using var document = new HyperPdfEngine().Open(ReferencePdfFile.RequirePaths(id)[0], null);
+
+        var content = DocumentFeature<IContentCheck>.Cast(document)!.CheckPage(0);
+
+        await Assert.That(content & (UnsupportedContent.UnreadableImages | UnsupportedContent.UnreadableStreams)).IsNotEqualTo(UnsupportedContent.None);
+        await Assert.That(ContentWarnings.Describe(content)).IsNotNull().And.Contains("cannot show");
+    }
+
+    /// <summary>Text drawn with a negative or a zero font size is read line by line in the order it is drawn, never mixed with the line it overlaps.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task KeepsEachLineTogetherWhenTheTextIsMirrored()
+    {
+        using var document = new HyperPdfEngine().Open(ReferencePdfFile.RequirePaths("pdfdiff-negativefontsize")[0], null);
+
+        var lines = document.GetText(0, 0, document.GetCharacterCount(0)).Split('\n', StringSplitOptions.TrimEntries);
+        var expected = new List<string>();
+        foreach (var how in new[] { "Tf", "gs" })
+        {
+            foreach (var font in new[] { "Helvetica", "Times-Roman" })
+            {
+                expected.AddRange(new[] { "+20", "-20", "zero" }.Select(size => $"{font} {size} font size via {how} operator"));
+            }
+        }
+
+        await Assert.That(lines).IsEquivalentTo(expected, CollectionOrdering.Matching);
     }
 
     /// <summary>Gets the label of a page that names its label in words, as in "index 8 = Eastern Arabic 4", which is written with Eastern Arabic-Indic digits.</summary>

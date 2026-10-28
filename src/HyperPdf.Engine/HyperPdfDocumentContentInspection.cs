@@ -52,6 +52,11 @@ internal static class HyperPdfDocumentContentInspection
             content |= UnsupportedContent.UnreadableImages;
         }
 
+        if (PdfUnreadableStreams.Exists(self.Document, pageIndex))
+        {
+            content |= UnsupportedContent.UnreadableStreams;
+        }
+
         return PdfDocumentContent.HasAcroForm(self.Document) && HyperPdfContentInspection.HasUnknownScripts(self, pageIndex) ? content | UnsupportedContent.JavaScript : content;
     }
 }

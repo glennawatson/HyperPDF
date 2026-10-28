@@ -7,6 +7,7 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts.Programs;
+using HyperPdfLibrary.Fonts.Shaping;
 
 namespace HyperPdfLibrary.Fonts;
 
@@ -24,11 +25,20 @@ internal sealed class SubstituteFace : GlyphSource, IDisposable
     /// <summary>The largest single-byte code.</summary>
     private const int MaxByteCode = 0xFF;
 
+    /// <summary>The tag of the glyph substitution table.</summary>
+    private const string GsubTag = "GSUB";
+
+    /// <summary>The tag of the glyph definition table.</summary>
+    private const string GdefTag = "GDEF";
+
     /// <summary>The backend font face, or null for a bundled face.</summary>
     private readonly IPdfFontFace? _font;
 
     /// <summary>The managed glyph source of a bundled face; null for a system face.</summary>
     private readonly ProgramGlyphSource? _bundled;
+
+    /// <summary>The vertical forms the font offers, read on first use.</summary>
+    private VerticalForms? _vertical;
 
     /// <summary>Initializes a new instance of the <see cref="SubstituteFace"/> class from a system font.</summary>
     /// <param name="font">The backend face; this source owns it.</param>
@@ -99,6 +109,21 @@ internal sealed class SubstituteFace : GlyphSource, IDisposable
         return _bundled is null ? _font!.GetGlyph(codePoint) : Math.Max(_bundled.Program.GetGlyphByUnicode(codePoint), 0);
     }
 
+    /// <summary>Finds the glyph a character is drawn with in vertical text: the font's own upright form where it has one.</summary>
+    /// <param name="glyph">The glyph of the character in horizontal text.</param>
+    /// <param name="codePoint">The character.</param>
+    /// <returns>The vertical form, or <paramref name="glyph"/> when the font offers none.</returns>
+    internal int GetVerticalGlyph(int glyph, int codePoint)
+    {
+        if (_font is null || glyph <= 0)
+        {
+            return glyph;
+        }
+
+        var forms = Volatile.Read(ref _vertical) ?? CreateVerticalForms();
+        return forms.IsPresent ? forms.Substitute(glyph, codePoint) : glyph;
+    }
+
     /// <summary>Finds a glyph by its PostScript name; only a bundled face keeps names.</summary>
     /// <param name="name">The glyph name's UTF-8 bytes.</param>
     /// <returns>The glyph id, or zero when the face has none.</returns>
@@ -149,5 +174,13 @@ internal sealed class SubstituteFace : GlyphSource, IDisposable
         }
 
         return _bundled is null ? _font!.GetAdvance(glyph) : _bundled.GetAdvance(glyph);
+    }
+
+    /// <summary>Reads the font's substitution tables on first use, keeping another thread's copy if it won.</summary>
+    /// <returns>The vertical forms.</returns>
+    private VerticalForms CreateVerticalForms()
+    {
+        var created = new VerticalForms(_font!.GetTable(GsubTag), _font.GetTable(GdefTag));
+        return Interlocked.CompareExchange(ref _vertical, created, null) ?? created;
     }
 }

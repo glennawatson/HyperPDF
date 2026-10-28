@@ -19,6 +19,12 @@ internal sealed class SkiaFontFace : IPdfFontFace
     /// <summary>The synthetic rightward italic skew in Skia's downward coordinate space.</summary>
     private const float SyntheticSkew = -0.2F;
 
+    /// <summary>The letters in a table tag.</summary>
+    private const int TagLength = 4;
+
+    /// <summary>The bits in one tag letter.</summary>
+    private const int TagLetterBits = 8;
+
     /// <summary>Serializes native font access and disposal.</summary>
     private readonly Lock _gate = new();
 
@@ -102,6 +108,16 @@ internal sealed class SkiaFontFace : IPdfFontFace
     }
 
     /// <inheritdoc/>
+    public ReadOnlyMemory<byte> GetTable(string tag)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return tag.Length == TagLength && _typeface.TryGetTableData(TagValue(tag), out var data) ? data : default;
+        }
+    }
+
+    /// <inheritdoc/>
     public PdfPath? BuildOutline(int glyph)
     {
         lock (_gate)
@@ -131,5 +147,19 @@ internal sealed class SkiaFontFace : IPdfFontFace
             _font.Dispose();
             _typeface.Dispose();
         }
+    }
+
+    /// <summary>Packs the four letters of a table tag into the number Skia names the table by.</summary>
+    /// <param name="tag">The tag.</param>
+    /// <returns>The number, first letter highest.</returns>
+    private static uint TagValue(string tag)
+    {
+        var value = 0U;
+        foreach (var letter in tag)
+        {
+            value = (value << TagLetterBits) | (byte)letter;
+        }
+
+        return value;
     }
 }

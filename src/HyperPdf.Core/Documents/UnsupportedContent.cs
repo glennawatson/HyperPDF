@@ -28,4 +28,7 @@ public enum UnsupportedContent
 
     /// <summary>Images packed in a way HyperPDF does not know, which show as grey boxes.</summary>
     UnreadableImages = 1 << 5,
+
+    /// <summary>Page content, forms or font programs packed in a way HyperPDF does not know, so part of a page is left out.</summary>
+    UnreadableStreams = 1 << 6,
 }

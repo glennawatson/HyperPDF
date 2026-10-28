@@ -26,6 +26,16 @@ internal sealed class OtFontLayout
         LegacyKerning = font.TableMemory(SfntTags.Kern);
     }
 
+    /// <summary>Initializes a new instance of the <see cref="OtFontLayout"/> class from the substitution tables alone.</summary>
+    /// <param name="substitution">The GSUB table, or empty.</param>
+    /// <param name="definitions">The GDEF table, or empty.</param>
+    internal OtFontLayout(ReadOnlyMemory<byte> substitution, ReadOnlyMemory<byte> definitions)
+    {
+        Substitution = new(substitution);
+        Positioning = new(default);
+        Definitions = new(definitions);
+    }
+
     /// <summary>Gets the glyph substitution table.</summary>
     internal OtLayoutTable Substitution { get; }
 
