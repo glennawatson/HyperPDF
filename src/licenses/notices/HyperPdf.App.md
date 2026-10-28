@@ -893,7 +893,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.ML.OnnxRuntime
-- Version: 1.31.0
+- Version: 1.31.1
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://github.com/Microsoft/onnxruntime
@@ -923,7 +923,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.ML.OnnxRuntime.Managed
-- Version: 1.31.0
+- Version: 1.31.1
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://github.com/Microsoft/onnxruntime
