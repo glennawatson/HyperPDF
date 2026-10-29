@@ -15,7 +15,7 @@ namespace HyperPdf.App.Rendering;
 public sealed class AvaloniaRenderHead : IRenderHead
 {
     /// <inheritdoc/>
-    public string NoticesFolder => AppContext.BaseDirectory;
+    public string NoticesFolder => FindNoticesFolder(AppContext.BaseDirectory);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -36,4 +36,14 @@ public sealed class AvaloniaRenderHead : IRenderHead
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public DecodedImage? LoadImage(string path) => SignatureImageFile.Load(path);
+
+    /// <summary>Picks the folder that holds the notices file.</summary>
+    /// <param name="baseDirectory">The folder the app runs from.</param>
+    /// <returns>The macOS bundle's Contents/Resources when the file is there, otherwise the base folder.</returns>
+    private static string FindNoticesFolder(string baseDirectory)
+    {
+        // A macOS bundle keeps non-code files in Contents/Resources, because codesign --strict rejects them in Contents/MacOS.
+        var resources = Path.GetFullPath(Path.Combine(baseDirectory, "..", "Resources"));
+        return File.Exists(Path.Combine(resources, "THIRD-PARTY-NOTICES.md")) ? resources : baseDirectory;
+    }
 }

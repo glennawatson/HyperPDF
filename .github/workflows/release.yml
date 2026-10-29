@@ -256,6 +256,8 @@ jobs:
     # Contents/MacOS holds only code to sign; the app also looks for its text recognition data in Contents/Resources.
     - name: Move the text recognition data to Resources
       run: mv "$APP/Contents/MacOS/tessdata" "$APP/Contents/Resources/tessdata"
+    - name: Move the third-party notices to Resources
+      run: mv "$APP/Contents/MacOS/THIRD-PARTY-NOTICES.md" "$APP/Contents/Resources/THIRD-PARTY-NOTICES.md"
     - name: Sign the app bundle (ad hoc)
       run: codesign --force --deep --sign - "$APP"
     - name: Build the DMG
