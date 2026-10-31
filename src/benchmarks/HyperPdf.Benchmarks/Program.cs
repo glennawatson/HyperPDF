@@ -68,6 +68,7 @@ public static class Program
     private static ManualConfig CreateConfig(string[] args, bool cpuLines)
     {
         var config = ManualConfig.Create(DefaultConfig.Instance);
+        config.ArtifactsPath = ArtifactsPath(args);
         if (cpuLines)
         {
             _ = config.AddJob(new Job().WithEnvironmentVariables(CpuTrace(ArtifactsPath(args))).AsMutator());
@@ -119,12 +120,25 @@ public static class Program
         ];
     }
 
-    /// <summary>Gets the results folder from the arguments, or BenchmarkDotNet's default.</summary>
+    /// <summary>Gets the results folder from the arguments, or the one beside the solution file so the working folder never matters.</summary>
     /// <param name="args">The arguments.</param>
     /// <returns>The full path.</returns>
     private static string ArtifactsPath(string[] args)
     {
         var at = Array.IndexOf(args, "--artifacts");
-        return Path.GetFullPath(at >= 0 && at + 1 < args.Length ? args[at + 1] : "BenchmarkDotNet.Artifacts");
+        if (at >= 0 && at + 1 < args.Length)
+        {
+            return Path.GetFullPath(args[at + 1]);
+        }
+
+        for (var folder = new DirectoryInfo(AppContext.BaseDirectory); folder is not null; folder = folder.Parent)
+        {
+            if (File.Exists(Path.Combine(folder.FullName, "HyperPdf.slnx")))
+            {
+                return Path.Combine(folder.FullName, "BenchmarkDotNet.Artifacts");
+            }
+        }
+
+        return Path.GetFullPath("BenchmarkDotNet.Artifacts");
     }
 }
