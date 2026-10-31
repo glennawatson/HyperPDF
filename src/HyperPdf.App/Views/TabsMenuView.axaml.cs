@@ -40,6 +40,7 @@ public sealed partial class TabsMenuView : ReactiveUI.Avalonia.ReactiveUserContr
             disposables.Add(TabsMenuButton.FlyoutOpenings.InjectLatest(viewModels)
                 .SubscribeSafe(static viewModel => viewModel.RefreshRecentDocuments(), ErrorTrace.Write));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.OpenCommand, static v => v.OpenMenuItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.ConvertPicturesCommand, static v => v.ConvertPicturesMenuItem));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.ClearRecentCommand, static v => v.ClearRecentMenuItem));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.ReopenClosedTabCommand, static v => v.ReopenMenuItem));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.TogglePageToneCommand, static v => v.PageToneMenuItem));

@@ -8,6 +8,7 @@ using HyperPdfLibrary.Forms;
 using HyperPdfLibrary.Metadata;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Pdf20;
+using HyperPdfLibrary.Signatures;
 using HyperPdfLibrary.Tests.Conformance;
 
 namespace HyperPdfLibrary.Tests.Pdf20;
@@ -387,6 +388,63 @@ public sealed class Pdf20ConverterTests
         await Assert.That(result.Converted).IsFalse();
         await Assert.That(output.Length).IsEqualTo(0);
         await Assert.That(result.Problems.Single().Description).Contains("protected");
+    }
+
+    /// <summary>A signed file is converted once the person agrees the signatures go, and the copy carries none.</summary>
+    /// <param name="cancellationToken">Cancels the conversion.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SignedFileIsConvertedWhenTheSignaturesMayGo(CancellationToken cancellationToken)
+    {
+        using var source = PdfDocumentReader.Open(ConversionTestPdf.Signed(), null);
+        await using var stream = new MemoryStream();
+
+        var result = await Pdf20Converter.SaveAsPdf20Async(source, stream, new(true, false), cancellationToken);
+        var written = stream.ToArray();
+
+        await Assert.That(result.Converted).IsTrue().Because(Describe(result));
+        await Assert.That(written.AsSpan().StartsWith(Header)).IsTrue();
+        await Assert.That(Array.Exists(result.Changes, static note => note.Clause == "12.8.1")).IsTrue();
+        using var copy = PdfDocumentReader.Open(written, null);
+        await Assert.That(SignaturePresence.HasSignature(copy.Objects)).IsFalse();
+    }
+
+    /// <summary>A protected file is converted once the person agrees the protection goes, and the copy opens with no password.</summary>
+    /// <param name="cancellationToken">Cancels the conversion.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task EncryptedFileIsConvertedWhenTheProtectionMayGo(CancellationToken cancellationToken)
+    {
+        using var source = PdfDocumentReader.Open(EncryptedFixture.Build(), string.Empty);
+        await using var stream = new MemoryStream();
+
+        var result = await Pdf20Converter.SaveAsPdf20Async(source, stream, new(false, true), cancellationToken);
+        var written = stream.ToArray();
+
+        await Assert.That(result.Converted).IsTrue().Because(Describe(result));
+        await Assert.That(written.AsSpan().StartsWith(Header)).IsTrue();
+        using var copy = PdfDocumentReader.Open(written, null);
+        await Assert.That(copy.IsEncrypted).IsFalse();
+        await Assert.That(copy.PageCount).IsEqualTo(source.PageCount);
+    }
+
+    /// <summary>Allowing the signatures to go does not let a protected file through, and the other way round.</summary>
+    /// <param name="cancellationToken">Cancels the conversion.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task AllowingOneLossDoesNotLiftTheOtherRefusal(CancellationToken cancellationToken)
+    {
+        using var protectedSource = PdfDocumentReader.Open(EncryptedFixture.Build(), string.Empty);
+        using var signedSource = PdfDocumentReader.Open(ConversionTestPdf.Signed(), null);
+        await using var first = new MemoryStream();
+        await using var second = new MemoryStream();
+
+        var protectedResult = await Pdf20Converter.SaveAsPdf20Async(protectedSource, first, new(true, false), cancellationToken);
+        var signedResult = await Pdf20Converter.SaveAsPdf20Async(signedSource, second, new(false, true), cancellationToken);
+
+        await Assert.That(protectedResult.Converted).IsFalse();
+        await Assert.That(signedResult.Converted).IsFalse();
+        await Assert.That(first.Length + second.Length).IsEqualTo(0);
     }
 
     /// <summary>The synchronous form writes the same copy as the asynchronous one, and a cancelled token stops the run.</summary>

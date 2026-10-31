@@ -15,6 +15,11 @@ internal static class SaveText
     internal static string? Notice(in DocumentSaveOutcome outcome)
     {
         var note = ClaimNotice(outcome);
+        if (Pdf20Notice(outcome) is { } pdf20)
+        {
+            note = note is null ? pdf20 : Join(note, pdf20);
+        }
+
         if (outcome.TrapNetworkWarnings.Count > 0)
         {
             note = Join(note, TrapNetworkNotice(outcome.TrapNetworkWarnings));
@@ -54,6 +59,21 @@ internal static class SaveText
     /// <param name="second">The second note.</param>
     /// <returns>The notes.</returns>
     private static string Join(string? first, string second) => first is null ? second : string.Join('\n', first, second);
+
+    /// <summary>Gets the note about writing PDF 2.0: that the file was written as PDF 2.0, or why it was left in its own version.</summary>
+    /// <param name="outcome">The save's result.</param>
+    /// <returns>The note, or <see langword="null"/> when PDF 2.0 was not tried.</returns>
+    private static string? Pdf20Notice(in DocumentSaveOutcome outcome)
+    {
+        if (outcome.Pdf20Written)
+        {
+            return UiText.Get("Saved as a PDF 2.0 file.");
+        }
+
+        return outcome.Pdf20Refusal is { } reason
+            ? UiText.Format("Saved in the file's own version, not PDF 2.0: {0} Use Save PDF 2.0 copy to choose what happens.", reason)
+            : null;
+    }
 
     /// <summary>Gets the note about the file's PDF/A claim, or <see langword="null"/> when the save kept it as it was.</summary>
     /// <param name="outcome">The save's result.</param>

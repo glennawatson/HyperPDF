@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
+using HyperPdf.ViewModels.Dialogs;
 using ReactiveUI;
 using ReactiveUI.Primitives.Disposables;
 
@@ -49,6 +50,9 @@ public sealed class TabCopyActionSet : ReactiveObject, IDisposable, ILocalisatio
 
     /// <summary>Gets saving a PDF 2.0 copy, for engines that can write one.</summary>
     public TabCopyAction<Pdf20CopyViewModel> Pdf20 { get; }
+
+    /// <summary>Gets the question asked before a save rewrites a signed or protected file as PDF 2.0, which costs it its signatures or its protection.</summary>
+    public Interaction<ConfirmRequest, bool> Pdf20SaveInteraction { get; } = new();
 
     /// <summary>Gets saving a flattened copy, for engines that can write one.</summary>
     public TabCopyAction<FlattenCopyViewModel> Flatten { get; }

@@ -36,9 +36,55 @@ public static class CanvasMarksMixins
                 DrawHits(painter, tab, page, transform, viewport);
                 DrawSpoken(painter, tab, page, transform);
                 DrawFocusBand(painter, tab, page, transform);
+                DrawEditOutlines(painter, tab, page, transform);
             }
         }
     }
+
+    /// <summary>Outlines the object under the pointer and the object picked, in Edit mode.</summary>
+    /// <param name="painter">The toolkit's painter.</param>
+    /// <param name="tab">The tab.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="transform">How the page maps onto the canvas.</param>
+    private static void DrawEditOutlines(IMarksPainter painter, DocumentTabViewModel tab, int page, in PageTransform transform)
+    {
+        var edit = tab.ContentEdit;
+        if (!edit.IsEditing)
+        {
+            return;
+        }
+
+        if (edit.Hovered is { } hovered && hovered.Page == page && !SameObject(hovered, edit.Selected))
+        {
+            painter.DrawEditOutline(transform.MapToCanvas(hovered.Object.Bounds), false);
+        }
+
+        DrawPickedOutline(painter, edit, page, transform);
+    }
+
+    /// <summary>Outlines the picked object, shifted by how far it has been dragged.</summary>
+    /// <param name="painter">The toolkit's painter.</param>
+    /// <param name="edit">Edit mode.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="transform">How the page maps onto the canvas.</param>
+    private static void DrawPickedOutline(IMarksPainter painter, PageContentEditViewModel edit, int page, in PageTransform transform)
+    {
+        if (edit.Selected is not { } picked || picked.Page != page)
+        {
+            return;
+        }
+
+        var bounds = picked.Object.Bounds;
+        var shown = edit.DragPage == page ? bounds with { Left = bounds.Left + edit.DragDelta.X, Top = bounds.Top + edit.DragDelta.Y } : bounds;
+        painter.DrawEditOutline(transform.MapToCanvas(shown), true);
+    }
+
+    /// <summary>Tells whether two picks are the same object on the same page.</summary>
+    /// <param name="first">The first pick.</param>
+    /// <param name="second">The second pick, or <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when both name the same object.</returns>
+    private static bool SameObject(PageObjectPick first, PageObjectPick? second) =>
+        second is not null && first.Page == second.Page && first.Object.Index == second.Object.Index;
 
     /// <summary>Draws the search hits on a page, outlining the current one.</summary>
     /// <param name="painter">The toolkit's painter.</param>

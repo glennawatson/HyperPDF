@@ -29,6 +29,7 @@
       <views:MeasureBarView />
       <views:AnnotateBarView />
       <views:FillSignBarView x:Name="FillSign" />
+      <views:EditBarView />
       <views:TextFormatBarView />
       <views:DocumentBarsView />
       <views:RecognitionBarsView />

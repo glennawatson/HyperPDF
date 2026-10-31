@@ -2,8 +2,12 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.Core.Documents;
 using HyperPdf.Core.Layout;
+using HyperPdf.Presentation.Input;
+using HyperPdf.TestAssets;
 using HyperPdf.ViewModels.Tests;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Presentation.Tests;
 
@@ -108,6 +112,62 @@ public sealed class CanvasMarksTests
         await Assert.That(dimming.Dims).IsGreaterThan(0);
         await Assert.That(bare.Dims).IsEqualTo(0);
         tab.ReadAloud.IsOpen = false;
+    }
+
+    /// <summary>In Edit mode the picked object is outlined as picked, and the page is not marked otherwise.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task EditModeOutlinesThePickedObject()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("marks-edit.pdf", TestPdf.CreateTagged())]);
+        var tab = main.SelectedTab!;
+        var (_, state) = CanvasUnderTest.Create(tab);
+        state.RebuildLayout();
+        var before = new FakeMarksPainter();
+        var after = new FakeMarksPainter();
+        var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
+        var target = Array.Find(await editor.ReadObjectsAsync(0, CancellationToken.None), static o => o.Kind == PageObjectKind.Text);
+
+        state.DrawMarks(before, tab, View());
+        _ = await tab.ContentEdit.ToggleEditingCommand.Execute().ToTask();
+        await tab.ContentEdit.PressAsync(0, new(target.Bounds.Left + 1, target.Bounds.Top + 1), false);
+        state.DrawMarks(after, tab, View());
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(before.EditOutlines).IsEqualTo(0);
+            await Assert.That(after.PickedOutlines).IsEqualTo(1);
+        }
+    }
+
+    /// <summary>Delete in Edit mode removes the picked object, and the key is used.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DeleteKeyRemovesThePickedObjectInEditMode()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("keys-edit.pdf", TestPdf.CreateTagged())]);
+        var tab = main.SelectedTab!;
+        var (_, state) = CanvasUnderTest.Create(tab);
+        state.RebuildLayout();
+        var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
+        var target = Array.Find(await editor.ReadObjectsAsync(0, CancellationToken.None), static o => o.Kind == PageObjectKind.Text);
+        _ = await tab.ContentEdit.ToggleEditingCommand.Execute().ToTask();
+        await tab.ContentEdit.PressAsync(0, new(target.Bounds.Left + 1, target.Bounds.Top + 1), false);
+
+        var effects = state.PressKey(ViewerKey.Delete, ViewerModifiers.None);
+        var written = await TestWait.UntilAsync(() => tab.ContentEdit.Selected is null && tab.ContentEdit.Status == "Removed.");
+        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(effects.Handled).IsTrue();
+            await Assert.That(written).IsTrue();
+            await Assert.That(Array.Exists(after, item => item.Text == target.Text)).IsFalse();
+        }
     }
 
     /// <summary>Makes the part of the canvas in view.</summary>

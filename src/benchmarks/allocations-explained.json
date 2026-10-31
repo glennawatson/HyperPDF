@@ -4433,5 +4433,140 @@
     "type": "ReactiveUI.ReactivePropertyChangedEventArgs`1[HyperPdf.ViewModels.Viewing.DocumentTabViewModel]",
     "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.set_PageEntry",
     "reason": "ReactiveUI wiring: the page box text is a reactive property, so a change raises its notifications with an event arguments object. The text itself is the page's label, which the document keeps."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfPageContent",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentReader.Read",
+    "reason": "The page content is the result of reading a page. The caller owns it, edits its objects and writes it back. The parse lists, the parse state and the glyph and string buffers it was built with are kept by the document between reads, so they are not allocated again."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContent..ctor",
+    "reason": "The content's own lists of objects, marks, resources and appended bytes belong to the content the caller holds and edits, so they live as long as it does. They start empty and are sized when first filled."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfPageObject[]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentReader.Load",
+    "reason": "The objects read from the page are copied from the reused parse list into the content's own list, which the caller keeps and edits."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfTextObject",
+    "frame": "HyperPdfLibrary.PageObjects.PageContentParseText.AddTextObject",
+    "reason": "A text object is part of the result: one for each text run on the page, held by the page content the caller edits."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfTextGlyph[]",
+    "frame": "HyperPdfLibrary.PageObjects.PageContentParseText.AddTextObject",
+    "reason": "The glyphs of a text object are copied out of the reused parse list into an array the object owns, because the object keeps its glyphs for hit testing, text removal and rewriting."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.PageObjects.PageContentParseText.AddTextObject",
+    "reason": "The text of an object is a string the object keeps and the editor shows. It is made from the reused character buffer."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.PageObjects.PageContentParseText.AddTextObject",
+    "reason": "The code bytes of a text object are copied out of the reused parse list because the object writes them back when the page is saved."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfMark",
+    "frame": "HyperPdfLibrary.PageObjects.PageContentParseMarks.Open",
+    "reason": "A marked-content mark is kept by every object drawn inside it, so structure and layers survive an edit."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfMark[]",
+    "frame": "HyperPdfLibrary.PageObjects.PageContentParseMarks.Open",
+    "reason": "The array of marks an object belongs to is shared by the objects drawn until the marks change, and kept by them."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfMark[]",
+    "frame": "HyperPdfLibrary.PageObjects.PageContentParseObjects.CurrentMarks",
+    "reason": "The snapshot of the open marks is made when an object needs it and shared by the objects after it until the marks change. The objects keep it."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.PageObjects.PageContentParseMarks.OpBeginMarkedContentProperties",
+    "reason": "The property data of a mark is copied so the mark can write it back; the mark is kept by the objects drawn inside it."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfPathObject",
+    "frame": "HyperPdfLibrary.PageObjects.PageContentParseGraphics.PaintPath",
+    "reason": "A path object is part of the result: one for each painted path on the page."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfPathSegment[]",
+    "frame": "HyperPdfLibrary.PageObjects.PageContentParseGraphics.PaintPath",
+    "reason": "The segments of a path are copied out of the reused parse list into an array the path object owns, to measure, move and rewrite it."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfPaint",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPaint.FromRgb",
+    "reason": "A colour set by the page is kept by every object painted with it, so a recolour or a rewrite can restore it."
+  },
+  {
+    "type": "System.Single[]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPaint.FromRgb",
+    "reason": "The components of a colour are kept by the paint, which the objects painted with it keep."
+  },
+  {
+    "type": "System.Boolean[]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfTextObject.RemoveGlyph",
+    "reason": "The flags that say which glyphs of a text object were removed are made when the first glyph is removed, and kept by the object until the page is written."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfDictionary",
+    "frame": "HyperPdfLibrary.Objects.PdfDictionary.Clone",
+    "reason": "Writing a page back stores an independent copy of its dictionary in the document, so undo can restore the old one."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfDictionary",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentApplication.CommitToPage",
+    "reason": "The page's new dictionary and resource tables are stored in the document by the edit, and kept for undo and for saving."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfStream",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentApplication.CreateStream",
+    "reason": "The rewritten content of the page is stored in the document as a new stream, and kept for undo and for saving."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[HyperPdfLibrary.Objects.KnownName,HyperPdfLibrary.Objects.PdfDictionary]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentApplication.BuildResources",
+    "reason": "The per-edit table of resource categories that gather the resources an edit added to a page. It is built once for the edit."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentApplication.AddAll",
+    "reason": "The storage of a resource table the edit adds to the page's resources, kept by the page."
+  },
+  {
+    "type": "Entry[HyperPdfLibrary.Objects.KnownName,HyperPdfLibrary.Objects.PdfDictionary][]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentApplication.AddAll",
+    "reason": "The table of resource categories an edit gathers before they are stored in the page's resources."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfDictionary",
+    "frame": "HyperPdfLibrary.Annotations.AppearanceFontMetrics.CreateFontDictionary",
+    "reason": "The font dictionary for text an edit writes is stored in the page's resources and kept by the page."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PendingResource",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentEditing.AddResource",
+    "reason": "A resource an edit adds waits in the content until the edit is written, then it is stored in the page."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentEditing.AllocateName",
+    "reason": "The name of a resource an edit adds is interned in the document's name table, which keeps it."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentEditing.Append",
+    "reason": "The operators an edit adds to the page are kept in the content until they are written, in one array sized for them."
+  },
+  {
+    "type": "HyperPdf.Core.Documents.PageObjectInfo[]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentPageContentEditing.ReadObjectsAsync",
+    "reason": "The list of what a page is made of is the result handed to the viewer, made once at its exact size. The viewer keeps it for hit testing until the page changes."
   }
 ]

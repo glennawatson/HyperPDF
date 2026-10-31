@@ -54,6 +54,11 @@ public static class CanvasPointerMixins
 
             if (!fx.Handled)
             {
+                state.PressEditObject(tab, press, fx);
+            }
+
+            if (!fx.Handled)
+            {
                 state.PressDrawingTool(tab, press, fx);
             }
 
@@ -77,6 +82,11 @@ public static class CanvasPointerMixins
                 return fx;
             }
 
+            if (state.DragEditObject(tab, move.Position, fx))
+            {
+                return fx;
+            }
+
             if (state.Tools.ActiveEdit is not null && state.MoveEdit(tab, move.Position))
             {
                 state.Host.InvalidateVisual();
@@ -84,7 +94,13 @@ public static class CanvasPointerMixins
 
             var hover = state.GetHover(move.Position);
             state.HoverRegion(hover.IsOverPage, hover.Page, hover.Point);
+
             if (state.ContinuePageTool(tab, move, fx) || state.ContinueMeasure(tab, move.Position, fx) || state.ContinueDrawing(move.Position))
+            {
+                return fx;
+            }
+
+            if (CanvasObjectEditMixins.HoverEditObject(tab, hover, fx))
             {
                 return fx;
             }
@@ -109,6 +125,13 @@ public static class CanvasPointerMixins
             fx.Reset();
             if (state.Tab is not { } tab)
             {
+                return fx;
+            }
+
+            if (tab.ContentEdit.EndDrag())
+            {
+                fx.ReleaseCapture = true;
+                fx.Handled = true;
                 return fx;
             }
 
@@ -333,6 +356,33 @@ public static class CanvasPointerMixins
 
             state.Tools.ActiveEdit = session;
             fx.Capture = true;
+            fx.Handled = true;
+        }
+
+        /// <summary>Picks the text, picture or drawing under a press in Edit mode.</summary>
+        /// <param name="tab">The tab.</param>
+        /// <param name="press">The press.</param>
+        /// <param name="fx">What the toolkit must do.</param>
+        private void PressEditObject(DocumentTabViewModel tab, in ViewerPress press, InputEffects fx)
+        {
+            var page = state.Layout.HitTest(press.Position.X, press.Position.Y);
+            if (!PointerRouting.IsEditPress(tab, press.Buttons, page))
+            {
+                return;
+            }
+
+            var edit = tab.ContentEdit;
+            var point = state.ToPage(tab, page, press.Position);
+
+            // A press on the object already picked starts a drag; any other press picks what is under it.
+            if (press.ClickCount < DoubleClick && edit.BeginDrag(page, point))
+            {
+                fx.Capture = true;
+                fx.Handled = true;
+                return;
+            }
+
+            _ = edit.PressAsync(page, point, press.ClickCount >= DoubleClick);
             fx.Handled = true;
         }
 

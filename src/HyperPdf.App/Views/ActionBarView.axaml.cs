@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using HyperPdf.App.Controls;
+using HyperPdf.ViewModels.Dialogs;
 using ReactiveUI;
 using ReactiveUI.Binding;
 
@@ -21,12 +23,15 @@ public sealed partial class ActionBarView : ReactiveUI.Avalonia.ReactiveUserCont
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.SaveCommand, static v => v.SaveButton));
+            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.Copies.Pdf20SaveInteraction, ConfirmPdf20SaveAsync));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.HasUnsavedChanges, static v => v.SaveButton.IsVisible));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.Printing.PrintCommand, static v => v.PrintItem));
             disposables.Add(this.WhenChanged(static v => v.ViewModel!.Printing.PrintPreviewInteraction).AskDialogOver(this, static preview => new PrintPreviewWindow { ViewModel = preview }));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Annotations.IsAnnotating, static v => v.AnnotateToggle.IsChecked, static on => on, static on => on == true));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.FillAndSign.IsActive, static v => v.FillSignToggle.IsChecked, static on => on));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.FillAndSign.ToggleCommand, static v => v.FillSignToggle));
+            disposables.Add(this.OneWayBind(ViewModel, static vm => vm.ContentEdit.IsEditing, static v => v.EditToggle.IsChecked, static on => on));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.ContentEdit.ToggleEditingCommand, static v => v.EditToggle));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.CanAnnotate, static v => v.AnnotateToggle.IsEnabled));
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.Annotations.CanAnnotate, static v => v.FillSignToggle.IsEnabled));
             disposables.Add(this.Bind(ViewModel, static vm => vm.Search.IsOpen, static v => v.FindToggle.IsChecked, static on => on, static on => on == true));
@@ -42,4 +47,19 @@ public sealed partial class ActionBarView : ReactiveUI.Avalonia.ReactiveUserCont
 
     /// <summary>Gets the clicks of the Document menu's Select All item.</summary>
     internal IObservable<RoutedEventArgs> SelectAllClicks => DocumentMenu.SelectAllClicks;
+
+    /// <summary>Asks whether a signed or protected file may lose its signatures or its protection to be saved as PDF 2.0.</summary>
+    /// <param name="context">The question.</param>
+    /// <returns>A task completing when the person has answered.</returns>
+    private async Task ConfirmPdf20SaveAsync(IInteractionContext<ConfirmRequest, bool> context)
+    {
+        if (TopLevel.GetTopLevel(this) is not Window owner)
+        {
+            context.SetOutput(false);
+            return;
+        }
+
+        var dialog = new ConfirmWindow { ViewModel = new(context.Input) };
+        context.SetOutput(await dialog.ShowDialog<bool>(owner));
+    }
 }

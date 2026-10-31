@@ -62,7 +62,7 @@ public static class CanvasKeyMixins
         private bool HandleDocumentKey(ViewerKey key, ViewerModifiers modifiers, InputEffects fx)
         {
             // A focused form field takes Space and Tab before they scroll or move between pages.
-            if (state.HandleFormKey(key, modifiers, fx) || state.HandleNavigationKey(key, modifiers, fx))
+            if (state.HandleFormKey(key, modifiers, fx) || state.HandleEditKey(key, modifiers) || state.HandleNavigationKey(key, modifiers, fx))
             {
                 return true;
             }

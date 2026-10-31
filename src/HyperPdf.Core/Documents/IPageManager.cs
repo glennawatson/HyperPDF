@@ -41,6 +41,14 @@ public interface IPageManager
     /// <returns>A task completing after the document has changed.</returns>
     ValueTask InsertAsync(int index, string[] files, PageEditReport report, CancellationToken cancellationToken) => InsertAsync(index, files, cancellationToken);
 
+    /// <summary>Makes a page of each picture, in order, and inserts them as one undo step.</summary>
+    /// <param name="index">The first inserted page's zero-based index, from zero to the current page count.</param>
+    /// <param name="images">The pictures, one page each.</param>
+    /// <param name="cancellationToken">Cancels building and importing the pages.</param>
+    /// <returns>A task completing after the document has changed.</returns>
+    /// <exception cref="NotSupportedException">The manager cannot make pages from pictures.</exception>
+    ValueTask InsertImagesAsync(int index, PageImageSource[] images, CancellationToken cancellationToken) => throw new NotSupportedException();
+
     /// <summary>Writes the selected pages to a new PDF without changing the open document.</summary>
     /// <param name="pages">Zero-based indexes in output order.</param>
     /// <param name="destination">The stream receiving the new PDF.</param>
