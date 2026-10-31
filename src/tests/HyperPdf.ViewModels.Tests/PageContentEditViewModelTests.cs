@@ -108,7 +108,9 @@ public sealed class PageContentEditViewModelTests
         var version = tab.ContentVersion;
 
         var used = edit.MoveSelected(Shift, Shift);
-        var moved = await WaitForAsync(() => edit.Selected is { } pick && pick.Object.Bounds.Left > target.Bounds.Left + (Shift * Half));
+
+        // The tab raises ContentVersion after the pick moves, on its own scheduler, so wait for both.
+        var moved = await WaitForAsync(() => edit.Selected is { } pick && pick.Object.Bounds.Left > target.Bounds.Left + (Shift * Half) && tab.ContentVersion > version);
 
         using (Assert.Multiple())
         {

@@ -27,7 +27,12 @@ public sealed class PdfAccessibilityReportTests
             new(PdfAccessibilityCode.NoLanguage, FirstCount),
             new(PdfAccessibilityCode.NoMetadata, SecondCount),
         ]);
-        _ = ReadCounts(report);
+
+        // Run the loop once unmeasured so tiered compilation has promoted the code; its call counting would otherwise allocate inside the measured loop.
+        for (var index = 0; index < Repetitions; index++)
+        {
+            _ = ReadCounts(report);
+        }
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         var sum = 0;
