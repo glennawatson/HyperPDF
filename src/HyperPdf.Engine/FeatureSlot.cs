@@ -126,4 +126,7 @@ internal enum FeatureSlot
 
     /// <summary>Exporting pages as pictures and vector drawings.</summary>
     PageFileExporter = 38,
+
+    /// <summary>Reading and changing the text, pictures and drawings of a page.</summary>
+    PageContentEditor = 39,
 }

@@ -28,6 +28,11 @@ public interface IMarksPainter
     /// <param name="to">The right end of the line.</param>
     void UnderlineWord(CanvasPoint from, CanvasPoint to);
 
+    /// <summary>Outlines an object of the page in Edit mode: a thin dashed box where the pointer is, a thick solid box with square handles on the one picked.</summary>
+    /// <param name="rect">The object on the canvas.</param>
+    /// <param name="picked">Whether it is the picked object rather than the one under the pointer.</param>
+    void DrawEditOutline(in LayoutRect rect, bool picked);
+
     /// <summary>Dims an area with the translucent paper colour.</summary>
     /// <param name="rect">The area on the canvas.</param>
     void FillDim(in LayoutRect rect);

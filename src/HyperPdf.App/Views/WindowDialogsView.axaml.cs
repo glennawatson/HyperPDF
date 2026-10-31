@@ -30,6 +30,8 @@ public sealed partial class WindowDialogsView : ReactiveUI.Avalonia.ReactiveUser
         _ = this.WhenActivated(disposables =>
         {
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.OpenFileInteraction, OpenFilesAsync));
+            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ConvertPicturesInteraction, ChoosePicturesAsync));
+            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ConvertDestinationInteraction, ChoosePdfDestinationAsync));
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ShowPropertiesInteraction, ShowPropertiesAsync));
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ConfirmInteraction, ConfirmAsync));
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ShowPreferencesInteraction, ShowPreferencesAsync));
@@ -60,6 +62,25 @@ public sealed partial class WindowDialogsView : ReactiveUI.Avalonia.ReactiveUser
             FileTypeFilter = [PdfFileType, PictureFileType, FilePickerFileTypes.All],
         });
         context.SetOutput(files.LocalPaths);
+    }
+
+    /// <summary>Asks which pictures to turn into a PDF.</summary>
+    /// <param name="context">The interaction context.</param>
+    /// <returns>A task.</returns>
+    private async Task ChoosePicturesAsync(IInteractionContext<RxVoid, IReadOnlyList<string>> context)
+    {
+        var files = await Owner.StorageProvider.OpenFilePickerAsync(new() { Title = UiText.Get("Convert Pictures to PDF"), AllowMultiple = true, FileTypeFilter = [PictureFileType] });
+        context.SetOutput(files.LocalPaths);
+    }
+
+    /// <summary>Asks where to save the PDF made from pictures.</summary>
+    /// <param name="context">The interaction context, holding the suggested file name.</param>
+    /// <returns>A task.</returns>
+    private async Task ChoosePdfDestinationAsync(IInteractionContext<string, string?> context)
+    {
+        var picker = new FilePickerSaveOptions { Title = UiText.Get("Save PDF"), SuggestedFileName = context.Input, DefaultExtension = "pdf", FileTypeChoices = [PdfFileType] };
+        var file = await Owner.StorageProvider.SaveFilePickerAsync(picker);
+        context.SetOutput(file?.TryGetLocalPath());
     }
 
     /// <summary>Asks the user to confirm a destructive action.</summary>

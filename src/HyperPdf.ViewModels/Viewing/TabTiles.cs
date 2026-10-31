@@ -34,4 +34,21 @@ internal static class TabTiles
         hub.RemoveDocumentTiles(sourceId);
         hub.RemoveDocumentTiles(~sourceId);
     }
+
+    /// <summary>Drops the tiles a change made stale: every tile for a change to all pages, otherwise those of the page changed.</summary>
+    /// <param name="hub">The render hub.</param>
+    /// <param name="sourceId">The document source's identity.</param>
+    /// <param name="pageIndex">The page changed, or <see cref="PageChange.AllPages"/>.</param>
+    internal static void DropChanged(RenderHub hub, int sourceId, int pageIndex)
+    {
+        if (pageIndex == PageChange.AllPages)
+        {
+            DropBoth(hub, sourceId);
+            return;
+        }
+
+        // Tiles rendered before the edit may still be on their way; the scheduler drops them so they cannot be cached.
+        InvalidateBoth(hub, sourceId);
+        hub.Cache.RemovePage(sourceId, ~sourceId, pageIndex);
+    }
 }

@@ -5,6 +5,7 @@
 using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Security;
 using HyperPdfLibrary.Signatures;
 
 namespace HyperPdfLibrary.Pdf20;
@@ -25,11 +26,12 @@ internal static class Pdf20ConversionSource
 
     /// <summary>Checks a document.</summary>
     /// <param name="document">The document.</param>
+    /// <param name="options">What the copy may drop, which lifts the refusals for signatures and protection.</param>
     /// <returns>The refusal, or <see langword="null"/> to go on.</returns>
-    internal static Pdf20ConversionOutput? Check(PdfDocument document)
+    internal static Pdf20ConversionOutput? Check(PdfDocument document, in Pdf20ConversionOptions options)
     {
         var store = document.Objects;
-        if (IsSigned(store))
+        if (IsSigned(store) && !options.RemoveSignatures)
         {
             return Refused(
                 Pdf20ConversionSession.Specification,
@@ -37,13 +39,24 @@ internal static class Pdf20ConversionSource
                 "The document is signed, and a PDF 2.0 copy would break the signatures. Remove the signatures first, then save the copy.");
         }
 
-        return store.Security is null
-            ? CheckClaims(document)
-            : Refused(
+        if (store.Security is null)
+        {
+            return CheckClaims(document);
+        }
+
+        if (!options.RemoveEncryption)
+        {
+            return Refused(
                 Pdf20ConversionSession.Specification,
                 "7.6.1",
                 "The document is protected with a password. PDF 2.0 deprecates the older kinds of protection, and HyperPDF cannot write the newest kind yet, "
                 + "so the copy would lose its protection. Remove the protection first, then save the copy.");
+        }
+
+        // Dropping the protection is only for someone who holds the owner's rights, never a way round the owner's limits.
+        return PdfProtectionAuthority.IsAuthorised(document, null)
+            ? CheckClaims(document)
+            : Refused(Pdf20ConversionSession.Specification, "7.6.1", "The document is protected, and only its owner can remove the protection to make a PDF 2.0 copy.");
     }
 
     /// <summary>

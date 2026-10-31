@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
+using HyperPdf.ViewModels.Rendering;
 using HyperPdfLibrary;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -148,6 +149,9 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Gets the interaction asking which PDF files to merge at the end.</summary>
     public Interaction<RxVoid, string[]> MergeFilesInteraction { get; } = new();
+
+    /// <summary>Gets the interaction asking which picture files to add as pages.</summary>
+    public Interaction<RxVoid, string[]> InsertImagesInteraction { get; } = new();
 
     /// <summary>Gets the interaction asking where to save the selected pages.</summary>
     public Interaction<string, string?> ExtractInteraction { get; } = new();
@@ -336,6 +340,26 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         PdfException or InvalidDataException or IOException or UnauthorizedAccessException or
         NotSupportedException or InvalidOperationException or ArgumentOutOfRangeException;
 
+    /// <summary>Reads each picture file in order, skipping the ones that cannot be read.</summary>
+    /// <param name="head">The render head that decodes pictures.</param>
+    /// <param name="paths">The picture file paths.</param>
+    /// <param name="cancellationToken">Stops reading between files.</param>
+    /// <returns>The pictures that were read.</returns>
+    private static PageImageSource[] ReadImages(IRenderHead head, string[] paths, CancellationToken cancellationToken)
+    {
+        var images = new List<PageImageSource>(paths.Length);
+        foreach (var path in paths)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (head.LoadImage(path) is { } decoded)
+            {
+                images.Add(new(decoded.Pixels, decoded.Width, decoded.Height));
+            }
+        }
+
+        return [.. images];
+    }
+
     /// <summary>Creates an array containing a contiguous range of page indexes.</summary>
     /// <param name="start">The first page index.</param>
     /// <param name="count">The number of indexes.</param>
@@ -439,6 +463,39 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     return default;
     },
         UiText.Get("Could not insert pages."),
+        true);
+
+    /// <summary>Asks for picture files and inserts each as a page after the selected pages or current page.</summary>
+    /// <returns>A task.</returns>
+    [ReactiveCommand(CanExecute = nameof(_canEdit))]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Task InsertImagesAsync() => RunAsync(
+        async (manager, token) =>
+{
+    var paths = await InsertImagesInteraction.Handle(RxVoid.Default).ToTask(token).WaitAsync(token).ConfigureAwait(true);
+    if (paths.Length == 0)
+    {
+        return default;
+    }
+
+    var head = _owner.Services.Head;
+    var images = await Task.Run(() => ReadImages(head, paths, token), token).ConfigureAwait(true);
+    if (images.Length == 0)
+    {
+        _owner.SetNotice(LocalizedMessage.Get(UiText, "None of the chosen files could be read as pictures."));
+        return default;
+    }
+
+    var index = SelectedPages.Count > 0 ? SelectedPages[^1] + 1 : Math.Clamp(_owner.CurrentPageIndex + 1, 0, _owner.PageCount);
+    await Task.Run(() => manager.InsertImagesAsync(index, images, token).AsTask(), token).ConfigureAwait(true);
+    if (images.Length < paths.Length)
+    {
+        _owner.SetNotice(LocalizedMessage.Get(UiText, "Some of the chosen files could not be read as pictures and were skipped."));
+    }
+
+    return new(true, () => CopyRange(index, images.Length));
+    },
+        UiText.Get("Could not add pictures as pages."),
         true);
 
     /// <summary>Asks for PDF files and appends every page to the document.</summary>

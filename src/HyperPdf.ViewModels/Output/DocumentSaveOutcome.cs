@@ -24,6 +24,12 @@ internal readonly record struct DocumentSaveOutcome(bool Saved, string? Error, A
     {
     }
 
+    /// <summary>Gets a value indicating whether the saved file was rewritten as a PDF 2.0 file.</summary>
+    internal bool Pdf20Written { get; init; }
+
+    /// <summary>Gets why the saved file was left in its own version when PDF 2.0 was tried and refused, or <see langword="null"/>.</summary>
+    internal string? Pdf20Refusal { get; init; }
+
     /// <summary>Gets the fixes the save made so the file still meets its PDF/A level, or <see langword="null"/>.</summary>
     internal ArchiveClaimRepair? ClaimRepaired { get; init; }
 

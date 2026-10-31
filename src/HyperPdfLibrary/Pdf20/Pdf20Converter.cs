@@ -56,7 +56,7 @@ public static class Pdf20Converter
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(destination);
-        var output = Convert(document, cancellationToken);
+        var output = Convert(document, Pdf20ConversionOptions.Default, cancellationToken);
         if (output.File is { } file)
         {
             destination.Write(file);
@@ -75,7 +75,22 @@ public static class Pdf20Converter
     /// <returns>The outcome.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    public static async ValueTask<Pdf20ConversionResult> SaveAsPdf20Async(PdfDocument document, Stream destination, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ValueTask<Pdf20ConversionResult> SaveAsPdf20Async(PdfDocument document, Stream destination, CancellationToken cancellationToken) =>
+        SaveAsPdf20Async(document, destination, Pdf20ConversionOptions.Default, cancellationToken);
+
+    /// <summary>
+    /// Saves a copy of a document as PDF 2.0, dropping the signatures and the protection when the options say so. The
+    /// file's bytes are loaded first with asynchronous I/O, and the copy is written to the destination the same way.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="destination">Receives the file when the copy is made; nothing is written otherwise.</param>
+    /// <param name="options">What the copy may drop.</param>
+    /// <param name="cancellationToken">Cancels the conversion.</param>
+    /// <returns>The outcome.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    public static async ValueTask<Pdf20ConversionResult> SaveAsPdf20Async(PdfDocument document, Stream destination, Pdf20ConversionOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(destination);
@@ -86,7 +101,7 @@ public static class Pdf20Converter
             await source.PrefetchAsync(0, source.Length, cancellationToken).ConfigureAwait(false);
         }
 
-        var output = Convert(document, cancellationToken);
+        var output = Convert(document, options, cancellationToken);
         if (output.File is { } file)
         {
             await destination.WriteAsync(file, cancellationToken).ConfigureAwait(false);
@@ -97,13 +112,14 @@ public static class Pdf20Converter
 
     /// <summary>Converts a document, returning the file only when it passed.</summary>
     /// <param name="document">The document.</param>
+    /// <param name="options">What the copy may drop.</param>
     /// <param name="cancellationToken">Cancels the conversion.</param>
     /// <returns>The outcome and, when converted, the file.</returns>
-    private static Pdf20ConversionOutput Convert(PdfDocument document, CancellationToken cancellationToken)
+    private static Pdf20ConversionOutput Convert(PdfDocument document, in Pdf20ConversionOptions options, CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(document.IsDisposed, document);
         cancellationToken.ThrowIfCancellationRequested();
-        if (Pdf20ConversionSource.Check(document) is { } refused)
+        if (Pdf20ConversionSource.Check(document, options) is { } refused)
         {
             return refused;
         }
@@ -113,8 +129,9 @@ public static class Pdf20Converter
             // The working copy shares the file and carries the unsaved edits; it is the copy's own, so the fixes may change it.
             using var working = PdfDocumentOptimizing.OpenWorkingCopy(document);
             var session = new Pdf20ConversionSession(working, cancellationToken);
+            DropForOptions(session, options);
             Fix(session);
-            return session.HasProblems ? Stopped(session) : Write(session, document.PageCount);
+            return session.HasProblems ? Stopped(session) : Write(session, document.PageCount, options.RemoveEncryption);
         }
         catch (PdfException)
         {
@@ -125,10 +142,11 @@ public static class Pdf20Converter
     /// <summary>Writes the fixed working copy and checks the file.</summary>
     /// <param name="session">The conversion, with no problems.</param>
     /// <param name="pageCount">The pages the source has.</param>
+    /// <param name="removeEncryption">Whether the copy is written with no protection.</param>
     /// <returns>The outcome and the file, when it passed.</returns>
-    private static Pdf20ConversionOutput Write(Pdf20ConversionSession session, int pageCount)
+    private static Pdf20ConversionOutput Write(Pdf20ConversionSession session, int pageCount, bool removeEncryption)
     {
-        var file = PdfCompactWriter.SaveUnchecked(session.Store, new(true, false));
+        var file = PdfCompactWriter.SaveUnchecked(session.Store, new(true, removeEncryption));
         if (IsPdf20Copy(file, pageCount))
         {
             return new(new(session.GetChanges(), []), file);
@@ -142,6 +160,22 @@ public static class Pdf20Converter
     /// <param name="session">The conversion.</param>
     /// <returns>The outcome, with no file.</returns>
     private static Pdf20ConversionOutput Stopped(Pdf20ConversionSession session) => new(new(session.GetChanges(), session.GetProblems()), null);
+
+    /// <summary>Removes the signatures the options allow to be removed, and says so in the result.</summary>
+    /// <param name="session">The conversion.</param>
+    /// <param name="options">What the copy may drop.</param>
+    private static void DropForOptions(Pdf20ConversionSession session, in Pdf20ConversionOptions options)
+    {
+        if (options.RemoveSignatures && PdfDocumentSignatureEditing.RemoveSignatures(session.Document) > 0)
+        {
+            session.Changed("12.8.1", "The signatures were removed, because a changed file no longer matches what was signed.");
+        }
+
+        if (options.RemoveEncryption && session.Store.Security is not null)
+        {
+            session.Changed("7.6.1", "The protection was removed, because PDF 2.0 deprecates the kind the file used.");
+        }
+    }
 
     /// <summary>Runs every fix on the working copy, in order.</summary>
     /// <param name="session">The conversion.</param>

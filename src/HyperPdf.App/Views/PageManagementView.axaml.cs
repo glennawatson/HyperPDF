@@ -29,6 +29,7 @@ public sealed partial class PageManagementView : ReactiveUI.Avalonia.ReactiveUse
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.MoveLaterCommand, static v => v.LaterItem));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.InsertFilesCommand, static v => v.InsertItem));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.MergeFilesCommand, static v => v.MergeItem));
+            disposables.Add(this.BindCommand(ViewModel, static vm => vm.InsertImagesCommand, static v => v.InsertImagesItem));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.ExtractCommand, static v => v.ExtractItem));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.UndoCommand, static v => v.UndoItem));
             disposables.Add(this.BindCommand(ViewModel, static vm => vm.RedoCommand, static v => v.RedoItem));
@@ -37,8 +38,33 @@ public sealed partial class PageManagementView : ReactiveUI.Avalonia.ReactiveUse
             disposables.Add(this.OneWayBind(ViewModel, static vm => vm.RedoText, static v => v.RedoItem.Header));
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.InsertInteraction, OpenFilesAsync));
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.MergeFilesInteraction, OpenFilesAsync));
+            disposables.Add(this.BindInteraction(ViewModel, static vm => vm.InsertImagesInteraction, OpenImagesAsync));
             disposables.Add(this.BindInteraction(ViewModel, static vm => vm.ExtractInteraction, SaveFileAsync));
         });
+    }
+
+    /// <summary>Asks which pictures to add as pages in the order selected.</summary>
+    /// <param name="context">The file selection interaction.</param>
+    /// <returns>A task completing after the picker closes.</returns>
+    private async Task OpenImagesAsync(IInteractionContext<RxVoid, string[]> context)
+    {
+        if (TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage)
+        {
+            context.SetOutput([]);
+            return;
+        }
+
+        var files = await storage.OpenFilePickerAsync(new() { Title = UiText.Get("Add pictures as pages"), AllowMultiple = true, FileTypeFilter = [FilePickerFileTypes.ImageAll] });
+        var paths = new List<string>(files.Count);
+        foreach (var file in files)
+        {
+            if (file.TryGetLocalPath() is { } path)
+            {
+                paths.Add(path);
+            }
+        }
+
+        context.SetOutput([.. paths]);
     }
 
     /// <summary>Asks which PDFs to insert in the order selected.</summary>

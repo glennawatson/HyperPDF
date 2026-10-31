@@ -2,7 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.InteropServices;
+using System.Buffers;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.PageObjects;
 using HyperPdfLibrary.Writing;
@@ -17,6 +17,9 @@ public static class PdfPageContentTextWriter
 
     /// <summary>The smallest <c>TJ</c> number written; smaller sums are rounding noise.</summary>
     internal const float MinimumAdjustment = 0.0005F;
+
+    /// <summary>The most pieces one glyph adds to a show: a number before it and the string run it ends.</summary>
+    private const int PiecesPerGlyph = 2;
 
     /// <summary>Writes the effects a <c>'</c> or <c>"</c> operator has besides showing text.</summary>
     /// <param name = "builder">The output.</param>
@@ -73,39 +76,52 @@ public static class PdfPageContentTextWriter
     internal static void WriteShow(ref PdfContentBuilder builder, PdfTextObject text)
     {
         var glyphs = text.Glyphs;
-        var items = new List<ShowItem>();
-        var codes = new List<byte>();
-        var runStart = -1;
-        var pending = 0F;
+
+        // Sized from the glyphs, and taken from the shared array pool, so showing text allocates no lists of its own.
+        var codeLength = 0;
         for (var i = 0; i < glyphs.Length; i++)
         {
-            pending += glyphs[i].Kerning;
-            if (text.IsDeleted || text.IsGlyphRemoved(i))
+            codeLength += glyphs[i].ByteLength;
+        }
+
+        var pieces = new ShowPieces(ArrayPool<ShowItem>.Shared.Rent((glyphs.Length * PiecesPerGlyph) + 1), ArrayPool<byte>.Shared.Rent(Math.Max(codeLength, 1)));
+        try
+        {
+            var pending = 0F;
+            for (var i = 0; i < glyphs.Length; i++)
             {
-                PdfPageContentTextWriter.CloseRun(items, codes, ref runStart);
-                pending += PdfPageContentTextWriter.ToAdjustment(text, glyphs[i].Advance);
-                continue;
+                pending += glyphs[i].Kerning;
+                if (text.IsDeleted || text.IsGlyphRemoved(i))
+                {
+                    pieces.CloseRun();
+                    pending += PdfPageContentTextWriter.ToAdjustment(text, glyphs[i].Advance);
+                    continue;
+                }
+
+                if (MathF.Abs(pending) >= PdfPageContentTextWriter.MinimumAdjustment)
+                {
+                    pieces.CloseRun();
+                    pieces.AddNumber(pending);
+                }
+
+                pending = 0;
+                pieces.AddCode(text.GetCodeBytes(i));
             }
 
+            pieces.CloseRun();
+            pending += text.TrailingKerning;
             if (MathF.Abs(pending) >= PdfPageContentTextWriter.MinimumAdjustment)
             {
-                PdfPageContentTextWriter.CloseRun(items, codes, ref runStart);
-                items.Add(new(true, pending, 0, 0));
+                pieces.AddNumber(pending);
             }
 
-            pending = 0;
-            runStart = runStart < 0 ? codes.Count : runStart;
-            codes.AddRange(text.GetCodeBytes(i));
+            PdfPageContentTextWriter.EmitShow(ref builder, ref pieces);
         }
-
-        PdfPageContentTextWriter.CloseRun(items, codes, ref runStart);
-        pending += text.TrailingKerning;
-        if (MathF.Abs(pending) >= PdfPageContentTextWriter.MinimumAdjustment)
+        finally
         {
-            items.Add(new(true, pending, 0, 0));
+            ArrayPool<ShowItem>.Shared.Return(pieces.Items);
+            ArrayPool<byte>.Shared.Return(pieces.Codes);
         }
-
-        PdfPageContentTextWriter.EmitShow(ref builder, items, codes);
     }
 
     /// <summary>Writes a text object: its glyphs less the removed ones, with the text position kept where it would have been.</summary>
@@ -158,48 +174,33 @@ public static class PdfPageContentTextWriter
         }
     }
 
-    /// <summary>Ends the string run being collected.</summary>
-    /// <param name = "items">The pieces of the show.</param>
-    /// <param name = "codes">The collected string bytes.</param>
-    /// <param name = "runStart">Where the run starts in <paramref name = "codes"/>, or -1; reset to -1.</param>
-    private static void CloseRun(List<ShowItem> items, List<byte> codes, ref int runStart)
-    {
-        if (runStart >= 0 && codes.Count > runStart)
-        {
-            items.Add(new(false, 0, runStart, codes.Count - runStart));
-        }
-
-        runStart = -1;
-    }
-
     /// <summary>Writes the collected pieces as <c>Tj</c> when it is one string, otherwise as <c>TJ</c>.</summary>
     /// <param name = "builder">The output.</param>
-    /// <param name = "items">The pieces.</param>
-    /// <param name = "codes">The string bytes the pieces point into.</param>
-    private static void EmitShow(ref PdfContentBuilder builder, List<ShowItem> items, List<byte> codes)
+    /// <param name = "pieces">The pieces and the string bytes they point into.</param>
+    private static void EmitShow(ref PdfContentBuilder builder, ref ShowPieces pieces)
     {
-        if (items.Count == 0)
+        if (pieces.ItemCount == 0)
         {
             return;
         }
 
-        var bytes = CollectionsMarshal.AsSpan(codes);
-        if (items.Count == 1 && !items[0].IsNumber)
+        if (pieces.ItemCount == 1 && !pieces.Items[0].IsNumber)
         {
-            builder.ShowText(bytes.Slice(items[0].Start, items[0].Length));
+            builder.ShowText(pieces.Codes.AsSpan(pieces.Items[0].Start, pieces.Items[0].Length));
             return;
         }
 
         builder.BeginTextArray();
-        foreach (var item in items)
+        for (var i = 0; i < pieces.ItemCount; i++)
         {
+            var item = pieces.Items[i];
             if (item.IsNumber)
             {
                 builder.AddTextArrayAdjustment(item.Number);
             }
             else
             {
-                builder.AddTextArrayString(bytes.Slice(item.Start, item.Length));
+                builder.AddTextArrayString(pieces.Codes.AsSpan(item.Start, item.Length));
             }
         }
 
@@ -212,4 +213,62 @@ public static class PdfPageContentTextWriter
     /// <param name = "Start">The first byte of a string run.</param>
     /// <param name = "Length">The length of a string run.</param>
     private readonly record struct ShowItem(bool IsNumber, float Number, int Start, int Length);
+
+    /// <summary>The pieces of one show and the string bytes they point into, held in arrays rented from the shared pool.</summary>
+    private struct ShowPieces
+    {
+        /// <summary>The offset where the run being collected starts in <see cref = "Codes"/>, or -1 while there is none.</summary>
+        private int _runStart;
+
+        /// <summary>Initializes a new instance of the <see cref = "ShowPieces"/> struct.</summary>
+        /// <param name = "items">The array for the pieces, big enough for every piece.</param>
+        /// <param name = "codes">The array for the string bytes, big enough for every glyph's bytes.</param>
+        internal ShowPieces(ShowItem[] items, byte[] codes)
+        {
+            Items = items;
+            Codes = codes;
+            _runStart = -1;
+        }
+
+        /// <summary>Gets the pieces collected.</summary>
+        internal readonly ShowItem[] Items { get; }
+
+        /// <summary>Gets how many pieces are collected.</summary>
+        internal int ItemCount { readonly get; private set; }
+
+        /// <summary>Gets the string bytes collected.</summary>
+        internal readonly byte[] Codes { get; }
+
+        /// <summary>Gets how many string bytes are collected.</summary>
+        internal int CodeCount { readonly get; private set; }
+
+        /// <summary>Adds a <c>TJ</c> number.</summary>
+        /// <param name = "number">The number, in thousandths of text space.</param>
+        internal void AddNumber(float number)
+        {
+            Items[ItemCount] = new(true, number, 0, 0);
+            ItemCount++;
+        }
+
+        /// <summary>Adds the bytes of one glyph to the run being collected, starting a run when there is none.</summary>
+        /// <param name = "code">The glyph's bytes.</param>
+        internal void AddCode(ReadOnlySpan<byte> code)
+        {
+            _runStart = _runStart < 0 ? CodeCount : _runStart;
+            code.CopyTo(Codes.AsSpan(CodeCount));
+            CodeCount += code.Length;
+        }
+
+        /// <summary>Ends the string run being collected.</summary>
+        internal void CloseRun()
+        {
+            if (_runStart >= 0 && CodeCount > _runStart)
+            {
+                Items[ItemCount] = new(false, 0, _runStart, CodeCount - _runStart);
+                ItemCount++;
+            }
+
+            _runStart = -1;
+        }
+    }
 }

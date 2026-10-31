@@ -12,6 +12,7 @@ using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Forms;
 using HyperPdfLibrary.Layers;
 using HyperPdfLibrary.Navigation;
+using HyperPdfLibrary.PageObjects;
 using HyperPdfLibrary.PdfUa;
 using HyperPdfLibrary.Rendering;
 using HyperPdfLibrary.Security;
@@ -122,6 +123,9 @@ internal record struct PdfDocumentState
 
     /// <summary>A cleaned text build state available for another extraction.</summary>
     private TextPageBuildState? _textBuild;
+
+    /// <summary>The lists and buffers a page content read works in, kept between reads.</summary>
+    private PageContentParseScratch? _parseScratch;
 
     /// <summary>A cleaned PDF/UA reference scan available for this document.</summary>
     private PdfUaStructureReferenceBuffers? _structureReferences;
@@ -288,6 +292,10 @@ internal record struct PdfDocumentState
     /// <summary>Gets storage for one reusable text build state.</summary>
     [UnscopedRef]
     internal ref TextPageBuildState? TextBuild => ref _textBuild;
+
+    /// <summary>Gets storage for the lists and buffers a page content read works in, taken with Interlocked by a read and put back after it.</summary>
+    [UnscopedRef]
+    internal ref PageContentParseScratch? ParseScratch => ref _parseScratch;
 
     /// <summary>Gets storage for a reusable PDF/UA reference scan.</summary>
     [UnscopedRef]

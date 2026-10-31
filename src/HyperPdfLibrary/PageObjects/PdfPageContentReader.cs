@@ -113,9 +113,21 @@ public static class PdfPageContentReader
     /// <param name = "cancellationToken">Cancels the walk.</param>
     internal static void Load(PdfPageContent state, ClipNode? clip, CancellationToken cancellationToken)
     {
-        var parser = new PageContentParseState(state, state.SourceBytes, state.Resources, state.BaseMatrix, clip);
-        state.ObjectItems.AddRange(PageContentParse.Parse(parser, cancellationToken));
-        state.Underflow = parser.Underflow;
-        state.Unclosed = parser.Unclosed;
+        // The document keeps one set of parse lists between reads; a read that finds it taken by another thread makes its own.
+        ref var slot = ref state.Document.State;
+        var scratch = Interlocked.Exchange(ref slot.ParseScratch, null) ?? new PageContentParseScratch();
+        try
+        {
+            var parser = scratch.Parser;
+            parser.Bind(state, state.SourceBytes, state.Resources, state.BaseMatrix, clip);
+            state.ObjectItems.AddRange(PageContentParse.Parse(parser, cancellationToken));
+            state.Underflow = parser.Underflow;
+            state.Unclosed = parser.Unclosed;
+        }
+        finally
+        {
+            scratch.Clear();
+            Volatile.Write(ref slot.ParseScratch, scratch);
+        }
     }
 }

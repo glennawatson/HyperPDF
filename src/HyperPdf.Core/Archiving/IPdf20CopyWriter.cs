@@ -19,4 +19,17 @@ public interface IPdf20CopyWriter : IDocumentFeature
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     /// <exception cref="InvalidDataException">The document cannot be read or written.</exception>
     Task<Pdf20CopyResult> WritePdf20CopyAsync(Stream destination, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes a copy as <see cref="WritePdf20CopyAsync(Stream, CancellationToken)"/> does, dropping the signatures and the
+    /// protection when the options say so. A writer that cannot drop them refuses a signed or protected document.
+    /// </summary>
+    /// <param name="destination">The writable stream that receives the copy.</param>
+    /// <param name="options">What the copy may drop.</param>
+    /// <param name="cancellationToken">Stops the run.</param>
+    /// <returns>What was changed, or why the copy could not be made.</returns>
+    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    /// <exception cref="InvalidDataException">The document cannot be read or written.</exception>
+    Task<Pdf20CopyResult> WritePdf20CopyAsync(Stream destination, Pdf20CopyOptions options, CancellationToken cancellationToken) =>
+        WritePdf20CopyAsync(destination, cancellationToken);
 }
