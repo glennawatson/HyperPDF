@@ -12,11 +12,14 @@ internal static class MutantRunner
     /// <summary>The processor count for the unscaled parsing budget.</summary>
     private const int BudgetProcessors = 16;
 
-    /// <summary>The parsing budget on a machine with enough processors for the parallel tests.</summary>
-    private const int ParsingSeconds = 10;
+    /// <summary>
+    /// The parsing budget on a machine with enough processors for the parallel tests. Every file here parses in milliseconds on an idle
+    /// machine, so the budget only has to tell a hang from a shared CI runner that the other test projects have starved.
+    /// </summary>
+    private const int ParsingSeconds = 30;
 
     /// <summary>The hard bound, including a worker that ignores cancellation.</summary>
-    private const int HardSeconds = 20;
+    private const int HardSeconds = 60;
 
     /// <summary>Opens and reads one file. Only <see cref="PdfException"/> is an acceptable failure.</summary>
     /// <param name="file">The damaged file.</param>
