@@ -11,14 +11,29 @@ permissions:
 jobs:
   build:
     name: Build and test
-    uses: glennawatson/actions-common/.github/workflows/workflow-common-setup-and-build.yml@08113ae89f67727b3ebfe9d391d7d60336ec1f25 # main
+    uses: glennawatson/actions-common/.github/workflows/workflow-common-setup-and-build.yml@4882558c56a8879548981c0dd01f99363d00b332 # main
     with:
       srcFolder: 'src'
       solutionFile: HyperPdf.slnx
       minverTagPrefix: ''
       uploadCodecov: false
       testTimeout: '45m'
-      extraRunners: '["ubuntu-24.04-arm","windows-11-arm","macos-15-intel"]'
+      dotnetVersions: |
+        11.x
+        10.x
+  # The platforms the job above does not cover.
+  build-other:
+    name: Build and test other platforms
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04-arm, windows-11-arm, macos-15-intel]
+    uses: glennawatson/actions-common/.github/workflows/workflow-common-build-and-test.yml@4882558c56a8879548981c0dd01f99363d00b332 # main
+    with:
+      runner: ${{ matrix.runner }}
+      srcFolder: 'src'
+      solutionFile: HyperPdf.slnx
+      testTimeout: '45m'
       dotnetVersions: |
         11.x
         10.x
@@ -30,7 +45,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@08113ae89f67727b3ebfe9d391d7d60336ec1f25 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@4882558c56a8879548981c0dd01f99363d00b332 # main
         with:
           src-folder: 'src'
           stamp-version: 'false'
@@ -75,7 +90,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@08113ae89f67727b3ebfe9d391d7d60336ec1f25 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@4882558c56a8879548981c0dd01f99363d00b332 # main
         with:
           src-folder: 'src'
           stamp-version: 'false'
