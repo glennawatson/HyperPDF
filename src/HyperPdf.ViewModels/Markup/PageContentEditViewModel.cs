@@ -64,7 +64,8 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         _subscriptions.Add(lifetime);
 
         // Reordering, deleting or undoing pages, or reopening the file, can leave what was read and picked pointing at the wrong thing.
-        _subscriptions.Add(owner.WhenChanged(static tab => tab.LayoutVersion).Skip(1).SubscribeSafe(_ => Forget(), ErrorTrace.Write));
+        // WhenChanged repeats a value when the tab raises a change for something else, which must not drop a pick that is still right.
+        _subscriptions.Add(owner.WhenChanged(static tab => tab.LayoutVersion).DistinctUntilChanged().Skip(1).SubscribeSafe(_ => Forget(), ErrorTrace.Write));
     }
 
     /// <summary>Gets a value indicating whether Edit mode is on.</summary>
