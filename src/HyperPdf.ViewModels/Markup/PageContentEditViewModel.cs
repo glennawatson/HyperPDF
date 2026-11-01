@@ -465,9 +465,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         try
         {
             await Task.Run(() => edit(expected), _lifetime).ConfigureAwait(true);
-            _ = _pages.Remove(picked.Page);
-            var read = await ReadAgainAsync(picked.Page).ConfigureAwait(true);
-            var again = expected.Width > 0 && read ? PageObjectHits.FindAgain(_pages[picked.Page], picked.Object, expected) : -1;
+            var again = await ReadAgainAsync(picked, expected).ConfigureAwait(true);
             Selected = again < 0 ? null : new(picked.Page, _pages[picked.Page][again]);
             Hovered = null;
             _owner.ReportPageChange(picked.Page);
@@ -483,23 +481,39 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         }
     }
 
-    /// <summary>Reads a page again after an edit. A read that fails leaves nothing kept for the page, so it is tried again before the edit is reported as unread.</summary>
-    /// <param name="page">The page.</param>
-    /// <returns><see langword="true"/> when the page's objects are kept.</returns>
-    private async Task<bool> ReadAgainAsync(int page)
+    /// <summary>
+    /// Reads a page again after an edit and finds the edited object in it. A read that fails, or that does not list an object which should still be
+    /// there, is tried again, since the page has been seen right on a later read.
+    /// </summary>
+    /// <param name="picked">The object that was edited.</param>
+    /// <param name="expected">Where the object's box should be now, or an empty box when it is meant to be gone.</param>
+    /// <returns>The index of the object in the page's objects, or -1 when it is gone or the page could not be read.</returns>
+    private async Task<int> ReadAgainAsync(PageObjectPick picked, PageRect expected)
     {
-        for (var attempt = 0; attempt < ReadAttempts; attempt++)
+        var again = -1;
+        for (var attempt = 0; attempt < ReadAttempts && again < 0; attempt++)
         {
-            await LoadAsync(page).ConfigureAwait(true);
-            if (_pages.ContainsKey(page))
+            _ = _pages.Remove(picked.Page);
+            await LoadAsync(picked.Page).ConfigureAwait(true);
+            if (!_pages.TryGetValue(picked.Page, out var objects))
             {
-                return true;
+                continue;
+            }
+
+            again = expected.Width > 0 ? PageObjectHits.FindAgain(objects, picked.Object, expected) : -1;
+            if (expected.Width <= 0)
+            {
+                return -1;
             }
         }
 
-        // The failed read said why in Status; the edit's own "done" text would replace it, so it is shown as a notice too.
-        _owner.SetNotice(LocalizedMessage.Literal(Status));
-        return false;
+        if (!_pages.ContainsKey(picked.Page))
+        {
+            // The failed read said why in Status; the edit's own "done" text would replace it, so it is shown as a notice too.
+            _owner.SetNotice(LocalizedMessage.Literal(Status));
+        }
+
+        return again;
     }
 
     /// <summary>Turns Edit mode off. The changes stay in the document; saving writes them as a PDF 2.0 file.</summary>
