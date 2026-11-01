@@ -40,11 +40,29 @@ public sealed class PageMarksLayer : Control, IActivatableView
     /// <summary>The width of the outline marking the current search hit, so it differs by shape as well as colour.</summary>
     private const double CurrentHitOutlineWidth = 2;
 
+    /// <summary>The width of the outline of the object picked in Edit mode; thick and solid, so it differs from the hover outline by shape as well as colour.</summary>
+    private const double EditPickedWidth = 3;
+
+    /// <summary>The width of the outline of the object under the pointer in Edit mode.</summary>
+    private const double EditHoverWidth = 1.5;
+
+    /// <summary>The length of a dash of the hover outline, in line widths.</summary>
+    private const double EditDashOn = 4;
+
+    /// <summary>The length of a gap of the hover outline, in line widths.</summary>
+    private const double EditDashOff = 3;
+
     /// <summary>The scroll viewer the pages sit in, while the layer is shown.</summary>
     private ScrollViewer? _scroller;
 
     /// <summary>The pen outlining the current search hit, rebuilt when <see cref="CurrentHitOutline"/> changes.</summary>
     private IPen? _currentHitPen;
+
+    /// <summary>The pen outlining the object picked in Edit mode, rebuilt when <see cref="CurrentHitOutline"/> changes.</summary>
+    private IPen? _editPickedPen;
+
+    /// <summary>The pen outlining the object under the pointer in Edit mode, rebuilt when <see cref="CurrentHitOutline"/> changes.</summary>
+    private IPen? _editHoverPen;
 
     /// <summary>Puts the planned marks on a drawing context, made when the first frame is drawn.</summary>
     private AvaloniaMarksPainter? _painter;
@@ -63,8 +81,7 @@ public sealed class PageMarksLayer : Control, IActivatableView
         _ = this.WhenActivated(disposables =>
         {
             _scroller = this.FindAncestorOfType<ScrollViewer>();
-            disposables.Add(this.WhenChanged(static x => x.CurrentHitOutline)
-                .SubscribeSafe(outline => _currentHitPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), CurrentHitOutlineWidth) : null, ErrorTrace.Write));
+            disposables.Add(this.WhenChanged(static x => x.CurrentHitOutline).SubscribeSafe(RebuildPens, ErrorTrace.Write));
 
             // The marks follow the hits and the reading, and move with the pages when they scroll or are laid out again.
             disposables.Add(tabs.Follow(static tab => tab.MarkRedraws).SubscribeSafe(_ => InvalidateVisual(), ErrorTrace.Write));
@@ -124,8 +141,17 @@ public sealed class PageMarksLayer : Control, IActivatableView
     /// <summary>Gets the pen outlining the current search hit, or <see langword="null"/> when the outline has no brush.</summary>
     internal IPen? CurrentHitPen => _currentHitPen;
 
-    /// <summary>Gets a value indicating whether the tab has any search hit, spoken sentence or focus band to draw.</summary>
-    internal bool HasMarks => Tab is { } tab && (tab.Search.HasHits || tab.ReadAloud.SpokenPage >= 0);
+    /// <summary>Gets the thick solid pen outlining the object picked in Edit mode, or <see langword="null"/> when the outline has no brush.</summary>
+    internal IPen? EditPickedPen => _editPickedPen;
+
+    /// <summary>Gets the thin dashed pen outlining the object under the pointer in Edit mode, or <see langword="null"/> when the outline has no brush.</summary>
+    internal IPen? EditHoverPen => _editHoverPen;
+
+    /// <summary>Gets the brush the handles of the picked object are filled with.</summary>
+    internal IBrush? EditHandleBrush => CurrentHitOutline;
+
+    /// <summary>Gets a value indicating whether the tab has any search hit, spoken sentence, focus band or Edit mode outline to draw.</summary>
+    internal bool HasMarks => Tab is { } tab && (tab.Search.HasHits || tab.ReadAloud.SpokenPage >= 0 || tab.ContentEdit.IsEditing);
 
     /// <inheritdoc/>
     public override void Render(DrawingContext context)
@@ -139,5 +165,14 @@ public sealed class PageMarksLayer : Control, IActivatableView
         var painter = _painter ??= new(this);
         painter.Start(context);
         pages.State.DrawMarks(painter, tab, new(scroller.Offset.X, scroller.Offset.Y, scroller.Viewport.Width, scroller.Viewport.Height));
+    }
+
+    /// <summary>Makes the pens from the outline brush, so a frame draws with ready pens.</summary>
+    /// <param name="outline">The outline brush, or <see langword="null"/>.</param>
+    private void RebuildPens(IBrush? outline)
+    {
+        _currentHitPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), CurrentHitOutlineWidth) : null;
+        _editPickedPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), EditPickedWidth) : null;
+        _editHoverPen = outline is not null ? new ImmutablePen(outline.ToImmutable(), EditHoverWidth, new ImmutableDashStyle([EditDashOn, EditDashOff], 0)) : null;
     }
 }

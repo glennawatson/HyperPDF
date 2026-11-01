@@ -23,6 +23,7 @@ internal static class CanvasTabMixins
             tab.ReadAloud.WhenChanged(static reading => reading.SpokenBounds).Skip(1).AsVoid,
             tab.ReadAloud.WhenChanged(static reading => reading.MarksVersion).Skip(1).AsVoid,
             tab.FocusMode.WhenChanged(static focus => focus.FocusBand).Skip(1).AsVoid,
+            tab.ContentEdit.WhenChanged(static edit => edit.MarksVersion).Skip(1).AsVoid,
             tab.WhenChanged(static t => t.LayoutVersion).Skip(1).AsVoid,
             tab.LayoutSettingsChanges);
 

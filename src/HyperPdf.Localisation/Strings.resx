@@ -6258,4 +6258,145 @@
   <data name="{0}Text recognised on {1}. You can now search, select and copy it. Save to keep it." xml:space="preserve">
     <value>{0}Text recognised on {1}. You can now search, select and copy it. Save to keep it.</value>
   </data>
+  <data name="Add pictures as pages" xml:space="preserve">
+    <value>Add pictures as pages</value>
+  </data>
+  <data name="Add pictures as pages…" xml:space="preserve">
+    <value>Add pictures as pages…</value>
+  </data>
+  <data name="Choose picture files. Each becomes a PDF page after the selected page." xml:space="preserve">
+    <value>Choose picture files. Each becomes a PDF page after the selected page.</value>
+  </data>
+  <data name="None of the chosen files could be read as pictures." xml:space="preserve">
+    <value>None of the chosen files could be read as pictures.</value>
+  </data>
+  <data name="Some of the chosen files could not be read as pictures and were skipped." xml:space="preserve">
+    <value>Some of the chosen files could not be read as pictures and were skipped.</value>
+  </data>
+  <data name="Could not add pictures as pages." xml:space="preserve">
+    <value>Could not add pictures as pages.</value>
+  </data>
+  <data name="Changed the text." xml:space="preserve">
+    <value>Changed the text.</value>
+  </data>
+  <data name="Moved." xml:space="preserve">
+    <value>Moved.</value>
+  </data>
+  <data name="Removed." xml:space="preserve">
+    <value>Removed.</value>
+  </data>
+  <data name="Edit mode is off." xml:space="preserve">
+    <value>Edit mode is off.</value>
+  </data>
+  <data name="This document cannot be edited on the page." xml:space="preserve">
+    <value>This document cannot be edited on the page.</value>
+  </data>
+  <data name="Edit mode is on. Click text or a picture on the page to pick it. Double-click text to retype it." xml:space="preserve">
+    <value>Edit mode is on. Click text or a picture on the page to pick it. Double-click text to retype it.</value>
+  </data>
+  <data name="Could not read the page for editing: {0}" xml:space="preserve">
+    <value>Could not read the page for editing: {0}</value>
+  </data>
+  <data name="Nothing picked." xml:space="preserve">
+    <value>Nothing picked.</value>
+  </data>
+  <data name="Picked {0}." xml:space="preserve">
+    <value>Picked {0}.</value>
+  </data>
+  <data name="Could not edit the page." xml:space="preserve">
+    <value>Could not edit the page.</value>
+  </data>
+  <data name="text “{0}”" xml:space="preserve">
+    <value>text “{0}”</value>
+  </data>
+  <data name="picture" xml:space="preserve">
+    <value>picture</value>
+  </data>
+  <data name="drawing" xml:space="preserve">
+    <value>drawing</value>
+  </data>
+  <data name="object" xml:space="preserve">
+    <value>object</value>
+  </data>
+  <data name="Edit tools" xml:space="preserve">
+    <value>Edit tools</value>
+  </data>
+  <data name="Retype text" xml:space="preserve">
+    <value>Retype text</value>
+  </data>
+  <data name="Type new words over the picked text, on the page. You can also double-click the text, or press Enter or F2." xml:space="preserve">
+    <value>Type new words over the picked text, on the page. You can also double-click the text, or press Enter or F2.</value>
+  </data>
+  <data name="Remove picked" xml:space="preserve">
+    <value>Remove picked</value>
+  </data>
+  <data name="Take the picked text, picture or drawing off the page. Undo brings it back. Shortcut: Delete" xml:space="preserve">
+    <value>Take the picked text, picture or drawing off the page. Undo brings it back. Shortcut: Delete</value>
+  </data>
+  <data name="Save PDF 2.0 copy" xml:space="preserve">
+    <value>Save PDF 2.0 copy</value>
+  </data>
+  <data name="Save an edited copy as a PDF 2.0 file, the current PDF standard. Details in features PDF 2.0 retired are moved when they can be." xml:space="preserve">
+    <value>Save an edited copy as a PDF 2.0 file, the current PDF standard. Details in features PDF 2.0 retired are moved when they can be.</value>
+  </data>
+  <data name="Leave Edit mode. Your changes stay in the document until you save. Shortcut: Esc" xml:space="preserve">
+    <value>Leave Edit mode. Your changes stay in the document until you save. Shortcut: Esc</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Change the page itself. Click text, a picture or a drawing to pick it, then retype, move or remove it. Shortcut: Ctrl+E" xml:space="preserve">
+    <value>Change the page itself. Click text, a picture or a drawing to pick it, then retype, move or remove it. Shortcut: Ctrl+E</value>
+  </data>
+  <data name="Type the new words. Enter keeps them, a click elsewhere keeps them, and Escape cancels." xml:space="preserve">
+    <value>Type the new words. Enter keeps them, a click elsewhere keeps them, and Escape cancels.</value>
+  </data>
+  <data name="Retype page text" xml:space="preserve">
+    <value>Retype page text</value>
+  </data>
+  <data name="Convert Pictures to PDF" xml:space="preserve">
+    <value>Convert Pictures to PDF</value>
+  </data>
+  <data name="Save PDF" xml:space="preserve">
+    <value>Save PDF</value>
+  </data>
+  <data name="Choose picture files and save them as one new PDF 2.0 file with a page for each picture." xml:space="preserve">
+    <value>Choose picture files and save them as one new PDF 2.0 file with a page for each picture.</value>
+  </data>
+  <data name="Convert _Pictures to PDF…" xml:space="preserve">
+    <value>Convert _Pictures to PDF…</value>
+  </data>
+  <data name="Could not make the PDF: {0}" xml:space="preserve">
+    <value>Could not make the PDF: {0}</value>
+  </data>
+  <data name="Saved as a PDF 2.0 file." xml:space="preserve">
+    <value>Saved as a PDF 2.0 file.</value>
+  </data>
+  <data name="This file is PDF {0}. Saving your changes writes PDF 2.0 when the file allows it." xml:space="preserve">
+    <value>This file is PDF {0}. Saving your changes writes PDF 2.0 when the file allows it.</value>
+  </data>
+  <data name="Saving your changes writes a PDF 2.0 file." xml:space="preserve">
+    <value>Saving your changes writes a PDF 2.0 file.</value>
+  </data>
+  <data name="Saved in the file&apos;s own version, not PDF 2.0: {0} Use Save PDF 2.0 copy to choose what happens." xml:space="preserve">
+    <value>Saved in the file&apos;s own version, not PDF 2.0: {0} Use Save PDF 2.0 copy to choose what happens.</value>
+  </data>
+  <data name="Save as PDF 2.0?" xml:space="preserve">
+    <value>Save as PDF 2.0?</value>
+  </data>
+  <data name="Save as PDF 2.0" xml:space="preserve">
+    <value>Save as PDF 2.0</value>
+  </data>
+  <data name="signatures and its password protection" xml:space="preserve">
+    <value>signatures and its password protection</value>
+  </data>
+  <data name="signatures" xml:space="preserve">
+    <value>signatures</value>
+  </data>
+  <data name="password protection" xml:space="preserve">
+    <value>password protection</value>
+  </data>
+  <data name="Saving your changes as PDF 2.0 removes this file&apos;s {0}. Choose Cancel to save in the file&apos;s own version instead." xml:space="preserve">
+    <value>Saving your changes as PDF 2.0 removes this file&apos;s {0}. Choose Cancel to save in the file&apos;s own version instead.</value>
+  </data>
 </root>

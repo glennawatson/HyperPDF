@@ -6258,4 +6258,145 @@
   <data name="{0}Text recognised on {1}. You can now search, select and copy it. Save to keep it." xml:space="preserve">
     <value>{0}تم التعرّف على النص في {1}. يمكنك الآن البحث فيه وتحديده ونسخه. احفظ للاحتفاظ به.</value>
   </data>
+  <data name="Add pictures as pages" xml:space="preserve">
+    <value>إضافة صور كصفحات</value>
+  </data>
+  <data name="Add pictures as pages…" xml:space="preserve">
+    <value>إضافة صور كصفحات…</value>
+  </data>
+  <data name="Choose picture files. Each becomes a PDF page after the selected page." xml:space="preserve">
+    <value>اختر ملفات الصور. تصبح كل صورة صفحة PDF بعد الصفحة المحددة.</value>
+  </data>
+  <data name="None of the chosen files could be read as pictures." xml:space="preserve">
+    <value>تعذرت قراءة أي من الملفات المختارة كصور.</value>
+  </data>
+  <data name="Some of the chosen files could not be read as pictures and were skipped." xml:space="preserve">
+    <value>تعذرت قراءة بعض الملفات المختارة كصور وتم تخطيها.</value>
+  </data>
+  <data name="Could not add pictures as pages." xml:space="preserve">
+    <value>تعذرت إضافة الصور كصفحات.</value>
+  </data>
+  <data name="Changed the text." xml:space="preserve">
+    <value>تم تغيير النص.</value>
+  </data>
+  <data name="Moved." xml:space="preserve">
+    <value>تم النقل.</value>
+  </data>
+  <data name="Removed." xml:space="preserve">
+    <value>تمت الإزالة.</value>
+  </data>
+  <data name="Edit mode is off." xml:space="preserve">
+    <value>وضع التحرير متوقف.</value>
+  </data>
+  <data name="This document cannot be edited on the page." xml:space="preserve">
+    <value>لا يمكن تحرير هذا المستند على الصفحة.</value>
+  </data>
+  <data name="Edit mode is on. Click text or a picture on the page to pick it. Double-click text to retype it." xml:space="preserve">
+    <value>وضع التحرير قيد التشغيل. انقر على نص أو صورة في الصفحة لتحديدها. انقر مرتين على النص لإعادة كتابته.</value>
+  </data>
+  <data name="Could not read the page for editing: {0}" xml:space="preserve">
+    <value>تعذرت قراءة الصفحة للتحرير: {0}</value>
+  </data>
+  <data name="Nothing picked." xml:space="preserve">
+    <value>لم يتم تحديد شيء.</value>
+  </data>
+  <data name="Picked {0}." xml:space="preserve">
+    <value>تم تحديد {0}.</value>
+  </data>
+  <data name="Could not edit the page." xml:space="preserve">
+    <value>تعذر تحرير الصفحة.</value>
+  </data>
+  <data name="text “{0}”" xml:space="preserve">
+    <value>النص «{0}»</value>
+  </data>
+  <data name="picture" xml:space="preserve">
+    <value>صورة</value>
+  </data>
+  <data name="drawing" xml:space="preserve">
+    <value>رسم</value>
+  </data>
+  <data name="object" xml:space="preserve">
+    <value>عنصر</value>
+  </data>
+  <data name="Edit tools" xml:space="preserve">
+    <value>أدوات التحرير</value>
+  </data>
+  <data name="Retype text" xml:space="preserve">
+    <value>إعادة كتابة النص</value>
+  </data>
+  <data name="Type new words over the picked text, on the page. You can also double-click the text, or press Enter or F2." xml:space="preserve">
+    <value>اكتب كلمات جديدة فوق النص المحدد على الصفحة. يمكنك أيضاً النقر مرتين على النص أو الضغط على Enter أو F2.</value>
+  </data>
+  <data name="Remove picked" xml:space="preserve">
+    <value>إزالة المحدد</value>
+  </data>
+  <data name="Take the picked text, picture or drawing off the page. Undo brings it back. Shortcut: Delete" xml:space="preserve">
+    <value>يزيل النص أو الصورة أو الرسم المحدد من الصفحة. يعيده التراجع. الاختصار: Delete</value>
+  </data>
+  <data name="Save PDF 2.0 copy" xml:space="preserve">
+    <value>حفظ نسخة PDF 2.0</value>
+  </data>
+  <data name="Save an edited copy as a PDF 2.0 file, the current PDF standard. Details in features PDF 2.0 retired are moved when they can be." xml:space="preserve">
+    <value>يحفظ نسخة معدلة كملف PDF 2.0، وهو معيار PDF الحالي. تُنقل تفاصيل الميزات التي ألغاها PDF 2.0 عند الإمكان.</value>
+  </data>
+  <data name="Leave Edit mode. Your changes stay in the document until you save. Shortcut: Esc" xml:space="preserve">
+    <value>يغادر وضع التحرير. تبقى تغييراتك في المستند حتى تحفظ. الاختصار: Esc</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>تحرير</value>
+  </data>
+  <data name="Change the page itself. Click text, a picture or a drawing to pick it, then retype, move or remove it. Shortcut: Ctrl+E" xml:space="preserve">
+    <value>غيّر الصفحة نفسها. انقر على نص أو صورة أو رسم لتحديده، ثم أعد كتابته أو انقله أو أزله. الاختصار: Ctrl+E</value>
+  </data>
+  <data name="Type the new words. Enter keeps them, a click elsewhere keeps them, and Escape cancels." xml:space="preserve">
+    <value>اكتب الكلمات الجديدة. يحتفظ Enter بها، والنقر في مكان آخر يحتفظ بها، ويلغي Esc العملية.</value>
+  </data>
+  <data name="Retype page text" xml:space="preserve">
+    <value>إعادة كتابة نص الصفحة</value>
+  </data>
+  <data name="Convert Pictures to PDF" xml:space="preserve">
+    <value>تحويل الصور إلى PDF</value>
+  </data>
+  <data name="Save PDF" xml:space="preserve">
+    <value>حفظ PDF</value>
+  </data>
+  <data name="Choose picture files and save them as one new PDF 2.0 file with a page for each picture." xml:space="preserve">
+    <value>اختر ملفات الصور واحفظها كملف PDF 2.0 جديد بصفحة لكل صورة.</value>
+  </data>
+  <data name="Convert _Pictures to PDF…" xml:space="preserve">
+    <value>تحويل ال_صور إلى PDF…</value>
+  </data>
+  <data name="Could not make the PDF: {0}" xml:space="preserve">
+    <value>تعذر إنشاء PDF: {0}</value>
+  </data>
+  <data name="Saved as a PDF 2.0 file." xml:space="preserve">
+    <value>تم الحفظ كملف PDF 2.0.</value>
+  </data>
+  <data name="This file is PDF {0}. Saving your changes writes PDF 2.0 when the file allows it." xml:space="preserve">
+    <value>هذا الملف بصيغة PDF {0}. يؤدي حفظ تغييراتك إلى كتابة PDF 2.0 إذا سمح الملف بذلك.</value>
+  </data>
+  <data name="Saving your changes writes a PDF 2.0 file." xml:space="preserve">
+    <value>يؤدي حفظ تغييراتك إلى كتابة ملف PDF 2.0.</value>
+  </data>
+  <data name="Saved in the file&apos;s own version, not PDF 2.0: {0} Use Save PDF 2.0 copy to choose what happens." xml:space="preserve">
+    <value>تم الحفظ بإصدار الملف الأصلي وليس PDF 2.0: {0} استخدم «حفظ نسخة PDF 2.0» لاختيار ما يحدث.</value>
+  </data>
+  <data name="Save as PDF 2.0?" xml:space="preserve">
+    <value>هل تريد الحفظ بصيغة PDF 2.0؟</value>
+  </data>
+  <data name="Save as PDF 2.0" xml:space="preserve">
+    <value>حفظ بصيغة PDF 2.0</value>
+  </data>
+  <data name="signatures and its password protection" xml:space="preserve">
+    <value>التواقيع وحماية كلمة المرور</value>
+  </data>
+  <data name="signatures" xml:space="preserve">
+    <value>التواقيع</value>
+  </data>
+  <data name="password protection" xml:space="preserve">
+    <value>حماية كلمة المرور</value>
+  </data>
+  <data name="Saving your changes as PDF 2.0 removes this file&apos;s {0}. Choose Cancel to save in the file&apos;s own version instead." xml:space="preserve">
+    <value>يؤدي حفظ تغييراتك بصيغة PDF 2.0 إلى إزالة {0} من هذا الملف. اختر إلغاء للحفظ بإصدار الملف الأصلي.</value>
+  </data>
 </root>

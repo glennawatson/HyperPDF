@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Platform;
@@ -59,7 +60,18 @@ internal static class DocumentSave
     /// <param name="path">The destination file.</param>
     /// <param name="cancellationToken">Cancels preparation and writing.</param>
     /// <returns>The save outcome.</returns>
-    internal static async Task<DocumentSaveOutcome> SaveAsync(IAnnotationEditor editor, DocumentSource source, string path, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<DocumentSaveOutcome> SaveAsync(IAnnotationEditor editor, DocumentSource source, string path, CancellationToken cancellationToken) =>
+        SaveAsync(editor, source, path, null, cancellationToken);
+
+    /// <summary>Writes with cancellable output I/O and publishes an edited document, as a PDF 2.0 file when an engine is given and can convert it.</summary>
+    /// <param name="editor">The document writer.</param>
+    /// <param name="source">The source whose unsaved state must survive a failed replacement.</param>
+    /// <param name="path">The destination file.</param>
+    /// <param name="upgrade">How to rewrite the saved file as PDF 2.0, or <see langword="null"/> to keep the file's own version.</param>
+    /// <param name="cancellationToken">Cancels preparation and writing.</param>
+    /// <returns>The save outcome.</returns>
+    internal static async Task<DocumentSaveOutcome> SaveAsync(IAnnotationEditor editor, DocumentSource source, string path, Pdf20Upgrade? upgrade, CancellationToken cancellationToken)
     {
         var temporary = $"{path}.saving";
         var serialized = false;
@@ -79,10 +91,11 @@ internal static class DocumentSave
                 return new(false, report.Failure);
             }
 
+            var upgraded = upgrade is null ? null : await Pdf20Resave.TryAsync(upgrade, temporary, cancellationToken).ConfigureAwait(true);
             FileReplacement.Replace(temporary, path);
             published = true;
             source.MarkSavePublished();
-            return Saved(report);
+            return Saved(report) with { Pdf20Written = upgraded?.Written == true, Pdf20Refusal = upgraded is { Written: false } ? upgraded.Reason : null };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

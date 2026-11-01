@@ -93,6 +93,11 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ValueTask InsertImagesAsync(int index, PageImageSource[] images, CancellationToken cancellationToken) =>
+        InsertImagesCoreAsync(index, images, cancellationToken);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask ExtractAsync(ReadOnlyMemory<int> pages, Stream destination, CancellationToken cancellationToken) =>
         ExtractCoreAsync(pages, destination, null, cancellationToken);
 
@@ -262,15 +267,41 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
         }
     }
 
+    /// <summary>Makes a PDF with a page for each picture and opens it as an import covering every page.</summary>
+    /// <param name="images">The pictures.</param>
+    /// <param name="cancellationToken">Cancels building the pages.</param>
+    /// <returns>The import, owned by the caller.</returns>
+    private static ImportDocument BuildImageImport(PageImageSource[] images, CancellationToken cancellationToken)
+    {
+        var source = PdfDocumentReader.Open(HyperPdfPictureDocuments.Create(images, cancellationToken), null);
+        var pages = new int[source.PageCount];
+        for (var index = 0; index < pages.Length; index++)
+        {
+            pages[index] = index;
+        }
+
+        return new(source, pages);
+    }
+
     /// <summary>Commits every prepared source as one edit and retains its objects for saving and redo.</summary>
     /// <param name="index">The first inserted page's index.</param>
     /// <param name="pending">The sources whose ownership transfers on commit.</param>
     /// <param name="report">Receives what the copy could not keep, or <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels before committing.</param>
-    private void InsertPrepared(int index, List<ImportDocument> pending, PdfPageEditReport? report, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void InsertPrepared(int index, List<ImportDocument> pending, PdfPageEditReport? report, CancellationToken cancellationToken) =>
+        InsertPrepared(index, pending, report, "Insert pages", cancellationToken);
+
+    /// <summary>Commits every prepared source as one edit with the given undo label and retains its objects for saving and redo.</summary>
+    /// <param name="index">The first inserted page's index.</param>
+    /// <param name="pending">The sources whose ownership transfers on commit.</param>
+    /// <param name="report">Receives what the copy could not keep, or <see langword="null"/>.</param>
+    /// <param name="label">The undo description.</param>
+    /// <param name="cancellationToken">Cancels before committing.</param>
+    private void InsertPrepared(int index, List<ImportDocument> pending, PdfPageEditReport? report, string label, CancellationToken cancellationToken)
     {
         _ = _imports.EnsureCapacity(checked(_imports.Count + pending.Count));
-        using var transaction = HyperPdfEditTransactions.Begin(_document, "Insert pages");
+        using var transaction = HyperPdfEditTransactions.Begin(_document, label);
         foreach (var source in pending)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -330,6 +361,50 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
             }
 
             HyperPdfSeparations.CopyReport(changes, report);
+        }
+        finally
+        {
+            foreach (var source in pending)
+            {
+                source.Document.Dispose();
+            }
+        }
+    }
+
+    /// <summary>Makes a page of each picture and inserts them as one undo step.</summary>
+    /// <param name="index">The first inserted page's zero-based index.</param>
+    /// <param name="images">The pictures, one page each.</param>
+    /// <param name="cancellationToken">Cancels building and importing the pages.</param>
+    /// <returns>A task completing after the document has changed.</returns>
+    private async ValueTask InsertImagesCoreAsync(int index, PageImageSource[] images, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(images);
+        var pictures = (PageImageSource[])images.Clone();
+        var revision = Snapshot(cancellationToken);
+        lock (_gate)
+        {
+            ValidateRevision(revision, cancellationToken);
+            ArgumentOutOfRangeException.ThrowIfNegative(index);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(index, _document.PageCount);
+        }
+
+        if (pictures.Length == 0)
+        {
+            return;
+        }
+
+        var import = BuildImageImport(pictures, cancellationToken);
+        var pending = new List<ImportDocument>(1) { import };
+        try
+        {
+            await PrefetchAsync(import.Document, import.Pages, cancellationToken).ConfigureAwait(false);
+            await PrefetchAsync(_document, ReadOnlyMemory<int>.Empty, cancellationToken).ConfigureAwait(false);
+            lock (_gate)
+            {
+                ValidateRevision(revision, cancellationToken);
+                using var access = HyperPdfNavigation.EnterPageWrite(_owner);
+                InsertPrepared(index, pending, null, "Insert image pages", cancellationToken);
+            }
         }
         finally
         {

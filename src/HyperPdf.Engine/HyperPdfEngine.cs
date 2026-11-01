@@ -20,7 +20,7 @@ namespace HyperPdf.Engine;
 
 /// <summary>Opens PDF documents with the managed HyperPDF engine.</summary>
 [DebuggerDisplay("HyperPdfEngine: {Name}")]
-public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
+public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine, IPictureDocumentWriter
 {
     /// <summary>How far into the file the signature may appear; some writers prefix junk.</summary>
     private const int SignatureSearchLength = 1024;
@@ -94,6 +94,14 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
     /// <returns>The engine.</returns>
     public static HyperPdfEngine WithFontCatalog(Lazy<FontCatalog> catalog) =>
         new(PdfFontLoader.Load, TimeProvider.System, new(new PdfRenderBackendRegistration().UseSkia()) { SharedScratchPools = new() }, catalog);
+
+    /// <inheritdoc/>
+    public async ValueTask WritePicturesAsync(PageImageSource[] images, Stream destination, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        var bytes = HyperPdfPictureDocuments.Create(images, cancellationToken);
+        await destination.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+    }
 
     /// <inheritdoc/>
     public bool CanOpen(string path)

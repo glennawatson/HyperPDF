@@ -16,6 +16,9 @@ internal sealed class RangeServer : IAsyncDisposable
     /// <summary>The prefix of a range header value.</summary>
     private const string RangePrefix = "bytes=";
 
+    /// <summary>How many ports are tried before a clash is reported.</summary>
+    private const int ListenAttempts = 10;
+
     /// <summary>The document served.</summary>
     private readonly byte[] _content;
 
@@ -23,7 +26,7 @@ internal sealed class RangeServer : IAsyncDisposable
     private readonly bool _supportsRanges;
 
     /// <summary>The listener.</summary>
-    private readonly HttpListener _listener = new();
+    private readonly HttpListener _listener;
 
     /// <summary>Stops the loop that answers requests.</summary>
     private readonly CancellationTokenSource _stop = new();
@@ -44,10 +47,9 @@ internal sealed class RangeServer : IAsyncDisposable
     {
         _content = content;
         _supportsRanges = supportsRanges;
-        var port = FreePort();
+        var (listener, port) = Listen();
+        _listener = listener;
         Address = new($"http://127.0.0.1:{port}/document.pdf");
-        _listener.Prefixes.Add($"http://127.0.0.1:{port}/");
-        _listener.Start();
         _loop = Task.Run(() => AnswerAsync(_stop.Token));
     }
 
@@ -82,6 +84,29 @@ internal sealed class RangeServer : IAsyncDisposable
     /// <param name="supportsRanges">Whether the server answers range requests with partial content.</param>
     /// <returns>The server.</returns>
     internal static RangeServer Start(byte[] content, bool supportsRanges) => new(content, supportsRanges);
+
+    /// <summary>Starts a listener on a port nobody is using. Another test can take the port between finding it and listening, so a clash tries a new port.</summary>
+    /// <returns>The started listener and its port.</returns>
+    private static Binding Listen()
+    {
+        var attempt = 1;
+        while (true)
+        {
+            var port = FreePort();
+            var listener = new HttpListener();
+            listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+            try
+            {
+                listener.Start();
+                return new(listener, port);
+            }
+            catch (HttpListenerException) when (attempt < ListenAttempts)
+            {
+                listener.Close();
+                attempt++;
+            }
+        }
+    }
 
     /// <summary>Finds a port nobody is using.</summary>
     /// <returns>The port.</returns>
@@ -132,4 +157,9 @@ internal sealed class RangeServer : IAsyncDisposable
         await response.OutputStream.WriteAsync(_content.AsMemory((int)first, (int)(last - first + 1)), cancellationToken).ConfigureAwait(false);
         response.Close();
     }
+
+    /// <summary>A started listener and the port it listens on.</summary>
+    /// <param name="Listener">The listener.</param>
+    /// <param name="Port">The port.</param>
+    private readonly record struct Binding(HttpListener Listener, int Port);
 }

@@ -27,6 +27,12 @@ internal sealed class FakeMarksPainter : IMarksPainter
     /// <summary>Gets how many words were underlined.</summary>
     public int Underlines { get; private set; }
 
+    /// <summary>Gets how many Edit mode outlines were drawn.</summary>
+    public int EditOutlines { get; private set; }
+
+    /// <summary>Gets how many of the Edit mode outlines were of the picked object.</summary>
+    public int PickedOutlines { get; private set; }
+
     /// <summary>Gets how many areas were dimmed.</summary>
     public int Dims { get; private set; }
 
@@ -51,4 +57,11 @@ internal sealed class FakeMarksPainter : IMarksPainter
 
     /// <inheritdoc/>
     public void FillDim(in LayoutRect rect) => Dims++;
+
+    /// <inheritdoc/>
+    public void DrawEditOutline(in LayoutRect rect, bool picked)
+    {
+        EditOutlines++;
+        PickedOutlines += picked ? 1 : 0;
+    }
 }

@@ -26,6 +26,7 @@ public static class PdfPageContentEditing
     /// <param name = "content">The operators to add.</param>
     public static void Append(PdfPageContent state, ReadOnlySpan<byte> content)
     {
+        _ = state.Appended.EnsureCapacity(state.Appended.Count + content.Length + 1);
         state.Appended.AddRange(content);
         state.Appended.Add((byte)'\n');
     }

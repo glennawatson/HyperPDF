@@ -99,6 +99,17 @@ public static class PointerRouting
         return page >= 0 ? GetPageDrawingPress(tab, tool, page, pagePoint) : DrawingPressKind.None;
     }
 
+    /// <summary>Determines whether a press picks the text, picture or drawing under it, because Edit mode is on.</summary>
+    /// <param name="tab">The active tab.</param>
+    /// <param name="buttons">The buttons held.</param>
+    /// <param name="page">The page under the pointer, or -1.</param>
+    /// <returns><see langword="true"/> for a plain left press on a page in Edit mode.</returns>
+    public static bool IsEditPress(DocumentTabViewModel tab, ViewerButtons buttons, int page)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        return page >= 0 && IsPlainLeft(buttons) && tab.ContentEdit.IsEditing;
+    }
+
     /// <summary>Determines whether a press belongs to the Select tool.</summary>
     /// <param name="tab">The active tab.</param>
     /// <param name="buttons">The buttons held.</param>

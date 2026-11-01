@@ -4,9 +4,11 @@
 
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Annotations;
+using HyperPdfLibrary.Compat;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.PageObjects;
+using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.PageObjects;
 
@@ -117,7 +119,7 @@ public static class PdfPageContentApplication
         var compressed = default(PooledBuffer);
         try
         {
-            FlateFilter.Encode(content, ref compressed);
+            ZLibCodec.Compress(content, PdfCompressionLevel.Balanced, ref compressed, dictionary.Owner?.Context?.ScratchPools);
             dictionary.Set(KnownName.Filter, PdfValue.FromName(KnownName.FlateDecode));
             return new(dictionary, compressed.ToArray());
         }

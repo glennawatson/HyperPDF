@@ -28,6 +28,12 @@
         <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Fill &amp; Sign&quot;}" />
       </StackPanel>
     </ToggleButton>
+    <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Edit&quot;}" x:Name="EditToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Change the page itself. Click text, a picture or a drawing to pick it, then retype, move or remove it. Shortcut: Ctrl+E&quot;}" Classes="tool">
+      <StackPanel Orientation="Horizontal">
+        <Path Classes="icon edit" Data="{StaticResource IconCursor}" />
+        <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Edit&quot;}" />
+      </StackPanel>
+    </ToggleButton>
     <Rectangle Classes="separator" />
     <ToggleButton AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Find&quot;}" x:Name="FindToggle" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Search for words in this document. Shortcut: Ctrl+F&quot;}" Classes="tool">
       <StackPanel Orientation="Horizontal">

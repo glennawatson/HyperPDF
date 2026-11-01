@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.PageObjectEditorView"
+             ClipToBounds="False">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (PageObjectEditorView.axaml.cs). -->
+  <Canvas>
+    <!-- The picked text is retyped where it sits on the page, in a box the size of the text it replaces. -->
+    <TextBox x:Name="ObjectTextEditor" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type the new words. Enter keeps them, a click elsewhere keeps them, and Escape cancels.&quot;}" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Retype page text&quot;}" Classes="pagetext" AcceptsReturn="False" IsVisible="False" />
+  </Canvas>
+</UserControl>

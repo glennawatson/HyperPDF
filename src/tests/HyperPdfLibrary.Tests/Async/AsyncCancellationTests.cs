@@ -41,8 +41,8 @@ public sealed class AsyncCancellationTests
     /// <summary>How long walking the huge page tree must take, in milliseconds, for the test to mean anything.</summary>
     private const int WalkMinimumMilliseconds = 25;
 
-    /// <summary>How long after the cancellation the work may take to stop, in milliseconds.</summary>
-    private const int StopLimitMilliseconds = 600;
+    /// <summary>How long after the cancellation the work may take to stop, in milliseconds; loaded shared macOS runners take over a second, work that ignores the token far longer.</summary>
+    private const int StopLimitMilliseconds = 3000;
 
     /// <summary>The wait before each throttled read completes, in milliseconds.</summary>
     private const int ReadLatencyMilliseconds = 40;

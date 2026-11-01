@@ -24,5 +24,10 @@ internal sealed class HyperPdfPdf20CopyWriterService : IPdf20CopyWriter
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task<Pdf20CopyResult> WritePdf20CopyAsync(Stream destination, CancellationToken cancellationToken) =>
-        HyperPdfDocumentPdf20Copy.WriteAsync(_owner, destination, cancellationToken);
+        HyperPdfDocumentPdf20Copy.WriteAsync(_owner, destination, default, cancellationToken);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task<Pdf20CopyResult> WritePdf20CopyAsync(Stream destination, Pdf20CopyOptions options, CancellationToken cancellationToken) =>
+        HyperPdfDocumentPdf20Copy.WriteAsync(_owner, destination, options, cancellationToken);
 }

@@ -83,6 +83,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <summary>The tags panel, once used.</summary>
     private TagsViewModel? _tags;
 
+    /// <summary>Edit mode, made when first used.</summary>
+    private PageContentEditViewModel? _contentEdit;
+
     /// <summary>The colour separation bar, once used.</summary>
     private PageSeparationViewModel? _separations;
 
@@ -472,6 +475,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
 
     /// <summary>Gets the annotation state.</summary>
     public AnnotationsViewModel Annotations => _annotations ??= Owned(new AnnotationsViewModel(this));
+
+    /// <summary>Gets Edit mode: picking, moving, retyping and removing the objects a page is made of, on the page.</summary>
+    public PageContentEditViewModel ContentEdit => _contentEdit ??= Owned(new PageContentEditViewModel(this));
 
     /// <summary>Gets the selection and undoable actions for the document's pages.</summary>
     public PageManagementViewModel Pages => PagesInUse ??= Owned(new PageManagementViewModel(this));
@@ -872,7 +878,8 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
 
         // The document's own actions bracket the save: they may change fields before the file is written.
         _ = await Forms.RunDocumentEventAsync(FormDocumentEvent.WillSave).ConfigureAwait(true);
-        var saved = ApplySaveOutcome(await DocumentSave.SaveAsync(editor, Source, path, cancellationToken).ConfigureAwait(true));
+        var upgrade = await Pdf20SavePlan.PlanAsync(document, Source.HasUnsavedChanges, Copies.Pdf20SaveInteraction, cancellationToken).ConfigureAwait(true);
+        var saved = ApplySaveOutcome(await DocumentSave.SaveAsync(editor, Source, path, upgrade, cancellationToken).ConfigureAwait(true));
         if (saved)
         {
             _ = await Forms.RunDocumentEventAsync(FormDocumentEvent.DidSave).ConfigureAwait(true);
@@ -976,6 +983,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         _subscriptions.Dispose();
         Media.Dispose();
     }
+
+    /// <summary>Tells the pages that a page's content was changed, so its tiles are drawn again.</summary>
+    /// <param name="pageIndex">The page changed.</param>
+    internal void ReportPageChange(int pageIndex) => LastPageChange = LastPageChange.Next(pageIndex);
 
     /// <summary>Reloads a changed file, or offers to, depending on the user's choice. Unsaved edits are never discarded silently.</summary>
     internal void CheckChangedFile()
@@ -1356,17 +1367,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <param name="change">The change.</param>
     private void DropChangedTiles(PageChange change)
     {
-        if (change.PageIndex == PageChange.AllPages)
-        {
-            TabTiles.DropBoth(RenderHub, Source.Id);
-        }
-        else
-        {
-            // Tiles rendered before the edit may still be on their way; the scheduler drops them so they cannot be cached.
-            TabTiles.InvalidateBoth(RenderHub, Source.Id);
-            RenderHub.Cache.RemovePage(Source.Id, ~Source.Id, change.PageIndex);
-        }
-
+        TabTiles.DropChanged(RenderHub, Source.Id, change.PageIndex);
         HasUnsavedChanges = Source.HasUnsavedChanges;
     }
 

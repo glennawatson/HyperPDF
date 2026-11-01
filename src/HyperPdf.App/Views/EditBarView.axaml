@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:help="using:HyperPdf.ViewModels.Help"
+             xmlns:views="using:HyperPdf.App.Views"
+             x:Class="HyperPdf.App.Views.EditBarView">
+  <!-- Layout only: every binding is made in code with ReactiveUI.Binding (EditBarView.axaml.cs). -->
+  <!--
+    Edit mode: click text, a picture or a drawing on the page to pick it. A box shows what is picked. Type over picked
+    text, move it with the arrow keys, or remove it. Every change is made to the page straight away and can be undone.
+  -->
+  <Border x:Name="EditBar" Classes="toolbar subbar" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Edit tools&quot;}" AutomationProperties.ControlTypeOverride="ToolBar">
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel>
+        <WrapPanel>
+          <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Retype text&quot;}" x:Name="RetypeButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Type new words over the picked text, on the page. You can also double-click the text, or press Enter or F2.&quot;}" Classes="tool">
+            <StackPanel Orientation="Horizontal">
+              <Path Classes="icon edit" Data="{StaticResource IconText}" />
+              <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Retype text&quot;}" />
+            </StackPanel>
+          </Button>
+          <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove picked&quot;}" x:Name="RemoveButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Take the picked text, picture or drawing off the page. Undo brings it back. Shortcut: Delete&quot;}" Classes="tool">
+            <StackPanel Orientation="Horizontal">
+              <Path Classes="icon edit" Data="{StaticResource IconClose}" />
+              <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Remove picked&quot;}" />
+            </StackPanel>
+          </Button>
+          <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Undo page edit&quot;}" x:Name="EditUndoButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Restore the document before its most recent edit.&quot;}" Classes="tool">
+            <StackPanel Orientation="Horizontal">
+              <Path Classes="icon edit" Data="{StaticResource IconUndo}" />
+              <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Undo&quot;}" />
+            </StackPanel>
+          </Button>
+          <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Redo page edit&quot;}" x:Name="EditRedoButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Apply the most recently undone edit again.&quot;}" Classes="tool">
+            <StackPanel Orientation="Horizontal">
+              <Path Classes="icon edit" Data="{StaticResource IconRedo}" />
+              <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Redo&quot;}" />
+            </StackPanel>
+          </Button>
+          <Button AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save PDF 2.0 copy&quot;}" x:Name="EditPdf20Button" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save an edited copy as a PDF 2.0 file, the current PDF standard. Details in features PDF 2.0 retired are moved when they can be.&quot;}" Classes="tool">
+            <StackPanel Orientation="Horizontal">
+              <Path Classes="icon add" Data="{StaticResource IconSave}" />
+              <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Save PDF 2.0 copy&quot;}" />
+            </StackPanel>
+          </Button>
+        </WrapPanel>
+        <TextBlock x:Name="EditHint" Classes="secondary" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+      </StackPanel>
+      <Button Grid.Column="1" AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Done&quot;}" x:Name="EditDoneButton" views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Leave Edit mode. Your changes stay in the document until you save. Shortcut: Esc&quot;}" Classes="tool">
+        <StackPanel Orientation="Horizontal">
+          <Path Classes="icon add" Data="{StaticResource IconDone}" />
+          <TextBlock TextWrapping="Wrap" Classes="label" Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Done&quot;}" />
+        </StackPanel>
+      </Button>
+    </Grid>
+  </Border>
+</UserControl>

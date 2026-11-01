@@ -10,7 +10,11 @@ using Avalonia.Input;
 using Avalonia.VisualTree;
 using HyperPdf.App.Rendering;
 using HyperPdf.App.Views;
+using HyperPdf.Core.Annotations;
+using HyperPdf.Core.Documents;
+using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Settings;
+using HyperPdf.Core.Signatures;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels;
@@ -30,6 +34,9 @@ public sealed class CertificateSignTests
     /// <summary>The shortest piece of a secret that must not appear in a saved file.</summary>
     private const int SecretSample = 24;
 
+    /// <summary>The name of the signed copy the tests write.</summary>
+    private const string SignedFile = "signed.pdf";
+
     /// <summary>The certificate file's name.</summary>
     private const string CertificateFile = "signer.pfx";
 
@@ -46,7 +53,7 @@ public sealed class CertificateSignTests
     {
         using var test = new TestServices();
         var certificatePath = WriteCertificate(test.Directory, CertificateFile);
-        var destination = Path.Combine(test.Directory, "signed.pdf");
+        var destination = Path.Combine(test.Directory, SignedFile);
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("contract.pdf", Pages)]);
         var tab = main.SelectedTab!;
@@ -72,6 +79,61 @@ public sealed class CertificateSignTests
         await Assert.That(test.Services.Settings.RememberedCertificates).IsEmpty();
         await Assert.That(opened).IsNotNull();
         await Assert.That(opened!.Signatures.SignatureCount).IsEqualTo(1);
+    }
+
+    /// <summary>
+    /// Editing a signed file and saving it asks first, because PDF 2.0 means writing it unsigned; agreeing writes a PDF 2.0
+    /// file with no signatures.
+    /// </summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SavingAnEditedSignedFileAsPdf20RemovesTheSignatures()
+    {
+        using var test = new TestServices();
+        var certificatePath = WriteCertificate(test.Directory, CertificateFile);
+        var copyPath = Path.Combine(test.Directory, SignedFile);
+        var resavedPath = Path.Combine(test.Directory, "resaved.pdf");
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("contract.pdf", Pages)]);
+        var tab = main.SelectedTab!;
+        using var sign = AnswerWith(tab, certificatePath, false);
+        using var save = tab.SaveAsInteraction.RegisterHandler(context => context.SetOutput(copyPath));
+        _ = await tab.Signatures.SignWithCertificateCommand.Execute().ToTask();
+        var signed = main.Tabs.First(t => string.Equals(t.FilePath, copyPath, StringComparison.Ordinal));
+        await signed.EnsureLoadedAsync(CancellationToken.None);
+        signed.Signatures.Refresh();
+        var lines = new List<PageRect>();
+        signed.TryGetDocument()!.GetTextBounds(0, 0, TestPdf.Sentence.Length, lines);
+        _ = signed.Annotations.MarkText(AnnotationKind.Highlight, new Dictionary<int, List<PageRect>> { [0] = lines }, AnnotationColors.Sage);
+        var window = new MainWindow { ViewModel = main };
+        window.Show();
+        try
+        {
+            await Assert.That(await UiWait.UntilAsync(() => window.IsLoaded && ReferenceEquals(main.SelectedTab, signed))).IsTrue();
+
+            var saving = signed.SaveAsync(resavedPath, CancellationToken.None);
+            var asked = await UiWait.UntilAsync(() => window.OwnedWindows.OfType<ConfirmWindow>().Any());
+            var question = window.OwnedWindows.OfType<ConfirmWindow>().Single().ViewModel!.Message;
+            window.OwnedWindows.OfType<ConfirmWindow>().Single().Close(true);
+            var written = await saving;
+
+            using var reopened = new HyperPdfEngine().Open(resavedPath, null);
+            await Assert.That(asked).IsTrue();
+            await Assert.That(question).Contains("signatures");
+            await Assert.That(written).IsTrue();
+            var remaining = DocumentFeature<ISignatureSource>.Get(reopened)!.GetSignatures();
+            await Assert.That(remaining.Any(static signature => signature.Contents.Length > 0)).IsFalse().Because(signed.Notice ?? string.Empty);
+            await Assert.That(reopened.GetMetadata().FormatVersion).IsEqualTo("2.0");
+        }
+        finally
+        {
+            foreach (var owned in window.OwnedWindows)
+            {
+                owned.Close(true);
+            }
+
+            window.Close();
+        }
     }
 
     /// <summary>Verifies a wrong password is explained in the window instead of signing.</summary>
@@ -169,7 +231,7 @@ public sealed class CertificateSignTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("secrets.pdf", Pages)]);
         var tab = main.SelectedTab!;
-        using var save = tab.SaveAsInteraction.RegisterHandler(context => context.SetOutput(Path.Combine(test.Directory, "signed.pdf")));
+        using var save = tab.SaveAsInteraction.RegisterHandler(context => context.SetOutput(Path.Combine(test.Directory, SignedFile)));
         using (AnswerWith(tab, certificatePath, true))
         {
             _ = await tab.Signatures.SignWithCertificateCommand.Execute().ToTask();

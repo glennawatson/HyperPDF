@@ -105,6 +105,12 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     /// <summary>Gets the interaction asking the user to confirm a destructive action.</summary>
     public Interaction<ConfirmRequest, bool> ConfirmInteraction { get; } = new();
 
+    /// <summary>Gets the interaction asking which picture files to turn into a PDF.</summary>
+    public Interaction<RxVoid, IReadOnlyList<string>> ConvertPicturesInteraction { get; } = new();
+
+    /// <summary>Gets the interaction asking where to save the PDF made from pictures.</summary>
+    public Interaction<string, string?> ConvertDestinationInteraction { get; } = new();
+
     /// <summary>Gets the interaction asking the view to show the preferences.</summary>
     public Interaction<PreferencesViewModel, RxVoid> ShowPreferencesInteraction { get; } = new();
 
@@ -698,6 +704,34 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     {
         var files = await OpenFileInteraction.Handle(RxVoid.Default);
         Open(files);
+    }
+
+    /// <summary>Asks for picture files and where to save them, writes them as a new PDF 2.0 file with a page for each, and opens it.</summary>
+    /// <returns>A task.</returns>
+    [ReactiveCommand]
+    private async Task ConvertPicturesAsync()
+    {
+        var pictures = await ConvertPicturesInteraction.Handle(RxVoid.Default);
+        if (pictures.Count == 0 || await ConvertDestinationInteraction.Handle(PictureConversion.SuggestName(pictures)) is not { } destination)
+        {
+            return;
+        }
+
+        try
+        {
+            var pages = await PictureConversion.ConvertAsync(_services, pictures, destination, CancellationToken.None);
+            if (pages == 0)
+            {
+                StatusMessage = UiText.Get("None of the chosen files could be read as pictures.");
+                return;
+            }
+
+            Open([destination]);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            StatusMessage = UiText.Format("Could not make the PDF: {0}", ex.Message);
+        }
     }
 
     /// <summary>Asks the view to show properties of the selected document.</summary>
