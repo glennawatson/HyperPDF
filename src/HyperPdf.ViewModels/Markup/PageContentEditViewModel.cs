@@ -26,6 +26,9 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <summary>How far the pointer must go, in points, for a press on the picked object to count as a drag and not a click.</summary>
     private const float DragThreshold = 3;
 
+    /// <summary>How many times a page is read after an edit before the read is given up on.</summary>
+    private const int ReadAttempts = 3;
+
     /// <summary>The version text of a PDF 2.0 file.</summary>
     private const string Pdf20 = "2.0";
 
@@ -462,8 +465,8 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         {
             await Task.Run(() => edit(expected), _lifetime).ConfigureAwait(true);
             _ = _pages.Remove(picked.Page);
-            await LoadAsync(picked.Page).ConfigureAwait(true);
-            var again = expected.Width > 0 && _pages.TryGetValue(picked.Page, out var objects) ? PageObjectHits.FindAgain(objects, picked.Object, expected) : -1;
+            var read = await ReadAgainAsync(picked.Page).ConfigureAwait(true);
+            var again = expected.Width > 0 && read ? PageObjectHits.FindAgain(_pages[picked.Page], picked.Object, expected) : -1;
             Selected = again < 0 ? null : new(picked.Page, _pages[picked.Page][again]);
             Hovered = null;
             _owner.ReportPageChange(picked.Page);
@@ -477,6 +480,25 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         {
             _owner.SetNotice(LocalizedMessage.Literal($"{UiText.Get("Could not edit the page.")} {ex.Message}"));
         }
+    }
+
+    /// <summary>Reads a page again after an edit. A read that fails leaves nothing kept for the page, so it is tried again before the edit is reported as unread.</summary>
+    /// <param name="page">The page.</param>
+    /// <returns><see langword="true"/> when the page's objects are kept.</returns>
+    private async Task<bool> ReadAgainAsync(int page)
+    {
+        for (var attempt = 0; attempt < ReadAttempts; attempt++)
+        {
+            await LoadAsync(page).ConfigureAwait(true);
+            if (_pages.ContainsKey(page))
+            {
+                return true;
+            }
+        }
+
+        // The failed read said why in Status; the edit's own "done" text would replace it, so it is shown as a notice too.
+        _owner.SetNotice(LocalizedMessage.Literal(Status));
+        return false;
     }
 
     /// <summary>Turns Edit mode off. The changes stay in the document; saving writes them as a PDF 2.0 file.</summary>
