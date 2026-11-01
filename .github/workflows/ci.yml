@@ -21,6 +21,8 @@ jobs:
       dotnetVersions: |
         11.x
         10.x
+  # The build job above already runs the tests on ubuntu-latest (Linux x64), windows-latest (Windows x64) and macos-latest (macOS arm64),
+  # and is the required check, so this matrix only adds the platforms it does not cover.
   tests:
     name: Tests (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
@@ -29,16 +31,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Linux x64
-            os: ubuntu-latest
           - name: Linux arm64
             os: ubuntu-24.04-arm
-          - name: Windows x64
-            os: windows-latest
           - name: Windows arm64
             os: windows-11-arm
-          - name: macOS arm64
-            os: macos-latest
           - name: macOS x64
             os: macos-15-intel
     steps:
