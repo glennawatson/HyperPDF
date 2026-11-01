@@ -87,7 +87,7 @@ public sealed class RenderSchedulerQueueOrderTests
         _ = await CompletedTiles.CollectAsync(scheduler, completed, 1, cancellationToken);
 
         await Assert.That(scheduler.HasVisibleWork).IsFalse();
-        await Assert.That(scheduler.IsIdle).IsTrue();
+        await Assert.That(await SchedulerIdleWait.UntilIdleAsync(scheduler, cancellationToken)).IsTrue();
     }
 
     /// <summary>A batch of visible requests raises the visible-work signal once and queues every tile.</summary>
