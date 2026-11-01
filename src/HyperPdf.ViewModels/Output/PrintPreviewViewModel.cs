@@ -74,7 +74,12 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
     {
         _tab = tab;
         _services = services;
-        _ready = this.WhenChanged(static vm => vm.IsValid, static vm => vm.IsBuilding, static (valid, building) => valid && !building);
+        _ready = this.WhenChanged(
+            static vm => vm.IsValid,
+            static vm => vm.IsBuilding,
+            static vm => vm.BuiltFor,
+            static vm => vm.Destination,
+            static (valid, building, builtFor, destination) => valid && !building && builtFor == destination);
         SelectedTarget = SystemDialogTarget;
         if (tab.PrintDefaults is { } defaults)
         {
@@ -210,6 +215,16 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
     /// <summary>Gets a value indicating whether the preview is being built.</summary>
     [Reactive]
     public partial bool IsBuilding { get; private set; }
+
+    /// <summary>Gets the destination the preview shown was built for, which decides how its pages are fitted and whether notes stay notes.</summary>
+    [Reactive]
+    public partial PrintDestination BuiltFor { get; private set; }
+
+    /// <summary>
+    /// Gets a value indicating whether the preview shown is finished and was built for the chosen destination. A change of destination shows
+    /// the new choice a moment before its build starts, and the file still held then is the wrong one to print.
+    /// </summary>
+    public bool IsReady => IsValid && !IsBuilding && BuiltFor == Destination;
 
     /// <summary>Gets the sheet count, or what to fix, for the top of the settings panel.</summary>
     public string Summary { get => _summary.Value ?? string.Empty; private set => SetSummary(LocalizedMessage.Literal(value)); }
@@ -437,6 +452,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
         IsBuilding = true;
         var pages = _chosen.ToArray();
         var layout = CurrentLayout();
+        var builtFor = Destination;
         var path = await Task.Run(() => Build(exporter, pages, layout), CancellationToken.None).ConfigureAwait(true);
         lock (_show)
         {
@@ -449,7 +465,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
                 return RxVoid.Default;
             }
 
-            Show(path);
+            Show(path, builtFor);
         }
 
         return RxVoid.Default;
@@ -457,7 +473,8 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
 
     /// <summary>Shows the sheets of a finished build in place of the ones before.</summary>
     /// <param name="path">The built file, or <see langword="null"/> when the build failed.</param>
-    private void Show(string? path)
+    /// <param name="builtFor">The destination chosen when the build started.</param>
+    private void Show(string? path, PrintDestination builtFor)
     {
         // The build stays marked as running until the sheets, summary and validity are all set, so nobody who waits for it to end
         // sees the sheets of the build before, or none, with the new settings.
@@ -481,6 +498,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
 
         SelectedSheetIndex = Math.Min(selected, sizes.Length - 1);
         SetSummary(sizes.Length == 1 ? LocalizedMessage.Get(UiText, "1 sheet") : LocalizedMessage.Format(UiText, "{0} sheets", sizes.Length));
+        BuiltFor = builtFor;
         IsValid = true;
         IsBuilding = false;
     }

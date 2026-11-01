@@ -88,7 +88,7 @@ public sealed class PrintPreviewWindowTests
         window.Show();
         try
         {
-            await Assert.That(await UiWait.UntilAsync(() => preview.Destination == PrintDestination.Printer && preview.IsValid && !preview.IsBuilding)).IsTrue();
+            await Assert.That(await UiWait.UntilAsync(() => preview.Destination == PrintDestination.Printer && preview.IsReady)).IsTrue();
             var scaling = window.FindNamed<ComboBox>("ScalingBox");
             var percent = window.FindNamed<NumericUpDown>("ScalePercentBox");
             await Assert.That(scaling.IsEffectivelyVisible).IsTrue();
