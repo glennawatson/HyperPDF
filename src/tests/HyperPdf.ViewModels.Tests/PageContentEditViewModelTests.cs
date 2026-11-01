@@ -115,7 +115,7 @@ public sealed class PageContentEditViewModelTests
         using (Assert.Multiple())
         {
             await Assert.That(used).IsTrue();
-            await Assert.That(moved).IsTrue();
+            await Assert.That(moved).IsTrue().Because($"status: {edit.Status}; notice: {tab.Notice}; picked: {edit.Selected?.Object.Bounds}; was: {target.Bounds}");
             await Assert.That(edit.Selected!.Object.Text).IsEqualTo(target.Text);
             await Assert.That(tab.ContentVersion).IsGreaterThan(version);
         }
@@ -128,7 +128,7 @@ public sealed class PageContentEditViewModelTests
     {
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
-        var (_, edit, target) = await StartEditingAsync(test, main, "edit-drag.pdf");
+        var (tab, edit, target) = await StartEditingAsync(test, main, "edit-drag.pdf");
         var start = Centre(target);
         await edit.PressAsync(0, start, false);
 
@@ -143,7 +143,7 @@ public sealed class PageContentEditViewModelTests
             await Assert.That(began).IsTrue();
             await Assert.That(shown).IsEqualTo(Shift).Within(Half);
             await Assert.That(ended).IsTrue();
-            await Assert.That(moved).IsTrue();
+            await Assert.That(moved).IsTrue().Because($"status: {edit.Status}; notice: {tab.Notice}; picked: {edit.Selected?.Object.Bounds}; was: {target.Bounds}");
             await Assert.That(edit.DragPage).IsEqualTo(-1);
         }
     }
