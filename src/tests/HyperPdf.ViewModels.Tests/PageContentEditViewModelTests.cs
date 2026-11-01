@@ -106,6 +106,7 @@ public sealed class PageContentEditViewModelTests
         var (tab, edit, target) = await StartEditingAsync(test, main, "edit-move.pdf");
         await edit.PressAsync(0, Centre(target), false);
         var version = tab.ContentVersion;
+        var layout = tab.LayoutVersion;
 
         var used = edit.MoveSelected(Shift, Shift);
 
@@ -115,7 +116,7 @@ public sealed class PageContentEditViewModelTests
         using (Assert.Multiple())
         {
             await Assert.That(used).IsTrue();
-            await Assert.That(moved).IsTrue().Because($"status: {edit.Status}; notice: {tab.Notice}; picked: {edit.Selected?.Object.Bounds}; was: {target.Bounds}");
+            await Assert.That(moved).IsTrue().Because(await DescribeAsync(tab, edit, target, layout));
             await Assert.That(edit.Selected!.Object.Text).IsEqualTo(target.Text);
             await Assert.That(tab.ContentVersion).IsGreaterThan(version);
         }
@@ -131,6 +132,7 @@ public sealed class PageContentEditViewModelTests
         var (tab, edit, target) = await StartEditingAsync(test, main, "edit-drag.pdf");
         var start = Centre(target);
         await edit.PressAsync(0, start, false);
+        var layout = tab.LayoutVersion;
 
         var began = edit.BeginDrag(0, start);
         edit.DragTo(new(start.X + Shift, start.Y + Shift));
@@ -143,7 +145,7 @@ public sealed class PageContentEditViewModelTests
             await Assert.That(began).IsTrue();
             await Assert.That(shown).IsEqualTo(Shift).Within(Half);
             await Assert.That(ended).IsTrue();
-            await Assert.That(moved).IsTrue().Because($"status: {edit.Status}; notice: {tab.Notice}; picked: {edit.Selected?.Object.Bounds}; was: {target.Bounds}");
+            await Assert.That(moved).IsTrue().Because(await DescribeAsync(tab, edit, target, layout));
             await Assert.That(edit.DragPage).IsEqualTo(-1);
         }
     }
@@ -290,6 +292,20 @@ public sealed class PageContentEditViewModelTests
         // Hovering reads the page, so the first press does not wait for it.
         edit.HoverAt(0, Centre(target));
         return new(tab, edit, target);
+    }
+
+    /// <summary>Says why a move did not show up: what the view model reports and what the document's page holds now.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <param name="edit">Its Edit mode.</param>
+    /// <param name="target">The text object before the move.</param>
+    /// <param name="layout">The tab's layout version when the move began.</param>
+    /// <returns>The description.</returns>
+    private static async Task<string> DescribeAsync(DocumentTabViewModel tab, PageContentEditViewModel edit, PageObjectInfo target, int layout)
+    {
+        var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
+        var now = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var page = string.Join(" | ", now.Select(static o => $"{o.Kind} '{o.Text}' {o.Bounds.Left}"));
+        return $"status: {edit.Status}; notice: {tab.Notice}; picked: {edit.Selected?.Object.Bounds}; was: {target.Bounds}; layout {layout} -> {tab.LayoutVersion}; page now: {page}";
     }
 
     /// <summary>Reads the first bytes of a file as text.</summary>
