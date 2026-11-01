@@ -11,23 +11,10 @@ permissions:
 jobs:
   build:
     name: Build and test
-    uses: glennawatson/actions-common/.github/workflows/workflow-common-setup-and-build.yml@4882558c56a8879548981c0dd01f99363d00b332 # main
-    with:
-      srcFolder: 'src'
-      solutionFile: HyperPdf.slnx
-      minverTagPrefix: ''
-      uploadCodecov: false
-      testTimeout: '45m'
-      dotnetVersions: |
-        11.x
-        10.x
-  # The platforms the job above does not cover.
-  build-other:
-    name: Build and test other platforms
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-24.04-arm, windows-11-arm, macos-15-intel]
+        runner: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, windows-11-arm, macos-latest, macos-15-intel]
     uses: glennawatson/actions-common/.github/workflows/workflow-common-build-and-test.yml@4882558c56a8879548981c0dd01f99363d00b332 # main
     with:
       runner: ${{ matrix.runner }}
