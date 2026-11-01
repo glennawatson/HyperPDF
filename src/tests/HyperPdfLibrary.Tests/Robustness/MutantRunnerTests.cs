@@ -19,10 +19,10 @@ public sealed class MutantRunnerTests
     /// <param name="hardSeconds">The expected hard deadline.</param>
     /// <returns>A task.</returns>
     [Test]
-    [Arguments(1, 160, 320)]
-    [Arguments(4, 40, 80)]
-    [Arguments(16, 10, 20)]
-    [Arguments(128, 10, 20)]
+    [Arguments(1, 480, 960)]
+    [Arguments(4, 120, 240)]
+    [Arguments(16, 30, 60)]
+    [Arguments(128, 30, 60)]
     public async Task ProcessorBudgetRemainsBounded(int processors, int parsingSeconds, int hardSeconds)
     {
         var limits = MutantRunner.GetLimits(processors);

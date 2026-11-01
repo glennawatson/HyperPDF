@@ -48,7 +48,9 @@ public sealed class SidebarSearchLayoutTests
             var tab = main.SelectedTab!;
             tab.SidebarVisible = true;
             tab.Search.Query = Words;
-            _ = await UiWait.UntilAsync(() => !tab.Search.IsSearching && tab.Search.Results.Count == Pages);
+            _ = await UiWait.UntilAsync(
+                () => !tab.Search.IsSearching && tab.Search.Results.Count == Pages,
+                () => $"Searching {tab.Search.IsSearching}; {tab.Search.Results.Count} results; status '{tab.Search.Status}'; query '{tab.Search.Query}'; loaded {tab.IsLoaded}.");
             tab.IsSearchMode = true;
 
             ListBox? list = null;
