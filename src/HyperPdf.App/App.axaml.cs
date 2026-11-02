@@ -20,6 +20,7 @@ using HyperPdf.App.Views;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Theming;
 using HyperPdf.ViewModels;
+using HyperPdf.ViewModels.Preferences;
 using ReactiveUI;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
@@ -44,6 +45,9 @@ public sealed class App : Application
 
     /// <summary>The main window, once created.</summary>
     private MainWindow? _window;
+
+    /// <summary>The first-launch language dialog's view model, or <see langword="null"/> when the language was already chosen.</summary>
+    private LanguageChoiceViewModel? _languageChoice;
 
     /// <inheritdoc/>
     public override void Initialize()
@@ -151,6 +155,10 @@ public sealed class App : Application
     {
         Open(desktop);
         _window?.Show();
+        if (_languageChoice is { } choice && _window is { } owner)
+        {
+            new LanguageChoiceWindow { ViewModel = choice }.Show(owner);
+        }
     }
 
     /// <summary>Creates the services and the main window.</summary>
@@ -166,6 +174,7 @@ public sealed class App : Application
         }
 
         _window = window;
+        _languageChoice = LanguageChoiceViewModel.IsNeeded(services) ? new(services) : null;
 
         // Reads the lifetime's live window list each time; there is no state-passing overload to use instead.
         _lifetime.Add(new FocusAnnouncementRepair(services.FocusAnnouncements, () => desktop.Windows));

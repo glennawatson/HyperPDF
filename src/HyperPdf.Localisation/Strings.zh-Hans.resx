@@ -285,6 +285,12 @@
   <data name="Add copies of the selected pages after the selection." xml:space="preserve">
     <value>在所选页面之后添加这些页面的副本。</value>
   </data>
+  <data name="Add pictures as pages" xml:space="preserve">
+    <value>将图片添加为页面</value>
+  </data>
+  <data name="Add pictures as pages…" xml:space="preserve">
+    <value>将图片添加为页面…</value>
+  </data>
   <data name="Add the custom tag type" xml:space="preserve">
     <value>添加自定义标签类型</value>
   </data>
@@ -660,6 +666,9 @@
   <data name="Change the chosen tag" xml:space="preserve">
     <value>更改所选标签</value>
   </data>
+  <data name="Change the page itself. Click text, a picture or a drawing to pick it, then retype, move or remove it. Shortcut: Ctrl+E" xml:space="preserve">
+    <value>直接修改页面本身。单击文字、图片或图形即可选中，然后重新输入、移动或删除。快捷键：Ctrl+E</value>
+  </data>
   <data name="Change the pages" xml:space="preserve">
     <value>更改页面</value>
   </data>
@@ -677,6 +686,9 @@
   </data>
   <data name="Change the title of the chosen bookmark." xml:space="preserve">
     <value>更改所选书签的标题。</value>
+  </data>
+  <data name="Changed the text." xml:space="preserve">
+    <value>文字已更改。</value>
   </data>
   <data name="Changes apply straight away and are kept for next time." xml:space="preserve">
     <value>更改立即生效，并保留供下次使用。</value>
@@ -846,6 +858,12 @@
   <data name="Choose or type the text size in points." xml:space="preserve">
     <value>选择或输入字号（磅）。</value>
   </data>
+  <data name="Choose picture files and save them as one new PDF 2.0 file with a page for each picture." xml:space="preserve">
+    <value>选择图片文件，并将它们保存为一个新的 PDF 2.0 文件，每张图片一页。</value>
+  </data>
+  <data name="Choose picture files. Each becomes a PDF page after the selected page." xml:space="preserve">
+    <value>选择图片文件。每张图片会成为所选页面之后的一页 PDF。</value>
+  </data>
   <data name="Choose signer certificate files" xml:space="preserve">
     <value>选择签名者证书文件</value>
   </data>
@@ -1007,6 +1025,9 @@
   </data>
   <data name="Choose your certificate file from a folder." xml:space="preserve">
     <value>从文件夹中选择证书文件。</value>
+  </data>
+  <data name="Choose your language" xml:space="preserve">
+    <value>选择您的语言</value>
   </data>
   <data name="Choose…" xml:space="preserve">
     <value>选择…</value>
@@ -1170,8 +1191,17 @@
   <data name="Contents entry" xml:space="preserve">
     <value>目录条目</value>
   </data>
+  <data name="Continue" xml:space="preserve">
+    <value>继续</value>
+  </data>
   <data name="Contrast {0:0.0} to 1. {1}" xml:space="preserve">
     <value>对比度 {0:0.0}:1。{1}</value>
+  </data>
+  <data name="Convert Pictures to PDF" xml:space="preserve">
+    <value>将图片转换为 PDF</value>
+  </data>
+  <data name="Convert _Pictures to PDF…" xml:space="preserve">
+    <value>将图片转换为 _PDF…</value>
   </data>
   <data name="Copied an image of the area. Paste it where you need it." xml:space="preserve">
     <value>已复制此区域的图片。可将其粘贴到所需位置。</value>
@@ -1191,11 +1221,17 @@
   <data name="Copyright" xml:space="preserve">
     <value>版权</value>
   </data>
+  <data name="Could not add pictures as pages." xml:space="preserve">
+    <value>无法将图片添加为页面。</value>
+  </data>
   <data name="Could not delete pages." xml:space="preserve">
     <value>无法删除页面。</value>
   </data>
   <data name="Could not duplicate pages." xml:space="preserve">
     <value>无法复制页面。</value>
+  </data>
+  <data name="Could not edit the page." xml:space="preserve">
+    <value>无法编辑页面。</value>
   </data>
   <data name="Could not export: {0}" xml:space="preserve">
     <value>无法导出：{0}</value>
@@ -1211,6 +1247,9 @@
   </data>
   <data name="Could not make an image of the area." xml:space="preserve">
     <value>无法创建此区域的图片。</value>
+  </data>
+  <data name="Could not make the PDF: {0}" xml:space="preserve">
+    <value>无法生成 PDF：{0}</value>
   </data>
   <data name="Could not merge pages." xml:space="preserve">
     <value>无法合并页面。</value>
@@ -1235,6 +1274,9 @@
   </data>
   <data name="Could not read the certificates: {0}" xml:space="preserve">
     <value>无法读取证书：{0}</value>
+  </data>
+  <data name="Could not read the page for editing: {0}" xml:space="preserve">
+    <value>无法读取页面以进行编辑：{0}</value>
   </data>
   <data name="Could not read {0} from the document." xml:space="preserve">
     <value>无法从文档中读取 {0}。</value>
@@ -1581,11 +1623,23 @@
   <data name="Edges" xml:space="preserve">
     <value>边缘</value>
   </data>
+  <data name="Edit" xml:space="preserve">
+    <value>编辑</value>
+  </data>
   <data name="Edit Note" xml:space="preserve">
     <value>编辑批注</value>
   </data>
+  <data name="Edit mode is off." xml:space="preserve">
+    <value>编辑模式已关闭。</value>
+  </data>
+  <data name="Edit mode is on. Click text or a picture on the page to pick it. Double-click text to retype it." xml:space="preserve">
+    <value>编辑模式已开启。单击页面上的文字或图片即可选中。双击文字可重新输入。</value>
+  </data>
   <data name="Edit or save copies of the pages selected in the thumbnail list." xml:space="preserve">
     <value>编辑或保存缩略图列表中所选页面的副本。</value>
+  </data>
+  <data name="Edit tools" xml:space="preserve">
+    <value>编辑工具</value>
   </data>
   <data name="Ellipse" xml:space="preserve">
     <value>椭圆</value>
@@ -2127,6 +2181,9 @@
   <data name="Keep the text you are typing. Shortcut: Ctrl+Enter." xml:space="preserve">
     <value>保留正在输入的文本。快捷键：Ctrl+Enter。</value>
   </data>
+  <data name="Keep this language and start using the app." xml:space="preserve">
+    <value>保留此语言并开始使用应用。</value>
+  </data>
   <data name="Keep what is on screen now and hide this message." xml:space="preserve">
     <value>保留当前屏幕内容并隐藏此消息。</value>
   </data>
@@ -2192,6 +2249,9 @@
   </data>
   <data name="Layout" xml:space="preserve">
     <value>布局</value>
+  </data>
+  <data name="Leave Edit mode. Your changes stay in the document until you save. Shortcut: Esc" xml:space="preserve">
+    <value>退出编辑模式。您的更改会保留在文档中，直到您保存。快捷键：Esc</value>
   </data>
   <data name="Leave Focus Mode and show the pages again. Shortcut: Ctrl+4" xml:space="preserve">
     <value>退出专注模式并重新显示页面。快捷键：Ctrl+4</value>
@@ -2574,6 +2634,9 @@
   <data name="Moved {0} up." xml:space="preserve">
     <value>已将 {0} 上移。</value>
   </data>
+  <data name="Moved." xml:space="preserve">
+    <value>已移动。</value>
+  </data>
   <data name="Moves while a step is running." xml:space="preserve">
     <value>步骤运行时显示动态进度。</value>
   </data>
@@ -2682,6 +2745,9 @@
   <data name="None" xml:space="preserve">
     <value>无</value>
   </data>
+  <data name="None of the chosen files could be read as pictures." xml:space="preserve">
+    <value>所选文件均无法作为图片读取。</value>
+  </data>
   <data name="Normal" xml:space="preserve">
     <value>普通</value>
   </data>
@@ -2729,6 +2795,9 @@
   </data>
   <data name="Nothing needed to change." xml:space="preserve">
     <value>无需更改。</value>
+  </data>
+  <data name="Nothing picked." xml:space="preserve">
+    <value>未选中任何内容。</value>
   </data>
   <data name="Nothing to print" xml:space="preserve">
     <value>无可打印内容</value>
@@ -3092,6 +3161,9 @@
   </data>
   <data name="Pick up the signature you just placed so you can move or resize it again." xml:space="preserve">
     <value>拾取刚放置的签名，以便再次移动或调整大小。</value>
+  </data>
+  <data name="Picked {0}." xml:space="preserve">
+    <value>已选中{0}。</value>
   </data>
   <data name="Picture" xml:space="preserve">
     <value>图片</value>
@@ -3510,6 +3582,9 @@
   <data name="Remove page thumbnails, private application data, unused resources and empty comment lists. Pages look the same." xml:space="preserve">
     <value>删除页面缩略图、应用私有数据、未使用的资源和空批注列表。页面外观不变。</value>
   </data>
+  <data name="Remove picked" xml:space="preserve">
+    <value>删除所选内容</value>
+  </data>
   <data name="Remove recent PDFs without deleting files. On Linux, this also clears the desktop's shared recent PDF list." xml:space="preserve">
     <value>移除最近 PDF 记录而不删除文件。在 Linux 上，这也会清除桌面共享的最近 PDF 列表。</value>
   </data>
@@ -3558,6 +3633,9 @@
   <data name="Removed {0} text characters, {1} pictures, {2} drawings and {3} links, comments or form fields from {4} pages." xml:space="preserve">
     <value>已从 {4} 页中删除 {0} 个文本字符、{1} 张图片、{2} 个绘图及 {3} 个链接、批注或表单字段。</value>
   </data>
+  <data name="Removed." xml:space="preserve">
+    <value>已删除。</value>
+  </data>
   <data name="Removing the marked content…" xml:space="preserve">
     <value>正在移除标记的内容…</value>
   </data>
@@ -3605,6 +3683,12 @@
   </data>
   <data name="Results" xml:space="preserve">
     <value>结果</value>
+  </data>
+  <data name="Retype page text" xml:space="preserve">
+    <value>重新输入页面文字</value>
+  </data>
+  <data name="Retype text" xml:space="preserve">
+    <value>重新输入文字</value>
   </data>
   <data name="Rich media is not played." xml:space="preserve">
     <value>不播放富媒体。</value>
@@ -3705,6 +3789,12 @@
   <data name="Save Optimised Copy… (needs the HyperPDF engine)" xml:space="preserve">
     <value>保存优化副本…（需要 HyperPDF 引擎）</value>
   </data>
+  <data name="Save PDF" xml:space="preserve">
+    <value>保存 PDF</value>
+  </data>
+  <data name="Save PDF 2.0 copy" xml:space="preserve">
+    <value>保存 PDF 2.0 副本</value>
+  </data>
   <data name="Save PDF/A Copy" xml:space="preserve">
     <value>保存 PDF/A 副本</value>
   </data>
@@ -3783,11 +3873,17 @@
   <data name="Save a smaller or more accessible copy of this document. Your open file is never changed." xml:space="preserve">
     <value>保存更小或无障碍支持更好的文档副本。不会更改已打开的文件。</value>
   </data>
+  <data name="Save an edited copy as a PDF 2.0 file, the current PDF standard. Details in features PDF 2.0 retired are moved when they can be." xml:space="preserve">
+    <value>将编辑后的副本保存为 PDF 2.0 文件（当前的 PDF 标准）。PDF 2.0 已淘汰功能中的细节会在可能时移走。</value>
+  </data>
   <data name="Save an optimised copy of {0}" xml:space="preserve">
     <value>保存 {0} 的优化副本</value>
   </data>
   <data name="Save as PDF" xml:space="preserve">
     <value>保存为 PDF</value>
+  </data>
+  <data name="Save as PDF 2.0" xml:space="preserve">
+    <value>保存为 PDF 2.0</value>
   </data>
   <data name="Save as PDF 2.0 Copy" xml:space="preserve">
     <value>另存为 PDF 2.0 副本</value>
@@ -3797,6 +3893,9 @@
   </data>
   <data name="Save as PDF 2.0 _Copy…" xml:space="preserve">
     <value>保存为 PDF 2.0 副本(_C)…</value>
+  </data>
+  <data name="Save as PDF 2.0?" xml:space="preserve">
+    <value>要保存为 PDF 2.0 吗？</value>
   </data>
   <data name="Save pages as picture files or drawings. Your open file is never changed. A format that holds one page makes a numbered file for each page you choose." xml:space="preserve">
     <value>将页面保存为图像文件或绘图。不会更改当前打开的文件。每个文件仅容纳一页的格式会为所选的每页生成一个带编号的文件。</value>
@@ -3840,6 +3939,9 @@
   <data name="Saved a standard PDF copy to {0}." xml:space="preserve">
     <value>已将标准 PDF 副本保存到 {0}。</value>
   </data>
+  <data name="Saved as a PDF 2.0 file." xml:space="preserve">
+    <value>已保存为 PDF 2.0 文件。</value>
+  </data>
   <data name="Saved as {0}." xml:space="preserve">
     <value>已保存为 {0}。</value>
   </data>
@@ -3851,6 +3953,9 @@
   </data>
   <data name="Saved as {0}. Your open file was not changed." xml:space="preserve">
     <value>已保存为 {0}。已打开的文件未更改。</value>
+  </data>
+  <data name="Saved in the file's own version, not PDF 2.0: {0} Use Save PDF 2.0 copy to choose what happens." xml:space="preserve">
+    <value>已按文件原有版本保存，未转为 PDF 2.0：{0} 请使用“保存 PDF 2.0 副本”来选择处理方式。</value>
   </data>
   <data name="Saved the bytes to sign as {0}." xml:space="preserve">
     <value>待签名字节已保存为 {0}。</value>
@@ -3893,6 +3998,12 @@
   </data>
   <data name="Saving a standard PDF copy." xml:space="preserve">
     <value>正在保存标准 PDF 副本。</value>
+  </data>
+  <data name="Saving your changes as PDF 2.0 removes this file's {0}. Choose Cancel to save in the file's own version instead." xml:space="preserve">
+    <value>将更改保存为 PDF 2.0 会移除此文件的{0}。选择“取消”则按文件原有版本保存。</value>
+  </data>
+  <data name="Saving your changes writes a PDF 2.0 file." xml:space="preserve">
+    <value>保存更改时会写成 PDF 2.0 文件。</value>
   </data>
   <data name="Scale" xml:space="preserve">
     <value>缩放</value>
@@ -4320,6 +4431,9 @@
   <data name="Some fonts' licences forbid copying them into documents. When this is on, you can type in them on screen; the saved PDF uses the closest built in font, so the font is never copied." xml:space="preserve">
     <value>某些字体的许可证禁止将其复制到文档中。启用后，可在屏幕上使用这些字体输入；保存的 PDF 使用最接近的内置字体，因此不会复制该字体。</value>
   </data>
+  <data name="Some of the chosen files could not be read as pictures and were skipped." xml:space="preserve">
+    <value>部分所选文件无法作为图片读取，已跳过。</value>
+  </data>
   <data name="Sort by" xml:space="preserve">
     <value>排序依据</value>
   </data>
@@ -4554,6 +4668,9 @@
   <data name="Take back the latest change to the document, including a tag change." xml:space="preserve">
     <value>撤销文档的最近一次更改，包括标签更改。</value>
   </data>
+  <data name="Take the picked text, picture or drawing off the page. Undo brings it back. Shortcut: Delete" xml:space="preserve">
+    <value>将选中的文字、图片或图形从页面上删除。撤销可将其恢复。快捷键：Delete</value>
+  </data>
   <data name="Take the signature you just placed off the page." xml:space="preserve">
     <value>从页面移除刚放置的签名。</value>
   </data>
@@ -4661,6 +4778,9 @@
   </data>
   <data name="The PDF 2.0 standard no longer lets a file block screen readers, so this choice has no effect on the strong formats and they can still read the file." xml:space="preserve">
     <value>PDF 2.0 标准不再允许文件阻止屏幕阅读器，因此此选项对强加密格式无效，屏幕阅读器仍可读取文件。</value>
+  </data>
+  <data name="The app changes straight away. You can change this later in Preferences." xml:space="preserve">
+    <value>应用会立即切换语言。您以后可以在“偏好设置”中更改。</value>
   </data>
   <data name="The bookmarks could not be changed." xml:space="preserve">
     <value>无法更改书签。</value>
@@ -4977,6 +5097,9 @@
   <data name="This desktop's clipboard cannot hold images, so the image of the area was saved as {0}." xml:space="preserve">
     <value>此桌面的剪贴板无法存储图片，因此区域图片已保存为 {0}。</value>
   </data>
+  <data name="This document cannot be edited on the page." xml:space="preserve">
+    <value>此文档无法在页面上编辑。</value>
+  </data>
   <data name="This document could not be opened" xml:space="preserve">
     <value>无法打开此文档</value>
   </data>
@@ -5105,6 +5228,9 @@
   </data>
   <data name="This file has no sound or picture that can be decoded." xml:space="preserve">
     <value>此文件不包含可解码的音频或图像。</value>
+  </data>
+  <data name="This file is PDF {0}. Saving your changes writes PDF 2.0 when the file allows it." xml:space="preserve">
+    <value>此文件为 PDF {0}。只要文件允许，保存更改时会写成 PDF 2.0。</value>
   </data>
   <data name="This file is not in a format the built-in decoders read." xml:space="preserve">
     <value>此文件格式无法由内置解码器读取。</value>
@@ -5253,6 +5379,9 @@
   <data name="Type it as you want it to appear." xml:space="preserve">
     <value>按所需显示方式输入。</value>
   </data>
+  <data name="Type new words over the picked text, on the page. You can also double-click the text, or press Enter or F2." xml:space="preserve">
+    <value>在页面上直接输入新文字，替换选中的文字。也可以双击文字，或按 Enter 或 F2。</value>
+  </data>
   <data name="Type pages between 1 and {0}, such as 1-3, 7." xml:space="preserve">
     <value>请输入 1 到 {0} 之间的页面，例如 1-3、7。</value>
   </data>
@@ -5276,6 +5405,9 @@
   </data>
   <data name="Type the name shown as the author of your notes, replies and other annotations. Leave it empty to use your user name." xml:space="preserve">
     <value>输入便笺、回复和其他注释所显示的作者姓名。留空则使用用户名。</value>
+  </data>
+  <data name="Type the new words. Enter keeps them, a click elsewhere keeps them, and Escape cancels." xml:space="preserve">
+    <value>输入新文字。按 Enter 保留，单击别处也会保留，按 Esc 取消。</value>
   </data>
   <data name="Type the number with the right count of digits." xml:space="preserve">
     <value>输入位数正确的数字。</value>
@@ -5985,6 +6117,9 @@
   <data name="down" xml:space="preserve">
     <value>下</value>
   </data>
+  <data name="drawing" xml:space="preserve">
+    <value>图形</value>
+  </data>
   <data name="drawn on the page" xml:space="preserve">
     <value>绘制到页面上</value>
   </data>
@@ -6036,6 +6171,9 @@
   <data name="not drawn on the page" xml:space="preserve">
     <value>未绘制在页面上</value>
   </data>
+  <data name="object" xml:space="preserve">
+    <value>对象</value>
+  </data>
   <data name="of {0}" xml:space="preserve">
     <value>共 {0}</value>
   </data>
@@ -6044,6 +6182,12 @@
   </data>
   <data name="pages" xml:space="preserve">
     <value>页</value>
+  </data>
+  <data name="password protection" xml:space="preserve">
+    <value>密码保护</value>
+  </data>
+  <data name="picture" xml:space="preserve">
+    <value>图片</value>
   </data>
   <data name="place" xml:space="preserve">
     <value>位置</value>
@@ -6060,11 +6204,20 @@
   <data name="s are" xml:space="preserve">
     <value>为</value>
   </data>
+  <data name="signatures" xml:space="preserve">
+    <value>签名</value>
+  </data>
+  <data name="signatures and its password protection" xml:space="preserve">
+    <value>签名和密码保护</value>
+  </data>
   <data name="so nothing has been changed yet. Choose the language of this document." xml:space="preserve">
     <value>因此尚未更改任何内容。请选择此文档的语言。</value>
   </data>
   <data name="standard (PKCS #7)" xml:space="preserve">
     <value>标准（PKCS #7）</value>
+  </data>
+  <data name="text “{0}”" xml:space="preserve">
+    <value>文字“{0}”</value>
   </data>
   <data name="the protection" xml:space="preserve">
     <value>保护</value>
@@ -6257,146 +6410,5 @@
   </data>
   <data name="{0}Text recognised on {1}. You can now search, select and copy it. Save to keep it." xml:space="preserve">
     <value>{0}已在 {1} 上识别文本。现在可以搜索、选择和复制。请保存以保留结果。</value>
-  </data>
-  <data name="Add pictures as pages" xml:space="preserve">
-    <value>将图片添加为页面</value>
-  </data>
-  <data name="Add pictures as pages…" xml:space="preserve">
-    <value>将图片添加为页面…</value>
-  </data>
-  <data name="Choose picture files. Each becomes a PDF page after the selected page." xml:space="preserve">
-    <value>选择图片文件。每张图片会成为所选页面之后的一页 PDF。</value>
-  </data>
-  <data name="None of the chosen files could be read as pictures." xml:space="preserve">
-    <value>所选文件均无法作为图片读取。</value>
-  </data>
-  <data name="Some of the chosen files could not be read as pictures and were skipped." xml:space="preserve">
-    <value>部分所选文件无法作为图片读取，已跳过。</value>
-  </data>
-  <data name="Could not add pictures as pages." xml:space="preserve">
-    <value>无法将图片添加为页面。</value>
-  </data>
-  <data name="Changed the text." xml:space="preserve">
-    <value>文字已更改。</value>
-  </data>
-  <data name="Moved." xml:space="preserve">
-    <value>已移动。</value>
-  </data>
-  <data name="Removed." xml:space="preserve">
-    <value>已删除。</value>
-  </data>
-  <data name="Edit mode is off." xml:space="preserve">
-    <value>编辑模式已关闭。</value>
-  </data>
-  <data name="This document cannot be edited on the page." xml:space="preserve">
-    <value>此文档无法在页面上编辑。</value>
-  </data>
-  <data name="Edit mode is on. Click text or a picture on the page to pick it. Double-click text to retype it." xml:space="preserve">
-    <value>编辑模式已开启。单击页面上的文字或图片即可选中。双击文字可重新输入。</value>
-  </data>
-  <data name="Could not read the page for editing: {0}" xml:space="preserve">
-    <value>无法读取页面以进行编辑：{0}</value>
-  </data>
-  <data name="Nothing picked." xml:space="preserve">
-    <value>未选中任何内容。</value>
-  </data>
-  <data name="Picked {0}." xml:space="preserve">
-    <value>已选中{0}。</value>
-  </data>
-  <data name="Could not edit the page." xml:space="preserve">
-    <value>无法编辑页面。</value>
-  </data>
-  <data name="text “{0}”" xml:space="preserve">
-    <value>文字“{0}”</value>
-  </data>
-  <data name="picture" xml:space="preserve">
-    <value>图片</value>
-  </data>
-  <data name="drawing" xml:space="preserve">
-    <value>图形</value>
-  </data>
-  <data name="object" xml:space="preserve">
-    <value>对象</value>
-  </data>
-  <data name="Edit tools" xml:space="preserve">
-    <value>编辑工具</value>
-  </data>
-  <data name="Retype text" xml:space="preserve">
-    <value>重新输入文字</value>
-  </data>
-  <data name="Type new words over the picked text, on the page. You can also double-click the text, or press Enter or F2." xml:space="preserve">
-    <value>在页面上直接输入新文字，替换选中的文字。也可以双击文字，或按 Enter 或 F2。</value>
-  </data>
-  <data name="Remove picked" xml:space="preserve">
-    <value>删除所选内容</value>
-  </data>
-  <data name="Take the picked text, picture or drawing off the page. Undo brings it back. Shortcut: Delete" xml:space="preserve">
-    <value>将选中的文字、图片或图形从页面上删除。撤销可将其恢复。快捷键：Delete</value>
-  </data>
-  <data name="Save PDF 2.0 copy" xml:space="preserve">
-    <value>保存 PDF 2.0 副本</value>
-  </data>
-  <data name="Save an edited copy as a PDF 2.0 file, the current PDF standard. Details in features PDF 2.0 retired are moved when they can be." xml:space="preserve">
-    <value>将编辑后的副本保存为 PDF 2.0 文件（当前的 PDF 标准）。PDF 2.0 已淘汰功能中的细节会在可能时移走。</value>
-  </data>
-  <data name="Leave Edit mode. Your changes stay in the document until you save. Shortcut: Esc" xml:space="preserve">
-    <value>退出编辑模式。您的更改会保留在文档中，直到您保存。快捷键：Esc</value>
-  </data>
-  <data name="Edit" xml:space="preserve">
-    <value>编辑</value>
-  </data>
-  <data name="Change the page itself. Click text, a picture or a drawing to pick it, then retype, move or remove it. Shortcut: Ctrl+E" xml:space="preserve">
-    <value>直接修改页面本身。单击文字、图片或图形即可选中，然后重新输入、移动或删除。快捷键：Ctrl+E</value>
-  </data>
-  <data name="Type the new words. Enter keeps them, a click elsewhere keeps them, and Escape cancels." xml:space="preserve">
-    <value>输入新文字。按 Enter 保留，单击别处也会保留，按 Esc 取消。</value>
-  </data>
-  <data name="Retype page text" xml:space="preserve">
-    <value>重新输入页面文字</value>
-  </data>
-  <data name="Convert Pictures to PDF" xml:space="preserve">
-    <value>将图片转换为 PDF</value>
-  </data>
-  <data name="Save PDF" xml:space="preserve">
-    <value>保存 PDF</value>
-  </data>
-  <data name="Choose picture files and save them as one new PDF 2.0 file with a page for each picture." xml:space="preserve">
-    <value>选择图片文件，并将它们保存为一个新的 PDF 2.0 文件，每张图片一页。</value>
-  </data>
-  <data name="Convert _Pictures to PDF…" xml:space="preserve">
-    <value>将图片转换为 _PDF…</value>
-  </data>
-  <data name="Could not make the PDF: {0}" xml:space="preserve">
-    <value>无法生成 PDF：{0}</value>
-  </data>
-  <data name="Saved as a PDF 2.0 file." xml:space="preserve">
-    <value>已保存为 PDF 2.0 文件。</value>
-  </data>
-  <data name="This file is PDF {0}. Saving your changes writes PDF 2.0 when the file allows it." xml:space="preserve">
-    <value>此文件为 PDF {0}。只要文件允许，保存更改时会写成 PDF 2.0。</value>
-  </data>
-  <data name="Saving your changes writes a PDF 2.0 file." xml:space="preserve">
-    <value>保存更改时会写成 PDF 2.0 文件。</value>
-  </data>
-  <data name="Saved in the file&apos;s own version, not PDF 2.0: {0} Use Save PDF 2.0 copy to choose what happens." xml:space="preserve">
-    <value>已按文件原有版本保存，未转为 PDF 2.0：{0} 请使用“保存 PDF 2.0 副本”来选择处理方式。</value>
-  </data>
-  <data name="Save as PDF 2.0?" xml:space="preserve">
-    <value>要保存为 PDF 2.0 吗？</value>
-  </data>
-  <data name="Save as PDF 2.0" xml:space="preserve">
-    <value>保存为 PDF 2.0</value>
-  </data>
-  <data name="signatures and its password protection" xml:space="preserve">
-    <value>签名和密码保护</value>
-  </data>
-  <data name="signatures" xml:space="preserve">
-    <value>签名</value>
-  </data>
-  <data name="password protection" xml:space="preserve">
-    <value>密码保护</value>
-  </data>
-  <data name="Saving your changes as PDF 2.0 removes this file&apos;s {0}. Choose Cancel to save in the file&apos;s own version instead." xml:space="preserve">
-    <value>将更改保存为 PDF 2.0 会移除此文件的{0}。选择“取消”则按文件原有版本保存。</value>
   </data>
 </root>
