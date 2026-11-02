@@ -405,8 +405,9 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
             return Task.CompletedTask;
         }
 
-        // A press right after the pointer moved onto the page waits for the read the move started.
-        if (_loading.TryGetValue(page, out var running))
+        // A press right after the pointer moved onto the page waits for the read the move started. A finished read is never waited for: with no
+        // UI thread to queue the read's continuation, it can finish before it is recorded here, and it would then stand in for every later read.
+        if (_loading.TryGetValue(page, out var running) && !running.IsCompleted)
         {
             return running;
         }
@@ -433,10 +434,6 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         catch (Exception ex) when (ex is PdfException or InvalidDataException or IOException or InvalidOperationException or ArgumentOutOfRangeException)
         {
             Status = UiText.Format("Could not read the page for editing: {0}", ex.Message);
-        }
-        finally
-        {
-            _ = _loading.Remove(page);
         }
     }
 

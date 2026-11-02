@@ -521,7 +521,7 @@ public sealed class SignatureMarkTests
     private static async Task ConfirmWhenReadyAsync(IInteractionContext<PrintPreviewViewModel, bool> context)
     {
         var preview = context.Input;
-        for (var i = 0; i < WaitSteps && !(preview.IsValid && !preview.IsBuilding && preview.Destination == PrintDestination.Printer); i++)
+        for (var i = 0; i < WaitSteps && !(preview.IsReady && preview.Destination == PrintDestination.Printer); i++)
         {
             await Task.Delay(WaitStep);
         }

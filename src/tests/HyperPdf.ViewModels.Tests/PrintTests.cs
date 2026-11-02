@@ -128,7 +128,7 @@ public sealed class PrintTests
             preview.Binding = binding;
             preview.Colour = false;
             await Assert.That(await WaitAsync(() =>
-                preview.IsValid && !preview.IsBuilding && preview.Destination == PrintDestination.Printer
+                preview.IsReady && preview.Destination == PrintDestination.Printer
                 && preview.Summary == "2 sheets" && preview.Sheets.Count == ExpectedSheets)).IsTrue();
             sheets = preview.Sheets.Count;
             context.SetOutput(true);
@@ -194,8 +194,7 @@ public sealed class PrintTests
     /// <param name="preview">The preview.</param>
     /// <returns><see langword="true"/> when it is ready; an empty list of sheets while it rebuilds does not count.</returns>
     private static bool IsBookletReady(PrintPreviewViewModel preview) =>
-        preview.IsValid
-        && !preview.IsBuilding
+        preview.IsReady
         && preview.Destination == PrintDestination.Printer
         && preview.Sheets.Count == Booklet.SheetCount(RangePages) * BookletSides;
 
@@ -205,7 +204,8 @@ public sealed class PrintTests
     private static async Task ConfirmWhenReadyAsync(IInteractionContext<PrintPreviewViewModel, bool> context)
     {
         var preview = context.Input;
-        await Assert.That(await WaitAsync(() => preview.IsValid && !preview.IsBuilding && preview.Destination == PrintDestination.Printer)).IsTrue();
+        await Assert.That(await WaitAsync(() => preview.IsReady && preview.Destination == PrintDestination.Printer))
+            .IsTrue().Because($"ready {preview.IsReady}, destination {preview.Destination}, built for {preview.BuiltFor}.");
         context.SetOutput(true);
     }
 

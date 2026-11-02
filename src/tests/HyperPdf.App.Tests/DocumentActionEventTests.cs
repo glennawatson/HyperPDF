@@ -120,7 +120,7 @@ public sealed class DocumentActionEventTests
     {
         var preview = context.Input;
         _ = await UiWait.UntilAsync(
-            () => preview.IsValid && !preview.IsBuilding && preview.Destination == PrintDestination.Printer,
+            () => preview.IsReady && preview.Destination == PrintDestination.Printer,
             static () => "The print preview was not ready.");
         context.SetOutput(true);
     }
