@@ -3060,6 +3060,11 @@
     "reason": "The records, findings and the report are the result of the check."
   },
   {
+    "type": "System.Collections.Generic.HashSet`1[System.UInt32]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder..ctor",
+    "reason": "The set of block types the reader has seen in one file, kept for the length of that read."
+  },
+  {
     "type": "System.Collections.Generic.List`1[System.String]",
     "frame": "HyperPdfLibrary.Media.U3d.U3dSceneBuilder..ctor",
     "reason": "The lists the reader fills while it reads one file. They become the arrays of the returned scene."
@@ -4568,5 +4573,505 @@
     "type": "HyperPdf.Core.Documents.PageObjectInfo[]",
     "frame": "HyperPdf.Engine.HyperPdfDocumentPageContentEditing.ReadObjectsAsync",
     "reason": "The list of what a page is made of is the result handed to the viewer, made once at its exact size. The viewer keeps it for hit testing until the page changes."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Objects.PdfDictionary]",
+    "frame": "HyperPdfLibrary.Conformance.ConformanceResources.Read",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Objects.PdfText.Decode",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Conformance.PdfXFinding]",
+    "frame": "HyperPdfLibrary.Conformance.PdfXPageRules.Check",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Objects.PdfStream]",
+    "frame": "HyperPdfLibrary.Conformance.ConformanceResources.Read",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "HyperPdfLibrary.Conformance.ConformanceUses",
+    "frame": "HyperPdfLibrary.Conformance.ConformanceResources.Read",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "System.Collections.Generic.HashSet`1[System.Object]",
+    "frame": "HyperPdfLibrary.Conformance.ConformanceResources.Read",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "HyperPdfLibrary.Conformance.ConformanceScan",
+    "frame": "HyperPdfLibrary.Conformance.PdfXContentRules.Check",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "HyperPdfLibrary.Conformance.PdfXFinding[]",
+    "frame": "HyperPdfLibrary.Conformance.PdfXContentRules.Check",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Features.PdfOutputIntent]",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentCatalog.ReadOutputIntents",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.String]",
+    "frame": "HyperPdfLibrary.Conformance.ConformanceScan..ctor",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Conformance.PdfConformanceObservation]",
+    "frame": "HyperPdfLibrary.Conformance.ConformanceScan.Run",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "HyperPdfLibrary.Conformance.PdfXFinding[]",
+    "frame": "HyperPdfLibrary.Conformance.PdfXPageRules.AddOrPass",
+    "reason": "The PDF/X report scans the document once and keeps the lists of findings, resources and output intents it reports; the cost is per document, not per object."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dFace[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dMeshDecoder.ReadFaces",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Numerics.Vector3[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dMeshDecoder.ReadVectors",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dNodeDecoder.Read",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Numerics.Matrix4x4[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dNodeDecoder.Read",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dSceneNode",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dNodeDecoder.Read",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.UInt16[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dHistogram.NewCounts",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dModelBuilder",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelReader.Read",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder.Open",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dModel",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelReader.Finish",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "Entry[System.String,HyperPdfLibrary.Media.U3d.U3dMeshDeclaration][]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dMeshDecoder.ReadDeclaration",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "Entry[System.String,HyperPdfLibrary.Media.U3d.U3dContextSet][]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder.Open",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dMaterial",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dResourceDecoder.ReadMaterial",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,HyperPdfLibrary.Media.U3d.U3dFreeFormDeclaration]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,HyperPdfLibrary.Media.U3d.U3dTexturePieces]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,HyperPdfLibrary.Media.U3d.U3dMeshDeclaration]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dHistogram[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dContextSet..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,HyperPdfLibrary.Media.U3d.U3dContextSet]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dMesh",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dMeshDecoder.ReadBase",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Numerics.Vector4[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dMeshDecoder.ReadVector4s",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dMeshDeclaration",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dMeshDecoder.ReadDeclaration",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dLight",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dResourceDecoder.ReadLight",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dViewResource",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dResourceDecoder.ReadViewResource",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dShader[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dResourceDecoder.ReadShader",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dMaterial[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dResourceDecoder.ReadMaterial",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dMesh[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dMeshDecoder.ReadBase",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dShadingBinding[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dResourceDecoder.ReadShading",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dLight[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dResourceDecoder.ReadLight",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dSceneNode[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dNodeDecoder.Read",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dViewResource[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dResourceDecoder.ReadViewResource",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dViewSettings",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dNodeDecoder.ReadView",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dSceneNode[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelReader.Finish",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dShader",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dResourceDecoder.ReadShader",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "BaseCounts",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dMeshDecoder.ReadCounts",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.String[][]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dResourceDecoder.ReadShading",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dShadingBinding",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dResourceDecoder.ReadShading",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dMesh[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelReader.Finish",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dShader[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelReader.Finish",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dLight[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelReader.Finish",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dViewResource[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelReader.Finish",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dTexture]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dTextureDecoder.Finish",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dMaterial[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelReader.Finish",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dSceneNode]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dMesh]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dMaterial]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dShader]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dLight]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dViewResource]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dMetadataEntry]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dShadingList[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dShadingList.ReadAll",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dShadingList",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dShadingList.ReadAll",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dShadingBinding[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelReader.Finish",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dHistogram",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dContextSet.For",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dShadingBinding]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder..ctor",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "ValueCollection[System.String,HyperPdfLibrary.Media.U3d.U3dMeshDeclaration]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelReader.Finish",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dContextSet",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dModelBuilder.Open",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "ValueCollection[System.String,HyperPdfLibrary.Media.U3d.U3dTexturePieces]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dTextureDecoder.Finish",
+    "reason": "The decoded scene is the result of reading one file. Its arrays and records, and the builder tables and histograms used to read it, are sized once per file from the counts in the file and never per value."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dCanvas..ctor",
+    "reason": "The pixel array is the frame handed to the caller, sized once from the requested width and height. The depth buffer comes from the array pool."
+  },
+  {
+    "type": "System.Numerics.Matrix4x4[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneGraph.AddPlaces",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Numerics.Matrix4x4[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneGraph.Place",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "U3dLightSource[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dLightRig.Add",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene.Index",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Numerics.Matrix4x4]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneGraph.Place",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "Entry[System.String,System.Int32][]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneGraph..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "Entry[System.String,HyperPdfLibrary.Media.U3d.U3dLight][]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene.Index",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "Entry[System.String,HyperPdfLibrary.Media.U3d.U3dMaterial][]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene.Index",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "Entry[System.String,HyperPdfLibrary.Media.U3d.U3dShader][]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene.Index",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "Entry[System.String,HyperPdfLibrary.Media.U3d.U3dShadingBinding][]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene.Index",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "Entry[System.String,System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dMesh]][]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,HyperPdfLibrary.Media.U3d.U3dMaterial]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,HyperPdfLibrary.Media.U3d.U3dLight]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,HyperPdfLibrary.Media.U3d.U3dShadingBinding]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,System.Int32]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneGraph..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,HyperPdfLibrary.Media.U3d.U3dTexture]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,HyperPdfLibrary.Media.U3d.U3dShader]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.String,System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dMesh]]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dSurfaceStyle",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSurfaceStyle.Of",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dRenderScene",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderer.Run",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dMesh[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dSceneGraph",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderer.Run",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dCanvas",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderer.Render",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Numerics.Matrix4x4[][]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dSceneGraph..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dFrame",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderer.Render",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "Enumerator[HyperPdfLibrary.Media.U3d.U3dMesh]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderer.DrawNode",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dLightRig",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dLightRig.Collect",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dLightRig+U3dLightSource]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dLightRig..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "HyperPdfLibrary.Media.U3d.U3dSurfaceStyle[]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene.StylesFor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dMesh]",
+    "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene..ctor",
+    "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
   }
 ]

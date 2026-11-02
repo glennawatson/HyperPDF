@@ -16,6 +16,12 @@ internal static class U3dDeclarations
     /// <summary>The bytes of a parent's transform: sixteen 32-bit floats.</summary>
     private const int TransformLength = 64;
 
+    /// <summary>The bytes of an extension's identifier: a GUID.</summary>
+    private const int ExtensionIdLength = 16;
+
+    /// <summary>The bytes of a block type.</summary>
+    private const int TypeLength = 4;
+
     /// <summary>The fewest bytes a parent takes: an empty name's length and the transform.</summary>
     private const int ParentMinimum = TransformLength + 2;
 
@@ -85,7 +91,7 @@ internal static class U3dDeclarations
     /// <param name="builder">Receives what the block declares.</param>
     internal static void Apply(uint type, ReadOnlySpan<byte> payload, U3dSceneBuilder builder)
     {
-        switch (CategoryOf(type))
+        switch (builder.IsExtensionType(type) ? Category.Data : CategoryOf(type))
         {
             case Category.Node:
             {
@@ -115,6 +121,7 @@ internal static class U3dDeclarations
             {
                 var cursor = new U3dCursor(payload);
                 builder.Extension(cursor.ReadString());
+                RegisterExtensionTypes(ref cursor, builder);
                 break;
             }
 
@@ -135,6 +142,27 @@ internal static class U3dDeclarations
             {
                 break;
             }
+        }
+    }
+
+    /// <summary>Notes the block types a New Object Type block gives to its extension's objects, so that those blocks are counted and not reported as unknown.</summary>
+    /// <param name="cursor">The block's cursor, placed after the extension's name.</param>
+    /// <param name="builder">Receives the block types.</param>
+    private static void RegisterExtensionTypes(ref U3dCursor cursor, U3dSceneBuilder builder)
+    {
+        _ = cursor.ReadU32();
+        _ = cursor.Skip(ExtensionIdLength);
+        var declaration = cursor.ReadU32();
+        var count = cursor.ReadU32();
+        if (cursor.Failed || count > cursor.Remaining / TypeLength)
+        {
+            return;
+        }
+
+        builder.ExtensionType(declaration);
+        for (var i = 0; i < count; i++)
+        {
+            builder.ExtensionType(cursor.ReadU32());
         }
     }
 
