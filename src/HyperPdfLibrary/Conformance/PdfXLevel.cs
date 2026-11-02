@@ -27,4 +27,13 @@ public enum PdfXLevel
 
     /// <summary>The file names a PDF/X version this library does not know.</summary>
     Unknown = 6,
+
+    /// <summary>The claim is not spelled as any PDF/X version name, so it cannot name a level.</summary>
+    Malformed = 7,
+
+    /// <summary>The X-2 level, from ISO 15930 part 5.</summary>
+    X2 = 8,
+
+    /// <summary>The X-6, X-6n and X-6p levels, from ISO 15930 part 9.</summary>
+    X6 = 9,
 }

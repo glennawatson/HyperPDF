@@ -10,5 +10,19 @@ namespace HyperPdfLibrary.Conformance;
 /// <param name="Rule">A short stable name for the requirement, such as <c>OutputIntent</c>.</param>
 /// <param name="Passed">Whether the file meets the requirement.</param>
 /// <param name="Message">What was found, in plain words.</param>
+/// <param name="Reference">
+/// Where the requirement comes from: the ISO 15930 part and the overview section that states it. ISO 15930 is sold, so the
+/// reference names the part and the free overview, not a clause number.
+/// </param>
 [DebuggerDisplay("PdfXFinding: {Rule} passed {Passed}")]
-public readonly record struct PdfXFinding(string Rule, bool Passed, string Message);
+public readonly record struct PdfXFinding(string Rule, bool Passed, string Message, string Reference)
+{
+    /// <summary>Initializes a new instance of the <see cref="PdfXFinding"/> struct without a reference.</summary>
+    /// <param name="rule">A short stable name for the requirement.</param>
+    /// <param name="passed">Whether the file meets the requirement.</param>
+    /// <param name="message">What was found.</param>
+    public PdfXFinding(string rule, bool passed, string message)
+        : this(rule, passed, message, string.Empty)
+    {
+    }
+}

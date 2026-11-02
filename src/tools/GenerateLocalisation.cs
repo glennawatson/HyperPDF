@@ -21,7 +21,7 @@ if (args is not ([] or ["--require-complete"] or ["-RequireComplete"]))
 var repository = Repository();
 
 var count = LocalisationResources.Generate(
-    Path.Combine(repository, "docs", "localisation"),
+    Path.Combine(repository, "src", "HyperPdf.Localisation", "Translations"),
     Path.Combine(repository, "src", "HyperPdf.Localisation"),
     args.Length != 0);
 

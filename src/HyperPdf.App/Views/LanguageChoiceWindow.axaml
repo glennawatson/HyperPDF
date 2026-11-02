@@ -1,0 +1,21 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:loc="using:CP.Localisation.Avalonia"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:HyperPdf.App.Views"
+        x:Class="HyperPdf.App.Views.LanguageChoiceWindow"
+        Title="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose your language&quot;}"
+        Width="420" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppWindowBackground}">
+  <!-- Shown once, on the first launch. Picking a language changes the app straight away; Continue keeps it. -->
+  <StackPanel Margin="20" Spacing="12">
+    <TextBlock FontSize="16" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1"
+               Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose your language&quot;}" />
+    <TextBlock Classes="secondary" TextWrapping="Wrap"
+               Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;The app changes straight away. You can change this later in Preferences.&quot;}" />
+    <ListBox x:Name="LanguageList"
+             AutomationProperties.Name="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Interface language&quot;}"
+             views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Choose the interface language. Changes apply immediately.&quot;}" />
+    <Button x:Name="ContinueButton" HorizontalAlignment="Right" Margin="0,8,0,0"
+            views:ControlHelp.Text="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Keep this language and start using the app.&quot;}"
+            Content="{loc:GeneratedResx ResxName=HyperPdf.Localisation.Strings, Key=&quot;Continue&quot;}" />
+  </StackPanel>
+</Window>

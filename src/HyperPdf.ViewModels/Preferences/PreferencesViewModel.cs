@@ -265,6 +265,12 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string GetInterfaceLanguageCode(int index) => InterfaceLanguageCodes[Math.Clamp(index, 0, InterfaceLanguageCodes.Length - 1)];
 
+    /// <summary>Gets the language selector index of a persisted culture code.</summary>
+    /// <param name="code">The culture code, or an empty string for the desktop language.</param>
+    /// <returns>The index, or 0 (follow the desktop) when the code is not offered.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static int GetInterfaceLanguageIndex(string code) => Math.Max(0, Array.IndexOf(InterfaceLanguageCodes, code));
+
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
@@ -454,7 +460,11 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
         var settings = _services.Settings;
         Follow(
             this.WhenChanged(static x => x.InterfaceLanguage),
-            index => settings.InterfaceLanguage = InterfaceLanguageCodes[Math.Clamp(index, 0, InterfaceLanguageCodes.Length - 1)]);
+            index =>
+            {
+                settings.InterfaceLanguage = InterfaceLanguageCodes[Math.Clamp(index, 0, InterfaceLanguageCodes.Length - 1)];
+                settings.InterfaceLanguageAsked = true;
+            });
         FollowServices(settings);
         FollowReading(settings);
         Follow(this.WhenChanged(static x => x.ColorScheme), index => settings.ColorScheme = (ColorSchemeChoice)index);

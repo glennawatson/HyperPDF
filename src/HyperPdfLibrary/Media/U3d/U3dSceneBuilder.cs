@@ -2,6 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace HyperPdfLibrary.Media.U3d;
 
 /// <summary>Collects what a U3D file declares while it is read, within the limits of the reader.</summary>
@@ -12,6 +14,9 @@ internal sealed class U3dSceneBuilder
 
     /// <summary>The names of the extensions the file declares.</summary>
     private readonly List<string> _extensions = [];
+
+    /// <summary>The block types that New Object Type blocks gave to extension objects.</summary>
+    private readonly HashSet<uint> _extensionTypes = [];
 
     /// <summary>What stopped the file being read in full.</summary>
     private readonly List<string> _problems = [];
@@ -64,7 +69,17 @@ internal sealed class U3dSceneBuilder
         Stopped = true;
     }
 
-    /// <summary>Notes an extension the file declares.</summary>
+    /// <summary>Notes a block type that a New Object Type block gave to an extension object.</summary>
+    /// <param name="type">The block type.</param>
+    internal void ExtensionType(uint type) => _ = _extensionTypes.Add(type);
+
+    /// <summary>Determines whether a block type was given to an extension object by a New Object Type block.</summary>
+    /// <param name="type">The block type.</param>
+    /// <returns><see langword="true"/> when it was.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool IsExtensionType(uint type) => _extensionTypes.Contains(type);
+
+    /// <summary>Notes the name of an extension the file declares.</summary>
     /// <param name="name">The extension's name.</param>
     internal void Extension(string name)
     {

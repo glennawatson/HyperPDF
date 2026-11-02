@@ -22,6 +22,9 @@ public sealed class AppSettings
     /// <summary>Gets or sets the interface culture name; empty follows the desktop on the next launch.</summary>
     public string InterfaceLanguage { get; set; } = string.Empty;
 
+    /// <summary>Gets or sets a value indicating whether the first-launch language dialog has been answered.</summary>
+    public bool InterfaceLanguageAsked { get; set; }
+
     /// <summary>Gets or sets the colour scheme.</summary>
     public ColorSchemeChoice ColorScheme { get; set; }
 
