@@ -20,7 +20,7 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
       - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@4d538f76071ed73496cbf406cebe85e760fb734d # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@4882558c56a8879548981c0dd01f99363d00b332 # main
         with:
           src-folder: '.'
           stamp-version: 'false'
