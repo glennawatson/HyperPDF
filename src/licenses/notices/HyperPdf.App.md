@@ -34,7 +34,7 @@ SOFTWARE.
 ````
 
 ### Avalonia
-- Version: 12.1.4
+- Version: 12.1.6
 - Origin: NuGet package
 - Copyright: Copyright 2013-2026 © The AvaloniaUI Project
 - Link: https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link
@@ -64,7 +64,7 @@ SOFTWARE.
 ````
 
 ### Avalonia.FreeDesktop
-- Version: 12.1.4
+- Version: 12.1.6
 - Origin: NuGet package
 - Copyright: Copyright 2013-2026 © The AvaloniaUI Project
 - Link: https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link
@@ -94,7 +94,7 @@ SOFTWARE.
 ````
 
 ### Avalonia.Native
-- Version: 12.1.4
+- Version: 12.1.6
 - Origin: NuGet package
 - Copyright: Copyright 2013-2026 © The AvaloniaUI Project
 - Link: https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link
@@ -124,7 +124,7 @@ SOFTWARE.
 ````
 
 ### Avalonia.Remote.Protocol
-- Version: 12.1.4
+- Version: 12.1.6
 - Origin: NuGet package
 - Copyright: Copyright 2013-2026 © The AvaloniaUI Project
 - Link: https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link
@@ -154,7 +154,7 @@ SOFTWARE.
 ````
 
 ### Avalonia.Themes.Fluent
-- Version: 12.1.4
+- Version: 12.1.6
 - Origin: NuGet package
 - Copyright: Copyright 2013-2026 © The AvaloniaUI Project
 - Link: https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link
@@ -184,7 +184,7 @@ SOFTWARE.
 ````
 
 ### Avalonia.Wayland
-- Version: 12.1.4
+- Version: 12.1.6
 - Origin: NuGet package
 - Copyright: Copyright 2013-2026 © The AvaloniaUI Project
 - Link: https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link
@@ -214,7 +214,7 @@ SOFTWARE.
 ````
 
 ### Avalonia.Win32
-- Version: 12.1.4
+- Version: 12.1.6
 - Origin: NuGet package
 - Copyright: Copyright 2013-2026 © The AvaloniaUI Project
 - Link: https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link
@@ -244,7 +244,7 @@ SOFTWARE.
 ````
 
 ### Avalonia.X11
-- Version: 12.1.4
+- Version: 12.1.6
 - Origin: NuGet package
 - Copyright: Copyright 2013-2026 © The AvaloniaUI Project
 - Link: https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link
@@ -274,7 +274,7 @@ SOFTWARE.
 ````
 
 ### HarfBuzzSharp
-- Version: 14.2.1.301
+- Version: 14.4.0.100
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
@@ -302,7 +302,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ````
 
 ### HarfBuzzSharp.NativeAssets.Linux
-- Version: 14.2.1.301
+- Version: 14.4.0.100
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
@@ -330,7 +330,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ````
 
 ### HarfBuzzSharp.NativeAssets.macOS
-- Version: 14.2.1.301
+- Version: 14.4.0.100
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
@@ -358,7 +358,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ````
 
 ### HarfBuzzSharp.NativeAssets.Win32
-- Version: 14.2.1.301
+- Version: 14.4.0.100
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
@@ -593,7 +593,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.DependencyInjection
-- Version: 10.0.14
+- Version: 10.0.15
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -623,7 +623,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.DependencyInjection
-- Version: 11.0.0-rc.3.26522.148
+- Version: 11.0.0
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -653,7 +653,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.DependencyInjection.Abstractions
-- Version: 10.0.14
+- Version: 10.0.15
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -683,7 +683,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Logging
-- Version: 10.0.14
+- Version: 10.0.15
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -713,7 +713,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Logging
-- Version: 11.0.0-rc.3.26522.148
+- Version: 11.0.0
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -743,7 +743,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Logging.Abstractions
-- Version: 10.0.14
+- Version: 10.0.15
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -773,7 +773,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Logging.Debug
-- Version: 10.0.14
+- Version: 10.0.15
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -803,7 +803,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Logging.Debug
-- Version: 11.0.0-rc.3.26522.148
+- Version: 11.0.0
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -833,7 +833,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Options
-- Version: 10.0.14
+- Version: 10.0.15
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -863,7 +863,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.Extensions.Primitives
-- Version: 10.0.14
+- Version: 10.0.15
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -893,7 +893,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.ML.OnnxRuntime
-- Version: 1.31.1
+- Version: 1.32.0
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://github.com/Microsoft/onnxruntime
@@ -923,7 +923,7 @@ SOFTWARE.
 ````
 
 ### Microsoft.ML.OnnxRuntime.Managed
-- Version: 1.31.1
+- Version: 1.32.0
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://github.com/Microsoft/onnxruntime
@@ -1312,7 +1312,7 @@ SOFTWARE.
 ````
 
 ### SkiaSharp
-- Version: 4.153.1
+- Version: 4.156.0
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
@@ -1340,7 +1340,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ````
 
 ### SkiaSharp.NativeAssets.Linux
-- Version: 4.153.1
+- Version: 4.156.0
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
@@ -1368,7 +1368,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ````
 
 ### SkiaSharp.NativeAssets.macOS
-- Version: 4.153.1
+- Version: 4.156.0
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
@@ -1396,7 +1396,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ````
 
 ### SkiaSharp.NativeAssets.Win32
-- Version: 4.153.1
+- Version: 4.156.0
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
@@ -1576,7 +1576,7 @@ SOFTWARE.
 ````
 
 ### System.Security.Cryptography.Pkcs
-- Version: 10.0.14
+- Version: 10.0.15
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
@@ -1606,7 +1606,7 @@ SOFTWARE.
 ````
 
 ### System.Security.Cryptography.Pkcs
-- Version: 11.0.0-rc.3.26522.148
+- Version: 11.0.0
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://dot.net/
