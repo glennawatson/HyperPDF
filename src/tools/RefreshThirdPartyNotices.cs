@@ -11,16 +11,14 @@
 using HyperPdf.Scripts;
 
 // Rebuilds every checked-in notices file (src/licenses/notices/*.md) from the restored NuGet graph, so a package bump never
-// needs a hand edit. With --push, a changed result is committed to the current branch, pushed, and CI is started again for
-// that branch, because a push made with the workflow token does not start CI by itself.
+// needs a hand edit. With --push, a changed result is committed and pushed to the current branch. The workflow uses a
+// repository deploy key so the push can update main and start CI.
 // Usage: dotnet run --file src/tools/RefreshThirdPartyNotices.cs -- [--push]
 const int TimeoutMinutes = 20;
 
 const string AppProject = "src/HyperPdf.App/HyperPdf.App.csproj";
 
 const string CommitMessage = "chore(deps): refresh third-party notices";
-
-const string CiWorkflow = "ci.yml";
 
 string[] libraryProjects = ["src/HyperPdfLibrary/HyperPdfLibrary.csproj", "src/HyperPdfLibrary.Render.Skia/HyperPdfLibrary.Render.Skia.csproj"];
 
@@ -95,7 +93,7 @@ async Task<int> GenerateAsync(string project, string name)
     return await ScriptProcess.RunAsync(ScriptProcess.Dotnet, generate, root, token);
 }
 
-// Commits and pushes the notices when they changed, then starts CI for the branch.
+// Commits and pushes the notices when they changed.
 async Task<int> PushAsync()
 {
     var changed = (await ScriptProcess.CaptureAsync("git", ["status", "--porcelain", "--", "src/licenses/notices"], root, token)).Trim();
@@ -123,5 +121,5 @@ async Task<int> PushAsync()
         }
     }
 
-    return await ScriptProcess.RunAsync("gh", ["workflow", "run", CiWorkflow, "--ref", branch], root, token);
+    return 0;
 }
