@@ -37,6 +37,9 @@ public sealed class ViewerSession : IDisposable
     /// <summary>The context that brings posted work to this thread.</summary>
     private readonly WindowThreadContext _context;
 
+    /// <summary>The event handler handed to every pump, made once so a turn of the loop allocates nothing.</summary>
+    private WindowEventHandler? _handleEvent;
+
     /// <summary>Whether the user asked to close the window.</summary>
     private bool _closed;
 
@@ -103,11 +106,10 @@ public sealed class ViewerSession : IDisposable
     public bool PumpOnce(int timeoutMilliseconds)
     {
         // Work that is already waiting must not sit behind a wait for the window. Work posted after this check wakes the wait itself.
-        _window.PumpEvents(_context.HasWork ? 0 : timeoutMilliseconds, HandleEvent);
+        _window.PumpEvents(_context.HasWork ? 0 : timeoutMilliseconds, _handleEvent ??= HandleEvent);
         _context.Drain();
 
-        // Posted work changes view models without a window event, so the tree is told after it too. Building waits for a reader.
-        Accessibility.Invalidate();
+        // Posted work changes view models without a window event, so the tree is checked after it too.
         Accessibility.RefreshIfRead(Main, Canvas);
         return !_closed;
     }

@@ -78,6 +78,9 @@ public sealed unsafe class X11Window : IPlatformWindow
     /// <summary>The size the head last reported or was created with.</summary>
     private SurfaceSize _size = new(InitialWidth, InitialHeight);
 
+    /// <summary>Where the drawing area is on the screen. Asking the server waits for its answer, so it is asked only when the server reports a move or a new size.</summary>
+    private ScreenPoint _origin;
+
     /// <summary>One when a frame was asked for and not yet reported.</summary>
     private int _frameWanted;
 
@@ -140,22 +143,7 @@ public sealed unsafe class X11Window : IPlatformWindow
     public long NativeHandle => _ids.Window;
 
     /// <inheritdoc/>
-    public ScreenPoint ScreenOrigin
-    {
-        get
-        {
-            if (Volatile.Read(ref _disposed) != 0)
-            {
-                return default;
-            }
-
-            int x;
-            int y;
-            nint child;
-            var root = NativeMethods.XRootWindow(_display, NativeMethods.XDefaultScreen(_display));
-            return NativeMethods.XTranslateCoordinates(_display, (nint)_ids.Window, root, 0, 0, &x, &y, &child) != 0 ? new(x, y) : default;
-        }
-    }
+    public ScreenPoint ScreenOrigin => _origin;
 
     /// <inheritdoc/>
     public IRenderBackend Backend { get; }
@@ -234,6 +222,8 @@ public sealed unsafe class X11Window : IPlatformWindow
 
             if (windowEvent.Kind == WindowEventKind.Resized)
             {
+                // The server reports a move with the same event as a new size.
+                _origin = ReadOrigin();
                 _size = new(windowEvent.X, windowEvent.Y);
                 Backend.Resize(_size);
             }
@@ -287,6 +277,17 @@ public sealed unsafe class X11Window : IPlatformWindow
         }
 
         _ = NativeMethods.XFlush(_display);
+    }
+
+    /// <summary>Asks the server where the top left of the window is on the screen.</summary>
+    /// <returns>The place, or the screen's corner when the server cannot say.</returns>
+    private ScreenPoint ReadOrigin()
+    {
+        int x;
+        int y;
+        nint child;
+        var root = NativeMethods.XRootWindow(_display, NativeMethods.XDefaultScreen(_display));
+        return NativeMethods.XTranslateCoordinates(_display, (nint)_ids.Window, root, 0, 0, &x, &y, &child) != 0 ? new(x, y) : default;
     }
 
     /// <summary>Starts the Vulkan backend and attaches it to this window.</summary>

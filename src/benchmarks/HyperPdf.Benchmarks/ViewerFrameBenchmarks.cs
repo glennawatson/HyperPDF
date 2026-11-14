@@ -27,6 +27,12 @@ public class ViewerFrameBenchmarks
     /// <summary>The window height in pixels.</summary>
     private const int Height = 1080;
 
+    /// <summary>The x of the pointer over the page, in pixels.</summary>
+    private const int PointerX = 960;
+
+    /// <summary>The y of the pointer over the page, in pixels.</summary>
+    private const int PointerY = 540;
+
     /// <summary>The pages in the document.</summary>
     private const int Pages = 40;
 
@@ -111,7 +117,7 @@ public class ViewerFrameBenchmarks
 
     /// <summary>Handles a pointer move over the page, as every mouse movement does.</summary>
     [Benchmark]
-    public void MovePointer() => _session.Canvas.Handle(new(WindowEventKind.PointerMoved, Width / 2, Height / 2, 0, 0));
+    public void MovePointer() => _session.Canvas.Handle(new(WindowEventKind.PointerMoved, PointerX, PointerY, 0, 0));
 
     /// <summary>Turns one loop of the viewer with nothing waiting while a screen reader is attached, which checks whether the tree it reads is still right.</summary>
     /// <returns>Whether the window is still open.</returns>

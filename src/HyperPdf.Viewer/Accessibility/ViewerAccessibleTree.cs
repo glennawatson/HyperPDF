@@ -41,8 +41,11 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
     /// <summary>The cached text of the page.</summary>
     private string _text = string.Empty;
 
-    /// <summary>One when the viewer changed since the snapshot was built.</summary>
-    private int _stale = 1;
+    /// <summary>What the snapshot was built from.</summary>
+    private TreeFacts _facts;
+
+    /// <summary>Whether a snapshot has been built.</summary>
+    private bool _built;
 
     /// <summary>One once an assistive technology has asked for the tree.</summary>
     private int _wanted;
@@ -94,22 +97,29 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _changes.Dispose();
 
-    /// <summary>Notes that what the viewer shows changed, so the next refresh builds a new snapshot.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Invalidate() => Volatile.Write(ref _stale, 1);
-
-    /// <summary>Builds a new snapshot when the viewer changed and an assistive technology is reading, and tells the bridges what differs. Runs on the window thread.</summary>
+    /// <summary>
+    /// Builds a new snapshot when an assistive technology is reading and what the tree shows changed, and tells the bridges what
+    /// differs. Runs on the window thread after every turn of its loop, so the check for a change reads a few values and allocates nothing.
+    /// </summary>
     /// <param name="main">The main view model.</param>
     /// <param name="canvas">The page canvas.</param>
     public void RefreshIfRead(MainViewModel main, ViewerCanvas canvas)
     {
         ArgumentNullException.ThrowIfNull(main);
         ArgumentNullException.ThrowIfNull(canvas);
-        if (Volatile.Read(ref _wanted) == 0 || Interlocked.Exchange(ref _stale, 0) == 0)
+        if (Volatile.Read(ref _wanted) == 0)
         {
             return;
         }
 
+        var facts = TreeFacts.Read(main.SelectedTab, canvas, _window);
+        if (_built && facts == _facts)
+        {
+            return;
+        }
+
+        _facts = facts;
+        _built = true;
         var previous = Volatile.Read(ref _current);
         var next = Build(main, canvas);
         Volatile.Write(ref _current, next);
