@@ -136,9 +136,11 @@ public sealed class FontDataDownloadTests
     {
         using var cancellation = new CancellationTokenSource();
         using var handler = new FontDownloadHandler(Reset());
+
+        // The caller cancels as the first GET fails, so the cancellation is always in place before the backoff could end on a slow machine.
+        handler.Attempted = cancellation.Cancel;
         using var client = Client(handler);
         var pending = ReadAsync(client, cancellation.Token).AsTask();
-        await cancellation.CancelAsync();
         await Assert.That(async () => await pending).Throws<OperationCanceledException>();
         await Assert.That(handler.Attempts).IsEqualTo(1);
     }
