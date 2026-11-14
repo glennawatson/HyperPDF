@@ -8,11 +8,12 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Text.Json;
 using HyperPdf.Scripts;
 
 // Rebuilds every checked-in notices file (src/licenses/notices/*.md) from the restored NuGet graph, so a package bump never
-// needs a hand edit. With --push, a changed result is committed to the current branch, pushed, and CI is started again for
-// that branch, because a push made with the workflow token does not start CI by itself.
+// needs a hand edit. With --push, changes go to a notices pull request. CI is started explicitly because a push made
+// with the workflow token does not start CI by itself.
 // Usage: dotnet run --file src/tools/RefreshThirdPartyNotices.cs -- [--push]
 const int TimeoutMinutes = 20;
 
@@ -21,6 +22,8 @@ const string AppProject = "src/HyperPdf.App/HyperPdf.App.csproj";
 const string CommitMessage = "chore(deps): refresh third-party notices";
 
 const string CiWorkflow = "ci.yml";
+
+const string NoticesBranch = "chore/third-party-notices";
 
 string[] libraryProjects = ["src/HyperPdfLibrary/HyperPdfLibrary.csproj", "src/HyperPdfLibrary.Render.Skia/HyperPdfLibrary.Render.Skia.csproj"];
 
@@ -95,7 +98,7 @@ async Task<int> GenerateAsync(string project, string name)
     return await ScriptProcess.RunAsync(ScriptProcess.Dotnet, generate, root, token);
 }
 
-// Commits and pushes the notices when they changed, then starts CI for the branch.
+// Protected main requires a pull request even when the workflow token can write repository contents.
 async Task<int> PushAsync()
 {
     var changed = (await ScriptProcess.CaptureAsync("git", ["status", "--porcelain", "--", "src/licenses/notices"], root, token)).Trim();
@@ -106,13 +109,16 @@ async Task<int> PushAsync()
     }
 
     var branch = (await ScriptProcess.CaptureAsync("git", ["rev-parse", "--abbrev-ref", "HEAD"], root, token)).Trim();
+    var remote = (await ScriptProcess.CaptureAsync("git", ["ls-remote", "--heads", "origin", $"refs/heads/{NoticesBranch}"], root, token)).Trim();
+    var expectedHead = remote.Length == 0 ? string.Empty : remote.Split('\t')[0];
     string[][] steps =
     [
         ["config", "user.name", "github-actions[bot]"],
         ["config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"],
+        ["switch", "-C", NoticesBranch],
         ["add", "src/licenses/notices"],
         ["commit", "-m", CommitMessage],
-        ["push", "origin", $"HEAD:{branch}"],
+        ["push", $"--force-with-lease=refs/heads/{NoticesBranch}:{expectedHead}", "origin", $"HEAD:{NoticesBranch}"],
     ];
     foreach (var step in steps)
     {
@@ -123,5 +129,18 @@ async Task<int> PushAsync()
         }
     }
 
-    return await ScriptProcess.RunAsync("gh", ["workflow", "run", CiWorkflow, "--ref", branch], root, token);
+    var existing = await ScriptProcess.CaptureAsync("gh", ["pr", "list", "--head", NoticesBranch, "--base", branch, "--state", "open", "--json", "number"], root, token);
+    using var pullRequests = JsonDocument.Parse(existing);
+    if (pullRequests.RootElement.GetArrayLength() == 0)
+    {
+        var body = Path.Combine(scratch, "pull-request.md");
+        await File.WriteAllTextAsync(body, "Refresh the third-party notices from the restored package graph.\n", token);
+        var created = await ScriptProcess.RunAsync("gh", ["pr", "create", "--base", branch, "--head", NoticesBranch, "--title", CommitMessage, "--body-file", body], root, token);
+        if (created != 0)
+        {
+            return created;
+        }
+    }
+
+    return await ScriptProcess.RunAsync("gh", ["workflow", "run", CiWorkflow, "--ref", NoticesBranch], root, token);
 }

@@ -5,6 +5,7 @@ on:
 permissions:
   contents: write
   actions: write
+  pull-requests: write
 concurrency:
   group: refresh-notices-${{ github.ref }}
   cancel-in-progress: true
@@ -26,7 +27,7 @@ jobs:
           dotnet-versions: |
             11.x
             10.x
-      - name: Rebuild the notices from the restored packages and push any change
+      - name: Rebuild the notices and open or update their pull request
         env:
           GH_TOKEN: ${{ github.token }}
         run: dotnet run --file src/tools/RefreshThirdPartyNotices.cs -- --push
