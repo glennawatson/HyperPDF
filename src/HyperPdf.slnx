@@ -15,6 +15,7 @@
     <Project Path="HyperPdf.Windowing/HyperPdf.Windowing.csproj" />
     <Project Path="HyperPdf.Rendering.Cpu/HyperPdf.Rendering.Cpu.csproj" />
     <Project Path="HyperPdf.Head.Linux/HyperPdf.Head.Linux.csproj" />
+    <Project Path="HyperPdf.Head.Windows/HyperPdf.Head.Windows.csproj" />
     <Project Path="HyperPdf.Http/HyperPdf.Http.csproj" />
     <Project Path="HyperPdf.Engine/HyperPdf.Engine.csproj" />
     <Project Path="HyperPdf.Ocr/HyperPdf.Ocr.csproj" />
