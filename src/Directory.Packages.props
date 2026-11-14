@@ -5,13 +5,13 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Shared Version Variables">
-    <AvaloniaVersion>12.1.4</AvaloniaVersion>
-    <TUnitVersion>1.76.0</TUnitVersion>
+    <AvaloniaVersion>12.1.6</AvaloniaVersion>
+    <TUnitVersion>1.84.0</TUnitVersion>
     <!-- StyleSharp.Analyzers, PerformanceSharp.Analyzers and SecuritySharp.Analyzers ship from the
          same release pipeline and always share a version. -->
     <RoslynCommonAnalyzersVersion>5.1.4</RoslynCommonAnalyzersVersion>
-    <SkiaVersion>4.153.1</SkiaVersion>
-    <HarfBuzzVersion>14.2.1.301</HarfBuzzVersion>
+    <SkiaVersion>4.156.0</SkiaVersion>
+    <HarfBuzzVersion>14.4.0.100</HarfBuzzVersion>
   </PropertyGroup>
 
   <ItemGroup Label="UI">
@@ -57,7 +57,7 @@
     <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="$(SkiaVersion)" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="$(SkiaVersion)" />
     <PackageVersion Include="Refit" Version="16.4.0" />
-    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.31.1" />
+    <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.32.0" />
   </ItemGroup>
 
   <ItemGroup Label="Testing">
@@ -65,7 +65,7 @@
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.16.0-preview.2" />
     <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="4.0.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
   </ItemGroup>
 
   <!-- Each target framework takes the package of its own release: the .NET 11 package refers to types
@@ -73,16 +73,16 @@
   <Choose>
     <When Condition="'$(TargetFramework)' == 'net10.0'">
       <ItemGroup>
-        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
-        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.14" />
-        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.14" />
+        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.15" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.15" />
       </ItemGroup>
     </When>
     <Otherwise>
       <ItemGroup>
-        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0-rc.3.26522.148" />
-        <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0-rc.3.26522.148" />
-        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0-rc.3.26522.148" />
+        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0" />
       </ItemGroup>
     </Otherwise>
   </Choose>
