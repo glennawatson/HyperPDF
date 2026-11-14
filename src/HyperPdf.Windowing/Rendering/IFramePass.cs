@@ -17,7 +17,7 @@ public interface IFramePass : IDisposable
     /// <param name="argb">The colour as 0xAARRGGBB.</param>
     void Clear(uint argb);
 
-    /// <summary>Fills a rectangle with a solid colour.</summary>
+    /// <summary>Draws a colour over a rectangle. A colour that is not opaque is blended over what is there.</summary>
     /// <param name="area">The rectangle in canvas units.</param>
     /// <param name="argb">The colour as 0xAARRGGBB.</param>
     void FillRect(in LayoutRect area, uint argb);

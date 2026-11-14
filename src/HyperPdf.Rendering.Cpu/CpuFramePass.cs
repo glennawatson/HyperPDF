@@ -9,7 +9,7 @@ using HyperPdf.Windowing.Rendering;
 
 namespace HyperPdf.Rendering.Cpu;
 
-/// <summary>Draws one frame into the CPU backend's buffer and presents it on dispose.</summary>
+/// <summary>Draws one frame into the CPU backend's buffer and presents it on dispose. The backend keeps one pass and hands it out for every frame, so a frame allocates nothing.</summary>
 /// <param name="owner">The backend that owns the frame buffer.</param>
 internal sealed class CpuFramePass(CpuRenderBackend owner) : IFramePass
 {
@@ -34,7 +34,7 @@ internal sealed class CpuFramePass(CpuRenderBackend owner) : IFramePass
         var frame = owner.WritableFrame();
         for (var row = top; row < bottom && left < right; row++)
         {
-            CpuFill.Fill(frame.Slice((row * owner.Stride) + (left * BytesPerPixel), (right - left) * BytesPerPixel), argb);
+            CpuFill.Over(frame.Slice((row * owner.Stride) + (left * BytesPerPixel), (right - left) * BytesPerPixel), argb);
         }
     }
 

@@ -19,6 +19,9 @@ public sealed class CpuRenderBackend : IRenderBackend
     /// <summary>The called when a frame is finished and ready to show.</summary>
     private readonly FramePresented _presented;
 
+    /// <summary>The pass handed out for every frame.</summary>
+    private CpuFramePass? _pass;
+
     /// <summary>The frame buffer.</summary>
     private byte[] _frame = [];
 
@@ -71,13 +74,16 @@ public sealed class CpuRenderBackend : IRenderBackend
     public IFramePass BeginFrame()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        return new CpuFramePass(this);
+        return _pass ??= new(this);
     }
 
     /// <inheritdoc/>
     public void Dispose()
     {
         _disposed = true;
+
+        // Disposing a pass presents its frame, which does nothing once the backend is disposed.
+        _pass?.Dispose();
         _frame = [];
     }
 
@@ -87,6 +93,13 @@ public sealed class CpuRenderBackend : IRenderBackend
     internal Span<byte> WritableFrame() => _frame.AsSpan(0, Stride * Size.Height);
 
     /// <summary>Hands a finished frame to the head.</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void Present() => _presented(FramePixels, Size, Stride);
+    internal void Present()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _presented(FramePixels, Size, Stride);
+    }
 }
