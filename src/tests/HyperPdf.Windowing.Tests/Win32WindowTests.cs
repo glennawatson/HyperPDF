@@ -81,11 +81,15 @@ public sealed class Win32WindowTests
 
         var typed = new List<uint>();
         string? copied;
+        string? pasted;
+        double scale;
         using (var window = new Win32Window(RenderBackendPreference.Cpu, new RecordingAccessibilityBridge()))
         {
             window.Show();
             window.SetClipboardText(ClipboardSample);
             copied = Win32ClipboardReader.ReadText((nint)window.WindowHandle);
+            pasted = window.GetClipboardText();
+            scale = window.Scale;
             _ = NativeMethods.PostMessage((nint)window.WindowHandle, CharacterMessage, TypedCharacter, 0);
             window.PumpEvents(WaitMilliseconds, (in windowEvent) =>
             {
@@ -97,6 +101,8 @@ public sealed class Win32WindowTests
         }
 
         await Assert.That(copied).IsEqualTo(ClipboardSample);
+        await Assert.That(pasted).IsEqualTo(ClipboardSample);
+        await Assert.That(scale).IsGreaterThan(0);
         await Assert.That(typed).Contains((uint)TypedCharacter);
     }
 

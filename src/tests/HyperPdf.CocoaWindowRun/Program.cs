@@ -28,6 +28,12 @@ internal static class Program
     /// <summary>The longest the viewer may take to load and draw the document, in seconds.</summary>
     private const double LoadSeconds = 90;
 
+    /// <summary>How many times the pasteboard is written and read back before the check fails.</summary>
+    private const int ClipboardTries = 5;
+
+    /// <summary>The wait between pasteboard tries, in milliseconds.</summary>
+    private const int ClipboardWaitMilliseconds = 200;
+
     /// <summary>The longest one wait for window events, in milliseconds.</summary>
     private const int PumpMilliseconds = 20;
 
@@ -74,8 +80,7 @@ internal static class Program
         report.WriteLine($"window: {window.ClientSize.Width} x {window.ClientSize.Height}");
         report.WriteLine($"backend: {window.Backend.GetType().Name}");
         window.SetTitle("HyperPDF Cocoa window run");
-        window.SetClipboardText(ClipboardSample);
-        var copied = string.Equals(ReadPasteboard(), ClipboardSample, StringComparison.Ordinal);
+        var copied = CopyAndReadBack(window);
         report.WriteLine($"clipboard: {(copied ? "ok" : "mismatch")}");
 
         var context = ViewerSession.UseWindowThread(window);
@@ -96,6 +101,27 @@ internal static class Program
         // The last line is the verdict the test reads: an exit code alone cannot tell a failed step from a crash.
         report.WriteLine(worked ? "result: ok" : "result: failed");
         return worked ? 0 : 1;
+    }
+
+    /// <summary>Copies text to the pasteboard and reads it back. The pasteboard is shared by the whole machine, so a busy runner gets a few tries.</summary>
+    /// <param name="window">The window.</param>
+    /// <returns><see langword="true"/> when the text read back is the text copied.</returns>
+    [SupportedOSPlatform("macos")]
+    private static bool CopyAndReadBack(CocoaWindow window)
+    {
+        for (var attempt = 0; attempt < ClipboardTries; attempt++)
+        {
+            window.SetClipboardText(ClipboardSample);
+            if (string.Equals(ReadPasteboard(), ClipboardSample, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            // Waiting on the window's own events gives the pasteboard server time without blocking the main thread.
+            window.PumpEvents(ClipboardWaitMilliseconds, static (in _) => { });
+        }
+
+        return false;
     }
 
     /// <summary>Turns the viewer's loop and draws frames until the document is loaded and several frames in a row need no new tile.</summary>
