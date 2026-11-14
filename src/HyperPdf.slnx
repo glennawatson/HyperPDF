@@ -12,6 +12,8 @@
     <Project Path="HyperPdf.Localisation/HyperPdf.Localisation.csproj" />
     <Project Path="HyperPdf.ViewModels/HyperPdf.ViewModels.csproj" />
     <Project Path="HyperPdf.Presentation/HyperPdf.Presentation.csproj" />
+    <Project Path="HyperPdf.Windowing/HyperPdf.Windowing.csproj" />
+    <Project Path="HyperPdf.Rendering.Cpu/HyperPdf.Rendering.Cpu.csproj" />
     <Project Path="HyperPdf.Http/HyperPdf.Http.csproj" />
     <Project Path="HyperPdf.Engine/HyperPdf.Engine.csproj" />
     <Project Path="HyperPdf.Ocr/HyperPdf.Ocr.csproj" />
@@ -32,6 +34,7 @@
     <Project Path="tests/HyperPdf.App.Tests/HyperPdf.App.Tests.csproj" />
     <Project Path="tests/HyperPdf.Core.Tests/HyperPdf.Core.Tests.csproj" />
     <Project Path="tests/HyperPdf.Presentation.Tests/HyperPdf.Presentation.Tests.csproj" />
+    <Project Path="tests/HyperPdf.Windowing.Tests/HyperPdf.Windowing.Tests.csproj" />
     <Project Path="tests/HyperPdf.ViewModels.Tests/HyperPdf.ViewModels.Tests.csproj" />
     <Project Path="tests/HyperPdf.Ocr.Tests/HyperPdf.Ocr.Tests.csproj" />
     <Project Path="tests/HyperPdf.TestAssets/HyperPdf.TestAssets.csproj" />
