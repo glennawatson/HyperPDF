@@ -158,7 +158,11 @@ internal sealed unsafe class Direct3DDevice : IDisposable
         if (_swapChain != 0)
         {
             _ = Direct3DCalls.Present((void*)_swapChain, 1);
+            return;
         }
+
+        // Presenting hands a frame's commands to the GPU. With no window nothing does, so frames would pile up in the command queue.
+        Direct3DCalls.Flush((void*)_context);
     }
 
     /// <summary>Reads the frame texture as BGRA with the top line first. Only frames drawn without a window can be read.</summary>

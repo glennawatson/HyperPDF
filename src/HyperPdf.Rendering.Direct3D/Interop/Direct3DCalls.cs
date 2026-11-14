@@ -99,6 +99,9 @@ internal static unsafe class Direct3DCalls
     /// <summary>The slot of ID3D11DeviceContext::ClearRenderTargetView.</summary>
     private const int ClearRenderTargetViewSlot = 50;
 
+    /// <summary>The slot of ID3D11DeviceContext::Flush.</summary>
+    private const int FlushSlot = 111;
+
     /// <summary>The slot of IDXGISwapChain::Present.</summary>
     private const int PresentSlot = 8;
 
@@ -352,6 +355,12 @@ internal static unsafe class Direct3DCalls
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void ClearRenderTarget(void* context, void* target, float* color) =>
         ((delegate* unmanaged[Stdcall]<void*, void*, float*, void>)Slot(context, ClearRenderTargetViewSlot))(context, target, color);
+
+    /// <summary>Calls ID3D11DeviceContext::Flush, which hands the queued commands to the GPU.</summary>
+    /// <param name="context">The context.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Flush(void* context) =>
+        ((delegate* unmanaged[Stdcall]<void*, void>)Slot(context, FlushSlot))(context);
 
     /// <summary>Calls IDXGISwapChain::Present.</summary>
     /// <param name="swapChain">The swap chain.</param>
