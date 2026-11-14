@@ -6,9 +6,8 @@ using System.Diagnostics;
 
 namespace HyperPdf.Rendering.Cpu;
 
-/// <summary>How the smooth sampler walks along one destination line.</summary>
+/// <summary>How the smooth sampler walks along one source row.</summary>
 /// <param name="Start">The 16.16 source column position of the first pixel.</param>
 /// <param name="Step">The 16.16 source step per destination pixel.</param>
-/// <param name="WeightY">The weight of the lower source row, from 0 to 255.</param>
-[DebuggerDisplay("SampleWalk {Start} + {Step}, row weight {WeightY}")]
-internal readonly record struct SampleWalk(int Start, int Step, uint WeightY);
+[DebuggerDisplay("SampleWalk {Start} + {Step}")]
+internal readonly record struct SampleWalk(int Start, int Step);

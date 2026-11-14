@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -12,6 +13,9 @@ public static class CpuBlit
 {
     /// <summary>The bytes per pixel.</summary>
     private const int BytesPerPixel = 4;
+
+    /// <summary>The scratch lines the smooth sampler keeps: the source rows above and below the frame line.</summary>
+    private const int ScratchLines = 2;
 
     /// <summary>The number of weight steps for the smooth sampler.</summary>
     private const uint WeightSteps = 256;
@@ -136,21 +140,88 @@ public static class CpuBlit
     /// <param name="rows">The clipped rows.</param>
     private static void ScaleRowsSmooth(Span<byte> frame, in PixelGrid frameGrid, ReadOnlySpan<byte> source, in PixelGrid sourceGrid, in BlitRequest request, in BlitRows rows)
     {
-        var stepX = Step(sourceGrid.Width, request.Width);
-        var stepY = Step(sourceGrid.Height, request.Height);
-        var start = (rows.Left - request.X) * stepX;
+        // Each source row is stretched sideways once into a scratch line, and every frame line is a mix of two scratch lines.
+        // The scratch lines come from the pool, so steady frames allocate nothing.
+        var scratch = ArrayPool<byte>.Shared.Rent((rows.Right - rows.Left) * BytesPerPixel * ScratchLines);
+        try
+        {
+            MixStretchedRows(frame, frameGrid, source, sourceGrid, request, rows, scratch);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(scratch);
+        }
+    }
+
+    /// <summary>Draws smooth scaled rows from two scratch lines that hold the source rows above and below each frame line, already stretched sideways.</summary>
+    /// <param name="frame">The frame pixels.</param>
+    /// <param name="frameGrid">The frame shape.</param>
+    /// <param name="source">The source pixels.</param>
+    /// <param name="sourceGrid">The source shape.</param>
+    /// <param name="request">Where the source goes.</param>
+    /// <param name="rows">The clipped rows.</param>
+    /// <param name="scratch">Room for two frame lines.</param>
+    private static void MixStretchedRows(Span<byte> frame, in PixelGrid frameGrid, ReadOnlySpan<byte> source, in PixelGrid sourceGrid, in BlitRequest request, in BlitRows rows, Span<byte> scratch)
+    {
         var length = (rows.Right - rows.Left) * BytesPerPixel;
-        var rowBytes = sourceGrid.Width * BytesPerPixel;
+        var walk = new SampleWalk((rows.Left - request.X) * Step(sourceGrid.Width, request.Width), Step(sourceGrid.Width, request.Width));
+        var stepY = Step(sourceGrid.Height, request.Height);
+        var upperSlot = 0;
+        var upperRow = -1;
+        var lowerRow = -1;
         for (var row = rows.Top; row < rows.Bottom; row++)
         {
             var sy = (row - request.Y) * stepY;
             var y0 = Math.Min(sy >> FixedShift, sourceGrid.Height - 1);
             var y1 = Math.Min(y0 + 1, sourceGrid.Height - 1);
-            SampleLineBilinear(
-                MemoryMarshal.Cast<byte, uint>(frame.Slice((row * frameGrid.Stride) + (rows.Left * BytesPerPixel), length)),
-                MemoryMarshal.Cast<byte, uint>(source.Slice(y0 * sourceGrid.Stride, rowBytes)),
-                MemoryMarshal.Cast<byte, uint>(source.Slice(y1 * sourceGrid.Stride, rowBytes)),
-                new(start, stepX, (uint)((sy & FractionMask) >> WeightShift)));
+            if (y0 == lowerRow && y0 != upperRow)
+            {
+                // Moving down one source row: the old lower line becomes the upper line without sampling it again.
+                upperSlot = 1 - upperSlot;
+                upperRow = lowerRow;
+                lowerRow = -1;
+            }
+
+            var upper = scratch.Slice(upperSlot * length, length);
+            var lower = scratch.Slice((1 - upperSlot) * length, length);
+            if (y0 != upperRow)
+            {
+                StretchLine(upper, source, sourceGrid, y0, walk);
+                upperRow = y0;
+            }
+
+            if (y1 != lowerRow)
+            {
+                StretchLine(lower, source, sourceGrid, y1, walk);
+                lowerRow = y1;
+            }
+
+            CpuBlend.MixRows(frame.Slice((row * frameGrid.Stride) + (rows.Left * BytesPerPixel), length), upper, lower, (uint)((sy & FractionMask) >> WeightShift));
+        }
+    }
+
+    /// <summary>Stretches one source row sideways into a line, blending the two nearest source pixels for each.</summary>
+    /// <param name="line">The destination line.</param>
+    /// <param name="source">The source pixels.</param>
+    /// <param name="sourceGrid">The source shape.</param>
+    /// <param name="sourceRow">The source row.</param>
+    /// <param name="walk">Where the line starts in the source and how it steps.</param>
+    private static void StretchLine(Span<byte> line, ReadOnlySpan<byte> source, in PixelGrid sourceGrid, int sourceRow, in SampleWalk walk)
+    {
+        var target = MemoryMarshal.Cast<byte, uint>(line);
+        var row = MemoryMarshal.Cast<byte, uint>(source.Slice(sourceRow * sourceGrid.Stride, sourceGrid.Width * BytesPerPixel));
+        var position = walk.Start;
+        var last = row.Length - 1;
+        for (var i = 0; i < target.Length; i++)
+        {
+            var x0 = Math.Min(position >> FixedShift, last);
+            var first = row[x0];
+            var second = row[Math.Min(x0 + 1, last)];
+            var weight = (uint)((position & FractionMask) >> WeightShift);
+
+            // Flat areas such as paper need no mixing, which is most of a page.
+            target[i] = first == second ? first : Pack(Mix(Spread(first), Spread(second), weight));
+            position += walk.Step;
         }
     }
 
@@ -174,27 +245,6 @@ public static class CpuBlit
         {
             line[i] = sourceRow[Math.Min(position >> FixedShift, last)];
             position += step;
-        }
-    }
-
-    /// <summary>Fills one destination line by blending the four nearest source pixels for each.</summary>
-    /// <param name="line">The destination line.</param>
-    /// <param name="row0">The upper source row.</param>
-    /// <param name="row1">The lower source row.</param>
-    /// <param name="walk">Where the line starts in the source and how it steps.</param>
-    private static void SampleLineBilinear(Span<uint> line, ReadOnlySpan<uint> row0, ReadOnlySpan<uint> row1, in SampleWalk walk)
-    {
-        var position = walk.Start;
-        var last = row0.Length - 1;
-        for (var i = 0; i < line.Length; i++)
-        {
-            var x0 = Math.Min(position >> FixedShift, last);
-            var x1 = Math.Min(x0 + 1, last);
-            var fx = (uint)((position & FractionMask) >> WeightShift);
-            var top = Mix(Spread(row0[x0]), Spread(row0[x1]), fx);
-            var bottom = Mix(Spread(row1[x0]), Spread(row1[x1]), fx);
-            line[i] = Pack(Mix(top, bottom, walk.WeightY));
-            position += walk.Step;
         }
     }
 

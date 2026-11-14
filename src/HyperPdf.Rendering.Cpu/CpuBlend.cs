@@ -26,6 +26,9 @@ public static class CpuBlend
     /// <summary>Half of 256, added before the divide by 255 so it rounds to nearest.</summary>
     private const int RoundingBias = 128;
 
+    /// <summary>The number of weight steps when two rows are mixed.</summary>
+    private const uint WeightSteps = 256;
+
     /// <summary>The shift that divides by 256.</summary>
     private const int ByteShift = 8;
 
@@ -125,6 +128,43 @@ public static class CpuBlend
         for (var p = 0; p < targets.Length; p++)
         {
             targets[p] = OverPixel(pixel, targets[p], inverse);
+        }
+    }
+
+    /// <summary>Mixes two rows of the same length into a destination row by a weight out of 256.</summary>
+    /// <param name="to">The destination row.</param>
+    /// <param name="upper">The row the weight moves away from.</param>
+    /// <param name="lower">The row the weight moves toward.</param>
+    /// <param name="weight">The weight of the lower row, from 0 to 255.</param>
+    public static void MixRows(Span<byte> to, ReadOnlySpan<byte> upper, ReadOnlySpan<byte> lower, uint weight)
+    {
+        if (weight == 0)
+        {
+            upper[..to.Length].CopyTo(to);
+            return;
+        }
+
+        var i = 0;
+        if (Vector128.IsHardwareAccelerated)
+        {
+            var towardLower = Vector128.Create((ushort)weight);
+            var towardUpper = Vector128.Create((ushort)(WeightSteps - weight));
+            ref var first = ref MemoryMarshal.GetReference(upper);
+            ref var second = ref MemoryMarshal.GetReference(lower);
+            ref var target = ref MemoryMarshal.GetReference(to);
+            for (; i <= to.Length - VectorBytes; i += VectorBytes)
+            {
+                var above = Vector128.LoadUnsafe(ref first, (nuint)i);
+                var below = Vector128.LoadUnsafe(ref second, (nuint)i);
+                var low = ((Vector128.WidenLower(above) * towardUpper) + (Vector128.WidenLower(below) * towardLower)) >>> ByteShift;
+                var high = ((Vector128.WidenUpper(above) * towardUpper) + (Vector128.WidenUpper(below) * towardLower)) >>> ByteShift;
+                Vector128.Narrow(low, high).StoreUnsafe(ref target, (nuint)i);
+            }
+        }
+
+        for (; i < to.Length; i++)
+        {
+            to[i] = (byte)(((upper[i] * (WeightSteps - weight)) + (lower[i] * weight)) >> ByteShift);
         }
     }
 

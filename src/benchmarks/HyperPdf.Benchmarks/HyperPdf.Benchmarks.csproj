@@ -20,6 +20,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Rendering.Vulkan\HyperPdf.Rendering.Vulkan.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Localisation\HyperPdf.Localisation.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Skia\HyperPdf.Skia.csproj" />
     <ProjectReference Condition="'$(ViewModelsProject)' == 'true'" Include="..\..\HyperPdf.Rendering.Skia\HyperPdf.Rendering.Skia.csproj" />
