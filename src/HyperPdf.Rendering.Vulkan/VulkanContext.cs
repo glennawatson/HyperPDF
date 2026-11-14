@@ -60,6 +60,10 @@ public sealed unsafe class VulkanContext : IDisposable
     {
         _instance = instance;
         _device = device;
+        PhysicalDevice = selection.PhysicalDevice;
+        ulong queue;
+        NativeMethods.GetDeviceQueue(device, selection.QueueFamily, 0, &queue);
+        Queue = queue;
         DeviceName = selection.Name;
         QueueFamily = selection.QueueFamily;
         CanExportDmabuf = selection.CanExportDmabuf;
@@ -73,6 +77,15 @@ public sealed unsafe class VulkanContext : IDisposable
 
     /// <summary>Gets a value indicating whether the GPU can export an image as a dmabuf, which is how frames reach a Wayland compositor.</summary>
     public bool CanExportDmabuf { get; }
+
+    /// <summary>Gets the device handle.</summary>
+    internal ulong Device => _device;
+
+    /// <summary>Gets the physical device handle.</summary>
+    internal ulong PhysicalDevice { get; }
+
+    /// <summary>Gets the graphics queue handle.</summary>
+    internal ulong Queue { get; }
 
     /// <summary>Creates a context on the best GPU.</summary>
     /// <returns>The context, or <see langword="null"/> when the machine has no Vulkan loader, driver or graphics queue.</returns>

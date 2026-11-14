@@ -23,4 +23,22 @@ public sealed class VulkanContextTests
 
         await Assert.That(context.DeviceName).IsNotEmpty();
     }
+
+    /// <summary>The driver accepts the render pass, layouts, samplers and both pipelines.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DriverAcceptsThePipelines()
+    {
+        using var context = VulkanContext.TryCreate();
+        if (context is null)
+        {
+            Skip.Test("This machine has no Vulkan driver.");
+            return;
+        }
+
+        using var pipelines = new VulkanPipelines(context);
+
+        await Assert.That(pipelines.TilePipeline).IsNotEqualTo(0UL);
+        await Assert.That(pipelines.SolidPipeline).IsNotEqualTo(0UL);
+    }
 }
