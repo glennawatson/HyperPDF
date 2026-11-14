@@ -33,4 +33,7 @@ public enum WindowEventKind
 
     /// <summary>The pointer moved.</summary>
     PointerMoved = 8,
+
+    /// <summary>The wheel or touchpad scrolled. The event carries the vertical amount in <c>Y</c> and the horizontal amount in <c>X</c>.</summary>
+    Scrolled = 9,
 }

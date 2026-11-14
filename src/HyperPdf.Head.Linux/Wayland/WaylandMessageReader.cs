@@ -19,6 +19,9 @@ internal ref struct WaylandMessageReader
     /// <summary>The shift of the size in the second head word.</summary>
     private const int SizeShift = 16;
 
+    /// <summary>The divisor of a Wayland fixed point number.</summary>
+    private const double FixedScale = 256.0;
+
     /// <summary>The bytes of the message after its head.</summary>
     private readonly ReadOnlySpan<byte> _body;
 
@@ -87,5 +90,16 @@ internal ref struct WaylandMessageReader
         var text = Encoding.UTF8.GetString(_body.Slice(_position, length - 1));
         _position += (length + (Word - 1)) & ~(Word - 1);
         return text;
+    }
+
+    /// <summary>Reads a fixed point argument, which holds 24 whole bits and 8 fraction bits.</summary>
+    /// <returns>The value.</returns>
+    internal double ReadFixed() => ReadInt() / FixedScale;
+
+    /// <summary>Skips an array argument, which the head does not use.</summary>
+    internal void SkipArray()
+    {
+        var length = (int)ReadUInt();
+        _position += (length + (Word - 1)) & ~(Word - 1);
     }
 }
