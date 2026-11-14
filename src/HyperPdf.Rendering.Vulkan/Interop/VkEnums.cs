@@ -226,6 +226,24 @@ internal static class VkEnums
     /// <summary>The attachment store operation DONT_CARE.</summary>
     internal const uint StoreOpDontCare = 1;
 
+    /// <summary>The number of descriptor sets a tile owns: one per sampler filter.</summary>
+    internal const uint SetsPerTile = 2;
+
+    /// <summary>The command buffer level PRIMARY.</summary>
+    internal const uint CommandBufferPrimary = 0;
+
+    /// <summary>The command buffer usage flag ONE_TIME_SUBMIT.</summary>
+    internal const uint CommandBufferOneTimeSubmit = 1;
+
+    /// <summary>The subpass contents INLINE.</summary>
+    internal const uint SubpassInline = 0;
+
+    /// <summary>The graphics pipeline bind point.</summary>
+    internal const uint BindPointGraphics = 0;
+
+    /// <summary>The number of vertices in the quad's triangle strip.</summary>
+    internal const uint QuadVertexCount = 4;
+
     /// <summary>The queue family ignored value.</summary>
     internal const uint QueueFamilyIgnored = 0xFFFF_FFFF;
 

@@ -12,6 +12,9 @@ internal static unsafe class VulkanMemory
     /// <summary>The most memory types a GPU lists.</summary>
     private const int MaxMemoryTypes = 32;
 
+    /// <summary>The size of VkMemoryAllocateInfo in bytes.</summary>
+    private const int AllocateInfoSize = 32;
+
     /// <summary>Allocates memory that suits a resource and has the wanted properties.</summary>
     /// <param name="context">The Vulkan context.</param>
     /// <param name="requirements">The VkMemoryRequirements of the resource, 24 bytes.</param>
@@ -22,8 +25,8 @@ internal static unsafe class VulkanMemory
     {
         var size = *(ulong*)requirements;
         var typeIndex = FindType(context, *(uint*)(requirements + VkEnums.MemoryTypeBitsOffset), properties);
-        byte* info = stackalloc byte[VkEnums.MemoryRequirementsSize];
-        var writer = new VkWriter(new(info, VkEnums.MemoryRequirementsSize));
+        byte* info = stackalloc byte[AllocateInfoSize];
+        var writer = new VkWriter(new(info, AllocateInfoSize));
         writer.U32(VkEnums.MemoryAllocateInfoType);
         writer.U64(0);
         writer.U64(size);

@@ -22,13 +22,13 @@ internal static unsafe class VulkanPipelineState
     private const int UnusedRasterizationFields = 6;
 
     /// <summary>Writes a shader stage structure.</summary>
-    /// <param name="target">The buffer.</param>
+    /// <param name="target">The buffer, one stage size long. The stages sit next to each other in an array, so the writer must not clear past one stage.</param>
     /// <param name="stage">The stage bit.</param>
     /// <param name="module">The shader module.</param>
     /// <param name="entry">The null terminated entry point name.</param>
     internal static void Stage(byte* target, uint stage, ulong module, byte* entry)
     {
-        var writer = new VkWriter(new(target, PartSize));
+        var writer = new VkWriter(new(target, StageSize));
         writer.U32(VkEnums.PipelineShaderStageType);
         writer.U64(0);
         writer.U32(0);
