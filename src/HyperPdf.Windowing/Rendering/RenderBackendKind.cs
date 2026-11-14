@@ -10,8 +10,8 @@ public enum RenderBackendKind
     /// <summary>Managed pixel buffers copied to the window by the operating system. Works everywhere.</summary>
     Cpu = 0,
 
-    /// <summary>Direct3D 12 on Windows.</summary>
-    Direct3D12 = 1,
+    /// <summary>Direct3D 11 on Windows.</summary>
+    Direct3D11 = 1,
 
     /// <summary>Metal on macOS.</summary>
     Metal = 2,

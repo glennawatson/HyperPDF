@@ -7,6 +7,7 @@
     <ProjectReference Include="..\..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Rendering.Vulkan\HyperPdf.Rendering.Vulkan.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Rendering.Direct3D\HyperPdf.Rendering.Direct3D.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Head.Linux\HyperPdf.Head.Linux.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Head.Windows\HyperPdf.Head.Windows.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />

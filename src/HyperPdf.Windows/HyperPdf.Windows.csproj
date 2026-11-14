@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
+    <OutputType>WinExe</OutputType>
+    <ApplicationIcon>..\..\packaging\windows\HyperPdf.ico</ApplicationIcon>
+    <Description>Hyper PDF Viewer for Windows: a native Win32 window drawn with Direct3D, with no UI toolkit.</Description>
+    <AssemblyName>hyperpdf</AssemblyName>
+    <RootNamespace>HyperPdf.Windows</RootNamespace>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <!-- Ships the English text recognition data (Directory.Build.targets). -->
+    <UsesRecognitionData>true</UsesRecognitionData>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Native AOT">
+    <PublishAot>true</PublishAot>
+    <EventSourceSupport>true</EventSourceSupport>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+    <TieredPGO>true</TieredPGO>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <PublishDocumentationFiles>false</PublishDocumentationFiles>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />
+    <ProjectReference Include="..\HyperPdf.Head.Windows\HyperPdf.Head.Windows.csproj" />
+  </ItemGroup>
+</Project>
