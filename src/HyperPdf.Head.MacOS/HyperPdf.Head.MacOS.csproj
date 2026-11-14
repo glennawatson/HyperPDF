@@ -14,5 +14,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="HyperPdf.Windowing.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.CocoaWindowRun" />
   </ItemGroup>
 </Project>

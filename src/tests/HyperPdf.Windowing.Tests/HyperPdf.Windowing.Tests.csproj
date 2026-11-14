@@ -13,5 +13,7 @@
     <ProjectReference Include="..\..\HyperPdf.Head.Windows\HyperPdf.Head.Windows.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />
     <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
+    <!-- Built beside the tests so the macOS test can start it; its types are not used here. -->
+    <ProjectReference Include="..\HyperPdf.CocoaWindowRun\HyperPdf.CocoaWindowRun.csproj" />
   </ItemGroup>
 </Project>

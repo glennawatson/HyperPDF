@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>false</IsTestProject>
+    <IsBenchmarkProject>true</IsBenchmarkProject>
+    <IsPackable>false</IsPackable>
+    <Description>Runs the viewer in a real Cocoa window on the process's main thread, which AppKit requires and a test runner cannot give. The windowing tests start it on macOS and read what it reports.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Head.MacOS\HyperPdf.Head.MacOS.csproj" />
+  </ItemGroup>
+</Project>
