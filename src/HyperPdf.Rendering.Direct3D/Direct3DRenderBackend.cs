@@ -4,10 +4,7 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using HyperPdf.Core.Layout;
 using HyperPdf.Core.Rendering;
-using HyperPdf.Rendering.Cpu;
 using HyperPdf.Rendering.Direct3D.Interop;
 using HyperPdf.Windowing.Rendering;
 
@@ -20,17 +17,11 @@ namespace HyperPdf.Rendering.Direct3D;
 [DebuggerDisplay("Direct3DRenderBackend: {Size}")]
 public sealed unsafe class Direct3DRenderBackend : IRenderBackend
 {
-    /// <summary>The vertices of one quad, as two triangles.</summary>
-    private const int QuadVertices = 6;
-
     /// <summary>The largest channel value.</summary>
     private const float ChannelMax = 255F;
 
     /// <summary>The mask of one channel.</summary>
     private const uint ChannelMask = 0xFF;
-
-    /// <summary>The mask of the alpha and green channels, which keep their place when red and blue swap.</summary>
-    private const uint AlphaGreenMask = 0xFF00FF00;
 
     /// <summary>The bit shift of the red channel in 0xAARRGGBB.</summary>
     private const int RedShift = 16;
@@ -47,26 +38,17 @@ public sealed unsafe class Direct3DRenderBackend : IRenderBackend
     /// <summary>The bind flag of a texture a shader reads.</summary>
     private const uint BindShaderResource = 0x8;
 
-    /// <summary>The vertices the first vertex array holds.</summary>
-    private const int FirstVertexCapacity = 4096;
-
     /// <summary>The GPU objects of tiles that were disposed and wait for the next frame to release them.</summary>
     private readonly ConcurrentQueue<Direct3DRetired> _retired = new();
 
-    /// <summary>The runs of the current frame, reused each frame.</summary>
-    private readonly List<Direct3DBatch> _batches = [];
+    /// <summary>The quads of the current frame.</summary>
+    private readonly QuadBatcher<Direct3DTileSurface> _quads = new();
 
     /// <summary>The device.</summary>
     private readonly Direct3DDevice _device;
 
     /// <summary>The pipeline objects.</summary>
     private readonly Direct3DPipeline _pipeline;
-
-    /// <summary>The vertices of the current frame, reused each frame and grown when a frame has more.</summary>
-    private Direct3DVertex[] _vertices = new Direct3DVertex[FirstVertexCapacity];
-
-    /// <summary>The number of vertices in the current frame.</summary>
-    private int _vertexCount;
 
     /// <summary>The pass handed out for every frame, so a frame allocates nothing. It is made on the first frame.</summary>
     private Direct3DFramePass? _pass;
@@ -112,6 +94,9 @@ public sealed unsafe class Direct3DRenderBackend : IRenderBackend
     /// <summary>Gets the current frame size in pixels.</summary>
     public SurfaceSize Size { get; private set; }
 
+    /// <summary>Gets the quads of the frame being drawn.</summary>
+    internal QuadBatcher<Direct3DTileSurface> Quads => _quads;
+
     /// <inheritdoc/>
     public void Resize(in SurfaceSize size)
     {
@@ -129,8 +114,7 @@ public sealed unsafe class Direct3DRenderBackend : IRenderBackend
     public IFramePass BeginFrame()
     {
         ObjectDisposedException.ThrowIf(!IsAlive, this);
-        _batches.Clear();
-        _vertexCount = 0;
+        _quads.Reset();
         return _pass ??= new(this);
     }
 
@@ -159,40 +143,6 @@ public sealed unsafe class Direct3DRenderBackend : IRenderBackend
         _pass?.Dispose();
     }
 
-    /// <summary>Adds a clear of the whole frame.</summary>
-    /// <param name="argb">The colour as 0xAARRGGBB.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void AddClear(uint argb) => _batches.Add(new(IsClear: true, null, Smooth: false, _vertexCount, 0, argb));
-
-    /// <summary>Adds a quad to the frame, joining the run before it when both use the same texture and sampler.</summary>
-    /// <param name="tile">The tile the quad shows, or <see langword="null"/> for a solid fill.</param>
-    /// <param name="smooth">Whether the tile is sampled smoothly.</param>
-    /// <param name="area">Where the quad goes, in frame pixels.</param>
-    /// <param name="argb">The colour as 0xAARRGGBB, white for a tile.</param>
-    internal void AddQuad(Direct3DTileSurface? tile, bool smooth, in LayoutRect area, uint argb)
-    {
-        if (_vertexCount + QuadVertices > _vertices.Length)
-        {
-            Array.Resize(ref _vertices, _vertices.Length + _vertices.Length);
-        }
-
-        var color = ToVertexColor(argb);
-        var left = (float)area.X;
-        var top = (float)area.Y;
-        var right = (float)(area.X + area.Width);
-        var bottom = (float)(area.Y + area.Height);
-        var topLeft = new Direct3DVertex(left, top, 0, 0, color);
-        var topRight = new Direct3DVertex(right, top, 1, 0, color);
-        var bottomLeft = new Direct3DVertex(left, bottom, 0, 1, color);
-        var bottomRight = new Direct3DVertex(right, bottom, 1, 1, color);
-
-        // Two triangles that share the diagonal from the top right to the bottom left.
-        ReadOnlySpan<Direct3DVertex> quad = [topLeft, topRight, bottomLeft, topRight, bottomRight, bottomLeft];
-        quad.CopyTo(_vertices.AsSpan(_vertexCount, QuadVertices));
-        Join(tile, smooth);
-        _vertexCount += QuadVertices;
-    }
-
     /// <summary>Draws the gathered runs and finishes the frame.</summary>
     internal void Present()
     {
@@ -203,42 +153,15 @@ public sealed unsafe class Direct3DRenderBackend : IRenderBackend
 
         ReleaseRetired();
         UploadTiles();
-        _pipeline.BeginFrame(_vertices.AsSpan(0, _vertexCount));
+        _pipeline.BeginFrame(_quads.Vertices);
         DrawBatches();
         _device.Present();
-    }
-
-    /// <summary>Converts a 0xAARRGGBB colour to the premultiplied vertex colour, which has red in the low byte.</summary>
-    /// <param name="argb">The colour.</param>
-    /// <returns>The vertex colour.</returns>
-    private static uint ToVertexColor(uint argb)
-    {
-        var premultiplied = CpuFill.Premultiply(argb);
-        return (premultiplied & AlphaGreenMask) | ((premultiplied >> RedShift) & ChannelMask) | ((premultiplied & ChannelMask) << RedShift);
-    }
-
-    /// <summary>Extends the last run by one quad, or starts a new run when the texture or sampler changes.</summary>
-    /// <param name="tile">The tile, or <see langword="null"/> for a solid fill.</param>
-    /// <param name="smooth">Whether the tile is sampled smoothly.</param>
-    private void Join(Direct3DTileSurface? tile, bool smooth)
-    {
-        if (_batches.Count > 0)
-        {
-            var last = _batches[^1];
-            if (!last.IsClear && ReferenceEquals(last.Tile, tile) && last.Smooth == smooth)
-            {
-                _batches[^1] = last with { Count = last.Count + QuadVertices };
-                return;
-            }
-        }
-
-        _batches.Add(new(IsClear: false, tile, smooth, _vertexCount, QuadVertices, 0));
     }
 
     /// <summary>Makes the texture of every tile in the frame that has none and uploads the pixels of the tiles that changed.</summary>
     private void UploadTiles()
     {
-        foreach (var batch in _batches)
+        foreach (ref readonly var batch in _quads.Batches)
         {
             if (batch.Tile is not { } tile)
             {
@@ -277,7 +200,7 @@ public sealed unsafe class Direct3DRenderBackend : IRenderBackend
         var context = _device.Context;
         void* boundView = null;
         void* boundSampler = null;
-        foreach (var batch in _batches)
+        foreach (ref readonly var batch in _quads.Batches)
         {
             if (batch.IsClear)
             {
@@ -307,7 +230,7 @@ public sealed unsafe class Direct3DRenderBackend : IRenderBackend
     /// <param name="argb">The colour as 0xAARRGGBB.</param>
     private void Clear(uint argb)
     {
-        var premultiplied = CpuFill.Premultiply(argb);
+        var premultiplied = PremultipliedColor.FromArgb(argb);
         var color = stackalloc float[]
         {
             ((premultiplied >> RedShift) & ChannelMask) / ChannelMax,

@@ -18,11 +18,11 @@ internal sealed class Direct3DFramePass(Direct3DRenderBackend owner) : IFramePas
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Clear(uint argb) => owner.AddClear(argb);
+    public void Clear(uint argb) => owner.Quads.AddClear(argb);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void FillRect(in LayoutRect area, uint argb) => owner.AddQuad(null, smooth: false, area, argb);
+    public void FillRect(in LayoutRect area, uint argb) => owner.Quads.AddQuad(null, smooth: false, area, argb);
 
     /// <inheritdoc/>
     public void DrawSurface(IRenderSurface surface, in LayoutRect destination, bool smooth)
@@ -32,7 +32,7 @@ internal sealed class Direct3DFramePass(Direct3DRenderBackend owner) : IFramePas
             throw new ArgumentException("The surface was not made by the Direct3D backend.", nameof(surface));
         }
 
-        owner.AddQuad(tile, smooth, destination, uint.MaxValue);
+        owner.Quads.AddQuad(tile, smooth, destination, uint.MaxValue);
     }
 
     /// <inheritdoc/>

@@ -16,7 +16,7 @@ using HyperPdf.Scripts;
 // Usage: dotnet run --file src/tools/RefreshThirdPartyNotices.cs -- [--push]
 const int TimeoutMinutes = 20;
 
-const string AppProject = "src/HyperPdf.App/HyperPdf.App.csproj";
+const string AppProject = "src/HyperPdf.Linux/HyperPdf.Linux.csproj";
 
 const string CommitMessage = "chore(deps): refresh third-party notices";
 

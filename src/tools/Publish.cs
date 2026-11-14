@@ -46,9 +46,17 @@ Console.CancelKeyPress += (_, e) =>
     cancellation.Cancel();
 };
 
+// Each operating system has its own executable project, with its own window and render backends.
+var head = rid switch
+{
+    "linux-x64" or "linux-arm64" => "HyperPdf.Linux",
+    "win-x64" or "win-arm64" => "HyperPdf.Windows",
+    _ => "HyperPdf.MacOS",
+};
+
 string[] arguments = [
     "publish",
-    Path.Combine(root, "src", "HyperPdf.App", "HyperPdf.App.csproj"),
+    Path.Combine(root, "src", head, $"{head}.csproj"),
     "-c",
     "Release",
     "-f",

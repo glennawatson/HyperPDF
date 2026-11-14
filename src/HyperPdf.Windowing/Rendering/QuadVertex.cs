@@ -5,14 +5,14 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace HyperPdf.Rendering.Direct3D;
+namespace HyperPdf.Windowing.Rendering;
 
-/// <summary>One corner of a quad, in the layout the vertex shader reads: 20 bytes.</summary>
+/// <summary>One corner of a quad in the layout every GPU backend's vertex shader reads: 20 bytes.</summary>
 /// <param name="X">The x in frame pixels.</param>
 /// <param name="Y">The y in frame pixels.</param>
 /// <param name="U">The texture coordinate across, from 0 to 1.</param>
 /// <param name="V">The texture coordinate down, from 0 to 1.</param>
 /// <param name="Color">The premultiplied colour, with red in the low byte.</param>
-[DebuggerDisplay("Direct3DVertex ({X}, {Y})")]
+[DebuggerDisplay("QuadVertex ({X}, {Y})")]
 [StructLayout(LayoutKind.Sequential)]
-internal readonly record struct Direct3DVertex(float X, float Y, float U, float V, uint Color);
+public readonly record struct QuadVertex(float X, float Y, float U, float V, uint Color);

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using HyperPdf.Rendering.Direct3D.Interop;
+using HyperPdf.Windowing.Rendering;
 
 namespace HyperPdf.Rendering.Direct3D;
 
@@ -195,7 +196,7 @@ internal sealed unsafe class Direct3DPipeline : IDisposable
     /// <summary>Binds everything a frame draws with and copies the frame's vertices to the GPU.</summary>
     /// <param name="vertices">The vertices of the frame.</param>
     /// <exception cref="InvalidOperationException">Direct3D could not take the vertices.</exception>
-    internal void BeginFrame(ReadOnlySpan<Direct3DVertex> vertices)
+    internal void BeginFrame(ReadOnlySpan<QuadVertex> vertices)
     {
         var context = _device.Context;
         Upload(vertices);
@@ -206,7 +207,7 @@ internal sealed unsafe class Direct3DPipeline : IDisposable
         Direct3DCalls.SetViewport(context, &viewport);
         Direct3DCalls.SetInputLayout(context, (void*)_layout);
         Direct3DCalls.SetPrimitiveTopology(context, TriangleList);
-        Direct3DCalls.SetVertexBuffer(context, (void*)_vertices, (uint)sizeof(Direct3DVertex));
+        Direct3DCalls.SetVertexBuffer(context, (void*)_vertices, (uint)sizeof(QuadVertex));
         Direct3DCalls.SetVertexShader(context, (void*)_vertexShader);
         Direct3DCalls.SetVertexConstantBuffer(context, (void*)_constants);
         Direct3DCalls.SetPixelShader(context, (void*)_pixelShader);
@@ -216,14 +217,14 @@ internal sealed unsafe class Direct3DPipeline : IDisposable
 
     /// <summary>Copies the frame's vertices into the vertex buffer, making a larger buffer when they do not fit.</summary>
     /// <param name="vertices">The vertices.</param>
-    private void Upload(ReadOnlySpan<Direct3DVertex> vertices)
+    private void Upload(ReadOnlySpan<QuadVertex> vertices)
     {
         if (vertices.Length > _vertexCapacity)
         {
             Direct3DCalls.Release((void*)_vertices);
             _vertices = 0;
             _vertexCapacity = Math.Max(vertices.Length, _vertexCapacity + _vertexCapacity);
-            _vertices = (ulong)CreateBuffer(new((uint)(_vertexCapacity * sizeof(Direct3DVertex)), UsageDynamic, BindVertexBuffer, CpuWrite, 0, 0), null);
+            _vertices = (ulong)CreateBuffer(new((uint)(_vertexCapacity * sizeof(QuadVertex)), UsageDynamic, BindVertexBuffer, CpuWrite, 0, 0), null);
         }
 
         if (vertices.IsEmpty)
@@ -297,7 +298,7 @@ internal sealed unsafe class Direct3DPipeline : IDisposable
     {
         _constants = (ulong)CreateBuffer(new(ConstantsSize, 0, BindConstantBuffer, 0, 0, 0), null);
         _vertexCapacity = FirstVertexCapacity;
-        _vertices = (ulong)CreateBuffer(new((uint)(FirstVertexCapacity * sizeof(Direct3DVertex)), UsageDynamic, BindVertexBuffer, CpuWrite, 0, 0), null);
+        _vertices = (ulong)CreateBuffer(new((uint)(FirstVertexCapacity * sizeof(QuadVertex)), UsageDynamic, BindVertexBuffer, CpuWrite, 0, 0), null);
 
         var white = uint.MaxValue;
         var pixels = new SubresourceData((ulong)(&white), sizeof(uint), 0);

@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using HyperPdf.Windowing.Rendering;
 
 namespace HyperPdf.Rendering.Cpu;
 
@@ -101,7 +102,7 @@ public static class CpuBlend
             var inverse = ChannelMax - from[i + AlphaOffset];
             for (var c = 0; c < BytesPerPixel; c++)
             {
-                to[i + c] = (byte)Math.Min(ChannelMax, from[i + c] + DivideBy255(to[i + c] * inverse));
+                to[i + c] = (byte)Math.Min(ChannelMax, from[i + c] + PremultipliedColor.DivideBy255(to[i + c] * inverse));
             }
         }
     }
@@ -168,16 +169,6 @@ public static class CpuBlend
         }
     }
 
-    /// <summary>Divides a product of two channel values by 255 and rounds to nearest, without a division.</summary>
-    /// <param name="product">The product, at most 255 * 255.</param>
-    /// <returns>The rounded quotient.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static int DivideBy255(int product)
-    {
-        var biased = product + RoundingBias;
-        return (biased + (biased >> ByteShift)) >> ByteShift;
-    }
-
     /// <summary>Blends one premultiplied pixel over another.</summary>
     /// <param name="source">The source pixel.</param>
     /// <param name="target">The destination pixel.</param>
@@ -188,7 +179,7 @@ public static class CpuBlend
         var result = 0U;
         for (var shift = 0; shift <= AlphaShift; shift += ByteShift)
         {
-            var channel = (int)((source >> shift) & ChannelMax) + DivideBy255((int)((target >> shift) & ChannelMax) * inverse);
+            var channel = (int)((source >> shift) & ChannelMax) + PremultipliedColor.DivideBy255((int)((target >> shift) & ChannelMax) * inverse);
             result |= (uint)Math.Min(ChannelMax, channel) << shift;
         }
 
