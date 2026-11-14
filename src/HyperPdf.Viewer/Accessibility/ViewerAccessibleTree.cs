@@ -1,0 +1,329 @@
+// Copyright (c) 2026 Glenn Watson. All rights reserved.
+// Glenn Watson licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using HyperPdf.Core.Accessibility;
+using HyperPdf.Core.Layout;
+using HyperPdf.Core.Reading;
+using HyperPdf.ViewModels;
+using HyperPdf.ViewModels.Help;
+using HyperPdf.ViewModels.Viewing;
+using HyperPdf.Viewer.Chrome;
+using HyperPdf.Windowing.Windows;
+using ReactiveUI.Primitives.Signals;
+
+namespace HyperPdf.Viewer.Accessibility;
+
+/// <summary>
+/// What a screen reader or magnifier sees of the viewer: the application, its window, the document with the text of the page shown,
+/// and that page's headings, paragraphs, list items, table cells and figures in reading order. The window thread builds an
+/// unchanging snapshot and the platform bridges read it from any thread. Nothing is built until an assistive technology first asks.
+/// </summary>
+[DebuggerDisplay("ViewerAccessibleTree: {_current}")]
+public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
+{
+    /// <summary>The changes between snapshots.</summary>
+    private readonly Signal<AccessibleChange> _changes = new();
+
+    /// <summary>The controls an assistive technology asked to press, waiting for the window thread.</summary>
+    private readonly ConcurrentQueue<int> _presses = new();
+
+    /// <summary>The window, woken when an assistive technology first asks for the tree.</summary>
+    private readonly IPlatformWindow _window;
+
+    /// <summary>The snapshot the bridges read.</summary>
+    private AccessibleSnapshot _current = AccessibleSnapshot.Empty;
+
+    /// <summary>The tab the cached page text belongs to.</summary>
+    private DocumentTabViewModel? _textTab;
+
+    /// <summary>The page the cached text belongs to, or -1 when nothing is cached.</summary>
+    private int _textPage = -1;
+
+    /// <summary>The cached text of the page.</summary>
+    private string _text = string.Empty;
+
+    /// <summary>What the snapshot was built from.</summary>
+    private TreeFacts _facts;
+
+    /// <summary>Whether a snapshot has been built.</summary>
+    private bool _built;
+
+    /// <summary>One once an assistive technology has asked for the tree.</summary>
+    private int _wanted;
+
+    /// <summary>Initializes a new instance of the <see cref="ViewerAccessibleTree"/> class.</summary>
+    /// <param name="window">The window the tree describes.</param>
+    public ViewerAccessibleTree(IPlatformWindow window)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        _window = window;
+    }
+
+    /// <inheritdoc/>
+    public int RootId => ViewerNodes.ApplicationId;
+
+    /// <inheritdoc/>
+    public int FocusedId => Volatile.Read(ref _current).FocusedId;
+
+    /// <inheritdoc/>
+    public IObservable<AccessibleChange> Changes => _changes;
+
+    /// <inheritdoc/>
+    public AccessibleNode? Get(int id)
+    {
+        Want();
+        return Volatile.Read(ref _current).Nodes.GetValueOrDefault(id);
+    }
+
+    /// <inheritdoc/>
+    public int HitTest(int x, int y)
+    {
+        Want();
+        return Volatile.Read(ref _current).HitTest(x, y);
+    }
+
+    /// <inheritdoc/>
+    public bool DoAction(int id, int action)
+    {
+        if (id < ViewerNodes.FirstControlId || action != 0 || Volatile.Read(ref _current).Nodes.GetValueOrDefault(id) is not { Actions.Count: > 0 })
+        {
+            return false;
+        }
+
+        // A bridge asks from its own thread. The press is done on the window thread, which the wake brings round.
+        _presses.Enqueue(id);
+        _window.Wake();
+        return true;
+    }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool Focus(int id) => id == ViewerNodes.DocumentId;
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool SetCaret(int id, int offset) => false;
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Dispose() => _changes.Dispose();
+
+    /// <summary>
+    /// Builds a new snapshot when an assistive technology is reading and what the tree shows changed, and tells the bridges what
+    /// differs. Runs on the window thread after every turn of its loop, so the check for a change reads a few values and allocates nothing.
+    /// </summary>
+    /// <param name="main">The main view model.</param>
+    /// <param name="canvas">The page canvas.</param>
+    public void RefreshIfRead(MainViewModel main, ViewerCanvas canvas)
+    {
+        ArgumentNullException.ThrowIfNull(main);
+        ArgumentNullException.ThrowIfNull(canvas);
+        if (Volatile.Read(ref _wanted) == 0)
+        {
+            return;
+        }
+
+        while (_presses.TryDequeue(out var pressed))
+        {
+            var inOverlay = pressed >= ViewerNodes.FirstOverlayId;
+            _ = canvas.Chrome?.PressControl(inOverlay, pressed - (inOverlay ? ViewerNodes.FirstOverlayId : ViewerNodes.FirstControlId));
+        }
+
+        var facts = TreeFacts.Read(main.SelectedTab, canvas, _window);
+        if (_built && facts == _facts)
+        {
+            return;
+        }
+
+        _facts = facts;
+        _built = true;
+        var previous = Volatile.Read(ref _current);
+        var next = Build(main, canvas);
+        Volatile.Write(ref _current, next);
+        foreach (var change in SnapshotDiff.Compare(previous, next))
+        {
+            _changes.OnNext(change);
+        }
+    }
+
+    /// <summary>Reads a page's text, in reading order when the document can describe its layout.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <param name="page">The page.</param>
+    /// <returns>The text.</returns>
+    private static string ReadPage(DocumentTabViewModel tab, int page)
+    {
+        if (tab.GetReadingDocument() is { } reading && page < reading.PageCount)
+        {
+            return ReadingDocument.Flatten(reading.GetPage(page), out _);
+        }
+
+        return tab.TryGetDocument() is { } document ? document.GetText(page, 0, document.GetCharacterCount(page)) : string.Empty;
+    }
+
+    /// <summary>Finds where a list item is in its list: its place in the run of list items around it and the length of that run.</summary>
+    /// <param name="blocks">The blocks of the page.</param>
+    /// <param name="index">The block.</param>
+    /// <returns>The place, or the default when the block is not a list item.</returns>
+    private static ListPlace PlaceInList(IReadOnlyList<ReadingBlock> blocks, int index)
+    {
+        if (blocks[index].Kind != ReadingBlockKind.ListItem)
+        {
+            return default;
+        }
+
+        var first = index;
+        while (first > 0 && blocks[first - 1].Kind == ReadingBlockKind.ListItem)
+        {
+            first--;
+        }
+
+        var last = index;
+        while (last + 1 < blocks.Count && blocks[last + 1].Kind == ReadingBlockKind.ListItem)
+        {
+            last++;
+        }
+
+        return new(index - first + 1, last - first + 1);
+    }
+
+    /// <summary>Adds the window's controls that have text to read or something to press.</summary>
+    /// <param name="nodes">The elements so far.</param>
+    /// <param name="inWindow">The numbers of the window's children, which get the controls added.</param>
+    /// <param name="items">The controls, back to front.</param>
+    /// <param name="firstId">The number of the first control.</param>
+    /// <param name="origin">Where the window's drawing area is on the screen.</param>
+    /// <returns>The number of the text box being typed into, or -1 when there is none.</returns>
+    private static int AddControls(Dictionary<int, AccessibleNode> nodes, List<int> inWindow, IReadOnlyList<ChromeItem> items, int firstId, ScreenPoint origin)
+    {
+        var typing = -1;
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            if (!ViewerNodes.IsPublished(item.Kind) || item.Text.Length == 0)
+            {
+                continue;
+            }
+
+            var bounds = item.Bounds;
+            var id = firstId + i;
+            nodes[id] = ViewerNodes.CreateControl(id, item, new(origin.X + (int)bounds.X, origin.Y + (int)bounds.Y, (int)bounds.Width, (int)bounds.Height));
+            inWindow.Add(id);
+            if (item is { Kind: ChromeItemKind.Field, Selected: true })
+            {
+                typing = id;
+            }
+        }
+
+        return typing;
+    }
+
+    /// <summary>Turns a canvas rectangle into a place on the screen.</summary>
+    /// <param name="rect">The rectangle in canvas units.</param>
+    /// <param name="offset">The scroll offset in canvas units.</param>
+    /// <param name="scale">Device pixels per canvas unit.</param>
+    /// <param name="origin">Where the window's drawing area is on the screen.</param>
+    /// <returns>The rectangle in screen pixels.</returns>
+    private static AccessibleBounds ToScreen(in LayoutRect rect, CanvasPoint offset, double scale, ScreenPoint origin) => new(
+        origin.X + (int)Math.Round((rect.X - offset.X) * scale),
+        origin.Y + (int)Math.Round((rect.Y - offset.Y) * scale),
+        (int)Math.Round(rect.Width * scale),
+        (int)Math.Round(rect.Height * scale));
+
+    /// <summary>Notes that an assistive technology is reading, and wakes the window the first time so it builds the tree.</summary>
+    private void Want()
+    {
+        if (Interlocked.Exchange(ref _wanted, 1) == 0)
+        {
+            _window.Wake();
+        }
+    }
+
+    /// <summary>Builds the snapshot of what the viewer shows now.</summary>
+    /// <param name="main">The main view model.</param>
+    /// <param name="canvas">The page canvas.</param>
+    /// <returns>The snapshot.</returns>
+    private AccessibleSnapshot Build(MainViewModel main, ViewerCanvas canvas)
+    {
+        var size = _window.ClientSize;
+        var origin = _window.ScreenOrigin;
+        var pages = canvas.Bounds;
+        var pageArea = new AccessibleBounds(origin.X + (int)pages.X, origin.Y + (int)pages.Y, (int)pages.Width, (int)pages.Height);
+        var nodes = new Dictionary<int, AccessibleNode>();
+
+        // The window's children go back to front, so a control over the pages is found before the document under it.
+        var inWindow = new List<int> { ViewerNodes.DocumentId };
+        var focused = ViewerNodes.DocumentId;
+        if (canvas.Chrome is { } chrome)
+        {
+            _ = AddControls(nodes, inWindow, chrome.Bars, ViewerNodes.FirstControlId, origin);
+            var typing = AddControls(nodes, inWindow, chrome.OverlayItems, ViewerNodes.FirstOverlayId, origin);
+            focused = typing >= 0 ? typing : focused;
+        }
+
+        nodes[ViewerNodes.ApplicationId] = ViewerNodes.CreateApplication([ViewerNodes.WindowId]);
+        nodes[ViewerNodes.WindowId] = ViewerNodes.CreateWindow(main.WindowTitle, new(origin.X, origin.Y, size.Width, size.Height), _window.NativeHandle, inWindow);
+        var tab = main.SelectedTab;
+        var name = ItemDescriptions.DescribeReader(tab);
+        var help = ItemDescriptions.DescribeSelection(tab);
+        if (tab is not { PageCount: > 0 })
+        {
+            nodes[ViewerNodes.DocumentId] = ViewerNodes.CreateDocument(name, help, pageArea, string.Empty, []);
+            return new(nodes, ViewerNodes.ApplicationId, focused);
+        }
+
+        var page = Math.Clamp(tab.CurrentPageIndex, 0, tab.PageCount - 1);
+        var children = AddBlocks(nodes, tab, canvas, page, origin);
+        nodes[ViewerNodes.DocumentId] = ViewerNodes.CreateDocument(name, help, pageArea, GetPageText(tab, page), children);
+        return new(nodes, ViewerNodes.ApplicationId, focused);
+    }
+
+    /// <summary>Adds the blocks of a page in reading order.</summary>
+    /// <param name="nodes">The elements so far.</param>
+    /// <param name="tab">The tab.</param>
+    /// <param name="canvas">The page canvas.</param>
+    /// <param name="page">The page shown.</param>
+    /// <param name="origin">Where the window's drawing area is on the screen.</param>
+    /// <returns>The numbers of the block elements; none until the reading order has been worked out.</returns>
+    private int[] AddBlocks(Dictionary<int, AccessibleNode> nodes, DocumentTabViewModel tab, ViewerCanvas canvas, int page, ScreenPoint origin)
+    {
+        // The reading order is worked out in the background, so a page has no blocks until it is ready.
+        if (tab.GetReadingDocument() is not { } reading || page >= reading.PageCount)
+        {
+            return [];
+        }
+
+        var blocks = reading.GetPage(page).Blocks;
+        var children = new int[blocks.Count];
+        var scale = _window.Scale;
+        var offset = canvas.DrawOffset;
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            var id = ViewerNodes.FirstBlockId + i;
+            var rect = canvas.State.GetCanvasRect(page, blocks[i].Bounds);
+            nodes[id] = ViewerNodes.CreateBlock(id, blocks[i], ToScreen(rect, offset, scale, origin), PlaceInList(blocks, i));
+            children[i] = id;
+        }
+
+        return children;
+    }
+
+    /// <summary>Gets a page's text, reading it once for each page shown.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <param name="page">The page.</param>
+    /// <returns>The text.</returns>
+    private string GetPageText(DocumentTabViewModel tab, int page)
+    {
+        if (!ReferenceEquals(tab, _textTab) || page != _textPage)
+        {
+            _text = ReadPage(tab, page);
+            _textTab = tab;
+            _textPage = page;
+        }
+
+        return _text;
+    }
+}

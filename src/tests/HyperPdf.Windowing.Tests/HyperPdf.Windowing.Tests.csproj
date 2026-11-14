@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The password-protected document the engine tests build, shared so the password dialog is tested with a real locked file. -->
+    <Compile Include="..\HyperPdf.Engine.Tests\UserPasswordPdf.cs" Link="UserPasswordPdf.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Rendering.Vulkan\HyperPdf.Rendering.Vulkan.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Rendering.Direct3D\HyperPdf.Rendering.Direct3D.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Rendering.Metal\HyperPdf.Rendering.Metal.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Head.Linux\HyperPdf.Head.Linux.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Head.Windows\HyperPdf.Head.Windows.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />
+    <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
+    <!-- Built beside the tests so the macOS test can start it; its types are not used here. -->
+    <ProjectReference Include="..\HyperPdf.CocoaWindowRun\HyperPdf.CocoaWindowRun.csproj" />
+  </ItemGroup>
+</Project>

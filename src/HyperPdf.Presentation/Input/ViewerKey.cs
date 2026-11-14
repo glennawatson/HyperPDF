@@ -66,4 +66,19 @@ public enum ViewerKey
 
     /// <summary>The C key.</summary>
     C = 19,
+
+    /// <summary>The F key.</summary>
+    F = 20,
+
+    /// <summary>The O key.</summary>
+    O = 21,
+
+    /// <summary>The S key.</summary>
+    S = 22,
+
+    /// <summary>The W key.</summary>
+    W = 23,
+
+    /// <summary>The V key.</summary>
+    V = 24,
 }

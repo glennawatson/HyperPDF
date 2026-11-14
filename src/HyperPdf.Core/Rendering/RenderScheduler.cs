@@ -26,6 +26,12 @@ public sealed class RenderScheduler : IDisposable
     /// <summary>The bit position of the priority within the queue ordering key.</summary>
     private const int PriorityShift = 48;
 
+    /// <summary>The divisor that leaves half the processors to the rest of the app.</summary>
+    private const int HalfTheProcessors = 2;
+
+    /// <summary>The most render threads used by default. More add little once the tiles of a view are shared out.</summary>
+    private const int MostWorkers = 4;
+
     /// <summary>The number of pending tiles the map holds before it grows.</summary>
     private const int InitialPendingCapacity = 8;
 
@@ -56,11 +62,14 @@ public sealed class RenderScheduler : IDisposable
     /// <summary>Creates surfaces.</summary>
     private readonly IRenderSurfaceFactory _surfaceFactory;
 
-    /// <summary>The render thread.</summary>
-    private readonly Thread _thread;
+    /// <summary>Lets one render thread at a time tell the UI that tiles are waiting.</summary>
+    private readonly Lock _notifyGate = new();
 
     /// <summary>Cancels the render thread.</summary>
     private readonly CancellationTokenSource _shutdown = new();
+
+    /// <summary>The render threads still running. The last one to stop releases what they share.</summary>
+    private int _liveWorkers;
 
     /// <summary>Monotonic counter preserving FIFO order within a priority.</summary>
     private long _sequence;
@@ -83,14 +92,29 @@ public sealed class RenderScheduler : IDisposable
     /// <summary>Initializes a new instance of the <see cref="RenderScheduler"/> class.</summary>
     /// <param name="surfaceFactory">Creates output surfaces on the render thread.</param>
     public RenderScheduler(IRenderSurfaceFactory surfaceFactory)
+        : this(surfaceFactory, 1)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="RenderScheduler"/> class that renders on several threads at once.</summary>
+    /// <param name="surfaceFactory">Creates output surfaces on the render threads.</param>
+    /// <param name="workers">The number of render threads. Tiles of one document render side by side, which the document types allow.</param>
+    public RenderScheduler(IRenderSurfaceFactory surfaceFactory, int workers)
     {
         ArgumentNullException.ThrowIfNull(surfaceFactory);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(workers);
         _surfaceFactory = surfaceFactory;
-        _thread = new(Run) { IsBackground = true, Name = "HyperPDF render" };
-        _thread.Start();
         Completed = new(_completed);
         VisibleWorkRequested = new(_visibleRequested);
+        _liveWorkers = workers;
+        for (var i = 0; i < workers; i++)
+        {
+            new Thread(Run) { IsBackground = true, Name = "HyperPDF render" }.Start();
+        }
     }
+
+    /// <summary>Gets the number of render threads that suits this machine: half its processors, at least one and at most four, so rendering never takes every core.</summary>
+    public static int DefaultWorkers => Math.Clamp(Environment.ProcessorCount / HalfTheProcessors, 1, MostWorkers);
 
     /// <summary>
     /// Gets notifications, raised on the render thread, that finished tiles are waiting to be taken with
@@ -273,7 +297,8 @@ public sealed class RenderScheduler : IDisposable
             finished.Tile.Surface.Dispose();
         }
 
-        if (_thread.IsAlive || Interlocked.Exchange(ref _resourcesDisposed, 1) != 0)
+        // While a render thread runs, the last one to stop releases the shared resources.
+        if (Volatile.Read(ref _liveWorkers) > 0 || Interlocked.Exchange(ref _resourcesDisposed, 1) != 0)
         {
             return;
         }
@@ -558,7 +583,8 @@ public sealed class RenderScheduler : IDisposable
                 finished.Tile.Surface.Dispose();
             }
 
-            if (Interlocked.Exchange(ref _resourcesDisposed, 1) == 0)
+            // Another render thread may still wait on the semaphore, so only the last one to stop releases what they share.
+            if (Interlocked.Decrement(ref _liveWorkers) == 0 && Interlocked.Exchange(ref _resourcesDisposed, 1) == 0)
             {
                 _completed.OnCompleted();
                 _completed.Dispose();
@@ -721,7 +747,11 @@ public sealed class RenderScheduler : IDisposable
         _finished.Enqueue(new(new(request.Key, surface), epoch, request));
         if (Interlocked.Exchange(ref _notificationPending, 1) == 0)
         {
-            _completed.OnNext(RxVoid.Default);
+            // The UI may clear the flag while this notification is still being sent, which lets a second render thread in.
+            lock (_notifyGate)
+            {
+                _completed.OnNext(RxVoid.Default);
+            }
         }
 
         return true;

@@ -52,7 +52,7 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
         _head = head;
         Cache = new(cacheBytes);
         _surfaceFactory = head.CreateSurfaceFactory(RequestSoftwareRecovery);
-        Scheduler = new(_surfaceFactory);
+        Scheduler = new(_surfaceFactory, RenderScheduler.DefaultWorkers);
         Preparer = new(HasVisibleWork, UnderPressure, NeighbourPagePreparer.DefaultDebounce, TimeProvider.System);
         TilesArrived = this.WhenChanged(static hub => hub.TileVersion).Skip(1).Select(static _ => RxVoid.Default);
         PreviewsArrived = this.WhenChanged(static hub => hub.PreviewVersion).Skip(1).Select(static _ => RxVoid.Default);

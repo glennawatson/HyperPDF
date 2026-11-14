@@ -150,12 +150,9 @@ jobs:
         requires: |
           fontconfig
           libX11
-          libICE
-          libSM
         recommends: |
-          libwayland-client
-          libxkbcommon
-          mesa-libEGL
+          vulkan-loader
+          mesa-vulkan-drivers
           cups-libs
           pulseaudio-libs
         owned-directories: |
@@ -179,12 +176,9 @@ jobs:
         depends: |
           libfontconfig1 | fontconfig
           libx11-6 | libX11
-          libice6 | libICE
-          libsm6 | libSM
         recommends: |
-          libwayland-client0
-          libxkbcommon0
-          libegl1
+          libvulkan1
+          mesa-vulkan-drivers
           libcups2
           libpulse0
     - name: Build the AppImage

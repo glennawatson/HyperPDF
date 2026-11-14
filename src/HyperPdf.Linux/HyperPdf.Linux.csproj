@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>$(LibraryTargetFrameworks)</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <Description>Hyper PDF Viewer for Linux: a native Wayland or X11 window with no UI toolkit.</Description>
+    <AssemblyName>hyperpdf</AssemblyName>
+    <RootNamespace>HyperPdf.Linux</RootNamespace>
+    <!-- Ships the English text recognition data (Directory.Build.targets). -->
+    <UsesRecognitionData>true</UsesRecognitionData>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Native AOT">
+    <PublishAot>true</PublishAot>
+    <EventSourceSupport>true</EventSourceSupport>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+    <TieredPGO>true</TieredPGO>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <PublishDocumentationFiles>false</PublishDocumentationFiles>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />
+    <ProjectReference Include="..\HyperPdf.Head.Linux\HyperPdf.Head.Linux.csproj" />
+  </ItemGroup>
+</Project>

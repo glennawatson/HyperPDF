@@ -20,9 +20,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Rendering.Vulkan\HyperPdf.Rendering.Vulkan.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Rendering.Direct3D\HyperPdf.Rendering.Direct3D.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Localisation\HyperPdf.Localisation.csproj" />
-    <ProjectReference Include="..\..\HyperPdf.Skia\HyperPdf.Skia.csproj" />
-    <ProjectReference Condition="'$(ViewModelsProject)' == 'true'" Include="..\..\HyperPdf.Rendering.Skia\HyperPdf.Rendering.Skia.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Platform.Cups\HyperPdf.Platform.Cups.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Platform.Linux\HyperPdf.Platform.Linux.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Engine\HyperPdf.Engine.csproj" />
@@ -39,15 +42,6 @@
     <DefineConstants>$(DefineConstants);HYPERPDF_REMOVE_PAGE_PAIR</DefineConstants>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(ViewModelsProject)' != 'true' and Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\TileDraw.cs')">
-    <Compile Include="..\..\HyperPdf.App\Rendering\TileDraw.cs" Link="TileBatch\TileDraw.cs" />
-    <Compile Include="..\..\HyperPdf.App\Rendering\GpuTileBatchOperation.cs" Link="TileBatch\GpuTileBatchOperation.cs" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(ViewModelsProject)' != 'true' and !Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\TileDraw.cs')">
-    <Compile Remove="TileBatchOperationBenchmarks.cs" />
-  </ItemGroup>
-
   <ItemGroup Condition="!$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\..\tests\HyperPdf.TestAssets\TestPdf.cs').Contains('CreateTextFilled'))">
     <Compile Remove="SelectionRectsBenchmarks.cs" />
   </ItemGroup>
@@ -58,28 +52,13 @@
 
     <!-- The view model tests' services with a fake render head, so a benchmark can open a document in a tab without a window. -->
     <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\TestServices.cs" Link="ViewModelSupport\TestServices.cs" />
+    <!-- The window with no display and its bridge, so a benchmark can run the native viewer end to end. -->
+    <Compile Include="..\..\tests\HyperPdf.Windowing.Tests\HeadlessWindow.cs" Link="ViewerSupport\HeadlessWindow.cs" />
+    <Compile Include="..\..\tests\HyperPdf.Windowing.Tests\RecordingAccessibilityBridge.cs" Link="ViewerSupport\RecordingAccessibilityBridge.cs" />
     <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\TestHeads.cs" Link="ViewModelSupport\TestHeads.cs" />
     <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\TestWait.cs" Link="ViewModelSupport\TestWait.cs" />
     <Compile Include="..\..\tests\HyperPdf.ViewModels.Tests\Fake*.cs" Link="ViewModelSupport\%(Filename)%(Extension)" />
     <Compile Include="..\..\tests\HyperPdf.Core.Tests\Fakes\*.cs" Link="ViewModelSupport\Fakes\%(Filename)%(Extension)" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(ViewModelsProject)' != 'true'">
-    <Compile Remove="PageContentEditBenchmarks.cs" />
-    <Compile Remove="PageObjectHitsBenchmarks.cs" />
-    <Compile Remove="CanvasMathBenchmarks.cs" />
-    <Compile Remove="CanvasStateBenchmarks.cs" />
-    <Compile Remove="TextSelectionBenchmarks.cs" />
-    <Compile Remove="CanvasRenderBenchmarks.cs" />
-    <Compile Remove="BenchmarkCanvasHost.cs" />
-    <Compile Include="..\..\HyperPdf.App\Services\ErrorTrace.cs" Link="ErrorTrace.cs" />
-    <Compile Include="..\..\HyperPdf.App\ViewModels\AnnotationItemViewModel.cs" Link="AnnotationItemViewModel.cs" />
-    <Compile Include="..\..\HyperPdf.App\ViewModels\AnnotationNames.cs" Link="AnnotationNames.cs" />
-    <Compile Include="..\..\HyperPdf.App\Rendering\GpuPreparedRenderSurface.cs" Link="TileBatch\GpuPreparedRenderSurface.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\GpuPreparedRenderSurface.cs')" />
-    <Compile Include="..\..\HyperPdf.App\Rendering\GpuAvailability.cs" Link="TileBatch\GpuAvailability.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\GpuAvailability.cs')" />
-    <Compile Include="..\..\HyperPdf.App\Rendering\TileRenderingEventSource.cs" Link="TileBatch\TileRenderingEventSource.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\TileRenderingEventSource.cs')" />
-    <Compile Include="..\..\HyperPdf.App\Rendering\GpuPageTone.cs" Link="GpuPageTone.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\Rendering\GpuPageTone.cs')" />
-    <Compile Include="..\..\HyperPdf.App\ViewModels\ZoomLabel.cs" Link="ZoomLabel.cs" Condition="Exists('$(MSBuildThisFileDirectory)..\..\HyperPdf.App\ViewModels\ZoomLabel.cs')" />
   </ItemGroup>
 
   <!-- Lists the benchmarks for the allocation harness, so no reflection finds or calls them. -->
@@ -89,25 +68,14 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
-    <PackageReference Include="ReactiveUI.Avalonia" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(ViewModelsProject)' == 'true'">
-    <Using Include="HyperPdf.ViewModels.Services" />
-    <Using Include="HyperPdf.ViewModels.Rendering" />
-    <Using Include="HyperPdf.Rendering.Skia" />
-  </ItemGroup>
-
-  <ItemGroup Condition="'$(ViewModelsProject)' != 'true'">
-    <Using Include="HyperPdf.App.Services" />
-    <Using Include="HyperPdf.App.Rendering" />
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\HyperPdf.App\Services\DesktopBackend.cs" Link="DesktopBackend.cs" />
-    <Compile Include="..\..\HyperPdf.App\Views\FocusAnnouncementRepair.cs" Link="FocusAnnouncementRepair.cs" />
-    <Compile Include="..\..\HyperPdf.App\Controls\FocusArrival.cs" Link="FocusArrival.cs" />
-    <Compile Include="..\..\HyperPdf.App\Controls\FocusArrivalMixins.cs" Link="FocusArrivalMixins.cs" />
+    <Using Include="HyperPdf.ViewModels.Services" />
+    <Using Include="HyperPdf.ViewModels.Rendering" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Short Opus files coded by each layer, which the audio decoding benchmarks decode. -->
     <None Include="..\..\tests\HyperPdf.Core.Tests\Media\Fixtures\opus-stereo-music.opus" Link="Fixtures\opus-stereo-music.opus" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\tests\HyperPdf.Core.Tests\Media\Fixtures\silk-mono-wb-20ms.opus" Link="Fixtures\silk-mono-wb-20ms.opus" CopyToOutputDirectory="PreserveNewest" />

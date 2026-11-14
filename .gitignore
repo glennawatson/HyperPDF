@@ -40,6 +40,8 @@ bin/x86/
 obj/x86/
 
 [Ww][Ii][Nn]32/
+# The Windows head keeps its Win32 window sources in a folder of that name.
+!src/HyperPdf.Head.Windows/Win32/
 [Aa][Rr][Mm]/
 [Aa][Rr][Mm]64/
 [Aa][Rr][Mm]64[Ee][Cc]/

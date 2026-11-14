@@ -5,7 +5,6 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Shared Version Variables">
-    <AvaloniaVersion>12.1.6</AvaloniaVersion>
     <TUnitVersion>1.84.0</TUnitVersion>
     <!-- StyleSharp.Analyzers, PerformanceSharp.Analyzers and SecuritySharp.Analyzers ship from the
          same release pipeline and always share a version. -->
@@ -14,33 +13,13 @@
     <HarfBuzzVersion>14.4.0.100</HarfBuzzVersion>
   </PropertyGroup>
 
-  <ItemGroup Label="UI">
-    <PackageVersion Include="Avalonia" Version="$(AvaloniaVersion)" />
-    <PackageVersion Include="Avalonia.Win32" Version="$(AvaloniaVersion)" />
-    <PackageVersion Include="Avalonia.Native" Version="$(AvaloniaVersion)" />
-    <PackageVersion Include="Avalonia.X11" Version="$(AvaloniaVersion)" />
-    <PackageVersion Include="Avalonia.Wayland" Version="$(AvaloniaVersion)" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
-    <PackageVersion Include="Avalonia.Headless" Version="$(AvaloniaVersion)" />
-  </ItemGroup>
-
-  <!-- X11's package declares Skia, but its assembly does not reference it. Rendering is supplied by HyperPdf.Skia. -->
-  <!-- X11 always starts Avalonia's AT-SPI server, which shows a second, poorer tree. HyperPdf.AtSpiReplacement takes the place of that
-       assembly with the nine members X11 calls, and HyperPdf.Platform.Linux serves screen readers instead. -->
-  <ItemGroup>
-    <PrunePackageReference Include="Avalonia.Skia" Version="$(AvaloniaVersion)" />
-    <PrunePackageReference Include="Avalonia.FreeDesktop.AtSpi" Version="$(AvaloniaVersion)" />
-  </ItemGroup>
-
   <ItemGroup Label="ReactiveUI">
     <PackageVersion Include="HyperCodecs" Version="1.1.0" />
     <PackageVersion Include="HyperCodecs.Platform.Linux" Version="1.1.0" />
     <PackageVersion Include="Localisation.Core" Version="3.0.1" />
     <PackageVersion Include="Localisation.Generators" Version="3.0.1" />
-    <PackageVersion Include="Localisation.Avalonia" Version="3.0.1" />
     <PackageVersion Include="ReactiveUI" Version="26.0.1" />
     <PackageVersion Include="ReactiveUI.Binding" Version="9.1.0" />
-    <PackageVersion Include="ReactiveUI.Avalonia" Version="12.1.6" />
     <PackageVersion Include="ReactiveUI.Primitives" Version="9.0.0" />
     <PackageVersion Include="ReactiveUI.Primitives.ObservableEvents" Version="9.0.0" />
     <PackageVersion Include="ReactiveUI.SourceGenerators" Version="4.2.0" />

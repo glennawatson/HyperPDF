@@ -92,9 +92,10 @@ public sealed class PrintTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("noprint.pdf", 1)]);
         var tab = main.SelectedTab!;
-        using var handler = tab.Printing.PrintPreviewInteraction.RegisterHandler(static context =>
+        using var handler = tab.Printing.PrintPreviewInteraction.RegisterHandler(static async context =>
         {
-            _ = context.Input.SystemDialogCommand.Execute().Subscribe();
+            // The choice must be made before the preview closes, or a slow machine prints to the default destination instead.
+            _ = await context.Input.SystemDialogCommand.Execute().ToTask();
             context.SetOutput(true);
         });
 
