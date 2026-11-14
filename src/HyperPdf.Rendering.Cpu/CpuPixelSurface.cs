@@ -15,6 +15,18 @@ public sealed class CpuPixelSurface : IRenderSurface
     /// <summary>The bytes per pixel.</summary>
     private const int BytesPerPixel = 4;
 
+    /// <summary>The opacity has not been worked out since the last write.</summary>
+    private const int OpacityUnknown = 0;
+
+    /// <summary>Every pixel is fully opaque.</summary>
+    private const int OpacityOpaque = 1;
+
+    /// <summary>At least one pixel is not fully opaque.</summary>
+    private const int OpacityTranslucent = 2;
+
+    /// <summary>Whether the pixels are opaque, as one of the three opacity values.</summary>
+    private int _opacity;
+
     /// <summary>The pooled pixel array, or <see langword="null"/> once disposed.</summary>
     private byte[]? _pixels;
 
@@ -48,6 +60,25 @@ public sealed class CpuPixelSurface : IRenderSurface
     /// <summary>Gets the shape of the pixels.</summary>
     public PixelGrid Grid => new(Width, Height, Stride);
 
+    /// <summary>
+    /// Gets a value indicating whether every pixel is fully opaque, which lets a frame copy the surface instead of blending it. The
+    /// pixels are looked at once after each write, not on every frame.
+    /// </summary>
+    public bool IsOpaque
+    {
+        get
+        {
+            var known = Volatile.Read(ref _opacity);
+            if (known == OpacityUnknown)
+            {
+                known = CpuBlend.IsOpaque(Pixels) ? OpacityOpaque : OpacityTranslucent;
+                Volatile.Write(ref _opacity, known);
+            }
+
+            return known == OpacityOpaque;
+        }
+    }
+
     /// <summary>Gets the pixels, which are valid until the surface is disposed.</summary>
     public ReadOnlySpan<byte> Pixels => (Volatile.Read(ref _pixels) ?? throw new ObjectDisposedException(nameof(CpuPixelSurface))).AsSpan(0, Stride * Height);
 
@@ -56,7 +87,11 @@ public sealed class CpuPixelSurface : IRenderSurface
     {
         ArgumentNullException.ThrowIfNull(writer);
         var pixels = Volatile.Read(ref _pixels) ?? throw new ObjectDisposedException(nameof(CpuPixelSurface));
-        return writer(new(pixels.AsSpan(0, Stride * Height), Width, Height, Stride), state);
+        var written = writer(new(pixels.AsSpan(0, Stride * Height), Width, Height, Stride), state);
+
+        // New pixels may be transparent where the old ones were not, so the answer is worked out again when next asked for.
+        Volatile.Write(ref _opacity, OpacityUnknown);
+        return written;
     }
 
     /// <inheritdoc/>

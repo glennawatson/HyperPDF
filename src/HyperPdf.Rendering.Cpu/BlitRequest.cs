@@ -12,5 +12,6 @@ namespace HyperPdf.Rendering.Cpu;
 /// <param name="Width">The destination width in frame pixels.</param>
 /// <param name="Height">The destination height in frame pixels.</param>
 /// <param name="Smooth">Whether to sample bilinearly when scaling.</param>
+/// <param name="Opaque">Whether the source is known to have no transparent pixel, so its rows are copied without being looked at first.</param>
 [DebuggerDisplay("BlitRequest ({X}, {Y}) {Width} x {Height}, smooth {Smooth}")]
-public readonly record struct BlitRequest(int X, int Y, int Width, int Height, bool Smooth);
+public readonly record struct BlitRequest(int X, int Y, int Width, int Height, bool Smooth, bool Opaque);

@@ -51,7 +51,8 @@ internal sealed class CpuFramePass(CpuRenderBackend owner) : IFramePass
             (int)Math.Round(destination.Y),
             (int)Math.Round(destination.Width),
             (int)Math.Round(destination.Height),
-            smooth);
+            smooth,
+            cpu.IsOpaque);
         CpuBlit.Draw(owner.WritableFrame(), owner.Grid, cpu.Pixels, cpu.Grid, request);
     }
 

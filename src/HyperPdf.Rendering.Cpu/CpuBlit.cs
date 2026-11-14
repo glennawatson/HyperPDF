@@ -86,7 +86,7 @@ public static class CpuBlit
         {
             var from = source.Slice(((row - request.Y) * sourceGrid.Stride) + ((rows.Left - request.X) * BytesPerPixel), length);
             var to = frame.Slice((row * frameGrid.Stride) + (rows.Left * BytesPerPixel), length);
-            if (CpuBlend.IsOpaque(from))
+            if (request.Opaque || CpuBlend.IsOpaque(from))
             {
                 from.CopyTo(to);
             }

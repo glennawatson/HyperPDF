@@ -93,7 +93,10 @@ internal sealed class ViewerFramePainter : ITilePainter, IOverlayPainter, IMarks
     public void DrawPaper(in LayoutRect page, PageTone tone)
     {
         ArgumentNullException.ThrowIfNull(tone);
-        Fill(new(page.X + ShadowOffset, page.Y + ShadowOffset, page.Width, page.Height), _colors.Shadow);
+
+        // The paper hides all of the shadow but its right and bottom edges, so only those two strips are blended.
+        Fill(new(page.Right, page.Y + ShadowOffset, ShadowOffset, page.Height), _colors.Shadow);
+        Fill(new(page.X + ShadowOffset, page.Bottom, page.Width - ShadowOffset, ShadowOffset), _colors.Shadow);
         Fill(page, Opaque | tone.Paper);
     }
 
@@ -110,7 +113,8 @@ internal sealed class ViewerFramePainter : ITilePainter, IOverlayPainter, IMarks
     /// <inheritdoc/>
     public void DrawPageOverlay(int page, in LayoutRect bounds)
     {
-        if (_state.Tab is not { } tab)
+        // Most frames have no selection, and asking the tab for its document reads the clock, so the selection is checked first.
+        if (_state.Tab is not { } tab || !_state.Selection.TryGet(out var start, out var end) || page < start.Page || page > end.Page)
         {
             return;
         }
