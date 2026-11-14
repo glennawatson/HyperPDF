@@ -9,5 +9,7 @@
     <ProjectReference Include="..\..\HyperPdf.Rendering.Vulkan\HyperPdf.Rendering.Vulkan.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Head.Linux\HyperPdf.Head.Linux.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Head.Windows\HyperPdf.Head.Windows.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />
+    <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
   </ItemGroup>
 </Project>

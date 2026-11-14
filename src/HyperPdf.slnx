@@ -8,6 +8,7 @@
     <Project Path="HyperPdfLibrary.Render.Skia/HyperPdfLibrary.Render.Skia.csproj" />
     <Project Path="HyperPdfLibrary/HyperPdfLibrary.csproj" />
     <Project Path="HyperPdf.Viewer/HyperPdf.Viewer.csproj" />
+    <Project Path="HyperPdf.Linux/HyperPdf.Linux.csproj" />
     <Project Path="HyperPdf.Core/HyperPdf.Core.csproj" />
     <Project Path="HyperPdf.Localisation/HyperPdf.Localisation.csproj" />
     <Project Path="HyperPdf.ViewModels/HyperPdf.ViewModels.csproj" />

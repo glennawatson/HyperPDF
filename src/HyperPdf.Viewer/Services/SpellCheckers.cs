@@ -11,15 +11,15 @@ using HyperPdf.Platform.Windows.Spelling;
 namespace HyperPdf.Viewer.Services;
 
 /// <summary>Chooses the desktop's own spell checker: Windows' and the Mac's built in ones, or the system word lists elsewhere.</summary>
-internal static class SpellCheckers
+public static class SpellCheckers
 {
     /// <summary>Gets the folder where the reader can add word lists of their own, one word a line, named like en-GB.txt.</summary>
-    internal static string DictionaryDirectory { get; } =
+    public static string DictionaryDirectory { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "hyperpdf", "dictionaries");
 
     /// <summary>Creates the spell checker for this desktop and the reader's language.</summary>
     /// <returns>The spell checker; it reports whether a dictionary was found.</returns>
-    internal static ISpellChecker Create()
+    public static ISpellChecker Create()
     {
         if (OperatingSystem.IsWindows() && new WindowsSpellChecker() is { IsAvailable: true } windows)
         {
