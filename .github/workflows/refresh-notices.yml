@@ -1,24 +1,23 @@
 name: Refresh third-party notices
 on:
-  pull_request:
+  push:
     branches: [main]
 permissions:
   contents: write
   actions: write
 concurrency:
-  group: refresh-notices-${{ github.head_ref }}
+  group: refresh-notices-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   refresh:
     name: Refresh notices
-    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.ref_name }}
       - name: Setup .NET
         uses: glennawatson/actions-common/.github/actions/dotnet-environment@4d538f76071ed73496cbf406cebe85e760fb734d # main
         with:
