@@ -8,6 +8,7 @@ using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Layout;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Presentation.Canvas;
+using HyperPdf.Viewer.Text;
 using HyperPdf.Windowing.Rendering;
 
 namespace HyperPdf.Viewer;
@@ -55,6 +56,18 @@ internal sealed class ViewerFramePainter : ITilePainter, IOverlayPainter, IMarks
     /// <summary>The height of the second badge line, as a fraction of its height.</summary>
     private const double BadgeSecondLine = 0.64;
 
+    /// <summary>The share of a typed signature mark's height its text takes.</summary>
+    private const double TypedMarkShare = 0.8;
+
+    /// <summary>The size of a label's text, in canvas units.</summary>
+    private const double LabelSize = 13;
+
+    /// <summary>The space between a label and the point it belongs to, and around its text, in device pixels at a scale of one.</summary>
+    private const double LabelGap = 6;
+
+    /// <summary>The numbers that make one point of a signature stroke.</summary>
+    private const int Coordinates = 2;
+
     /// <summary>The canvas state the selection is read from.</summary>
     private readonly PageCanvasState _state;
 
@@ -69,6 +82,9 @@ internal sealed class ViewerFramePainter : ITilePainter, IOverlayPainter, IMarks
 
     /// <summary>Device pixels per canvas unit.</summary>
     private double _scale = 1;
+
+    /// <summary>The window's drawn text, which labels and typed marks are drawn with, or <see langword="null"/> when the frame has none.</summary>
+    private TextRuns? _text;
 
     /// <summary>Initializes a new instance of the <see cref="ViewerFramePainter"/> class.</summary>
     /// <param name="state">The canvas state.</param>
@@ -195,18 +211,45 @@ internal sealed class ViewerFramePainter : ITilePainter, IOverlayPainter, IMarks
     /// <inheritdoc/>
     public void DrawMark(SignatureMark mark, in LayoutRect area, double inkWidth)
     {
-        // The mark's own strokes are drawn by the fill and sign panel of the native heads; until then its place is shown by an outline.
-        _ = mark;
-        Outline(area, inkWidth, _colors.Ink);
+        ArgumentNullException.ThrowIfNull(mark);
+        switch (mark.Style)
+        {
+            case SignatureMarkStyle.Drawn when mark.IsValid:
+                {
+                    DrawMarkStrokes(mark, area, inkWidth);
+                    break;
+                }
+
+            case SignatureMarkStyle.Typed when _text is not null && mark.IsValid:
+                {
+                    // Typed text fills most of the mark's height, as it does when the mark is written into the page.
+                    var size = (int)Math.Round(area.Height * _scale * TypedMarkShare);
+                    DrawText(mark.Text, new(Math.Max(1, size), false, _colors.Ink), ToDevice(area), false);
+                    break;
+                }
+
+            default:
+                {
+                    // A picture mark is drawn when it is written into the page; until then its place is shown by an outline.
+                    Outline(area, inkWidth, _colors.Ink);
+                    break;
+                }
+        }
     }
 
     /// <inheritdoc/>
     public void DrawLabel(OverlayInk ink, string text, CanvasPoint beside)
     {
-        // Text labels need the head's text drawing, which the measure tool of the native heads brings; the measured line itself is still drawn.
-        _ = ink;
-        _ = text;
-        _ = beside;
+        if (_text is null || string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        var size = Math.Max(1, (int)Math.Round(LabelSize * _scale));
+        var height = _text.LineHeight(new(size, false, 0));
+        var x = ((beside.X - _offset.X) * _scale) + (LabelGap * _scale);
+        var y = ((beside.Y - _offset.Y) * _scale) - (height * Half);
+        DrawText(text, new(size, false, ColorOf(ink) | Opaque), new(x, y, 0, height), true);
     }
 
     /// <inheritdoc/>
@@ -262,16 +305,63 @@ internal sealed class ViewerFramePainter : ITilePainter, IOverlayPainter, IMarks
     /// <param name="colors">The colours.</param>
     /// <param name="offset">The scroll offset in canvas units.</param>
     /// <param name="scale">Device pixels per canvas unit.</param>
-    internal void Start(IFramePass pass, in ViewerColors colors, CanvasPoint offset, double scale)
+    /// <param name="text">The window's drawn text, or <see langword="null"/> to leave labels out.</param>
+    internal void Start(IFramePass pass, in ViewerColors colors, CanvasPoint offset, double scale, TextRuns? text)
     {
         _pass = pass;
         _colors = colors;
         _offset = offset;
         _scale = scale;
+        _text = text;
     }
 
     /// <summary>Ends the frame, so a late call cannot draw into a finished pass.</summary>
     internal void Finish() => _pass = null;
+
+    /// <summary>Draws the pen strokes of a drawn signature mark, stretched to fill its place.</summary>
+    /// <param name="mark">The mark.</param>
+    /// <param name="area">Where the mark goes, in canvas units.</param>
+    /// <param name="inkWidth">The stroke width in canvas units.</param>
+    private void DrawMarkStrokes(SignatureMark mark, in LayoutRect area, double inkWidth)
+    {
+        var points = mark.Points.Span;
+        var scaleX = area.Width / mark.Width;
+        var scaleY = area.Height / mark.Height;
+        var first = 0;
+        foreach (var length in mark.StrokeLengths.Span)
+        {
+            for (var i = first + 1; i < first + length; i++)
+            {
+                var from = new CanvasPoint(area.X + (points[(i - 1) * Coordinates] * scaleX), area.Y + (points[((i - 1) * Coordinates) + 1] * scaleY));
+                var to = new CanvasPoint(area.X + (points[i * Coordinates] * scaleX), area.Y + (points[(i * Coordinates) + 1] * scaleY));
+                Line(from, to, inkWidth, _colors.Ink);
+            }
+
+            first += length;
+        }
+    }
+
+    /// <summary>Draws a piece of text, centred in the height of its place.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="style">How it looks.</param>
+    /// <param name="place">Where its left edge and its line are, in device pixels.</param>
+    /// <param name="backed">Whether the canvas colour is filled in behind the text, so it reads over a page.</param>
+    private void DrawText(string text, TextStyle style, in LayoutRect place, bool backed)
+    {
+        if (_text?.Get(text, style) is not { Surface: { } surface } run)
+        {
+            return;
+        }
+
+        var left = Math.Floor(place.X);
+        var top = Math.Floor(place.Y + ((place.Height - run.Height) * Half));
+        if (backed)
+        {
+            Pass.FillRect(new(left - LabelGap, top, run.Width + LabelGap + LabelGap, run.Height), _colors.Canvas);
+        }
+
+        Pass.DrawSurface(surface, new(left, top, run.Width, run.Height), false);
+    }
 
     /// <summary>Turns a canvas rectangle into device pixels inside the window.</summary>
     /// <param name="rect">The rectangle in canvas units.</param>

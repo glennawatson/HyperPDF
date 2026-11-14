@@ -232,7 +232,7 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
                 var scale = _window.Scale;
                 var frame = new FrameContext(tab, document, tab.RenderHub, area, scale, State.GetRenderGeneration(tab, document, area, scale));
                 var painter = _painter ??= new(State);
-                painter.Start(pass, Colors, DrawOffset, scale);
+                painter.Start(pass, Colors, DrawOffset, scale, Chrome?.Text);
                 State.DrawPages(painter, frame);
                 State.DrawMarks(painter, tab, area);
                 State.DrawAnnotationOverlay(painter, tab, area);

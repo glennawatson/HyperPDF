@@ -111,6 +111,9 @@ public sealed class ViewerChrome : IDisposable
     /// <remarks>It reads what <see cref="RequestFrameIfChanged"/> last saw, so a loop turn checks the view models once for both.</remarks>
     public int ControlsVersion => HashCode.Combine(_seenStamp, _overlay is null ? 0 : RuntimeHelpers.GetHashCode(_overlay), _overlay?.Version ?? 0);
 
+    /// <summary>Gets the window's drawn text, which the page overlays share for their labels.</summary>
+    public TextRuns Text => _runs;
+
     /// <summary>Gets a value indicating whether a menu, a dialog or the search bar is open.</summary>
     public bool HasOverlay => _overlay is not null;
 
