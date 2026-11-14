@@ -37,6 +37,10 @@ public interface IPlatformWindow : IDisposable
     /// <param name="cursor">The shape.</param>
     void SetCursor(ViewerCursor cursor);
 
+    /// <summary>Puts text on the system clipboard, in place of what was there, so it can be pasted into another application.</summary>
+    /// <param name="text">The text.</param>
+    void SetClipboardText(string text);
+
     /// <summary>Asks for the canvas to be drawn on the next frame.</summary>
     void RequestFrame();
 

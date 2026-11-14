@@ -9,6 +9,7 @@ using HyperPdf.Presentation.Canvas;
 using HyperPdf.Presentation.Input;
 using HyperPdf.ViewModels.Services;
 using HyperPdf.ViewModels.Viewing;
+using HyperPdf.Viewer.Chrome;
 using HyperPdf.Windowing.Windows;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
@@ -39,6 +40,15 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
 
     /// <summary>The tab shown.</summary>
     private DocumentTabViewModel? _tab;
+
+    /// <summary>The part of the window the pages are shown in, in device pixels.</summary>
+    private LayoutRect _bounds;
+
+    /// <summary>The command the right-click menu copies selected text with, made on first use.</summary>
+    private CopyTextCommand? _copy;
+
+    /// <summary>Whether <see cref="_bounds"/> has been read from the window.</summary>
+    private bool _boundsRead;
 
     /// <summary>Whether the layout changed since the last frame, so a waiting scroll can be applied.</summary>
     private bool _layoutChanged;
@@ -76,14 +86,55 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
         set => ScrollTo(value);
     }
 
+    /// <summary>Gets or sets the window's controls, which are drawn over the pages and leave them the middle of the window.</summary>
+    public ViewerChrome? Chrome { get; set; }
+
+    /// <summary>Gets the part of the window the pages are shown in, in device pixels.</summary>
+    public LayoutRect Bounds
+    {
+        get
+        {
+            if (!_boundsRead)
+            {
+                _ = ReadBounds();
+            }
+
+            return _bounds;
+        }
+    }
+
+    /// <summary>Gets where the top left corner of the page area is inside the window, in canvas units.</summary>
+    public CanvasPoint Origin
+    {
+        get
+        {
+            var scale = _window.Scale;
+            return new(_bounds.X / scale, _bounds.Y / scale);
+        }
+    }
+
+    /// <summary>Gets the canvas point drawn at the window's top left corner: the scroll offset moved back by the page area's origin.</summary>
+    public CanvasPoint DrawOffset
+    {
+        get
+        {
+            var origin = Origin;
+            return new(_offset.X - origin.X, _offset.Y - origin.Y);
+        }
+    }
+
     /// <inheritdoc/>
     public CanvasSize ViewportSize
     {
         get
         {
-            var size = _window.ClientSize;
+            if (!_boundsRead)
+            {
+                _ = ReadBounds();
+            }
+
             var scale = _window.Scale;
-            return new(size.Width / scale, size.Height / scale);
+            return new(_bounds.Width / scale, _bounds.Height / scale);
         }
     }
 
@@ -135,6 +186,7 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
         {
             case WindowEventKind.Resized:
                 {
+                    _ = ReadBounds();
                     State.RelayoutInPlace();
                     _window.RequestFrame();
                     break;
@@ -163,6 +215,12 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
     /// <summary>Draws one frame: steps what is moving, then draws the pages and what lies over them.</summary>
     public void DrawFrame()
     {
+        if (ReadBounds())
+        {
+            // The page area changed size without a resize event, as when the controls are first laid out.
+            State.RelayoutInPlace();
+        }
+
         var moving = StepMotion();
         using (var pass = _window.Backend.BeginFrame())
         {
@@ -174,7 +232,7 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
                 var scale = _window.Scale;
                 var frame = new FrameContext(tab, document, tab.RenderHub, area, scale, State.GetRenderGeneration(tab, document, area, scale));
                 var painter = _painter ??= new(State);
-                painter.Start(pass, Colors, _offset, scale);
+                painter.Start(pass, Colors, DrawOffset, scale);
                 State.DrawPages(painter, frame);
                 State.DrawMarks(painter, tab, area);
                 State.DrawAnnotationOverlay(painter, tab, area);
@@ -184,6 +242,9 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
                 State.DrawCaret(painter, tab);
                 painter.Finish();
             }
+
+            // The controls are opaque and drawn last, so pages that reach under the bars are covered.
+            Chrome?.Draw(pass);
         }
 
         if (moving)
@@ -246,7 +307,7 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
     internal CanvasPoint ToWindowPoint(int x, int y)
     {
         var scale = _window.Scale;
-        return new(x / scale, y / scale);
+        return new((x - _bounds.X) / scale, (y - _bounds.Y) / scale);
     }
 
     /// <summary>Moves the scroll offset by an amount, kept inside the document.</summary>
@@ -259,10 +320,50 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
     /// <param name="effects">The effects, or <see langword="null"/> when the event was not routed.</param>
     private void Apply(InputEffects? effects)
     {
-        if (effects?.Cursor is { } cursor)
+        if (effects is null)
+        {
+            return;
+        }
+
+        if (effects.Cursor is { } cursor)
         {
             _window.SetCursor(cursor);
         }
+
+        if (effects.CopyText is { Length: > 0 } text)
+        {
+            _window.SetClipboardText(text);
+        }
+
+        if (effects.ShowContextMenu)
+        {
+            ShowContextMenu();
+        }
+    }
+
+    /// <summary>Opens the right-click menu for what is under the pointer.</summary>
+    private void ShowContextMenu()
+    {
+        var pointer = PointerInWindow;
+        if (Chrome is not { } chrome || State.GetContextMenu(new(pointer.X + _offset.X, pointer.Y + _offset.Y), _copy ??= new(_window)) is not { } entries)
+        {
+            return;
+        }
+
+        var scale = _window.Scale;
+        chrome.ShowMenu(entries, new((int)(_bounds.X + (pointer.X * scale)), (int)(_bounds.Y + (pointer.Y * scale))));
+    }
+
+    /// <summary>Reads the part of the window left for the pages.</summary>
+    /// <returns><see langword="true"/> when it changed.</returns>
+    private bool ReadBounds()
+    {
+        var size = _window.ClientSize;
+        var bounds = Chrome?.CanvasBounds ?? new LayoutRect(0, 0, size.Width, size.Height);
+        var changed = _boundsRead && bounds != _bounds;
+        _bounds = bounds;
+        _boundsRead = true;
+        return changed;
     }
 
     /// <summary>Follows the streams of the tab shown.</summary>

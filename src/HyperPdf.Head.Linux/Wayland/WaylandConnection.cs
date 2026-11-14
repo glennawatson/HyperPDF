@@ -55,8 +55,14 @@ internal sealed unsafe class WaylandConnection : IDisposable
     /// <summary>The offset of the descriptor in a control message.</summary>
     private const int DataOffset = 16;
 
+    /// <summary>The size of the control data kept for a receive: room for the descriptors of several events that arrive together.</summary>
+    private const int ReceiveControlSize = 128;
+
     /// <summary>The socket.</summary>
     private readonly Socket _socket;
+
+    /// <summary>The file descriptors the compositor sent that no event has claimed yet, oldest first.</summary>
+    private readonly Queue<int> _descriptors = new();
 
     /// <summary>The bytes received and not yet handled.</summary>
     private readonly byte[] _received = new byte[ReceiveCapacity];
@@ -164,14 +170,71 @@ internal sealed unsafe class WaylandConnection : IDisposable
             return false;
         }
 
-        var count = _socket.Receive(_received.AsSpan(_receivedLength));
-        if (count == 0)
+        var count = Receive();
+        if (count <= 0)
         {
             throw new IOException("The compositor closed the connection.");
         }
 
         _receivedLength += count;
         return Dispatch(handler);
+    }
+
+    /// <summary>Takes the oldest file descriptor the compositor sent that no event has claimed yet.</summary>
+    /// <param name="descriptor">Receives the descriptor, which the caller must close.</param>
+    /// <returns><see langword="true"/> when there was one.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool TryTakeDescriptor(out int descriptor) => _descriptors.TryDequeue(out descriptor);
+
+    /// <summary>Reads what has arrived, keeping any file descriptors that came with it in the order they were sent.</summary>
+    /// <returns>The bytes read.</returns>
+    private int Receive()
+    {
+        byte* header = stackalloc byte[MessageHeaderSize];
+        byte* vector = stackalloc byte[IoVectorSize];
+        byte* control = stackalloc byte[ReceiveControlSize];
+        new Span<byte>(header, MessageHeaderSize).Clear();
+        new Span<byte>(control, ReceiveControlSize).Clear();
+        fixed (byte* data = &_received[_receivedLength])
+        {
+            *(byte**)vector = data;
+            *(nuint*)(vector + IoVectorLengthOffset) = (nuint)(_received.Length - _receivedLength);
+            *(byte**)(header + IoVectorOffset) = vector;
+            *(nuint*)(header + IoVectorCountOffset) = 1;
+            *(byte**)(header + ControlOffset) = control;
+            *(nuint*)(header + ControlLengthOffset) = ReceiveControlSize;
+            var count = (int)NativeMethods.ReceiveMessage((int)_socket.Handle, header, 0);
+            KeepDescriptors(control, (int)*(nuint*)(header + ControlLengthOffset));
+            return count;
+        }
+    }
+
+    /// <summary>Keeps the file descriptors in the control data of a received message.</summary>
+    /// <param name="control">The control data.</param>
+    /// <param name="length">The bytes of control data the kernel wrote.</param>
+    private void KeepDescriptors(byte* control, int length)
+    {
+        var size = 0;
+
+        // Control messages are padded to the size of a pointer.
+        for (var offset = 0; offset + DataOffset <= length; offset += (size + sizeof(nuint) - 1) & ~(sizeof(nuint) - 1))
+        {
+            size = (int)*(nuint*)(control + offset);
+            if (size < DataOffset)
+            {
+                return;
+            }
+
+            if (*(int*)(control + offset + LevelOffset) != SocketLevel || *(int*)(control + offset + TypeOffset) != RightsType)
+            {
+                continue;
+            }
+
+            for (var at = DataOffset; at + sizeof(int) <= size; at += sizeof(int))
+            {
+                _descriptors.Enqueue(*(int*)(control + offset + at));
+            }
+        }
     }
 
     /// <summary>Handles every whole event in the receive buffer and keeps any partial one.</summary>

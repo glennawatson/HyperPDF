@@ -81,6 +81,36 @@ internal static class X11Input
     /// <summary>The key symbol of the letter c.</summary>
     private const uint LetterC = 0x63;
 
+    /// <summary>The key symbol of the letter f.</summary>
+    private const uint LetterF = 0x66;
+
+    /// <summary>The key symbol of the letter o.</summary>
+    private const uint LetterO = 0x6F;
+
+    /// <summary>The key symbol of the letter s.</summary>
+    private const uint LetterS = 0x73;
+
+    /// <summary>The key symbol of the letter w.</summary>
+    private const uint LetterW = 0x77;
+
+    /// <summary>The first key symbol that is a printing Latin-1 character and its own Unicode value.</summary>
+    private const uint FirstPrinting = 0x20;
+
+    /// <summary>The last printing ASCII key symbol.</summary>
+    private const uint LastAscii = 0x7E;
+
+    /// <summary>The first printing key symbol of the upper half of Latin-1.</summary>
+    private const uint FirstUpperLatin = 0xA0;
+
+    /// <summary>The last key symbol of Latin-1.</summary>
+    private const uint LastLatin = 0xFF;
+
+    /// <summary>The value added to a Unicode scalar to make its key symbol.</summary>
+    private const uint UnicodeSymbolBase = 0x01000000;
+
+    /// <summary>The largest Unicode key symbol.</summary>
+    private const uint LastUnicodeSymbol = 0x0110FFFF;
+
     /// <summary>The bit that turns an upper case Latin letter symbol into its lower case symbol.</summary>
     private const uint LowerCaseBit = 0x20;
 
@@ -152,6 +182,16 @@ internal static class X11Input
         };
     }
 
+    /// <summary>Finds the character a key symbol types. Latin-1 symbols and Unicode symbols are covered; the older symbols of other scripts are not.</summary>
+    /// <param name="symbol">The key symbol with Shift applied.</param>
+    /// <returns>The Unicode scalar value, or 0 when the symbol types nothing the viewer can use.</returns>
+    internal static uint ToScalar(uint symbol) => symbol switch
+    {
+        (>= FirstPrinting and <= LastAscii) or (>= FirstUpperLatin and <= LastLatin) => symbol,
+        > UnicodeSymbolBase and <= LastUnicodeSymbol => symbol - UnicodeSymbolBase,
+        _ => 0,
+    };
+
     /// <summary>Turns X11 state bits into the modifier keys held.</summary>
     /// <param name="state">The state bits of an input event.</param>
     /// <returns>The modifiers.</returns>
@@ -206,8 +246,20 @@ internal static class X11Input
         F2Symbol => ViewerKey.F2,
         PlusSymbol or EqualsSymbol or PadAddSymbol => ViewerKey.Plus,
         MinusSymbol or PadSubtractSymbol => ViewerKey.Minus,
+        _ => ToLetterKey(symbol),
+    };
+
+    /// <summary>Finds the viewer key of a letter the viewer has a shortcut for.</summary>
+    /// <param name="symbol">The key symbol, with Latin letters in lower case.</param>
+    /// <returns>The key.</returns>
+    private static ViewerKey ToLetterKey(uint symbol) => symbol switch
+    {
         LetterA => ViewerKey.A,
         LetterC => ViewerKey.C,
+        LetterF => ViewerKey.F,
+        LetterO => ViewerKey.O,
+        LetterS => ViewerKey.S,
+        LetterW => ViewerKey.W,
         _ => ViewerKey.Other,
     };
 }

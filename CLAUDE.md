@@ -36,7 +36,7 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 - `src/HyperPdf.Windowing` — contracts shared by every head: `IPlatformWindow`, `IRenderBackend`, `IFramePass`, `IAccessibilityBridge`.
 - `src/HyperPdf.Rendering.Cpu`, `src/HyperPdf.Rendering.Vulkan` — render backends. GPU is the default; CPU is the fallback.
 - `src/HyperPdf.Head.Linux` (X11, Wayland, AT-SPI), `src/HyperPdf.Head.Windows` (Win32, UI Automation) — platform windows and accessibility bridges.
-- `src/HyperPdf.Viewer` — the viewer shared by the heads: canvas host, frame painter, render head and loop.
+- `src/HyperPdf.Viewer` — the viewer shared by the heads: canvas host, frame painter, render head and loop. `Chrome/` holds the window's own controls (tabs, toolbar, menus, dialogs) and `Text/` draws their text from the bundled font.
 - `src/HyperPdf.Platform.*` — operating system services (printing, audio, shell, spelling).
 - Tests are in `src/tests`, benchmarks in `src/benchmarks`, single-file tools in `src/tools`.
 

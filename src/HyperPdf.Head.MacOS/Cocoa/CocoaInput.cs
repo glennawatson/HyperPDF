@@ -18,6 +18,18 @@ internal static class CocoaInput
     /// <summary>The key code of the C key.</summary>
     private const ushort LetterC = 8;
 
+    /// <summary>The key code of the F key.</summary>
+    private const ushort LetterF = 3;
+
+    /// <summary>The key code of the O key.</summary>
+    private const ushort LetterO = 31;
+
+    /// <summary>The key code of the S key.</summary>
+    private const ushort LetterS = 1;
+
+    /// <summary>The key code of the W key.</summary>
+    private const ushort LetterW = 13;
+
     /// <summary>The key code of the equals key, which is plus with Shift.</summary>
     private const ushort EqualsKey = 24;
 
@@ -132,8 +144,20 @@ internal static class CocoaInput
         F2Key => ViewerKey.F2,
         EqualsKey or PadPlusKey => ViewerKey.Plus,
         MinusKey or PadMinusKey => ViewerKey.Minus,
+        _ => ToLetterKey(keyCode),
+    };
+
+    /// <summary>Finds the viewer key of a letter the viewer has a shortcut for.</summary>
+    /// <param name="keyCode">The key code.</param>
+    /// <returns>The key.</returns>
+    private static ViewerKey ToLetterKey(ushort keyCode) => keyCode switch
+    {
         LetterA => ViewerKey.A,
         LetterC => ViewerKey.C,
+        LetterF => ViewerKey.F,
+        LetterO => ViewerKey.O,
+        LetterS => ViewerKey.S,
+        LetterW => ViewerKey.W,
         _ => ViewerKey.Other,
     };
 }

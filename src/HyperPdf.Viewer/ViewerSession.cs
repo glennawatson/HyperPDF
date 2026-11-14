@@ -6,9 +6,11 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Theming;
 using HyperPdf.ViewModels;
+using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Services;
 using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer.Accessibility;
+using HyperPdf.Viewer.Chrome;
 using HyperPdf.Windowing.Windows;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -30,6 +32,9 @@ public sealed class ViewerSession : IDisposable
 
     /// <summary>What the session owns.</summary>
     private readonly MultipleDisposable _owned = [];
+
+    /// <summary>The dialogs of the tab shown, replaced when another tab is shown.</summary>
+    private readonly SwapDisposable _tabDialogs = new();
 
     /// <summary>The window.</summary>
     private readonly IPlatformWindow _window;
@@ -55,12 +60,16 @@ public sealed class ViewerSession : IDisposable
         _window = window;
         _context = context;
         Main = new(services);
-        Canvas = new(window) { Colors = ViewerColors.From(services.CurrentTheme.Scheme) };
+        Chrome = new(window, Main, ChromeTheme.From(services.CurrentTheme.Scheme));
+        Canvas = new(window) { Colors = ViewerColors.From(services.CurrentTheme.Scheme), Chrome = Chrome };
         Accessibility = new(window);
         window.Accessibility.Attach(Accessibility);
         _owned.Add(Accessibility);
         _owned.Add(Canvas);
+        _owned.Add(Chrome);
         _owned.Add(Main);
+        _owned.Add(Main.OpenFileInteraction.RegisterHandler(AskForFilesAsync));
+        _owned.Add(Main.ConfirmInteraction.RegisterHandler(ConfirmAsync));
         _owned.Add(services.Theme.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(ShowTheme, ErrorTrace.Write));
         _owned.Add(Main.WhenChanged(static main => main.SelectedTab).SubscribeSafe(ShowTab, ErrorTrace.Write));
     }
@@ -70,6 +79,9 @@ public sealed class ViewerSession : IDisposable
 
     /// <summary>Gets the page canvas.</summary>
     public ViewerCanvas Canvas { get; }
+
+    /// <summary>Gets the window's controls: the tab strip, the toolbar, the status bar, and the menus and dialogs over them.</summary>
+    public ViewerChrome Chrome { get; }
 
     /// <summary>Gets the tree the window's accessibility bridge serves to screen readers and magnifiers.</summary>
     public ViewerAccessibleTree Accessibility { get; }
@@ -109,14 +121,18 @@ public sealed class ViewerSession : IDisposable
         _window.PumpEvents(_context.HasWork ? 0 : timeoutMilliseconds, _handleEvent ??= HandleEvent);
         _context.Drain();
 
-        // Posted work changes view models without a window event, so the tree is checked after it too.
+        // Posted work changes view models without a window event, so the controls and the tree are checked after it too.
+        Chrome.RequestFrameIfChanged();
         Accessibility.RefreshIfRead(Main, Canvas);
         return !_closed;
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _owned.Dispose();
+    public void Dispose()
+    {
+        _tabDialogs.Dispose();
+        _owned.Dispose();
+    }
 
     /// <summary>Handles one window event.</summary>
     /// <param name="windowEvent">The event.</param>
@@ -128,7 +144,11 @@ public sealed class ViewerSession : IDisposable
             return;
         }
 
-        Canvas.Handle(windowEvent);
+        // The controls sit over the pages, so input that lands on them stops there.
+        if (!Chrome.Handle(windowEvent))
+        {
+            Canvas.Handle(windowEvent);
+        }
     }
 
     /// <summary>Shows the selected tab on the canvas and its name in the title bar.</summary>
@@ -137,6 +157,7 @@ public sealed class ViewerSession : IDisposable
     {
         Canvas.ShowTab(tab);
         _window.SetTitle(Main.WindowTitle);
+        _tabDialogs.Disposable = tab?.SaveAsInteraction.RegisterHandler(AskWhereToSaveAsync);
     }
 
     /// <summary>Draws with the colours of a theme.</summary>
@@ -144,6 +165,35 @@ public sealed class ViewerSession : IDisposable
     private void ShowTheme(ResolvedTheme theme)
     {
         Canvas.Colors = ViewerColors.From(theme.Scheme);
+        Chrome.Theme = ChromeTheme.From(theme.Scheme);
         _window.RequestFrame();
     }
+
+    /// <summary>Asks which file to open.</summary>
+    /// <param name="context">The interaction to answer.</param>
+    /// <returns>A task that ends when the dialog closes.</returns>
+    private async Task AskForFilesAsync(IInteractionContext<RxVoid, IReadOnlyList<string>> context)
+    {
+        var path = await Chrome.PickFileAsync(StartFolder(), null).ConfigureAwait(true);
+        context.SetOutput(path is null ? [] : [path]);
+    }
+
+    /// <summary>Asks where to save a copy of the document shown.</summary>
+    /// <param name="context">The interaction to answer, carrying the file name to offer.</param>
+    /// <returns>A task that ends when the dialog closes.</returns>
+    private async Task AskWhereToSaveAsync(IInteractionContext<string, string?> context) =>
+        context.SetOutput(await Chrome.PickFileAsync(StartFolder(), Path.GetFileName(context.Input)).ConfigureAwait(true));
+
+    /// <summary>Asks a yes or no question.</summary>
+    /// <param name="context">The interaction to answer.</param>
+    /// <returns>A task that ends when the dialog closes.</returns>
+    private async Task ConfirmAsync(IInteractionContext<ConfirmRequest, bool> context) =>
+        context.SetOutput(await Chrome.ConfirmAsync(context.Input).ConfigureAwait(true));
+
+    /// <summary>Picks the folder a file dialog starts in: the folder of the document shown, or the user's own folder.</summary>
+    /// <returns>The folder.</returns>
+    private string StartFolder() =>
+        Main.SelectedTab is { FilePath: { Length: > 0 } path } && Path.GetDirectoryName(Path.GetFullPath(path)) is { Length: > 0 } folder
+            ? folder
+            : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 }

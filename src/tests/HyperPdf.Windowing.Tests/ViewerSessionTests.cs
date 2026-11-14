@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using HyperPdf.Core.Accessibility;
+using HyperPdf.Core.Layout;
 using HyperPdf.Core.Settings;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
@@ -88,7 +89,8 @@ public sealed class ViewerSessionTests
         var ink = 0;
         var loaded = PumpUntil(session, () =>
         {
-            Count(window, out paper, out ink);
+            // The side panel appears once the document has loaded, which moves the page area.
+            Count(window, session.Chrome.CanvasBounds, out paper, out ink);
             return session.Main.SelectedTab is { IsLoaded: true } && ink > FewestInkPixels;
         });
         var start = session.Canvas.Offset.Y;
@@ -124,31 +126,35 @@ public sealed class ViewerSessionTests
 
     /// <summary>Counts the page pixels and the text pixels in the last frame. The corner of the window shows the canvas behind the pages, and the middle shows paper.</summary>
     /// <param name="window">The window.</param>
+    /// <param name="area">The part of the window the pages are shown in. The window's own controls are around it and are not counted.</param>
     /// <param name="paper">Receives the number of pixels that are not the canvas colour.</param>
     /// <param name="ink">Receives the number of pixels that are neither the canvas colour nor the paper colour, which is text and shadow.</param>
-    private static void Count(HeadlessWindow window, out int paper, out int ink)
+    private static void Count(HeadlessWindow window, in LayoutRect area, out int paper, out int ink)
     {
         paper = 0;
         ink = 0;
         var pixels = MemoryMarshal.Cast<byte, uint>(window.Cpu.FramePixels);
-        if (pixels.IsEmpty)
+        if (pixels.IsEmpty || area.Width < 1 || area.Height < 1)
         {
             return;
         }
 
-        var canvas = pixels[0];
-        var paperColor = pixels[(Width * (Height / Half)) + (Width / Half)];
-        foreach (var pixel in pixels)
+        var left = (int)area.X;
+        var top = (int)area.Y;
+        var width = (int)area.Width;
+        var canvas = pixels[(Width * top) + left];
+        var paperColor = pixels[(Width * (top + ((int)area.Height / Half))) + left + (width / Half)];
+        for (var row = top; row < top + (int)area.Height; row++)
         {
-            if (pixel == canvas)
+            foreach (var pixel in pixels.Slice((Width * row) + left, width))
             {
-                continue;
-            }
+                if (pixel == canvas)
+                {
+                    continue;
+                }
 
-            paper++;
-            if (pixel != paperColor)
-            {
-                ink++;
+                paper++;
+                ink += pixel != paperColor ? 1 : 0;
             }
         }
     }

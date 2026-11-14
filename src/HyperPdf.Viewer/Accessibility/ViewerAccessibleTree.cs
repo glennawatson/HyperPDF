@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Accessibility;
@@ -10,6 +11,7 @@ using HyperPdf.Core.Reading;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Help;
 using HyperPdf.ViewModels.Viewing;
+using HyperPdf.Viewer.Chrome;
 using HyperPdf.Windowing.Windows;
 using ReactiveUI.Primitives.Signals;
 
@@ -25,6 +27,9 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
 {
     /// <summary>The changes between snapshots.</summary>
     private readonly Signal<AccessibleChange> _changes = new();
+
+    /// <summary>The controls an assistive technology asked to press, waiting for the window thread.</summary>
+    private readonly ConcurrentQueue<int> _presses = new();
 
     /// <summary>The window, woken when an assistive technology first asks for the tree.</summary>
     private readonly IPlatformWindow _window;
@@ -82,8 +87,18 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool DoAction(int id, int action) => false;
+    public bool DoAction(int id, int action)
+    {
+        if (id < ViewerNodes.FirstControlId || action != 0 || Volatile.Read(ref _current).Nodes.GetValueOrDefault(id) is not { Actions.Count: > 0 })
+        {
+            return false;
+        }
+
+        // A bridge asks from its own thread. The press is done on the window thread, which the wake brings round.
+        _presses.Enqueue(id);
+        _window.Wake();
+        return true;
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -110,6 +125,12 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
         if (Volatile.Read(ref _wanted) == 0)
         {
             return;
+        }
+
+        while (_presses.TryDequeue(out var pressed))
+        {
+            var inOverlay = pressed >= ViewerNodes.FirstOverlayId;
+            _ = canvas.Chrome?.PressControl(inOverlay, pressed - (inOverlay ? ViewerNodes.FirstOverlayId : ViewerNodes.FirstControlId));
         }
 
         var facts = TreeFacts.Read(main.SelectedTab, canvas, _window);
@@ -169,6 +190,37 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
         return new(index - first + 1, last - first + 1);
     }
 
+    /// <summary>Adds the window's controls that have text to read or something to press.</summary>
+    /// <param name="nodes">The elements so far.</param>
+    /// <param name="inWindow">The numbers of the window's children, which get the controls added.</param>
+    /// <param name="items">The controls, back to front.</param>
+    /// <param name="firstId">The number of the first control.</param>
+    /// <param name="origin">Where the window's drawing area is on the screen.</param>
+    /// <returns>The number of the text box being typed into, or -1 when there is none.</returns>
+    private static int AddControls(Dictionary<int, AccessibleNode> nodes, List<int> inWindow, IReadOnlyList<ChromeItem> items, int firstId, ScreenPoint origin)
+    {
+        var typing = -1;
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            if (!ViewerNodes.IsPublished(item.Kind) || item.Text.Length == 0)
+            {
+                continue;
+            }
+
+            var bounds = item.Bounds;
+            var id = firstId + i;
+            nodes[id] = ViewerNodes.CreateControl(id, item, new(origin.X + (int)bounds.X, origin.Y + (int)bounds.Y, (int)bounds.Width, (int)bounds.Height));
+            inWindow.Add(id);
+            if (item is { Kind: ChromeItemKind.Field, Selected: true })
+            {
+                typing = id;
+            }
+        }
+
+        return typing;
+    }
+
     /// <summary>Turns a canvas rectangle into a place on the screen.</summary>
     /// <param name="rect">The rectangle in canvas units.</param>
     /// <param name="offset">The scroll offset in canvas units.</param>
@@ -198,25 +250,35 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
     {
         var size = _window.ClientSize;
         var origin = _window.ScreenOrigin;
-        var area = new AccessibleBounds(origin.X, origin.Y, size.Width, size.Height);
-        var nodes = new Dictionary<int, AccessibleNode>
+        var pages = canvas.Bounds;
+        var pageArea = new AccessibleBounds(origin.X + (int)pages.X, origin.Y + (int)pages.Y, (int)pages.Width, (int)pages.Height);
+        var nodes = new Dictionary<int, AccessibleNode>();
+
+        // The window's children go back to front, so a control over the pages is found before the document under it.
+        var inWindow = new List<int> { ViewerNodes.DocumentId };
+        var focused = ViewerNodes.DocumentId;
+        if (canvas.Chrome is { } chrome)
         {
-            [ViewerNodes.ApplicationId] = ViewerNodes.CreateApplication([ViewerNodes.WindowId]),
-            [ViewerNodes.WindowId] = ViewerNodes.CreateWindow(main.WindowTitle, area, _window.NativeHandle),
-        };
+            _ = AddControls(nodes, inWindow, chrome.Bars, ViewerNodes.FirstControlId, origin);
+            var typing = AddControls(nodes, inWindow, chrome.OverlayItems, ViewerNodes.FirstOverlayId, origin);
+            focused = typing >= 0 ? typing : focused;
+        }
+
+        nodes[ViewerNodes.ApplicationId] = ViewerNodes.CreateApplication([ViewerNodes.WindowId]);
+        nodes[ViewerNodes.WindowId] = ViewerNodes.CreateWindow(main.WindowTitle, new(origin.X, origin.Y, size.Width, size.Height), _window.NativeHandle, inWindow);
         var tab = main.SelectedTab;
         var name = ItemDescriptions.DescribeReader(tab);
         var help = ItemDescriptions.DescribeSelection(tab);
         if (tab is not { PageCount: > 0 })
         {
-            nodes[ViewerNodes.DocumentId] = ViewerNodes.CreateDocument(name, help, area, string.Empty, []);
-            return new(nodes, ViewerNodes.ApplicationId, ViewerNodes.DocumentId);
+            nodes[ViewerNodes.DocumentId] = ViewerNodes.CreateDocument(name, help, pageArea, string.Empty, []);
+            return new(nodes, ViewerNodes.ApplicationId, focused);
         }
 
         var page = Math.Clamp(tab.CurrentPageIndex, 0, tab.PageCount - 1);
         var children = AddBlocks(nodes, tab, canvas, page, origin);
-        nodes[ViewerNodes.DocumentId] = ViewerNodes.CreateDocument(name, help, area, GetPageText(tab, page), children);
-        return new(nodes, ViewerNodes.ApplicationId, ViewerNodes.DocumentId);
+        nodes[ViewerNodes.DocumentId] = ViewerNodes.CreateDocument(name, help, pageArea, GetPageText(tab, page), children);
+        return new(nodes, ViewerNodes.ApplicationId, focused);
     }
 
     /// <summary>Adds the blocks of a page in reading order.</summary>
@@ -237,7 +299,7 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
         var blocks = reading.GetPage(page).Blocks;
         var children = new int[blocks.Count];
         var scale = _window.Scale;
-        var offset = canvas.Offset;
+        var offset = canvas.DrawOffset;
         for (var i = 0; i < blocks.Count; i++)
         {
             var id = ViewerNodes.FirstBlockId + i;

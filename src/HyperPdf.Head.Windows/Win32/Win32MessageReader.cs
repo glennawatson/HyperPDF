@@ -58,6 +58,12 @@ internal static class Win32MessageReader
     /// <summary>The WM_MOUSEHWHEEL message.</summary>
     private const uint MouseHorizontalWheel = 0x020E;
 
+    /// <summary>The WM_CHAR message, which carries one UTF-16 unit of typed text.</summary>
+    private const uint Character = 0x0102;
+
+    /// <summary>The first character that prints. The ones below it are control codes, such as the one Control and a letter make.</summary>
+    private const nuint FirstPrinting = 0x20;
+
     /// <summary>The button reported for the left button.</summary>
     private const uint LeftButton = (uint)ViewerButtons.Left;
 
@@ -89,6 +95,9 @@ internal static class Win32MessageReader
         Paint => new(WindowEventKind.Exposed, 0, 0, 0, 0),
         KeyDown or SysKeyDown => new(WindowEventKind.KeyDown, 0, 0, (uint)Win32Input.ToKey((uint)primary), modifiers),
         KeyUp or SysKeyUp => new(WindowEventKind.KeyUp, 0, 0, (uint)Win32Input.ToKey((uint)primary), modifiers),
+
+        // Windows sends a character outside the basic plane as two halves, which no window control types yet, so only whole characters pass.
+        Character when primary >= FirstPrinting && !char.IsSurrogate((char)primary) => new(WindowEventKind.TextInput, 0, 0, (uint)primary, modifiers),
         MouseMove => new(WindowEventKind.PointerMoved, SignedLowWord(secondary), SignedHighWord(secondary), (uint)Win32Input.ToHeldButtons(primary), modifiers),
         LeftDown => Pointer(WindowEventKind.PointerDown, secondary, LeftButton, modifiers),
         LeftUp => Pointer(WindowEventKind.PointerUp, secondary, LeftButton, modifiers),

@@ -36,6 +36,18 @@ internal static class EvdevInput
     /// <summary>The code of the C key.</summary>
     private const uint LetterCCode = 46;
 
+    /// <summary>The code of the F key.</summary>
+    private const uint LetterFCode = 33;
+
+    /// <summary>The code of the O key.</summary>
+    private const uint LetterOCode = 24;
+
+    /// <summary>The code of the S key.</summary>
+    private const uint LetterSCode = 31;
+
+    /// <summary>The code of the W key.</summary>
+    private const uint LetterWCode = 17;
+
     /// <summary>The code of the space bar.</summary>
     private const uint SpaceCode = 57;
 
@@ -90,6 +102,12 @@ internal static class EvdevInput
     /// <summary>The axis amount a compositor reports for one wheel notch.</summary>
     private const double AxisPerNotch = 15;
 
+    /// <summary>Gets the character of each key code without Shift, by position on a US keyboard, with 0 for keys that type nothing.</summary>
+    private static ReadOnlySpan<byte> PlainCharacters => "\0\01234567890-=\0\0qwertyuiop[]\0\0asdfghjkl;'`\0\\zxcvbnm,./\0\0\0 "u8;
+
+    /// <summary>Gets the character of each key code with Shift, by position on a US keyboard.</summary>
+    private static ReadOnlySpan<byte> ShiftedCharacters => "\0\0!@#$%^&*()_+\0\0QWERTYUIOP{}\0\0ASDFGHJKL:\"~\0|ZXCVBNM<>?\0\0\0 "u8;
+
     /// <summary>Finds the viewer key of a key code.</summary>
     /// <param name="code">The key code.</param>
     /// <returns>The key, or <see cref="ViewerKey.Other"/> for a key the viewer has no use for.</returns>
@@ -117,6 +135,16 @@ internal static class EvdevInput
         _ => ViewerButtons.None,
     };
 
+    /// <summary>Finds the character a key types, by its position on a US keyboard.</summary>
+    /// <param name="code">The evdev key code.</param>
+    /// <param name="shift">Whether Shift is held.</param>
+    /// <returns>The Unicode scalar value, or 0 for a key that types nothing.</returns>
+    internal static uint ToScalar(uint code, bool shift)
+    {
+        var table = shift ? ShiftedCharacters : PlainCharacters;
+        return code < (uint)table.Length ? table[(int)code] : 0U;
+    }
+
     /// <summary>Turns a wl_pointer axis amount into scroll units. Wayland counts down and right as positive, and the viewer counts up and left as positive.</summary>
     /// <param name="amount">The axis amount.</param>
     /// <returns>The scroll in notch units.</returns>
@@ -136,8 +164,20 @@ internal static class EvdevInput
         F2Code => ViewerKey.F2,
         EqualsCode or PadPlusCode => ViewerKey.Plus,
         MinusCode or PadMinusCode => ViewerKey.Minus,
+        _ => ToLetterKey(code),
+    };
+
+    /// <summary>Finds the viewer key of a letter the viewer has a shortcut for.</summary>
+    /// <param name="code">The evdev key code.</param>
+    /// <returns>The key.</returns>
+    private static ViewerKey ToLetterKey(uint code) => code switch
+    {
         LetterACode => ViewerKey.A,
         LetterCCode => ViewerKey.C,
+        LetterFCode => ViewerKey.F,
+        LetterOCode => ViewerKey.O,
+        LetterSCode => ViewerKey.S,
+        LetterWCode => ViewerKey.W,
         _ => ViewerKey.Other,
     };
 }

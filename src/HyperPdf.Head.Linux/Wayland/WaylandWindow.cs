@@ -58,6 +58,9 @@ public sealed class WaylandWindow : IPlatformWindow
     /// <summary>The object ids of this window's protocol objects.</summary>
     private readonly WaylandObjects _objects = new();
 
+    /// <summary>The window's side of the clipboard.</summary>
+    private readonly WaylandClipboard _clipboard;
+
     /// <summary>The handler of the current <see cref="PumpEvents"/> call.</summary>
     private WindowEventHandler? _sink;
 
@@ -72,6 +75,9 @@ public sealed class WaylandWindow : IPlatformWindow
 
     /// <summary>The modifier keys the keyboard last reported, as <see cref="ViewerModifiers"/> bits.</summary>
     private uint _modifiers;
+
+    /// <summary>The serial of the last key or button event, which the compositor asks for when the clipboard is set.</summary>
+    private uint _serial;
 
     /// <summary>The pointer buttons held.</summary>
     private ViewerButtons _held;
@@ -98,6 +104,7 @@ public sealed class WaylandWindow : IPlatformWindow
         Accessibility = accessibility;
         Core.Platform.NativeLibraries.Register(typeof(NativeMethods).Assembly, NativeMethods.Library, ["libc.so.6"]);
         _connection = WaylandConnection.TryConnect() ?? throw new PlatformNotSupportedException("No Wayland compositor could be reached.");
+        _clipboard = new(_connection);
         _wake = new();
         Backend = RenderBackendSelector.Choose(preference, this, static _ => null, static window => new CpuRenderBackend(window.Present)).Backend;
         Backend.Resize(_size);
@@ -151,6 +158,13 @@ public sealed class WaylandWindow : IPlatformWindow
     {
         // Cursor shapes need the cursor theme and a pointer enter serial; the compositor's default arrow stays until the input work adds them.
         _ = cursor;
+    }
+
+    /// <inheritdoc/>
+    public void SetClipboardText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        _clipboard.SetText(text, _serial);
     }
 
     /// <inheritdoc/>
@@ -241,6 +255,11 @@ public sealed class WaylandWindow : IPlatformWindow
         _objects.Shm = Bind(registry, WaylandProtocol.ShmInterface, _globals.Shm, WaylandProtocol.ShmVersion);
         _objects.WmBase = Bind(registry, WaylandProtocol.WmBaseInterface, _globals.WmBase, WaylandProtocol.WmBaseVersion);
         _objects.Seat = _globals.Seat.Name == 0 ? 0 : Bind(registry, WaylandProtocol.SeatInterface, _globals.Seat, WaylandProtocol.SeatVersion);
+        if (_objects.Seat != 0 && _globals.DataDeviceManager.Name != 0)
+        {
+            var manager = Bind(registry, WaylandProtocol.DataDeviceManagerInterface, _globals.DataDeviceManager, WaylandProtocol.DataDeviceManagerVersion);
+            _clipboard.Attach(manager, _objects.Seat);
+        }
 
         _objects.Surface = _connection.NewId();
         Send(_objects.Compositor, WaylandProtocol.CompositorCreateSurface, _objects.Surface);
@@ -368,6 +387,11 @@ public sealed class WaylandWindow : IPlatformWindow
     /// <param name="reader">The event arguments.</param>
     private void DispatchInput(uint objectId, int opcode, ref WaylandMessageReader reader)
     {
+        if (_clipboard.TryHandle(objectId, opcode, ref reader))
+        {
+            return;
+        }
+
         if (objectId == _objects.Seat && opcode == 0)
         {
             HandleSeat(reader.ReadUInt());
@@ -472,7 +496,7 @@ public sealed class WaylandWindow : IPlatformWindow
 
             case WaylandProtocol.PointerButton:
                 {
-                    _ = reader.ReadUInt();
+                    _serial = reader.ReadUInt();
                     _ = reader.ReadUInt();
                     var button = EvdevInput.ToButton(reader.ReadUInt());
                     PressButton(button, reader.ReadUInt() == ButtonPressed);
@@ -519,13 +543,27 @@ public sealed class WaylandWindow : IPlatformWindow
     /// <param name="reader">The event arguments.</param>
     private void HandleKeyboard(int opcode, ref WaylandMessageReader reader)
     {
-        if (opcode == WaylandProtocol.KeyboardKey)
+        if (opcode == WaylandProtocol.KeyboardKeymap)
         {
+            // The key map comes as a file. The head maps keys by position, so the file is closed unread.
+            if (_connection.TryTakeDescriptor(out var keymap))
+            {
+                _ = NativeMethods.Close(keymap);
+            }
+        }
+        else if (opcode == WaylandProtocol.KeyboardKey)
+        {
+            _serial = reader.ReadUInt();
             _ = reader.ReadUInt();
-            _ = reader.ReadUInt();
-            var key = (uint)EvdevInput.ToKey(reader.ReadUInt());
-            var kind = reader.ReadUInt() == KeyPressed ? WindowEventKind.KeyDown : WindowEventKind.KeyUp;
-            Emit(new(kind, _pointer.X, _pointer.Y, key, _modifiers));
+            var code = reader.ReadUInt();
+            var pressed = reader.ReadUInt() == KeyPressed;
+            Emit(new(pressed ? WindowEventKind.KeyDown : WindowEventKind.KeyUp, _pointer.X, _pointer.Y, (uint)EvdevInput.ToKey(code), _modifiers));
+            var held = (ViewerModifiers)_modifiers;
+            var scalar = (held & (ViewerModifiers.Control | ViewerModifiers.Alt | ViewerModifiers.Meta)) == 0 ? EvdevInput.ToScalar(code, (held & ViewerModifiers.Shift) != 0) : 0;
+            if (pressed && scalar != 0)
+            {
+                Emit(new(WindowEventKind.TextInput, _pointer.X, _pointer.Y, scalar, _modifiers));
+            }
         }
         else if (opcode == WaylandProtocol.KeyboardModifiers)
         {

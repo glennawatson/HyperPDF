@@ -19,6 +19,9 @@ internal sealed class WaylandGlobals
     /// <summary>Gets the seat global, which stays empty on a machine with no input device.</summary>
     internal WaylandGlobal Seat { get; private set; }
 
+    /// <summary>Gets the clipboard manager global, which stays empty on a compositor that has none.</summary>
+    internal WaylandGlobal DataDeviceManager { get; private set; }
+
     /// <summary>Keeps a global when it is one the head uses.</summary>
     /// <param name="interfaceName">The interface name.</param>
     /// <param name="global">The advertised global.</param>
@@ -47,6 +50,12 @@ internal sealed class WaylandGlobals
             case WaylandProtocol.SeatInterface when Seat.Name == 0:
                 {
                     Seat = global;
+                    break;
+                }
+
+            case WaylandProtocol.DataDeviceManagerInterface:
+                {
+                    DataDeviceManager = global;
                     break;
                 }
         }

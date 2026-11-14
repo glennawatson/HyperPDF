@@ -72,6 +72,9 @@ public sealed unsafe class X11Window : IPlatformWindow
     /// <summary>The wake-up that ends a wait for events.</summary>
     private readonly EventWake _wake;
 
+    /// <summary>The window's side of the clipboard.</summary>
+    private readonly X11Clipboard _clipboard;
+
     /// <summary>The cursors made so far, by <see cref="ViewerCursor"/> value. They are freed with the display connection.</summary>
     private readonly nint[] _cursors = new nint[CursorShapes.Length];
 
@@ -122,6 +125,7 @@ public sealed unsafe class X11Window : IPlatformWindow
         _depth = (uint)NativeMethods.XDefaultDepth(_display, screen);
         var window = NativeMethods.XCreateSimpleWindow(_display, NativeMethods.XRootWindow(_display, screen), 0, 0, InitialWidth, InitialHeight, 0, 0, 0);
         _ids = new(window, NativeMethods.XCreateGC(_display, window, 0, null), NativeMethods.XDefaultVisual(_display, screen), Intern("WM_DELETE_WINDOW"u8));
+        _clipboard = new(_display, window, new(Intern("CLIPBOARD"u8), Intern("TARGETS"u8), Intern("UTF8_STRING"u8)));
         nint* protocols = stackalloc nint[] { (nint)_ids.CloseAtom };
         _ = NativeMethods.XSetWMProtocols(_display, window, protocols, 1);
         _ = NativeMethods.XSelectInput(
@@ -215,21 +219,15 @@ public sealed unsafe class X11Window : IPlatformWindow
         while (Volatile.Read(ref _disposed) == 0 && NativeMethods.XPending(_display) > 0)
         {
             _ = NativeMethods.XNextEvent(_display, buffer);
-            if (!X11EventReader.TryRead(buffer, (nint)_ids.CloseAtom, out var windowEvent))
-            {
-                continue;
-            }
-
-            if (windowEvent.Kind == WindowEventKind.Resized)
-            {
-                // The server reports a move with the same event as a new size.
-                _origin = ReadOrigin();
-                _size = new(windowEvent.X, windowEvent.Y);
-                Backend.Resize(_size);
-            }
-
-            handler(windowEvent);
+            Dispatch(buffer, handler);
         }
+    }
+
+    /// <inheritdoc/>
+    public void SetClipboardText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        _clipboard.SetText(text);
     }
 
     /// <inheritdoc/>
@@ -247,6 +245,44 @@ public sealed unsafe class X11Window : IPlatformWindow
         _ = NativeMethods.XFreeGC(_display, (nint)_ids.Gc);
         _ = NativeMethods.XDestroyWindow(_display, (nint)_ids.Window);
         _display.Dispose();
+    }
+
+    /// <summary>Handles one event from the server.</summary>
+    /// <param name="raw">The XEvent bytes.</param>
+    /// <param name="handler">Receives the window events it makes.</param>
+    private void Dispatch(byte* raw, WindowEventHandler handler)
+    {
+        var type = *(int*)raw;
+        if (type == X11Clipboard.SelectionRequestType)
+        {
+            _clipboard.Answer(raw);
+            return;
+        }
+
+        if (type == X11Clipboard.SelectionClearType)
+        {
+            _clipboard.Clear();
+            return;
+        }
+
+        if (!X11EventReader.TryRead(raw, (nint)_ids.CloseAtom, out var windowEvent))
+        {
+            return;
+        }
+
+        if (windowEvent.Kind == WindowEventKind.Resized)
+        {
+            // The server reports a move with the same event as a new size.
+            _origin = ReadOrigin();
+            _size = new(windowEvent.X, windowEvent.Y);
+            Backend.Resize(_size);
+        }
+
+        handler(windowEvent);
+        if (windowEvent.Kind == WindowEventKind.KeyDown && X11EventReader.TryReadText(raw, out var typed))
+        {
+            handler(typed);
+        }
     }
 
     /// <summary>Copies a finished frame to the window.</summary>

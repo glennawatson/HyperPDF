@@ -22,6 +22,7 @@ namespace HyperPdf.Viewer.Accessibility;
 /// <param name="PageScale">The scale pages are laid out at.</param>
 /// <param name="Size">The size of the window's drawing area.</param>
 /// <param name="Origin">Where the drawing area is on the screen.</param>
+/// <param name="Controls">A number that changes when the window's controls change.</param>
 [DebuggerDisplay("TreeFacts page {Page} of {PageCount}")]
 internal readonly record struct TreeFacts(
     DocumentTabViewModel? Tab,
@@ -33,7 +34,8 @@ internal readonly record struct TreeFacts(
     CanvasPoint Offset,
     double PageScale,
     SurfaceSize Size,
-    ScreenPoint Origin)
+    ScreenPoint Origin,
+    int Controls)
 {
     /// <summary>Reads the facts of what the viewer shows now.</summary>
     /// <param name="tab">The tab shown, or <see langword="null"/> when none is open.</param>
@@ -41,7 +43,7 @@ internal readonly record struct TreeFacts(
     /// <param name="window">The window.</param>
     /// <returns>The facts.</returns>
     internal static TreeFacts Read(DocumentTabViewModel? tab, ViewerCanvas canvas, IPlatformWindow window) => tab is null
-        ? new(null, 0, 0, null, null, null, canvas.Offset, canvas.State.PageScale, window.ClientSize, window.ScreenOrigin)
+        ? new(null, 0, 0, null, null, null, canvas.Offset, canvas.State.PageScale, window.ClientSize, window.ScreenOrigin, canvas.Chrome?.ControlsVersion ?? 0)
         : new(
             tab,
             tab.CurrentPageIndex,
@@ -52,5 +54,6 @@ internal readonly record struct TreeFacts(
             canvas.Offset,
             canvas.State.PageScale,
             window.ClientSize,
-            window.ScreenOrigin);
+            window.ScreenOrigin,
+            canvas.Chrome?.ControlsVersion ?? 0);
 }

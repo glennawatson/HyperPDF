@@ -53,6 +53,9 @@ internal sealed class HeadlessWindow : IPlatformWindow
     /// <inheritdoc/>
     public IAccessibilityBridge Accessibility { get; }
 
+    /// <summary>Gets the text last put on the clipboard, or <see langword="null"/> when none was.</summary>
+    public string? ClipboardText { get; private set; }
+
     /// <summary>Gets the CPU backend, whose frame a test reads.</summary>
     internal CpuRenderBackend Cpu { get; }
 
@@ -73,6 +76,9 @@ internal sealed class HeadlessWindow : IPlatformWindow
     {
         // A window with no display has no pointer to show.
     }
+
+    /// <inheritdoc/>
+    public void SetClipboardText(string text) => ClipboardText = text;
 
     /// <inheritdoc/>
     public void RequestFrame()

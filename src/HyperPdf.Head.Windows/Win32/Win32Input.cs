@@ -57,6 +57,18 @@ internal static class Win32Input
     /// <summary>The virtual key code of the C key.</summary>
     private const uint LetterC = 0x43;
 
+    /// <summary>The virtual key code of the F key.</summary>
+    private const uint LetterF = 0x46;
+
+    /// <summary>The virtual key code of the O key.</summary>
+    private const uint LetterO = 0x4F;
+
+    /// <summary>The virtual key code of the S key.</summary>
+    private const uint LetterS = 0x53;
+
+    /// <summary>The virtual key code of the W key.</summary>
+    private const uint LetterW = 0x57;
+
     /// <summary>The virtual key code of plus on the number pad.</summary>
     private const uint AddKey = 0x6B;
 
@@ -119,8 +131,20 @@ internal static class Win32Input
         F2Key => ViewerKey.F2,
         OemPlusKey or AddKey => ViewerKey.Plus,
         OemMinusKey or SubtractKey => ViewerKey.Minus,
+        _ => ToLetterKey(virtualKey),
+    };
+
+    /// <summary>Finds the viewer key of a letter the viewer has a shortcut for.</summary>
+    /// <param name="key">The virtual key code.</param>
+    /// <returns>The key.</returns>
+    private static ViewerKey ToLetterKey(uint key) => key switch
+    {
         LetterA => ViewerKey.A,
         LetterC => ViewerKey.C,
+        LetterF => ViewerKey.F,
+        LetterO => ViewerKey.O,
+        LetterS => ViewerKey.S,
+        LetterW => ViewerKey.W,
         _ => ViewerKey.Other,
     };
 }

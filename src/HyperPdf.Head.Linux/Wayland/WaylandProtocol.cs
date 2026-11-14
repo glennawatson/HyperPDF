@@ -96,4 +96,40 @@ internal static class WaylandProtocol
 
     /// <summary>The wl_keyboard.modifiers event.</summary>
     internal const int KeyboardModifiers = 4;
+
+    /// <summary>The wl_keyboard.keymap event, which carries a file descriptor.</summary>
+    internal const int KeyboardKeymap = 0;
+
+    /// <summary>The interface name of the clipboard and drag manager global.</summary>
+    internal const string DataDeviceManagerInterface = "wl_data_device_manager";
+
+    /// <summary>The newest wl_data_device_manager version the head implements.</summary>
+    internal const uint DataDeviceManagerVersion = 3;
+
+    /// <summary>The wl_data_device_manager.create_data_source request.</summary>
+    internal const int ManagerCreateDataSource = 0;
+
+    /// <summary>The wl_data_device_manager.get_data_device request.</summary>
+    internal const int ManagerGetDataDevice = 1;
+
+    /// <summary>The wl_data_source.offer request.</summary>
+    internal const int DataSourceOffer = 0;
+
+    /// <summary>The wl_data_source.destroy request.</summary>
+    internal const int DataSourceDestroy = 1;
+
+    /// <summary>The wl_data_source.send event, which carries a file descriptor.</summary>
+    internal const int DataSourceSend = 1;
+
+    /// <summary>The wl_data_source.cancelled event.</summary>
+    internal const int DataSourceCancelled = 2;
+
+    /// <summary>The wl_data_device.set_selection request.</summary>
+    internal const int DataDeviceSetSelection = 1;
+
+    /// <summary>The wl_data_device.data_offer event, which names a new object.</summary>
+    internal const int DataDeviceDataOffer = 0;
+
+    /// <summary>The wl_data_offer.destroy request.</summary>
+    internal const int DataOfferDestroy = 2;
 }

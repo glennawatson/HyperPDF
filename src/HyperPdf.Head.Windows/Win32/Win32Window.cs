@@ -173,6 +173,13 @@ public sealed unsafe class Win32Window : IPlatformWindow
     }
 
     /// <inheritdoc/>
+    public void SetClipboardText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        _ = Win32Clipboard.SetText((nint)_window, text);
+    }
+
+    /// <inheritdoc/>
     public void RequestFrame()
     {
         if (Volatile.Read(ref _disposed) == 0)

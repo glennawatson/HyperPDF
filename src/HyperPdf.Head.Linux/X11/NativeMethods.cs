@@ -215,6 +215,48 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library, EntryPoint = "XLookupKeysym")]
     internal static partial nuint XLookupKeysym(byte* keyEvent, int index);
 
+    /// <summary>Native <c>XLookupString</c>.</summary>
+    /// <param name="keyEvent">The XKeyEvent.</param>
+    /// <param name="buffer">Receives the Latin-1 characters of the key.</param>
+    /// <param name="capacity">The size of the buffer.</param>
+    /// <param name="symbol">Receives the key symbol with Shift and the locks applied.</param>
+    /// <param name="status">The compose status, or null.</param>
+    /// <returns>The number of characters written.</returns>
+    [LibraryImport(Library, EntryPoint = "XLookupString")]
+    internal static partial int XLookupString(byte* keyEvent, byte* buffer, int capacity, nuint* symbol, void* status);
+
+    /// <summary>Native <c>XSetSelectionOwner</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="selection">The selection atom.</param>
+    /// <param name="owner">The window that owns the selection from now on.</param>
+    /// <param name="time">The time of the event that caused it, or 0 for now.</param>
+    /// <returns>The status.</returns>
+    [LibraryImport(Library, EntryPoint = "XSetSelectionOwner")]
+    internal static partial int XSetSelectionOwner(X11DisplayHandle display, nint selection, nint owner, nint time);
+
+    /// <summary>Native <c>XChangeProperty</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="window">The window that gets the property.</param>
+    /// <param name="property">The property atom.</param>
+    /// <param name="type">The type atom.</param>
+    /// <param name="format">The bits of one element: 8, 16 or 32.</param>
+    /// <param name="mode">How the data joins what is there: 0 replaces it.</param>
+    /// <param name="data">The elements. Elements of format 32 are C longs.</param>
+    /// <param name="count">The number of elements.</param>
+    /// <returns>The status.</returns>
+    [LibraryImport(Library, EntryPoint = "XChangeProperty")]
+    internal static partial int XChangeProperty(X11DisplayHandle display, nint window, nint property, nint type, int format, int mode, byte* data, int count);
+
+    /// <summary>Native <c>XSendEvent</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="window">The window the event goes to.</param>
+    /// <param name="propagate">Whether the event passes to parent windows.</param>
+    /// <param name="mask">The event mask, or 0 to send to the client that made the window.</param>
+    /// <param name="xevent">The XEvent.</param>
+    /// <returns>The status.</returns>
+    [LibraryImport(Library, EntryPoint = "XSendEvent")]
+    internal static partial int XSendEvent(X11DisplayHandle display, nint window, int propagate, nint mask, byte* xevent);
+
     /// <summary>Native <c>XCreateFontCursor</c>.</summary>
     /// <param name="display">The display.</param>
     /// <param name="shape">The shape number in the standard cursor font.</param>

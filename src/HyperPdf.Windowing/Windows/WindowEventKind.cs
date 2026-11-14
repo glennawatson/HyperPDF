@@ -36,4 +36,7 @@ public enum WindowEventKind
 
     /// <summary>The wheel or touchpad scrolled. The event carries the vertical amount in <c>Y</c> and the horizontal amount in <c>X</c>.</summary>
     Scrolled = 9,
+
+    /// <summary>A character was typed. The event carries its Unicode scalar value in <c>Code</c>. It follows the key down that made it.</summary>
+    TextInput = 10,
 }

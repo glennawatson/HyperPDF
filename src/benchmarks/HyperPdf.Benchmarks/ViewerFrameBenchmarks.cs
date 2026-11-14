@@ -33,6 +33,15 @@ public class ViewerFrameBenchmarks
     /// <summary>The y of the pointer over the page, in pixels.</summary>
     private const int PointerY = 540;
 
+    /// <summary>The x of the pointer over the first toolbar button, in pixels.</summary>
+    private const int FirstButtonX = 30;
+
+    /// <summary>The x of the pointer over the second toolbar button, in pixels.</summary>
+    private const int SecondButtonX = 95;
+
+    /// <summary>The y of the pointer over the toolbar, in pixels.</summary>
+    private const int ToolbarY = 56;
+
     /// <summary>The pages in the document.</summary>
     private const int Pages = 40;
 
@@ -65,6 +74,9 @@ public class ViewerFrameBenchmarks
 
     /// <summary>Whether the next scroll step goes down.</summary>
     private bool _down = true;
+
+    /// <summary>Whether the pointer is over the first of the two toolbar buttons it moves between.</summary>
+    private bool _overFirst;
 
     /// <summary>Opens the document and draws both scroll positions until every tile they show is cached.</summary>
     [GlobalSetup]
@@ -118,6 +130,23 @@ public class ViewerFrameBenchmarks
     /// <summary>Handles a pointer move over the page, as every mouse movement does.</summary>
     [Benchmark]
     public void MovePointer() => _session.Canvas.Handle(new(WindowEventKind.PointerMoved, PointerX, PointerY, 0, 0));
+
+    /// <summary>Handles a pointer move along the toolbar, from one button to another in turn, which changes the control marked under the pointer.</summary>
+    /// <returns>Whether the controls took the move.</returns>
+    [Benchmark]
+    public bool MovePointerOverControls()
+    {
+        _overFirst = !_overFirst;
+        return _session.Chrome.Handle(new(WindowEventKind.PointerMoved, _overFirst ? FirstButtonX : SecondButtonX, ToolbarY, 0, 0));
+    }
+
+    /// <summary>Draws the tab strip, the toolbar and the status bar alone, which every frame does after the pages.</summary>
+    [Benchmark]
+    public void DrawControls()
+    {
+        using var pass = _window.Backend.BeginFrame();
+        _session.Chrome.Draw(pass);
+    }
 
     /// <summary>Turns one loop of the viewer with nothing waiting while a screen reader is attached, which checks whether the tree it reads is still right.</summary>
     /// <returns>Whether the window is still open.</returns>

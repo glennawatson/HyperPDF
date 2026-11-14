@@ -221,4 +221,52 @@ internal static unsafe partial class NativeMethods
         byte* bits,
         byte* info,
         uint usage);
+
+    /// <summary>Native <c>OpenClipboard</c>.</summary>
+    /// <param name="window">The window that owns the clipboard while it is open.</param>
+    /// <returns>Nonzero on success, 0 when another application holds the clipboard.</returns>
+    [LibraryImport(User32, EntryPoint = "OpenClipboard")]
+    internal static partial int OpenClipboard(nint window);
+
+    /// <summary>Native <c>EmptyClipboard</c>.</summary>
+    /// <returns>Nonzero on success.</returns>
+    [LibraryImport(User32, EntryPoint = "EmptyClipboard")]
+    internal static partial int EmptyClipboard();
+
+    /// <summary>Native <c>SetClipboardData</c>.</summary>
+    /// <param name="format">The clipboard format.</param>
+    /// <param name="memory">The movable global memory holding the data, which the system owns after a successful call.</param>
+    /// <returns>The data handle, or 0 on failure.</returns>
+    [LibraryImport(User32, EntryPoint = "SetClipboardData")]
+    internal static partial nint SetClipboardData(uint format, nint memory);
+
+    /// <summary>Native <c>CloseClipboard</c>.</summary>
+    /// <returns>Nonzero on success.</returns>
+    [LibraryImport(User32, EntryPoint = "CloseClipboard")]
+    internal static partial int CloseClipboard();
+
+    /// <summary>Native <c>GlobalAlloc</c>.</summary>
+    /// <param name="flags">How the memory is allocated.</param>
+    /// <param name="bytes">The bytes wanted.</param>
+    /// <returns>The memory handle, or 0 on failure.</returns>
+    [LibraryImport(Kernel32, EntryPoint = "GlobalAlloc")]
+    internal static partial nint GlobalAlloc(uint flags, nuint bytes);
+
+    /// <summary>Native <c>GlobalLock</c>.</summary>
+    /// <param name="memory">The memory handle.</param>
+    /// <returns>A pointer to the memory, or null on failure.</returns>
+    [LibraryImport(Kernel32, EntryPoint = "GlobalLock")]
+    internal static partial byte* GlobalLock(nint memory);
+
+    /// <summary>Native <c>GlobalUnlock</c>.</summary>
+    /// <param name="memory">The memory handle.</param>
+    /// <returns>Nonzero while the memory is still locked.</returns>
+    [LibraryImport(Kernel32, EntryPoint = "GlobalUnlock")]
+    internal static partial int GlobalUnlock(nint memory);
+
+    /// <summary>Native <c>GlobalFree</c>.</summary>
+    /// <param name="memory">The memory handle.</param>
+    /// <returns>0 on success.</returns>
+    [LibraryImport(Kernel32, EntryPoint = "GlobalFree")]
+    internal static partial nint GlobalFree(nint memory);
 }

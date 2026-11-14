@@ -115,6 +115,21 @@ internal static class Selectors
     /// <summary>Gets <c>keyCode</c>.</summary>
     internal static nint KeyCode { get; } = NativeMethods.Selector("keyCode");
 
+    /// <summary>Gets <c>characters</c>, the text a key event types.</summary>
+    internal static nint Characters { get; } = NativeMethods.Selector("characters");
+
+    /// <summary>Gets <c>UTF8String</c>.</summary>
+    internal static nint Utf8String { get; } = NativeMethods.Selector("UTF8String");
+
+    /// <summary>Gets <c>generalPasteboard</c>, the clipboard.</summary>
+    internal static nint GeneralPasteboard { get; } = NativeMethods.Selector("generalPasteboard");
+
+    /// <summary>Gets <c>clearContents</c>.</summary>
+    internal static nint ClearContents { get; } = NativeMethods.Selector("clearContents");
+
+    /// <summary>Gets <c>setString:forType:</c>.</summary>
+    internal static nint SetStringForType { get; } = NativeMethods.Selector("setString:forType:");
+
     /// <summary>Gets <c>modifierFlags</c>.</summary>
     internal static nint ModifierFlags { get; } = NativeMethods.Selector("modifierFlags");
 

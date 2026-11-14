@@ -78,6 +78,15 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(ObjectiveC, EntryPoint = "objc_msgSend")]
     internal static partial ushort SendKeyCode(nint receiver, nint selector);
 
+    /// <summary>Sends a message with two object arguments that returns yes or no.</summary>
+    /// <param name="receiver">The receiver.</param>
+    /// <param name="selector">The selector.</param>
+    /// <param name="first">The first argument.</param>
+    /// <param name="second">The second argument.</param>
+    /// <returns>Nonzero for yes.</returns>
+    [LibraryImport(ObjectiveC, EntryPoint = "objc_msgSend")]
+    internal static partial byte SendFlag(nint receiver, nint selector, nint first, nint second);
+
     /// <summary>Sends a message with no arguments that returns yes or no.</summary>
     /// <param name="receiver">The receiver.</param>
     /// <param name="selector">The selector.</param>

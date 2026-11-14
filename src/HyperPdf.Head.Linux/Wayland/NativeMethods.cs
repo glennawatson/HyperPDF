@@ -27,6 +27,14 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library, EntryPoint = "sendmsg")]
     internal static partial nint SendMessage(int socket, byte* message, int flags);
 
+    /// <summary>Native <c>recvmsg</c>.</summary>
+    /// <param name="socket">The socket descriptor.</param>
+    /// <param name="message">The msghdr, which receives the data and any file descriptors sent with it.</param>
+    /// <param name="flags">The flags.</param>
+    /// <returns>The bytes received, 0 when the peer closed, or -1 on failure.</returns>
+    [LibraryImport(Library, EntryPoint = "recvmsg")]
+    internal static partial nint ReceiveMessage(int socket, byte* message, int flags);
+
     /// <summary>Native <c>eventfd</c>.</summary>
     /// <param name="initial">The starting counter.</param>
     /// <param name="flags">The flags.</param>

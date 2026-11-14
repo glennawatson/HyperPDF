@@ -61,6 +61,9 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
     /// <summary>The event type of the pointer moving with the right button held.</summary>
     private const nuint RightDragged = 7;
 
+    /// <summary>The pasteboard type of plain text.</summary>
+    private const string PlainTextType = "public.utf8-plain-text";
+
     /// <summary>The event type of a key going down.</summary>
     private const nuint KeyDown = 10;
 
@@ -222,6 +225,17 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
         ArgumentNullException.ThrowIfNull(title);
         var pool = NativeMethods.AutoreleasePoolPush();
         NativeMethods.SendVoid((nint)_window, Selectors.SetTitle, Cocoa.Text(title));
+        NativeMethods.AutoreleasePoolPop(pool);
+    }
+
+    /// <inheritdoc/>
+    public void SetClipboardText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var pool = NativeMethods.AutoreleasePoolPush();
+        var pasteboard = NativeMethods.Send(NativeMethods.GetClass("NSPasteboard"), Selectors.GeneralPasteboard);
+        _ = NativeMethods.Send(pasteboard, Selectors.ClearContents);
+        _ = NativeMethods.SendFlag(pasteboard, Selectors.SetStringForType, Cocoa.Text(text), Cocoa.Text(PlainTextType));
         NativeMethods.AutoreleasePoolPop(pool);
     }
 
@@ -462,6 +476,10 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
         }
 
         handler(new(down ? WindowEventKind.KeyDown : WindowEventKind.KeyUp, 0, 0, (uint)CocoaInput.ToKey(keyCode), (uint)modifiers));
+        if (down && (modifiers & (ViewerModifiers.Control | ViewerModifiers.Meta)) == 0)
+        {
+            CocoaText.Report(next, (uint)modifiers, handler);
+        }
     }
 
     /// <summary>Turns a pointer or scroll event into a window event.</summary>

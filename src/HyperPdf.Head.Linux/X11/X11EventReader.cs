@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.Presentation.Input;
 using HyperPdf.Windowing.Windows;
 
 namespace HyperPdf.Head.Linux.X11;
@@ -54,6 +55,9 @@ internal static unsafe class X11EventReader
     /// <summary>The offset of the key code or button number in the key and button events.</summary>
     private const int InputDetailOffset = 84;
 
+    /// <summary>The bytes Xlib may write for the characters of one key.</summary>
+    private const int TextBuffer = 16;
+
     /// <summary>Reads an XEvent into a window event.</summary>
     /// <param name="raw">The XEvent bytes.</param>
     /// <param name="deleteAtom">The WM_DELETE_WINDOW atom.</param>
@@ -75,6 +79,32 @@ internal static unsafe class X11EventReader
             _ => default,
         };
         return windowEvent != default;
+    }
+
+    /// <summary>Reads the character a key press types, when it types one.</summary>
+    /// <param name="raw">The XEvent bytes of a key press.</param>
+    /// <param name="typed">Receives the text event.</param>
+    /// <returns><see langword="true"/> when the key types a character and neither Control nor Alt is held.</returns>
+    internal static bool TryReadText(byte* raw, out WindowEvent typed)
+    {
+        typed = default;
+        var modifiers = X11Input.ToModifiers(*(uint*)(raw + InputStateOffset));
+        if ((modifiers & (ViewerModifiers.Control | ViewerModifiers.Alt | ViewerModifiers.Meta)) != 0)
+        {
+            return false;
+        }
+
+        nuint symbol;
+        byte* unused = stackalloc byte[TextBuffer];
+        _ = NativeMethods.XLookupString(raw, unused, TextBuffer, &symbol, null);
+        var scalar = X11Input.ToScalar((uint)symbol);
+        if (scalar == 0)
+        {
+            return false;
+        }
+
+        typed = new(WindowEventKind.TextInput, *(int*)(raw + InputXOffset), *(int*)(raw + InputYOffset), scalar, (uint)modifiers);
+        return true;
     }
 
     /// <summary>Reads a key event. The key is the one on the key cap without Shift, so Control and a letter is found on any Latin layout.</summary>

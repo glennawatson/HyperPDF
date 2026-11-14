@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Accessibility;
 using HyperPdf.Core.Reading;
+using HyperPdf.Viewer.Chrome;
 
 namespace HyperPdf.Viewer.Accessibility;
 
@@ -22,8 +23,17 @@ internal static class ViewerNodes
     /// <summary>The number of the first block element of the page shown. Blocks are numbered in reading order from here.</summary>
     internal const int FirstBlockId = 100;
 
+    /// <summary>The number of the first control of the bars. Controls are numbered in the order they are laid out from here.</summary>
+    internal const int FirstControlId = 1_000_000;
+
+    /// <summary>The number of the first control of the open menu, dialog or search bar.</summary>
+    internal const int FirstOverlayId = 2_000_000;
+
     /// <summary>The states of an element that is there to be read.</summary>
     private const AccessibleStates Readable = AccessibleStates.Enabled | AccessibleStates.Showing;
+
+    /// <summary>The actions of a control that can be pressed.</summary>
+    private static readonly string[] ClickActions = [AccessibleActions.Click];
 
     /// <summary>Makes the application element.</summary>
     /// <param name="children">The numbers of its windows.</param>
@@ -35,9 +45,10 @@ internal static class ViewerNodes
     /// <param name="title">The window title.</param>
     /// <param name="bounds">Where the window's drawing area is on the screen.</param>
     /// <param name="handle">The operating system's number for the window.</param>
+    /// <param name="children">The numbers of the document and the controls, back to front.</param>
     /// <returns>The element.</returns>
-    internal static AccessibleNode CreateWindow(string title, in AccessibleBounds bounds, long handle) =>
-        new(WindowId, ApplicationId, AccessibleRole.Window, title, string.Empty, Readable | AccessibleStates.Active, bounds, [DocumentId], 0, 0, 0, string.Empty, [], null, handle);
+    internal static AccessibleNode CreateWindow(string title, in AccessibleBounds bounds, long handle, IReadOnlyList<int> children) =>
+        new(WindowId, ApplicationId, AccessibleRole.Window, title, string.Empty, Readable | AccessibleStates.Active, bounds, children, 0, 0, 0, string.Empty, [], null, handle);
 
     /// <summary>Makes the document element, which a screen reader reads the page from.</summary>
     /// <param name="name">What the document is, such as the page and the page count.</param>
@@ -85,6 +96,55 @@ internal static class ViewerNodes
         [],
         AccessibleText.Plain(block.Text),
         0);
+
+    /// <summary>Makes the element of one of the window's controls: a tab, a button, a menu row, a text box or a label.</summary>
+    /// <param name="id">The element's number.</param>
+    /// <param name="item">The control.</param>
+    /// <param name="bounds">Where the control is on the screen.</param>
+    /// <returns>The element.</returns>
+    internal static AccessibleNode CreateControl(int id, ChromeItem item, in AccessibleBounds bounds)
+    {
+        var pressable = item.Command != ChromeCommand.None && item.Enabled;
+        var states = AccessibleStates.Showing
+            | (item.Enabled ? AccessibleStates.Enabled : AccessibleStates.None)
+            | (pressable ? AccessibleStates.Focusable : AccessibleStates.None)
+            | (item.Selected && item.Kind != ChromeItemKind.Field ? AccessibleStates.Selected : AccessibleStates.None)
+            | (item.Kind == ChromeItemKind.Field ? AccessibleStates.Editable | AccessibleStates.Focusable | AccessibleStates.Focused : AccessibleStates.None);
+        return new(
+            id,
+            WindowId,
+            RoleOf(item.Kind),
+            item.Text,
+            string.Empty,
+            states,
+            bounds,
+            [],
+            0,
+            0,
+            0,
+            string.Empty,
+            pressable ? ClickActions : [],
+            item.Kind == ChromeItemKind.Field ? AccessibleText.Plain(item.Text) : null,
+            0);
+    }
+
+    /// <summary>Tells whether a control is published to assistive technology. Backgrounds and lines are not.</summary>
+    /// <param name="kind">How the control is drawn.</param>
+    /// <returns><see langword="true"/> for a control with text to read or something to press.</returns>
+    internal static bool IsPublished(ChromeItemKind kind) => kind is not (ChromeItemKind.Panel or ChromeItemKind.Popup or ChromeItemKind.Separator);
+
+    /// <summary>Finds the role of a control.</summary>
+    /// <param name="kind">How the control is drawn.</param>
+    /// <returns>The role.</returns>
+    private static AccessibleRole RoleOf(ChromeItemKind kind) => kind switch
+    {
+        ChromeItemKind.Button => AccessibleRole.Button,
+        ChromeItemKind.Tab => AccessibleRole.TabItem,
+        ChromeItemKind.Row => AccessibleRole.MenuItem,
+        ChromeItemKind.Field => AccessibleRole.Edit,
+        ChromeItemKind.Heading => AccessibleRole.Heading,
+        _ => AccessibleRole.Label,
+    };
 
     /// <summary>Finds the role of a block kind.</summary>
     /// <param name="kind">The block kind.</param>
