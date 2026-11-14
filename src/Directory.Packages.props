@@ -68,25 +68,6 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
   </ItemGroup>
 
-  <!-- Each target framework takes the package of its own release: the .NET 11 package refers to types
-       (CompositeMLKem) that only the .NET 11 runtime has. -->
-  <Choose>
-    <When Condition="'$(TargetFramework)' == 'net10.0'">
-      <ItemGroup>
-        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
-        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.15" />
-        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.15" />
-      </ItemGroup>
-    </When>
-    <Otherwise>
-      <ItemGroup>
-        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0" />
-        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0" />
-      </ItemGroup>
-    </Otherwise>
-  </Choose>
-
   <ItemGroup Label="Packaging tools">
     <PackageVersion Include="MinVer" Version="8.0.0" />
   </ItemGroup>
@@ -96,4 +77,23 @@
     <PackageVersion Include="PerformanceSharp.Analyzers" Version="$(RoslynCommonAnalyzersVersion)" />
     <PackageVersion Include="SecuritySharp.Analyzers" Version="$(RoslynCommonAnalyzersVersion)" />
   </ItemGroup>
+
+  <!-- Each target framework takes the package of its own release: the .NET 11 package refers to types
+       (CompositeMLKem) that only the .NET 11 runtime has. -->
+  <Choose>
+    <When Condition="'$(TargetFramework)' != '' And $([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net11.0'))">
+      <ItemGroup>
+        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="11.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0" />
+      </ItemGroup>
+    </When>
+    <Otherwise>
+      <ItemGroup>
+        <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.15" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.15" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Debug" Version="10.0.15" />
+      </ItemGroup>
+    </Otherwise>
+  </Choose>
 </Project>
