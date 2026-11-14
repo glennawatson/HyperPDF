@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Toolkit-free HyperPDF viewer shared by the native platform heads: it drives the page canvas, the view models and a render backend through a platform window, with no XAML and no UI toolkit.</Description>
+    <RootNamespace>HyperPdf.Viewer</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
+    <ProjectReference Include="..\HyperPdf.Presentation\HyperPdf.Presentation.csproj" />
+    <ProjectReference Include="..\HyperPdf.ViewModels\HyperPdf.ViewModels.csproj" />
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\HyperPdf.Engine\HyperPdf.Engine.csproj" />
+    <ProjectReference Include="..\HyperPdf.Ocr\HyperPdf.Ocr.csproj" />
+    <ProjectReference Include="..\HyperPdf.Platform.Linux\HyperPdf.Platform.Linux.csproj" />
+    <ProjectReference Include="..\HyperPdf.Platform.MacOS\HyperPdf.Platform.MacOS.csproj" />
+    <ProjectReference Include="..\HyperPdf.Platform.Windows\HyperPdf.Platform.Windows.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Windowing.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+  </ItemGroup>
+</Project>

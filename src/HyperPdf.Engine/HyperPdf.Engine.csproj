@@ -12,6 +12,5 @@
   <ItemGroup>
     <InternalsVisibleTo Include="HyperPdf.Engine.Tests" />
     <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
-    <InternalsVisibleTo Include="HyperPdf.App.Tests" />
   </ItemGroup>
 </Project>
