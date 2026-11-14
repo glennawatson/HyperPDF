@@ -64,6 +64,8 @@ internal static class MainMenu
     /// <returns>The entries.</returns>
     private static List<MenuEntry> View(MainViewModel main, DocumentTabViewModel tab) =>
     [
+        MenuEntry.Item(UiText.Get("Zoom _In"), "Ctrl++", tab.ZoomInCommand, null, true),
+        MenuEntry.Item(UiText.Get("Zoom _Out"), "Ctrl+-", tab.ZoomOutCommand, null, true),
         MenuEntry.Item(UiText.Get("Actual _Size"), null, tab.ZoomResetCommand, null, true),
         MenuEntry.Item(UiText.Get("Fit _Width"), null, tab.FitWidthCommand, null, true),
         MenuEntry.Item(UiText.Get("Fit _Page"), null, tab.FitPageCommand, null, true),

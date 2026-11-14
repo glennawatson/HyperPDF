@@ -39,4 +39,7 @@ internal sealed class WaylandObjects
 
     /// <summary>Gets or sets the wl_keyboard id.</summary>
     internal uint Keyboard { get; set; }
+
+    /// <summary>Gets or sets the wl_output id, 0 when the compositor offers no display that reports a scale.</summary>
+    internal uint Output { get; set; }
 }

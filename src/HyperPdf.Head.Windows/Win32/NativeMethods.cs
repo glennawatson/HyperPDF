@@ -222,6 +222,30 @@ internal static unsafe partial class NativeMethods
         byte* info,
         uint usage);
 
+    /// <summary>Native <c>SetProcessDpiAwarenessContext</c>.</summary>
+    /// <param name="context">The awareness context.</param>
+    /// <returns>Nonzero on success, 0 when the process already has a setting.</returns>
+    [LibraryImport(User32, EntryPoint = "SetProcessDpiAwarenessContext")]
+    internal static partial int SetProcessDpiAwarenessContext(nint context);
+
+    /// <summary>Native <c>GetDpiForWindow</c>.</summary>
+    /// <param name="window">The window.</param>
+    /// <returns>The dots per inch of the display the window is on, or 0 on failure.</returns>
+    [LibraryImport(User32, EntryPoint = "GetDpiForWindow")]
+    internal static partial uint GetDpiForWindow(nint window);
+
+    /// <summary>Native <c>SetWindowPos</c>.</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="insertAfter">The window to place it behind, ignored with SWP_NOZORDER.</param>
+    /// <param name="x">The left edge on the screen.</param>
+    /// <param name="y">The top edge on the screen.</param>
+    /// <param name="width">The width.</param>
+    /// <param name="height">The height.</param>
+    /// <param name="flags">The sizing and positioning flags.</param>
+    /// <returns>Nonzero on success.</returns>
+    [LibraryImport(User32, EntryPoint = "SetWindowPos")]
+    internal static partial int SetWindowPos(nint window, nint insertAfter, int x, int y, int width, int height, uint flags);
+
     /// <summary>Native <c>OpenClipboard</c>.</summary>
     /// <param name="window">The window that owns the clipboard while it is open.</param>
     /// <returns>Nonzero on success, 0 when another application holds the clipboard.</returns>

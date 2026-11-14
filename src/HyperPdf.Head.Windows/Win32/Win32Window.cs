@@ -66,6 +66,24 @@ public sealed unsafe class Win32Window : IPlatformWindow
     /// <summary>The QS_ALLINPUT wake mask.</summary>
     private const uint AllInput = 0x04FF;
 
+    /// <summary>The WM_DPICHANGED message.</summary>
+    private const uint DpiChanged = 0x02E0;
+
+    /// <summary>The mask of the dots per inch in the first parameter of WM_DPICHANGED.</summary>
+    private const nuint DpiMask = 0xFFFF;
+
+    /// <summary>DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2: the window draws at each display's own scale instead of being stretched by Windows.</summary>
+    private const nint PerMonitorAware = -4;
+
+    /// <summary>SWP_NOZORDER and SWP_NOACTIVATE: the window keeps its place in the stack and does not take the focus.</summary>
+    private const uint KeepOrderAndFocus = 0x0014;
+
+    /// <summary>The index of the right edge in a RECT.</summary>
+    private const int RightIndex = 2;
+
+    /// <summary>The index of the bottom edge in a RECT.</summary>
+    private const int BottomIndex = 3;
+
     /// <summary>The window handle.</summary>
     private readonly long _window;
 
@@ -84,6 +102,9 @@ public sealed unsafe class Win32Window : IPlatformWindow
     /// <summary>The size of the drawing area.</summary>
     private SurfaceSize _size = new(Win32Cursors.InitialWidth, Win32Cursors.InitialHeight);
 
+    /// <summary>The device pixels of one layout unit on the display the window is on.</summary>
+    private double _scale = 1;
+
     /// <summary>One once the window is disposed.</summary>
     private int _disposed;
 
@@ -99,6 +120,10 @@ public sealed unsafe class Win32Window : IPlatformWindow
         _cursor = NativeMethods.LoadCursor(0, Win32Cursors.Arrow);
         var instance = NativeMethods.GetModuleHandle(null);
         RegisterClass(instance);
+
+        // Without this Windows draws the window at 96 dots per inch and stretches it, which blurs text on a scaled display.
+        // The call fails harmlessly when the process already chose, as an application manifest does.
+        _ = NativeMethods.SetProcessDpiAwarenessContext(PerMonitorAware);
         _window = NativeMethods.CreateWindow(
             0,
             ClassName,
@@ -119,6 +144,7 @@ public sealed unsafe class Win32Window : IPlatformWindow
         }
 
         // The Direct3D swap chain belongs to the window, so the backend is made once the window exists.
+        _scale = DisplayScale.FromDpi(NativeMethods.GetDpiForWindow((nint)_window));
         _size = ReadClientSize();
         _backend = RenderBackendSelector.Choose(
             preference,
@@ -133,7 +159,7 @@ public sealed unsafe class Win32Window : IPlatformWindow
     public SurfaceSize ClientSize => _size;
 
     /// <inheritdoc/>
-    public double Scale => 1.0;
+    public double Scale => _scale;
 
     /// <inheritdoc/>
     public long NativeHandle => _window;
@@ -307,6 +333,12 @@ public sealed unsafe class Win32Window : IPlatformWindow
             return 1;
         }
 
+        if (message == DpiChanged)
+        {
+            ApplyDpi(window, primary, secondary);
+            return 0;
+        }
+
         var windowEvent = Win32MessageReader.Read(message, primary, secondary, Win32Cursors.Modifiers());
         if (windowEvent.Kind == WindowEventKind.None)
         {
@@ -318,6 +350,24 @@ public sealed unsafe class Win32Window : IPlatformWindow
 
         // A close request is for the viewer to answer, so the window is not destroyed here.
         return 0;
+    }
+
+    /// <summary>Follows a change of display scale: the window moved to a display with another scale, or the user changed the setting.</summary>
+    /// <param name="window">The window.</param>
+    /// <param name="primary">The new dots per inch, in the low word.</param>
+    /// <param name="secondary">A pointer to the rectangle Windows suggests for the window at the new scale.</param>
+    private void ApplyDpi(nint window, nuint primary, nint secondary)
+    {
+        _scale = DisplayScale.FromDpi(primary & DpiMask);
+        var suggested = (int*)secondary;
+        if (suggested is not null)
+        {
+            // Taking the suggested rectangle keeps the window the same physical size, and its size message resizes the backend.
+            _ = NativeMethods.SetWindowPos(window, 0, suggested[0], suggested[1], suggested[RightIndex] - suggested[0], suggested[BottomIndex] - suggested[1], KeepOrderAndFocus);
+        }
+
+        // The controls are laid out for the scale, so they are laid out again even when the size in pixels stayed the same.
+        _sink?.Invoke(new(WindowEventKind.Resized, _size.Width, _size.Height, 0, 0));
     }
 
     /// <summary>Keeps the window's own state in step with an event.</summary>

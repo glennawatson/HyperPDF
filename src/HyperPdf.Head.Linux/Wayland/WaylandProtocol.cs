@@ -52,6 +52,18 @@ internal static class WaylandProtocol
     /// <summary>The wl_surface.damage_buffer request.</summary>
     internal const int SurfaceDamageBuffer = 9;
 
+    /// <summary>The wl_surface.set_buffer_scale request.</summary>
+    internal const int SurfaceSetBufferScale = 8;
+
+    /// <summary>The interface name of a display global.</summary>
+    internal const string OutputInterface = "wl_output";
+
+    /// <summary>The wl_output version the head binds, the first that reports a scale.</summary>
+    internal const uint OutputVersion = 2;
+
+    /// <summary>The wl_output.scale event.</summary>
+    internal const int OutputScale = 3;
+
     /// <summary>The xdg_wm_base.get_xdg_surface request.</summary>
     internal const int WmBaseGetXdgSurface = 2;
 

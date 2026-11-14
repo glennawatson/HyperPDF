@@ -22,6 +22,9 @@ internal sealed class WaylandGlobals
     /// <summary>Gets the clipboard manager global, which stays empty on a compositor that has none.</summary>
     internal WaylandGlobal DataDeviceManager { get; private set; }
 
+    /// <summary>Gets the first display global that reports a scale, which stays empty on a compositor too old to report one.</summary>
+    internal WaylandGlobal Output { get; private set; }
+
     /// <summary>Keeps a global when it is one the head uses.</summary>
     /// <param name="interfaceName">The interface name.</param>
     /// <param name="global">The advertised global.</param>
@@ -56,6 +59,12 @@ internal sealed class WaylandGlobals
             case WaylandProtocol.DataDeviceManagerInterface:
                 {
                     DataDeviceManager = global;
+                    break;
+                }
+
+            case WaylandProtocol.OutputInterface when Output.Name == 0 && global.Version >= WaylandProtocol.OutputVersion:
+                {
+                    Output = global;
                     break;
                 }
         }

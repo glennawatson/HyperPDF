@@ -215,6 +215,14 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library, EntryPoint = "XLookupKeysym")]
     internal static partial nuint XLookupKeysym(byte* keyEvent, int index);
 
+    /// <summary>Native <c>XGetDefault</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="program">The UTF-8 name of the program or class the setting belongs to, with a terminator.</param>
+    /// <param name="option">The UTF-8 name of the setting, with a terminator.</param>
+    /// <returns>The setting's text, owned by Xlib, or null when the desktop has not set it.</returns>
+    [LibraryImport(Library, EntryPoint = "XGetDefault")]
+    internal static partial byte* XGetDefault(X11DisplayHandle display, byte* program, byte* option);
+
     /// <summary>Native <c>XLookupString</c>.</summary>
     /// <param name="keyEvent">The XKeyEvent.</param>
     /// <param name="buffer">Receives the Latin-1 characters of the key.</param>

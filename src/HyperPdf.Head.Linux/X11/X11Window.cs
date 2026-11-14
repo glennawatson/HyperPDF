@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using HyperPdf.Presentation.Input;
 using HyperPdf.Rendering.Cpu;
@@ -75,6 +77,9 @@ public sealed unsafe class X11Window : IPlatformWindow
     /// <summary>The window's side of the clipboard.</summary>
     private readonly X11Clipboard _clipboard;
 
+    /// <summary>The device pixels of one layout unit, from the desktop's text scaling setting.</summary>
+    private readonly double _scale;
+
     /// <summary>The cursors made so far, by <see cref="ViewerCursor"/> value. They are freed with the display connection.</summary>
     private readonly nint[] _cursors = new nint[CursorShapes.Length];
 
@@ -123,7 +128,11 @@ public sealed unsafe class X11Window : IPlatformWindow
 
         var screen = NativeMethods.XDefaultScreen(_display);
         _depth = (uint)NativeMethods.XDefaultDepth(_display, screen);
-        var window = NativeMethods.XCreateSimpleWindow(_display, NativeMethods.XRootWindow(_display, screen), 0, 0, InitialWidth, InitialHeight, 0, 0, 0);
+        _scale = ReadScale();
+
+        // The first size is the same on screen at any scale, so it grows in pixels with the scale.
+        _size = new((int)Math.Round(InitialWidth * _scale), (int)Math.Round(InitialHeight * _scale));
+        var window = NativeMethods.XCreateSimpleWindow(_display, NativeMethods.XRootWindow(_display, screen), 0, 0, (uint)_size.Width, (uint)_size.Height, 0, 0, 0);
         _ids = new(window, NativeMethods.XCreateGC(_display, window, 0, null), NativeMethods.XDefaultVisual(_display, screen), Intern("WM_DELETE_WINDOW"u8));
         _clipboard = new(_display, window, new(Intern("CLIPBOARD"u8), Intern("TARGETS"u8), Intern("UTF8_STRING"u8)));
         nint* protocols = stackalloc nint[] { (nint)_ids.CloseAtom };
@@ -141,7 +150,7 @@ public sealed unsafe class X11Window : IPlatformWindow
     public SurfaceSize ClientSize => _size;
 
     /// <inheritdoc/>
-    public double Scale => 1.0;
+    public double Scale => _scale;
 
     /// <inheritdoc/>
     public long NativeHandle => _ids.Window;
@@ -313,6 +322,23 @@ public sealed unsafe class X11Window : IPlatformWindow
         }
 
         _ = NativeMethods.XFlush(_display);
+    }
+
+    /// <summary>Reads the display scale from the desktop's Xft.dpi setting, which desktops set for scaled and high resolution displays.</summary>
+    /// <returns>The scale, 1 when the desktop sets none.</returns>
+    private double ReadScale()
+    {
+        fixed (byte* program = "Xft\0"u8)
+        {
+            fixed (byte* option = "dpi\0"u8)
+            {
+                var text = NativeMethods.XGetDefault(_display, program, option);
+                var dpi = text is not null && double.TryParse(MemoryMarshal.CreateReadOnlySpanFromNullTerminated(text), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+                    ? parsed
+                    : 0;
+                return DisplayScale.FromDpi(dpi);
+            }
+        }
     }
 
     /// <summary>Asks the server where the top left of the window is on the screen.</summary>

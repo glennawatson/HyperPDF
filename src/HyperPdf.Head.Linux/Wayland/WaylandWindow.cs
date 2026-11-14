@@ -76,6 +76,15 @@ public sealed class WaylandWindow : IPlatformWindow
     /// <summary>The modifier keys the keyboard last reported, as <see cref="ViewerModifiers"/> bits.</summary>
     private uint _modifiers;
 
+    /// <summary>The size the compositor gave the window, in its own units.</summary>
+    private SurfaceSize _logical = new(InitialWidth, InitialHeight);
+
+    /// <summary>The device pixels of one compositor unit on the display the window is on.</summary>
+    private int _bufferScale = 1;
+
+    /// <summary>The buffer scale the compositor was last told, so it is only told again when it changes.</summary>
+    private int _sentScale = 1;
+
     /// <summary>The serial of the last key or button event, which the compositor asks for when the clipboard is set.</summary>
     private uint _serial;
 
@@ -115,7 +124,7 @@ public sealed class WaylandWindow : IPlatformWindow
     public SurfaceSize ClientSize => _size;
 
     /// <inheritdoc/>
-    public double Scale => 1.0;
+    public double Scale => _bufferScale;
 
     /// <inheritdoc/>
     public long NativeHandle => 0;
@@ -255,6 +264,7 @@ public sealed class WaylandWindow : IPlatformWindow
         _objects.Shm = Bind(registry, WaylandProtocol.ShmInterface, _globals.Shm, WaylandProtocol.ShmVersion);
         _objects.WmBase = Bind(registry, WaylandProtocol.WmBaseInterface, _globals.WmBase, WaylandProtocol.WmBaseVersion);
         _objects.Seat = _globals.Seat.Name == 0 ? 0 : Bind(registry, WaylandProtocol.SeatInterface, _globals.Seat, WaylandProtocol.SeatVersion);
+        _objects.Output = _globals.Output.Name == 0 ? 0 : Bind(registry, WaylandProtocol.OutputInterface, _globals.Output, WaylandProtocol.OutputVersion);
         if (_objects.Seat != 0 && _globals.DataDeviceManager.Name != 0)
         {
             var manager = Bind(registry, WaylandProtocol.DataDeviceManagerInterface, _globals.DataDeviceManager, WaylandProtocol.DataDeviceManagerVersion);
@@ -404,6 +414,10 @@ public sealed class WaylandWindow : IPlatformWindow
         {
             HandleKeyboard(opcode, ref reader);
         }
+        else if (objectId == _objects.Output && _objects.Output != 0)
+        {
+            HandleOutput(opcode, ref reader);
+        }
         else if (opcode == 0)
         {
             _ = _pool?.Release(objectId);
@@ -443,14 +457,48 @@ public sealed class WaylandWindow : IPlatformWindow
 
         var width = reader.ReadInt();
         var height = reader.ReadInt();
-        if (width <= 0 || height <= 0 || new SurfaceSize(width, height) == _size)
+        if (width <= 0 || height <= 0)
         {
             return;
         }
 
-        _size = new(width, height);
+        _logical = new(width, height);
+        ApplySize();
+    }
+
+    /// <summary>Follows the scale of the display: the compositor sizes the window in its own units and the window draws that many times more pixels.</summary>
+    /// <param name="opcode">The event.</param>
+    /// <param name="reader">The event arguments.</param>
+    private void HandleOutput(int opcode, ref WaylandMessageReader reader)
+    {
+        if (opcode != WaylandProtocol.OutputScale)
+        {
+            return;
+        }
+
+        // A buffer scale is a whole number, so the user's own setting is rounded to the nearest one.
+        var scale = Math.Max(1, (int)Math.Round(DisplayScale.Resolve(reader.ReadInt())));
+        if (scale == _bufferScale)
+        {
+            return;
+        }
+
+        _bufferScale = scale;
+        ApplySize();
+    }
+
+    /// <summary>Sizes the drawing area in device pixels from the size the compositor gave and the display's scale, and reports a change.</summary>
+    private void ApplySize()
+    {
+        var size = new SurfaceSize(_logical.Width * _bufferScale, _logical.Height * _bufferScale);
+        if (size == _size)
+        {
+            return;
+        }
+
+        _size = size;
         Backend.Resize(_size);
-        Emit(new(WindowEventKind.Resized, width, height, 0, 0));
+        Emit(new(WindowEventKind.Resized, size.Width, size.Height, 0, 0));
     }
 
     /// <summary>Asks for the pointer and keyboard the seat offers.</summary>
@@ -532,8 +580,9 @@ public sealed class WaylandWindow : IPlatformWindow
     /// <param name="reader">The event arguments, at the x coordinate.</param>
     private void MovePointer(ref WaylandMessageReader reader)
     {
-        var x = (int)Math.Round(reader.ReadFixed());
-        var y = (int)Math.Round(reader.ReadFixed());
+        // The compositor reports the pointer in its own units, and the viewer works in device pixels.
+        var x = (int)Math.Round(reader.ReadFixed() * _bufferScale);
+        var y = (int)Math.Round(reader.ReadFixed() * _bufferScale);
         _pointer = new(WindowEventKind.PointerMoved, x, y, (uint)_held, _modifiers);
         Emit(_pointer);
     }
@@ -603,6 +652,15 @@ public sealed class WaylandWindow : IPlatformWindow
 
         pixels[..(stride * size.Height)].CopyTo(_pool.Pixels(index));
         var writer = _connection.Writer;
+        if (_sentScale != _bufferScale)
+        {
+            // The scale is part of the surface state the commit below applies, together with the buffer drawn at that scale.
+            _sentScale = _bufferScale;
+            writer.Begin(_objects.Surface, WaylandProtocol.SurfaceSetBufferScale);
+            writer.WriteInt(_bufferScale);
+            writer.End();
+        }
+
         writer.Begin(_objects.Surface, WaylandProtocol.SurfaceAttach);
         writer.WriteUInt(_pool.BufferId(index));
         writer.WriteInt(0);
