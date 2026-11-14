@@ -6,5 +6,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
+    <ProjectReference Include="..\..\HyperPdf.Head.Linux\HyperPdf.Head.Linux.csproj" />
   </ItemGroup>
 </Project>
