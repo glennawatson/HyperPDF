@@ -5,6 +5,7 @@
 using BenchmarkDotNet.Attributes;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Rendering.Cpu;
+using HyperPdf.Rendering.Direct3D;
 using HyperPdf.Rendering.Vulkan;
 using HyperPdf.Windowing.Rendering;
 
@@ -64,6 +65,12 @@ public class RenderBackendFrameBenchmarks
     /// <summary>The Vulkan tiles.</summary>
     private IRenderSurface[] _gpuTiles = [];
 
+    /// <summary>The Direct3D backend, or <see langword="null"/> off Windows.</summary>
+    private IRenderBackend? _direct3D;
+
+    /// <summary>The Direct3D tiles.</summary>
+    private IRenderSurface[] _direct3DTiles = [];
+
     /// <summary>Creates both backends and their filled tiles, and draws one frame so tiles are uploaded.</summary>
     [GlobalSetup]
     public void Setup()
@@ -71,15 +78,23 @@ public class RenderBackendFrameBenchmarks
         _cpu = new(static (_, _, _) => { });
         _cpu.Resize(new(FrameWidth, FrameHeight));
         _cpuTiles = CreateTiles(_cpu);
-        if (VulkanContext.TryCreate() is not { } context)
+        if (VulkanContext.TryCreate() is { } context)
+        {
+            _gpu = new(context);
+            _gpu.Resize(new(FrameWidth, FrameHeight));
+            _gpuTiles = CreateTiles(_gpu);
+            DrawFrame(_gpu, _gpuTiles, 1, smooth: false);
+        }
+
+        if (!OperatingSystem.IsWindows())
         {
             return;
         }
 
-        _gpu = new(context);
-        _gpu.Resize(new(FrameWidth, FrameHeight));
-        _gpuTiles = CreateTiles(_gpu);
-        DrawFrame(_gpu, _gpuTiles, 1, smooth: false);
+        _direct3D = new Direct3DRenderBackend();
+        _direct3D.Resize(new(FrameWidth, FrameHeight));
+        _direct3DTiles = CreateTiles(_direct3D);
+        DrawFrame(_direct3D, _direct3DTiles, 1, smooth: false);
     }
 
     /// <summary>Releases the tiles and the backends.</summary>
@@ -88,8 +103,10 @@ public class RenderBackendFrameBenchmarks
     {
         DisposeTiles(_cpuTiles);
         DisposeTiles(_gpuTiles);
+        DisposeTiles(_direct3DTiles);
         _cpu.Dispose();
         _gpu?.Dispose();
+        _direct3D?.Dispose();
     }
 
     /// <summary>Draws a frame of unscaled tiles on the CPU, as on every scroll step.</summary>
@@ -121,6 +138,26 @@ public class RenderBackendFrameBenchmarks
         if (_gpu is { } gpu)
         {
             DrawFrame(gpu, _gpuTiles, WheelStep, smooth: true);
+        }
+    }
+
+    /// <summary>Records a frame of unscaled cached tiles and hands it to Direct3D. The GPU draws it after the call returns, so this is the cost to the window thread.</summary>
+    [Benchmark]
+    public void Direct3DFrame()
+    {
+        if (_direct3D is { } gpu)
+        {
+            DrawFrame(gpu, _direct3DTiles, 1, smooth: false);
+        }
+    }
+
+    /// <summary>Records a frame of smoothly stretched cached tiles and hands it to Direct3D.</summary>
+    [Benchmark]
+    public void Direct3DFrameStretchedSmooth()
+    {
+        if (_direct3D is { } gpu)
+        {
+            DrawFrame(gpu, _direct3DTiles, WheelStep, smooth: true);
         }
     }
 
