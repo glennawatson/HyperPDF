@@ -18,6 +18,7 @@
     <Project Path="HyperPdf.Rendering.Cpu/HyperPdf.Rendering.Cpu.csproj" />
     <Project Path="HyperPdf.Rendering.Vulkan/HyperPdf.Rendering.Vulkan.csproj" />
     <Project Path="HyperPdf.Rendering.Direct3D/HyperPdf.Rendering.Direct3D.csproj" />
+    <Project Path="HyperPdf.Rendering.Metal/HyperPdf.Rendering.Metal.csproj" />
     <Project Path="HyperPdf.Head.Linux/HyperPdf.Head.Linux.csproj" />
     <Project Path="HyperPdf.Head.Windows/HyperPdf.Head.Windows.csproj" />
     <Project Path="HyperPdf.Http/HyperPdf.Http.csproj" />
