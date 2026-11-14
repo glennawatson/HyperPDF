@@ -144,4 +144,13 @@ internal static class WaylandProtocol
 
     /// <summary>The wl_data_offer.destroy request.</summary>
     internal const int DataOfferDestroy = 2;
+
+    /// <summary>The wl_data_offer.receive request, which carries a file descriptor.</summary>
+    internal const int DataOfferReceive = 1;
+
+    /// <summary>The wl_data_offer.offer event, which names one kind of data the offer has.</summary>
+    internal const int DataOfferOffer = 0;
+
+    /// <summary>The wl_data_device.selection event, which names the offer that is the clipboard.</summary>
+    internal const int DataDeviceSelection = 5;
 }

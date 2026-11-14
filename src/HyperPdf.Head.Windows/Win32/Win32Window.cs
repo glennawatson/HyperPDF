@@ -206,6 +206,10 @@ public sealed unsafe class Win32Window : IPlatformWindow
     }
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public string? GetClipboardText() => Win32Clipboard.GetText((nint)_window);
+
+    /// <inheritdoc/>
     public void RequestFrame()
     {
         if (Volatile.Read(ref _disposed) == 0)

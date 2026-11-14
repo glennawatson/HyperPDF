@@ -81,6 +81,9 @@ internal sealed class HeadlessWindow : IPlatformWindow
     public void SetClipboardText(string text) => ClipboardText = text;
 
     /// <inheritdoc/>
+    public string? GetClipboardText() => ClipboardText;
+
+    /// <inheritdoc/>
     public void RequestFrame()
     {
         Volatile.Write(ref _frameWanted, 1);

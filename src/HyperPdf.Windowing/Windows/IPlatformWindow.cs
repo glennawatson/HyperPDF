@@ -41,6 +41,10 @@ public interface IPlatformWindow : IDisposable
     /// <param name="text">The text.</param>
     void SetClipboardText(string text);
 
+    /// <summary>Reads the text on the system clipboard, to paste it into a text box.</summary>
+    /// <returns>The text, or <see langword="null"/> when the clipboard holds no text or does not answer in time.</returns>
+    string? GetClipboardText();
+
     /// <summary>Asks for the canvas to be drawn on the next frame.</summary>
     void RequestFrame();
 

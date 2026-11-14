@@ -242,6 +242,61 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library, EntryPoint = "XSetSelectionOwner")]
     internal static partial int XSetSelectionOwner(X11DisplayHandle display, nint selection, nint owner, nint time);
 
+    /// <summary>Native <c>XConvertSelection</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="selection">The selection atom.</param>
+    /// <param name="target">The type wanted.</param>
+    /// <param name="property">The property the owner writes the data into.</param>
+    /// <param name="requestor">The window that gets the property.</param>
+    /// <param name="time">The time of the event that caused it, or 0 for now.</param>
+    /// <returns>The status.</returns>
+    [LibraryImport(Library, EntryPoint = "XConvertSelection")]
+    internal static partial int XConvertSelection(X11DisplayHandle display, nint selection, nint target, nint property, nint requestor, nint time);
+
+    /// <summary>Native <c>XCheckTypedWindowEvent</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="window">The window.</param>
+    /// <param name="type">The event type wanted.</param>
+    /// <param name="xevent">Receives the event, at least 192 bytes.</param>
+    /// <returns>Nonzero when an event of the type was waiting and was taken from the queue.</returns>
+    [LibraryImport(Library, EntryPoint = "XCheckTypedWindowEvent")]
+    internal static partial int XCheckTypedWindowEvent(X11DisplayHandle display, nint window, int type, byte* xevent);
+
+    /// <summary>Native <c>XGetWindowProperty</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="window">The window.</param>
+    /// <param name="property">The property atom.</param>
+    /// <param name="offset">Where to start, in 32-bit units.</param>
+    /// <param name="length">How much to read, in 32-bit units.</param>
+    /// <param name="delete">Whether the property is removed once read.</param>
+    /// <param name="requestType">The type wanted, or 0 for any.</param>
+    /// <param name="type">Receives the type.</param>
+    /// <param name="format">Receives the bits of one element.</param>
+    /// <param name="count">Receives the number of elements.</param>
+    /// <param name="remaining">Receives the bytes left unread.</param>
+    /// <param name="data">Receives the data, which <see cref="XFree"/> releases.</param>
+    /// <returns>0 on success.</returns>
+    [LibraryImport(Library, EntryPoint = "XGetWindowProperty")]
+    internal static partial int XGetWindowProperty(
+        X11DisplayHandle display,
+        nint window,
+        nint property,
+        nint offset,
+        nint length,
+        int delete,
+        nint requestType,
+        nint* type,
+        int* format,
+        nuint* count,
+        nuint* remaining,
+        byte** data);
+
+    /// <summary>Native <c>XFree</c>.</summary>
+    /// <param name="data">Memory Xlib allocated.</param>
+    /// <returns>The status.</returns>
+    [LibraryImport(Library, EntryPoint = "XFree")]
+    internal static partial int XFree(byte* data);
+
     /// <summary>Native <c>XChangeProperty</c>.</summary>
     /// <param name="display">The display.</param>
     /// <param name="window">The window that gets the property.</param>

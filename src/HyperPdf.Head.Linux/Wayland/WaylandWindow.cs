@@ -177,6 +177,10 @@ public sealed class WaylandWindow : IPlatformWindow
     }
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public string? GetClipboardText() => _clipboard.GetText();
+
+    /// <inheritdoc/>
     public void RequestFrame()
     {
         Volatile.Write(ref _frameWanted, 1);

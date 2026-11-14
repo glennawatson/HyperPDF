@@ -16,6 +16,29 @@ internal static unsafe class Win32Clipboard
     /// <summary>The allocation flag of memory the system may move, which the clipboard requires.</summary>
     private const uint Movable = 2;
 
+    /// <summary>Reads the text on the clipboard.</summary>
+    /// <param name="window">The window that reads the clipboard.</param>
+    /// <returns>The text, or <see langword="null"/> when the clipboard holds no text or another application holds it open.</returns>
+    internal static string? GetText(nint window)
+    {
+        if (NativeMethods.OpenClipboard(window) == 0)
+        {
+            return null;
+        }
+
+        string? text = null;
+        var memory = NativeMethods.GetClipboardData(UnicodeText);
+        if (memory != 0)
+        {
+            var characters = (char*)NativeMethods.GlobalLock(memory);
+            text = characters is null ? null : new string(characters);
+            _ = NativeMethods.GlobalUnlock(memory);
+        }
+
+        _ = NativeMethods.CloseClipboard();
+        return text;
+    }
+
     /// <summary>Replaces what is on the clipboard with text.</summary>
     /// <param name="window">The window that sets the clipboard.</param>
     /// <param name="text">The text.</param>

@@ -30,6 +30,9 @@ internal static class CocoaInput
     /// <summary>The key code of the W key.</summary>
     private const ushort LetterW = 13;
 
+    /// <summary>The key code of the V key.</summary>
+    private const ushort LetterV = 9;
+
     /// <summary>The key code of the equals key, which is plus with Shift.</summary>
     private const ushort EqualsKey = 24;
 
@@ -158,6 +161,7 @@ internal static class CocoaInput
         LetterO => ViewerKey.O,
         LetterS => ViewerKey.S,
         LetterW => ViewerKey.W,
+        LetterV => ViewerKey.V,
         _ => ViewerKey.Other,
     };
 }

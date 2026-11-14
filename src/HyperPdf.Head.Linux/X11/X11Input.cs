@@ -93,6 +93,9 @@ internal static class X11Input
     /// <summary>The key symbol of the letter w.</summary>
     private const uint LetterW = 0x77;
 
+    /// <summary>The key symbol of the letter v.</summary>
+    private const uint LetterV = 0x76;
+
     /// <summary>The first key symbol that is a printing Latin-1 character and its own Unicode value.</summary>
     private const uint FirstPrinting = 0x20;
 
@@ -260,6 +263,7 @@ internal static class X11Input
         LetterO => ViewerKey.O,
         LetterS => ViewerKey.S,
         LetterW => ViewerKey.W,
+        LetterV => ViewerKey.V,
         _ => ViewerKey.Other,
     };
 }

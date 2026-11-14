@@ -264,6 +264,12 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(User32, EntryPoint = "SetClipboardData")]
     internal static partial nint SetClipboardData(uint format, nint memory);
 
+    /// <summary>Native <c>GetClipboardData</c>.</summary>
+    /// <param name="format">The clipboard format.</param>
+    /// <returns>The memory handle of the data, owned by the clipboard, or 0 when it has none in that format.</returns>
+    [LibraryImport(User32, EntryPoint = "GetClipboardData")]
+    internal static partial nint GetClipboardData(uint format);
+
     /// <summary>Native <c>CloseClipboard</c>.</summary>
     /// <returns>Nonzero on success.</returns>
     [LibraryImport(User32, EntryPoint = "CloseClipboard")]

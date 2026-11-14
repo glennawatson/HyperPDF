@@ -240,6 +240,19 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
     }
 
     /// <inheritdoc/>
+    public string? GetClipboardText()
+    {
+        var pool = NativeMethods.AutoreleasePoolPush();
+        var pasteboard = NativeMethods.Send(NativeMethods.GetClass("NSPasteboard"), Selectors.GeneralPasteboard);
+        var text = NativeMethods.Send(pasteboard, Selectors.StringForType, Cocoa.Text(PlainTextType));
+
+        // The string belongs to the pool, so it is copied into managed memory before the pool is drained.
+        var read = text == 0 ? null : Marshal.PtrToStringUTF8(NativeMethods.Send(text, Selectors.Utf8String));
+        NativeMethods.AutoreleasePoolPop(pool);
+        return read;
+    }
+
+    /// <inheritdoc/>
     public void SetCursor(ViewerCursor cursor)
     {
         var shape = cursor switch

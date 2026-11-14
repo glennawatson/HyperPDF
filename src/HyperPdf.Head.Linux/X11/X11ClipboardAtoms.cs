@@ -8,4 +8,5 @@ namespace HyperPdf.Head.Linux.X11;
 /// <param name="Clipboard">The selection that copy and paste use.</param>
 /// <param name="Targets">The type an application asks for to learn what it can have.</param>
 /// <param name="Utf8String">The type of UTF-8 text.</param>
-internal readonly record struct X11ClipboardAtoms(long Clipboard, long Targets, long Utf8String);
+/// <param name="Paste">The property on the window that another application writes pasted text into.</param>
+internal readonly record struct X11ClipboardAtoms(long Clipboard, long Targets, long Utf8String, long Paste);

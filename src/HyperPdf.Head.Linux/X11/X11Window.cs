@@ -134,7 +134,7 @@ public sealed unsafe class X11Window : IPlatformWindow
         _size = new((int)Math.Round(InitialWidth * _scale), (int)Math.Round(InitialHeight * _scale));
         var window = NativeMethods.XCreateSimpleWindow(_display, NativeMethods.XRootWindow(_display, screen), 0, 0, (uint)_size.Width, (uint)_size.Height, 0, 0, 0);
         _ids = new(window, NativeMethods.XCreateGC(_display, window, 0, null), NativeMethods.XDefaultVisual(_display, screen), Intern("WM_DELETE_WINDOW"u8));
-        _clipboard = new(_display, window, new(Intern("CLIPBOARD"u8), Intern("TARGETS"u8), Intern("UTF8_STRING"u8)));
+        _clipboard = new(_display, window, new(Intern("CLIPBOARD"u8), Intern("TARGETS"u8), Intern("UTF8_STRING"u8), Intern("HYPERPDF_PASTE"u8)));
         nint* protocols = stackalloc nint[] { (nint)_ids.CloseAtom };
         _ = NativeMethods.XSetWMProtocols(_display, window, protocols, 1);
         _ = NativeMethods.XSelectInput(
@@ -238,6 +238,10 @@ public sealed unsafe class X11Window : IPlatformWindow
         ArgumentNullException.ThrowIfNull(text);
         _clipboard.SetText(text);
     }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public string? GetClipboardText() => _clipboard.GetText();
 
     /// <inheritdoc/>
     public void Dispose()

@@ -48,6 +48,9 @@ internal static class EvdevInput
     /// <summary>The code of the W key.</summary>
     private const uint LetterWCode = 17;
 
+    /// <summary>The code of the V key.</summary>
+    private const uint LetterVCode = 47;
+
     /// <summary>The code of the space bar.</summary>
     private const uint SpaceCode = 57;
 
@@ -178,6 +181,7 @@ internal static class EvdevInput
         LetterOCode => ViewerKey.O,
         LetterSCode => ViewerKey.S,
         LetterWCode => ViewerKey.W,
+        LetterVCode => ViewerKey.V,
         _ => ViewerKey.Other,
     };
 }

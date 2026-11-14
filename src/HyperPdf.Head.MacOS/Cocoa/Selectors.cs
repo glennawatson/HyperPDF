@@ -127,6 +127,9 @@ internal static class Selectors
     /// <summary>Gets <c>clearContents</c>.</summary>
     internal static nint ClearContents { get; } = NativeMethods.Selector("clearContents");
 
+    /// <summary>Gets <c>stringForType:</c>.</summary>
+    internal static nint StringForType { get; } = NativeMethods.Selector("stringForType:");
+
     /// <summary>Gets <c>setString:forType:</c>.</summary>
     internal static nint SetStringForType { get; } = NativeMethods.Selector("setString:forType:");
 

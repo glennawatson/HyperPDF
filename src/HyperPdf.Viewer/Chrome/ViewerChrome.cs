@@ -581,6 +581,22 @@ public sealed class ViewerChrome : IDisposable
             return (modifiers & ViewerModifiers.Control) != 0 && RunShortcut(key, modifiers);
         }
 
+        if (key == ViewerKey.V && (modifiers & ViewerModifiers.Control) != 0)
+        {
+            Paste(overlay);
+            return true;
+        }
+
+        return PressOverlayKey(overlay, key, modifiers);
+    }
+
+    /// <summary>Hands a key to the open menu, dialog or search bar, and closes it when the key ends it.</summary>
+    /// <param name="overlay">The overlay.</param>
+    /// <param name="key">The key.</param>
+    /// <param name="modifiers">The modifier keys held.</param>
+    /// <returns><see langword="true"/> when the key was used.</returns>
+    private bool PressOverlayKey(IChromeOverlay overlay, ViewerKey key, ViewerModifiers modifiers)
+    {
         if (!overlay.TakesAllKeys && key is not (ViewerKey.Enter or ViewerKey.Escape or ViewerKey.Back))
         {
             return false;
@@ -594,6 +610,28 @@ public sealed class ViewerChrome : IDisposable
 
         _window.RequestFrame();
         return true;
+    }
+
+    /// <summary>Types the clipboard's text into the open menu, dialog or search bar. A text box takes one line, so the paste stops at the first line break.</summary>
+    /// <param name="overlay">The overlay.</param>
+    private void Paste(IChromeOverlay overlay)
+    {
+        if (_window.GetClipboardText() is not { Length: > 0 } text)
+        {
+            return;
+        }
+
+        foreach (var rune in text.EnumerateRunes())
+        {
+            if (rune.Value is '\n' or '\r')
+            {
+                break;
+            }
+
+            overlay.Type(rune.Value);
+        }
+
+        _window.RequestFrame();
     }
 
     /// <summary>Runs the window command of a key pressed with Control.</summary>

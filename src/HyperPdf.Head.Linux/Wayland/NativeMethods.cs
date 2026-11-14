@@ -35,6 +35,13 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library, EntryPoint = "recvmsg")]
     internal static partial nint ReceiveMessage(int socket, byte* message, int flags);
 
+    /// <summary>Native <c>pipe2</c>.</summary>
+    /// <param name="descriptors">Receives the read end and then the write end.</param>
+    /// <param name="flags">The flags for both ends.</param>
+    /// <returns>0 on success, or -1 on failure.</returns>
+    [LibraryImport(Library, EntryPoint = "pipe2")]
+    internal static partial int Pipe(int* descriptors, int flags);
+
     /// <summary>Native <c>eventfd</c>.</summary>
     /// <param name="initial">The starting counter.</param>
     /// <param name="flags">The flags.</param>

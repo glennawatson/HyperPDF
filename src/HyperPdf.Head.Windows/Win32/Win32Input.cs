@@ -69,6 +69,9 @@ internal static class Win32Input
     /// <summary>The virtual key code of the W key.</summary>
     private const uint LetterW = 0x57;
 
+    /// <summary>The virtual key code of the V key.</summary>
+    private const uint LetterV = 0x56;
+
     /// <summary>The virtual key code of plus on the number pad.</summary>
     private const uint AddKey = 0x6B;
 
@@ -145,6 +148,7 @@ internal static class Win32Input
         LetterO => ViewerKey.O,
         LetterS => ViewerKey.S,
         LetterW => ViewerKey.W,
+        LetterV => ViewerKey.V,
         _ => ViewerKey.Other,
     };
 }
