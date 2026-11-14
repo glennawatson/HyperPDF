@@ -10,14 +10,22 @@ concurrency:
 jobs:
   refresh:
     name: Refresh notices
+    environment: notices_generate
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
+      - name: Create notices push token
+        id: notices-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ secrets.NOTICES_APP_CLIENT_ID }}
+          private-key: ${{ secrets.NOTICES_APP_PRIVATE_KEY }}
+          permission-contents: write
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.ref_name }}
-          ssh-key: ${{ secrets.NOTICES_PUSH_KEY }}
+          token: ${{ steps.notices-token.outputs.token }}
       - name: Setup .NET
         uses: glennawatson/actions-common/.github/actions/dotnet-environment@4d538f76071ed73496cbf406cebe85e760fb734d # main
         with:

@@ -12,7 +12,7 @@ using HyperPdf.Scripts;
 
 // Rebuilds every checked-in notices file (src/licenses/notices/*.md) from the restored NuGet graph, so a package bump never
 // needs a hand edit. With --push, a changed result is committed and pushed to the current branch. The workflow uses a
-// repository deploy key so the push can update main and start CI.
+// repository's GitHub App so the push can update main and start CI.
 // Usage: dotnet run --file src/tools/RefreshThirdPartyNotices.cs -- [--push]
 const int TimeoutMinutes = 20;
 
