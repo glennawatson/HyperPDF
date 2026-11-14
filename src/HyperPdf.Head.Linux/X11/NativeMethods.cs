@@ -189,6 +189,19 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library, EntryPoint = "XDisplayOfScreen")]
     internal static partial nint XDisplayOfScreen(nint screen);
 
+    /// <summary>Native <c>XTranslateCoordinates</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="source">The window the point is in.</param>
+    /// <param name="destination">The window the point is wanted in, such as the root window for the screen.</param>
+    /// <param name="sourceX">The x in the source window.</param>
+    /// <param name="sourceY">The y in the source window.</param>
+    /// <param name="destinationX">Receives the x in the destination window.</param>
+    /// <param name="destinationY">Receives the y in the destination window.</param>
+    /// <param name="child">Receives the child window that holds the point, or 0.</param>
+    /// <returns>Nonzero when both windows are on the same screen.</returns>
+    [LibraryImport(Library, EntryPoint = "XTranslateCoordinates")]
+    internal static partial int XTranslateCoordinates(X11DisplayHandle display, nint source, nint destination, int sourceX, int sourceY, int* destinationX, int* destinationY, nint* child);
+
     /// <summary>Native <c>XConnectionNumber</c>.</summary>
     /// <param name="display">The display.</param>
     /// <returns>The file descriptor of the connection to the X server.</returns>

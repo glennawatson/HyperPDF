@@ -137,6 +137,27 @@ public sealed unsafe class X11Window : IPlatformWindow
     public double Scale => 1.0;
 
     /// <inheritdoc/>
+    public long NativeHandle => _ids.Window;
+
+    /// <inheritdoc/>
+    public ScreenPoint ScreenOrigin
+    {
+        get
+        {
+            if (Volatile.Read(ref _disposed) != 0)
+            {
+                return default;
+            }
+
+            int x;
+            int y;
+            nint child;
+            var root = NativeMethods.XRootWindow(_display, NativeMethods.XDefaultScreen(_display));
+            return NativeMethods.XTranslateCoordinates(_display, (nint)_ids.Window, root, 0, 0, &x, &y, &child) != 0 ? new(x, y) : default;
+        }
+    }
+
+    /// <inheritdoc/>
     public IRenderBackend Backend { get; }
 
     /// <inheritdoc/>

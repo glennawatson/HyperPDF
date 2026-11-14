@@ -42,6 +42,12 @@ internal sealed class HeadlessWindow : IPlatformWindow
     public double Scale => 1;
 
     /// <inheritdoc/>
+    public long NativeHandle => 0;
+
+    /// <inheritdoc/>
+    public ScreenPoint ScreenOrigin => default;
+
+    /// <inheritdoc/>
     public IRenderBackend Backend => Cpu;
 
     /// <inheritdoc/>
@@ -52,6 +58,9 @@ internal sealed class HeadlessWindow : IPlatformWindow
 
     /// <summary>Gets the number of frames presented.</summary>
     internal int FramesPresented { get; private set; }
+
+    /// <summary>Gets a value indicating whether a tree was attached to the window's accessibility bridge.</summary>
+    internal bool Attached => Accessibility is RecordingAccessibilityBridge { Tree: not null };
 
     /// <summary>Gets the last title set.</summary>
     internal string Title { get; private set; } = string.Empty;

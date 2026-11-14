@@ -8,6 +8,7 @@ using HyperPdf.Core.Theming;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Services;
 using HyperPdf.ViewModels.Viewing;
+using HyperPdf.Viewer.Accessibility;
 using HyperPdf.Windowing.Windows;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -52,6 +53,9 @@ public sealed class ViewerSession : IDisposable
         _context = context;
         Main = new(services);
         Canvas = new(window) { Colors = ViewerColors.From(services.CurrentTheme.Scheme) };
+        Accessibility = new(window);
+        window.Accessibility.Attach(Accessibility);
+        _owned.Add(Accessibility);
         _owned.Add(Canvas);
         _owned.Add(Main);
         _owned.Add(services.Theme.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(ShowTheme, ErrorTrace.Write));
@@ -63,6 +67,9 @@ public sealed class ViewerSession : IDisposable
 
     /// <summary>Gets the page canvas.</summary>
     public ViewerCanvas Canvas { get; }
+
+    /// <summary>Gets the tree the window's accessibility bridge serves to screen readers and magnifiers.</summary>
+    public ViewerAccessibleTree Accessibility { get; }
 
     /// <summary>Makes the calling thread the window thread: posted work and awaits come back to it, and ReactiveUI's main thread scheduler posts to it.</summary>
     /// <param name="window">The window this thread pumps.</param>
@@ -98,6 +105,10 @@ public sealed class ViewerSession : IDisposable
         // Work that is already waiting must not sit behind a wait for the window. Work posted after this check wakes the wait itself.
         _window.PumpEvents(_context.HasWork ? 0 : timeoutMilliseconds, HandleEvent);
         _context.Drain();
+
+        // Posted work changes view models without a window event, so the tree is told after it too. Building waits for a reader.
+        Accessibility.Invalidate();
+        Accessibility.RefreshIfRead(Main, Canvas);
         return !_closed;
     }
 

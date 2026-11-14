@@ -4,11 +4,13 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using HyperPdf.Core.Accessibility;
 using HyperPdf.Core.Settings;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels.Services;
 using HyperPdf.Viewer;
+using HyperPdf.Viewer.Accessibility;
 using HyperPdf.Windowing.Windows;
 
 namespace HyperPdf.Windowing.Tests;
@@ -65,6 +67,9 @@ public sealed class ViewerSessionTests
         await Assert.That(outcome.PaperPixels).IsGreaterThan(0);
         await Assert.That(outcome.InkPixels).IsGreaterThan(0);
         await Assert.That(outcome.ScrolledBy).IsGreaterThan(0);
+        await Assert.That(outcome.TreeAttached).IsTrue();
+        await Assert.That(outcome.DocumentRole).IsEqualTo(AccessibleRole.Document);
+        await Assert.That(outcome.DocumentTextLength).IsGreaterThan(0);
     }
 
     /// <summary>Opens a document in a viewer session, pumps it until the pages are drawn, then scrolls one notch.</summary>
@@ -89,7 +94,12 @@ public sealed class ViewerSessionTests
         var start = session.Canvas.Offset.Y;
         window.Send(new(WindowEventKind.Scrolled, 0, -WindowEvent.ScrollNotch, 0, 0));
         _ = PumpUntil(session, () => session.Canvas.Offset.Y > start);
-        return new(loaded, paper, ink, session.Canvas.Offset.Y - start);
+
+        // The first question from a screen reader makes the viewer build its tree, which the next pump does.
+        _ = session.Accessibility.Get(session.Accessibility.RootId);
+        _ = PumpUntil(session, () => session.Accessibility.Get(ViewerNodes.DocumentId) is { Text.Value.Length: > 0 });
+        var document = session.Accessibility.Get(ViewerNodes.DocumentId);
+        return new(loaded, paper, ink, session.Canvas.Offset.Y - start, document?.Role ?? AccessibleRole.Unknown, document?.Text?.Value.Length ?? 0, window.Attached);
     }
 
     /// <summary>Pumps the session until a condition holds or the time runs out.</summary>
@@ -148,5 +158,8 @@ public sealed class ViewerSessionTests
     /// <param name="PaperPixels">The paper pixels in the frame.</param>
     /// <param name="InkPixels">The text pixels in the frame.</param>
     /// <param name="ScrolledBy">How far one wheel notch down scrolled, in canvas units.</param>
-    private readonly record struct ViewerOutcome(bool Loaded, int PaperPixels, int InkPixels, double ScrolledBy);
+    /// <param name="DocumentRole">The role of the document element a screen reader finds.</param>
+    /// <param name="DocumentTextLength">The length of the page text a screen reader can read.</param>
+    /// <param name="TreeAttached">Whether the viewer gave its tree to the window's accessibility bridge.</param>
+    private readonly record struct ViewerOutcome(bool Loaded, int PaperPixels, int InkPixels, double ScrolledBy, AccessibleRole DocumentRole, int DocumentTextLength, bool TreeAttached);
 }

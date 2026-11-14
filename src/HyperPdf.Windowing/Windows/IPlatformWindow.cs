@@ -14,6 +14,12 @@ public interface IPlatformWindow : IDisposable
     /// <summary>Gets the size of the drawing area in device pixels.</summary>
     SurfaceSize ClientSize { get; }
 
+    /// <summary>Gets where the top left of the drawing area is on the screen, or the screen's own corner where the window system does not tell a window its place.</summary>
+    ScreenPoint ScreenOrigin { get; }
+
+    /// <summary>Gets the operating system's number for the window, such as a window handle, or 0 when it has none. Accessibility bridges find the window by it.</summary>
+    long NativeHandle { get; }
+
     /// <summary>Gets the device pixels per logical pixel, so 2.0 on a doubled display.</summary>
     double Scale { get; }
 

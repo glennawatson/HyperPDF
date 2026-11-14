@@ -111,6 +111,12 @@ public sealed class WaylandWindow : IPlatformWindow
     public double Scale => 1.0;
 
     /// <inheritdoc/>
+    public long NativeHandle => 0;
+
+    /// <summary>Gets the corner of the screen, because a Wayland compositor does not tell a window where it is.</summary>
+    public ScreenPoint ScreenOrigin => default;
+
+    /// <inheritdoc/>
     public IRenderBackend Backend { get; }
 
     /// <inheritdoc/>
