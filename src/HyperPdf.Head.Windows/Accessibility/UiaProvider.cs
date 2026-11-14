@@ -30,8 +30,8 @@ internal sealed partial class UiaProvider : IRawElementProviderSimple, IRawEleme
     /// <summary>The navigation direction for the last child.</summary>
     private const int LastChildDirection = 4;
 
-    /// <summary>The provider option for a server side provider that uses COM threading.</summary>
-    private const int ServerSideComThreading = 0x22;
+    /// <summary>The provider option for a server side provider, called on UI Automation's own threads so a client in this process cannot deadlock the window thread.</summary>
+    private const int ServerSideProvider = 0x2;
 
     /// <summary>The bridge that owns the tree.</summary>
     private readonly UiaAccessibilityBridge _bridge;
@@ -49,24 +49,20 @@ internal sealed partial class UiaProvider : IRawElementProviderSimple, IRawEleme
     }
 
     /// <inheritdoc/>
-    public void GetProviderOptions(out int options) => options = ServerSideComThreading;
+    public void GetProviderOptions(out int options) => options = ServerSideProvider;
 
     /// <inheritdoc/>
     public void GetPatternProvider(int patternId, out nint provider) => provider = 0;
 
     /// <inheritdoc/>
-    public void GetPropertyValue(int propertyId, out UiaVariant value)
-    {
-        var tree = _bridge.Tree;
-        var index = tree.IndexOf(_id);
-        value = index == AccessibleTree.None ? default : UiaProperties.Read(propertyId, tree.Node(index));
-    }
+    public void GetPropertyValue(int propertyId, out UiaVariant value) =>
+        value = _bridge.Tree?.Get(_id) is { } node ? UiaProperties.Read(propertyId, node) : default;
 
     /// <inheritdoc/>
     public void GetHostRawElementProvider(out nint provider)
     {
         provider = 0;
-        if (_bridge.Tree.Parent(_bridge.Tree.IndexOf(_id)) == AccessibleTree.None)
+        if (_bridge.IsWindowRoot(_id))
         {
             _ = NativeMethods.HostProviderFromWindow((nint)_bridge.Window, out provider);
         }
@@ -75,39 +71,36 @@ internal sealed partial class UiaProvider : IRawElementProviderSimple, IRawEleme
     /// <inheritdoc/>
     public void Navigate(int direction, out IRawElementProviderFragment? result)
     {
-        var tree = _bridge.Tree;
-        var index = tree.IndexOf(_id);
+        result = null;
+        if (_bridge.Tree is not { } tree || (direction == ParentDirection && _bridge.IsWindowRoot(_id)))
+        {
+            return;
+        }
+
         var target = direction switch
         {
-            ParentDirection => tree.Parent(index),
-            NextDirection => tree.Next(index),
-            PreviousDirection => tree.Previous(index),
-            FirstChildDirection => tree.FirstChild(index),
-            LastChildDirection => tree.LastChild(index),
-            _ => AccessibleTree.None,
+            ParentDirection => AccessibleNavigation.Parent(tree, _id),
+            NextDirection => _bridge.IsWindowRoot(_id) ? AccessibleNavigation.None : AccessibleNavigation.NextSibling(tree, _id),
+            PreviousDirection => _bridge.IsWindowRoot(_id) ? AccessibleNavigation.None : AccessibleNavigation.PreviousSibling(tree, _id),
+            FirstChildDirection => AccessibleNavigation.FirstChild(tree, _id),
+            LastChildDirection => AccessibleNavigation.LastChild(tree, _id),
+            _ => AccessibleNavigation.None,
         };
-        result = target == AccessibleTree.None ? null : _bridge.ProviderFor(tree.Node(target).Id);
+        result = target == AccessibleNavigation.None ? null : _bridge.ProviderFor(target);
     }
 
     /// <inheritdoc/>
-    public void GetRuntimeId(out nint runtimeId) => runtimeId = _bridge.Tree.Parent(_bridge.Tree.IndexOf(_id)) == AccessibleTree.None ? 0 : UiaRuntimeIds.Create(_id);
+    public void GetRuntimeId(out nint runtimeId) => runtimeId = _bridge.IsWindowRoot(_id) ? 0 : UiaRuntimeIds.Create(_id);
 
     /// <inheritdoc/>
-    public void GetBoundingRectangle(out UiaRect bounds)
-    {
-        var tree = _bridge.Tree;
-        var index = tree.IndexOf(_id);
-        bounds = index == AccessibleTree.None ? default : _bridge.ToScreen(tree.Node(index).Bounds);
-    }
+    public void GetBoundingRectangle(out UiaRect bounds) =>
+        bounds = _bridge.Tree?.Get(_id) is { Bounds: var b } ? new(b.X, b.Y, b.Width, b.Height) : default;
 
     /// <inheritdoc/>
     public void GetEmbeddedFragmentRoots(out nint roots) => roots = 0;
 
     /// <inheritdoc/>
-    public void SetFocus()
-    {
-        // Focus follows the viewer's own focus handling; a client asking to move it is answered when the viewer publishes the new focus.
-    }
+    public void SetFocus() => _ = _bridge.Tree?.Focus(_id);
 
     /// <inheritdoc/>
     public void GetFragmentRoot(out IRawElementProviderFragmentRoot? root) => root = _bridge.RootProvider;
@@ -115,14 +108,14 @@ internal sealed partial class UiaProvider : IRawElementProviderSimple, IRawEleme
     /// <inheritdoc/>
     public void ElementProviderFromPoint(double x, double y, out IRawElementProviderFragment? result)
     {
-        var index = _bridge.HitTestScreen(x, y);
-        result = index == AccessibleTree.None ? null : _bridge.ProviderFor(_bridge.Tree.Node(index).Id);
+        var id = _bridge.Tree?.HitTest((int)x, (int)y) ?? AccessibleNavigation.None;
+        result = id == AccessibleNavigation.None ? null : _bridge.ProviderFor(id);
     }
 
     /// <inheritdoc/>
     public void GetFocus(out IRawElementProviderFragment? result)
     {
-        var index = _bridge.Tree.FocusedIndex();
-        result = index == AccessibleTree.None ? null : _bridge.ProviderFor(_bridge.Tree.Node(index).Id);
+        var id = _bridge.Tree?.FocusedId ?? AccessibleNavigation.None;
+        result = id == AccessibleNavigation.None ? null : _bridge.ProviderFor(id);
     }
 }

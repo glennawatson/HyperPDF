@@ -9,9 +9,9 @@ namespace HyperPdf.Head.Windows.Accessibility;
 /// <summary>An accessibility bridge that also answers the window messages UI Automation sends, which only a Win32 window receives.</summary>
 public interface IWin32AccessibilityBridge : IAccessibilityBridge
 {
-    /// <summary>Tells the bridge which window it publishes. Called once, right after the window is created.</summary>
+    /// <summary>Tells the bridge which window it serves. Called once, right after the window is created.</summary>
     /// <param name="window">The window handle.</param>
-    void Attach(long window);
+    void AttachWindow(long window);
 
     /// <summary>Answers WM_GETOBJECT when UI Automation asks for the root of the window.</summary>
     /// <param name="window">The window handle.</param>

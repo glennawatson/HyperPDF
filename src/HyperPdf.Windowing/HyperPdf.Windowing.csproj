@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
     <ProjectReference Include="..\HyperPdf.Presentation\HyperPdf.Presentation.csproj" />
   </ItemGroup>
 

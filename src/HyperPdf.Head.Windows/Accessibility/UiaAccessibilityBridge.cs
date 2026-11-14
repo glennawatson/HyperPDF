@@ -7,13 +7,14 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.Marshalling;
 using System.Runtime.Versioning;
+using HyperPdf.Core.Accessibility;
 using HyperPdf.Windowing.Accessibility;
 
 namespace HyperPdf.Head.Windows.Accessibility;
 
-/// <summary>Publishes the accessible tree of a Win32 window through UI Automation, which is what JAWS, NVDA, Narrator and ZoomText read.</summary>
+/// <summary>Serves the accessible tree of a Win32 window through UI Automation, which is what JAWS, NVDA, Narrator and ZoomText read.</summary>
 [SupportedOSPlatform("windows")]
-[DebuggerDisplay("UiaAccessibilityBridge: {Tree.Count} nodes")]
+[DebuggerDisplay("UiaAccessibilityBridge: window {_window}")]
 public sealed class UiaAccessibilityBridge : IWin32AccessibilityBridge
 {
     /// <summary>The IID of IRawElementProviderSimple, which UI Automation expects for the root.</summary>
@@ -25,76 +26,42 @@ public sealed class UiaAccessibilityBridge : IWin32AccessibilityBridge
     /// <summary>The providers made so far, so each node keeps one identity.</summary>
     private readonly Dictionary<int, UiaProvider> _providers = [];
 
-    /// <summary>Guards the tree and the provider table, because UI Automation calls from its own threads.</summary>
+    /// <summary>Guards the provider table, because UI Automation calls from its own threads.</summary>
     private readonly Lock _gate = new();
 
-    /// <summary>The tree last published.</summary>
-    private AccessibleTree _tree = AccessibleTree.Empty;
+    /// <summary>The tree being served, or <see langword="null"/> before <see cref="Attach(IAccessibleTree)"/>.</summary>
+    private IAccessibleTree? _tree;
 
-    /// <summary>The window handle, set by <see cref="Attach"/>.</summary>
+    /// <summary>The subscription to the tree's changes.</summary>
+    private IDisposable? _changes;
+
+    /// <summary>The window handle, set by <see cref="AttachWindow"/>.</summary>
     private long _window;
 
-    /// <summary>Gets a value indicating whether an assistive technology is using UI Automation.</summary>
+    /// <inheritdoc/>
     public bool IsAssistiveTechnologyActive => NativeMethods.ClientsAreListening() != 0;
 
-    /// <summary>Gets the tree last published.</summary>
-    internal AccessibleTree Tree
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _tree;
-            }
-        }
-    }
+    /// <summary>Gets the tree being served.</summary>
+    internal IAccessibleTree? Tree => Volatile.Read(ref _tree);
 
     /// <summary>Gets the window handle.</summary>
     internal long Window => Volatile.Read(ref _window);
 
-    /// <summary>Gets the provider of the window root, or <see langword="null"/> before anything was published.</summary>
-    internal UiaProvider? RootProvider
+    /// <summary>Gets the provider of the window root, or <see langword="null"/> before a tree is attached.</summary>
+    internal UiaProvider? RootProvider => WindowRootId() is var id && id != AccessibleNavigation.None ? ProviderFor(id) : null;
+
+    /// <inheritdoc/>
+    public void Attach(IAccessibleTree tree)
     {
-        get
-        {
-            var tree = Tree;
-            return tree.Count == 0 ? null : ProviderFor(tree.Node(0).Id);
-        }
+        ArgumentNullException.ThrowIfNull(tree);
+        _changes?.Dispose();
+        Volatile.Write(ref _tree, tree);
+        _changes = tree.Changes.Subscribe(new ChangeObserver(this));
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Attach(long window) => Volatile.Write(ref _window, window);
-
-    /// <inheritdoc/>
-    public void Publish(ReadOnlySpan<AccessibleNode> nodes)
-    {
-        var tree = new AccessibleTree(nodes);
-        lock (_gate)
-        {
-            _tree = tree;
-            DropMissingProviders(tree);
-        }
-
-        RaiseStructureChanged();
-    }
-
-    /// <inheritdoc/>
-    public void Notify(int id, AccessibleChange change)
-    {
-        if (change != AccessibleChange.Focus || !IsAssistiveTechnologyActive)
-        {
-            return;
-        }
-
-        RaiseEvent(id, UiaIds.FocusChangedEvent);
-    }
-
-    /// <inheritdoc/>
-    public void CaretMoved(in AccessibleBounds bounds)
-    {
-        // Magnifiers such as ZoomText follow the focused element's bounds, which the viewer publishes with the focus change.
-    }
+    public void AttachWindow(long window) => Volatile.Write(ref _window, window);
 
     /// <inheritdoc/>
     public bool TryAnswerGetObject(long window, nuint primary, nint secondary, out nint result)
@@ -121,12 +88,19 @@ public sealed class UiaAccessibilityBridge : IWin32AccessibilityBridge
     /// <inheritdoc/>
     public void Dispose()
     {
+        _changes?.Dispose();
+        _changes = null;
+        Volatile.Write(ref _tree, null);
         lock (_gate)
         {
-            _tree = AccessibleTree.Empty;
             _providers.Clear();
         }
     }
+
+    /// <summary>Tells whether a node is the root UI Automation reaches through the window.</summary>
+    /// <param name="id">The node id.</param>
+    /// <returns><see langword="true"/> when the node is the window's root.</returns>
+    internal bool IsWindowRoot(int id) => id == WindowRootId();
 
     /// <summary>Gets the provider for a node, making it on first use.</summary>
     /// <param name="id">The node id.</param>
@@ -140,48 +114,63 @@ public sealed class UiaAccessibilityBridge : IWin32AccessibilityBridge
         }
     }
 
-    /// <summary>Converts window pixel bounds to screen coordinates.</summary>
-    /// <param name="bounds">The bounds in window pixels.</param>
-    /// <returns>The bounds on screen.</returns>
-    internal unsafe UiaRect ToScreen(in AccessibleBounds bounds)
+    /// <summary>Raises the UI Automation event that matches a change in the tree.</summary>
+    /// <param name="change">The change.</param>
+    private void OnChange(AccessibleChange change)
     {
-        int* origin = stackalloc int[2];
-        origin[0] = 0;
-        origin[1] = 0;
-        _ = NativeMethods.ClientToScreen((nint)Window, origin);
-        return new(origin[0] + bounds.X, origin[1] + bounds.Y, bounds.Width, bounds.Height);
-    }
-
-    /// <summary>Finds the node at a screen point.</summary>
-    /// <param name="x">The screen x.</param>
-    /// <param name="y">The screen y.</param>
-    /// <returns>The node index, or <see cref="AccessibleTree.None"/>.</returns>
-    internal unsafe int HitTestScreen(double x, double y)
-    {
-        int* origin = stackalloc int[2];
-        origin[0] = 0;
-        origin[1] = 0;
-        _ = NativeMethods.ClientToScreen((nint)Window, origin);
-        return Tree.HitTest(x - origin[0], y - origin[1]);
-    }
-
-    /// <summary>Forgets providers of nodes the new tree no longer has. The caller holds the gate.</summary>
-    /// <param name="tree">The new tree.</param>
-    private void DropMissingProviders(AccessibleTree tree)
-    {
-        List<int> missing = [];
-        foreach (var id in _providers.Keys)
+        if (!IsAssistiveTechnologyActive)
         {
-            if (tree.IndexOf(id) == AccessibleTree.None)
+            return;
+        }
+
+        switch (change.Kind)
+        {
+            case AccessibleChangeKind.Focus:
+                {
+                    RaiseEvent(change.NodeId, UiaIds.FocusChangedEvent);
+                    break;
+                }
+
+            case AccessibleChangeKind.Added or AccessibleChangeKind.Removed or AccessibleChangeKind.Children:
+                {
+                    RaiseStructureChanged(change.NodeId);
+                    break;
+                }
+
+            default:
+                {
+                    // Name, state and bounds changes are read on demand the next time a client asks for the property.
+                    break;
+                }
+        }
+    }
+
+    /// <summary>Finds the node that stands for this window: the window child of the application whose number is the handle, or else the first window.</summary>
+    /// <returns>The node id, or <see cref="AccessibleNavigation.None"/> before a tree is attached.</returns>
+    private int WindowRootId()
+    {
+        if (Tree is not { } tree || tree.Get(tree.RootId) is not { } application)
+        {
+            return AccessibleNavigation.None;
+        }
+
+        var first = AccessibleNavigation.None;
+        foreach (var childId in application.Children)
+        {
+            if (tree.Get(childId) is not { Role: AccessibleRole.Window } child)
             {
-                missing.Add(id);
+                continue;
             }
+
+            if (child.WindowNumber == Window)
+            {
+                return childId;
+            }
+
+            first = first == AccessibleNavigation.None ? childId : first;
         }
 
-        foreach (var id in missing)
-        {
-            _ = _providers.Remove(id);
-        }
+        return first == AccessibleNavigation.None ? tree.RootId : first;
     }
 
     /// <summary>Gets a COM pointer to a provider's IRawElementProviderSimple. The caller releases it.</summary>
@@ -202,16 +191,11 @@ public sealed class UiaAccessibilityBridge : IWin32AccessibilityBridge
         }
     }
 
-    /// <summary>Raises a UI Automation event for a node, when a client is listening.</summary>
+    /// <summary>Raises a UI Automation event for a node.</summary>
     /// <param name="id">The node id.</param>
     /// <param name="eventId">The event id.</param>
     private void RaiseEvent(int id, int eventId)
     {
-        if (Tree.IndexOf(id) == AccessibleTree.None)
-        {
-            return;
-        }
-
         var simple = SimplePointer(ProviderFor(id));
         try
         {
@@ -223,15 +207,11 @@ public sealed class UiaAccessibilityBridge : IWin32AccessibilityBridge
         }
     }
 
-    /// <summary>Tells clients the children of the root were replaced, so they read the tree again.</summary>
-    private void RaiseStructureChanged()
+    /// <summary>Tells clients the children of a node changed, so they read them again.</summary>
+    /// <param name="id">The node id.</param>
+    private void RaiseStructureChanged(int id)
     {
-        if (RootProvider is not { } root || !IsAssistiveTechnologyActive)
-        {
-            return;
-        }
-
-        var simple = SimplePointer(root);
+        var simple = SimplePointer(ProviderFor(id));
         try
         {
             _ = NativeMethods.RaiseStructureChangedEvent(simple, UiaIds.ChildrenInvalidated, 0, 0);
@@ -239,6 +219,27 @@ public sealed class UiaAccessibilityBridge : IWin32AccessibilityBridge
         finally
         {
             _ = Marshal.Release(simple);
+        }
+    }
+
+    /// <summary>Passes the tree's changes to the bridge.</summary>
+    /// <param name="bridge">The bridge.</param>
+    private sealed class ChangeObserver(UiaAccessibilityBridge bridge) : IObserver<AccessibleChange>
+    {
+        /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void OnNext(AccessibleChange value) => bridge.OnChange(value);
+
+        /// <inheritdoc/>
+        public void OnError(Exception error)
+        {
+            // A failed change stream leaves UI Automation reading the tree on demand, which still works.
+        }
+
+        /// <inheritdoc/>
+        public void OnCompleted()
+        {
+            // A finished change stream leaves UI Automation reading the tree on demand, which still works.
         }
     }
 }

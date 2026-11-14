@@ -28,6 +28,9 @@ public sealed class CpuPixelSurface : IRenderSurface
         Width = width;
         Height = height;
         _pixels = ArrayPool<byte>.Shared.Rent(Stride * height);
+
+        // A pooled array holds whatever an earlier tile left in it, which could be another page's content, so a new surface starts clear.
+        _pixels.AsSpan(0, Stride * height).Clear();
     }
 
     /// <inheritdoc/>

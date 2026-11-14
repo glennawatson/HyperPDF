@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.Core.Accessibility;
 using HyperPdf.Windowing.Accessibility;
 
 namespace HyperPdf.Windowing.Tests;
@@ -16,19 +17,7 @@ internal sealed class RecordingAccessibilityBridge : IAccessibilityBridge
     internal bool Disposed { get; private set; }
 
     /// <inheritdoc/>
-    public void Publish(ReadOnlySpan<AccessibleNode> nodes)
-    {
-        // The tests only check that windows own and dispose their bridge.
-    }
-
-    /// <inheritdoc/>
-    public void Notify(int id, AccessibleChange change)
-    {
-        // The tests only check that windows own and dispose their bridge.
-    }
-
-    /// <inheritdoc/>
-    public void CaretMoved(in AccessibleBounds bounds)
+    public void Attach(IAccessibleTree tree)
     {
         // The tests only check that windows own and dispose their bridge.
     }
