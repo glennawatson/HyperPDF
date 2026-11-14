@@ -49,6 +49,9 @@ public sealed class WaylandWindow : IPlatformWindow
     /// <summary>The connection.</summary>
     private readonly WaylandConnection _connection;
 
+    /// <summary>The wake-up that ends a wait for events.</summary>
+    private readonly EventWake _wake;
+
     /// <summary>The global names and versions found in the registry.</summary>
     private readonly WaylandGlobals _globals = new();
 
@@ -67,8 +70,14 @@ public sealed class WaylandWindow : IPlatformWindow
     /// <summary>The last pointer position.</summary>
     private WindowEvent _pointer;
 
-    /// <summary>The modifier bits the keyboard last reported.</summary>
+    /// <summary>The modifier keys the keyboard last reported, as <see cref="ViewerModifiers"/> bits.</summary>
     private uint _modifiers;
+
+    /// <summary>The pointer buttons held.</summary>
+    private ViewerButtons _held;
+
+    /// <summary>One when a frame was asked for and not yet reported.</summary>
+    private int _frameWanted;
 
     /// <summary>Whether the first xdg_surface configure arrived.</summary>
     private bool _configured;
@@ -89,6 +98,7 @@ public sealed class WaylandWindow : IPlatformWindow
         Accessibility = accessibility;
         Core.Platform.NativeLibraries.Register(typeof(NativeMethods).Assembly, NativeMethods.Library, ["libc.so.6"]);
         _connection = WaylandConnection.TryConnect() ?? throw new PlatformNotSupportedException("No Wayland compositor could be reached.");
+        _wake = new();
         Backend = RenderBackendSelector.Choose(preference, this, static _ => null, static window => new CpuRenderBackend(window.Present)).Backend;
         Backend.Resize(_size);
         Setup();
@@ -140,8 +150,13 @@ public sealed class WaylandWindow : IPlatformWindow
     /// <inheritdoc/>
     public void RequestFrame()
     {
-        // A frame is presented as soon as the render backend finishes one, so there is no separate request to make.
+        Volatile.Write(ref _frameWanted, 1);
+        _wake.Signal();
     }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Wake() => _wake.Signal();
 
     /// <inheritdoc/>
     public void Show()
@@ -162,7 +177,12 @@ public sealed class WaylandWindow : IPlatformWindow
         _sink = handler;
         try
         {
-            _ = _connection.Pump(timeoutMilliseconds, Dispatch);
+            var wait = Volatile.Read(ref _frameWanted) != 0 ? 0 : timeoutMilliseconds;
+            _ = _connection.Pump(wait, _wake, Dispatch);
+            if (Interlocked.Exchange(ref _frameWanted, 0) != 0)
+            {
+                handler(new(WindowEventKind.Exposed, 0, 0, 0, 0));
+            }
         }
         finally
         {
@@ -181,6 +201,7 @@ public sealed class WaylandWindow : IPlatformWindow
         Backend.Dispose();
         Accessibility.Dispose();
         _pool?.Dispose();
+        _wake.Dispose();
         _connection.Dispose();
     }
 
@@ -283,7 +304,7 @@ public sealed class WaylandWindow : IPlatformWindow
                 throw new TimeoutException("The Wayland compositor did not answer in time.");
             }
 
-            _ = _connection.Pump(SetupTimeoutMilliseconds, Dispatch);
+            _ = _connection.Pump(SetupTimeoutMilliseconds, _wake, Dispatch);
         }
     }
 
@@ -447,9 +468,8 @@ public sealed class WaylandWindow : IPlatformWindow
                 {
                     _ = reader.ReadUInt();
                     _ = reader.ReadUInt();
-                    var button = reader.ReadUInt();
-                    var kind = reader.ReadUInt() == ButtonPressed ? WindowEventKind.PointerDown : WindowEventKind.PointerUp;
-                    Emit(new(kind, _pointer.X, _pointer.Y, button, _modifiers));
+                    var button = EvdevInput.ToButton(reader.ReadUInt());
+                    PressButton(button, reader.ReadUInt() == ButtonPressed);
                     break;
                 }
 
@@ -457,11 +477,25 @@ public sealed class WaylandWindow : IPlatformWindow
                 {
                     _ = reader.ReadUInt();
                     var vertical = reader.ReadUInt() == VerticalAxis;
-                    var amount = (int)Math.Round(reader.ReadFixed());
+                    var amount = EvdevInput.ToScroll(reader.ReadFixed());
                     Emit(new(WindowEventKind.Scrolled, vertical ? 0 : amount, vertical ? amount : 0, 0, _modifiers));
                     break;
                 }
         }
+    }
+
+    /// <summary>Reports a pointer button going down or coming up and keeps track of the buttons held.</summary>
+    /// <param name="button">The button.</param>
+    /// <param name="pressed">Whether it went down.</param>
+    private void PressButton(ViewerButtons button, bool pressed)
+    {
+        if (button == ViewerButtons.None)
+        {
+            return;
+        }
+
+        _held = pressed ? _held | button : _held & ~button;
+        Emit(new(pressed ? WindowEventKind.PointerDown : WindowEventKind.PointerUp, _pointer.X, _pointer.Y, (uint)button, _modifiers));
     }
 
     /// <summary>Reads a pointer position and reports the move.</summary>
@@ -470,7 +504,7 @@ public sealed class WaylandWindow : IPlatformWindow
     {
         var x = (int)Math.Round(reader.ReadFixed());
         var y = (int)Math.Round(reader.ReadFixed());
-        _pointer = new(WindowEventKind.PointerMoved, x, y, 0, _modifiers);
+        _pointer = new(WindowEventKind.PointerMoved, x, y, (uint)_held, _modifiers);
         Emit(_pointer);
     }
 
@@ -483,14 +517,16 @@ public sealed class WaylandWindow : IPlatformWindow
         {
             _ = reader.ReadUInt();
             _ = reader.ReadUInt();
-            var key = reader.ReadUInt();
+            var key = (uint)EvdevInput.ToKey(reader.ReadUInt());
             var kind = reader.ReadUInt() == KeyPressed ? WindowEventKind.KeyDown : WindowEventKind.KeyUp;
-            Emit(new(kind, 0, 0, key, _modifiers));
+            Emit(new(kind, _pointer.X, _pointer.Y, key, _modifiers));
         }
         else if (opcode == WaylandProtocol.KeyboardModifiers)
         {
             _ = reader.ReadUInt();
-            _modifiers = reader.ReadUInt();
+
+            // The held modifier mask uses the same bits as X11 state on the standard key maps: Shift, Control, Mod1 for Alt and Mod4 for Meta.
+            _modifiers = (uint)X11.X11Input.ToModifiers(reader.ReadUInt());
         }
     }
 

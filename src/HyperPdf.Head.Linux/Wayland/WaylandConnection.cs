@@ -13,9 +13,6 @@ internal sealed unsafe class WaylandConnection : IDisposable
     /// <summary>The receive buffer size in bytes.</summary>
     private const int ReceiveCapacity = 64 * 1024;
 
-    /// <summary>The microseconds in a millisecond, because Socket.Poll takes microseconds.</summary>
-    private const int MicrosecondsPerMillisecond = 1000;
-
     /// <summary>The size of a msghdr on 64-bit Linux.</summary>
     private const int MessageHeaderSize = 56;
 
@@ -155,14 +152,14 @@ internal sealed unsafe class WaylandConnection : IDisposable
 
     /// <summary>Waits for data, reads what has arrived and hands each whole event to the handler.</summary>
     /// <param name="timeoutMilliseconds">How long to wait for data, 0 to only read what is there, or -1 to wait without limit.</param>
+    /// <param name="wake">The wake-up that can end the wait early.</param>
     /// <param name="handler">Receives each event.</param>
     /// <returns><see langword="true"/> when at least one event was handled.</returns>
     /// <exception cref="IOException">The compositor closed the connection.</exception>
-    internal bool Pump(int timeoutMilliseconds, WaylandMessageHandler handler)
+    internal bool Pump(int timeoutMilliseconds, EventWake wake, WaylandMessageHandler handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
-        var microseconds = timeoutMilliseconds < 0 ? -1 : timeoutMilliseconds * MicrosecondsPerMillisecond;
-        if (!_socket.Poll(microseconds, SelectMode.SelectRead))
+        if (!wake.Wait((int)_socket.Handle, timeoutMilliseconds))
         {
             return false;
         }

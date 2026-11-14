@@ -177,6 +177,34 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library, EntryPoint = "XDestroyImage")]
     internal static partial int XDestroyImage(nint image);
 
+    /// <summary>Native <c>XConnectionNumber</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <returns>The file descriptor of the connection to the X server.</returns>
+    [LibraryImport(Library, EntryPoint = "XConnectionNumber")]
+    internal static partial int XConnectionNumber(X11DisplayHandle display);
+
+    /// <summary>Native <c>XLookupKeysym</c>.</summary>
+    /// <param name="keyEvent">The XKeyEvent.</param>
+    /// <param name="index">The column of the key map: 0 for the key without Shift.</param>
+    /// <returns>The key symbol, or 0 when the key has none.</returns>
+    [LibraryImport(Library, EntryPoint = "XLookupKeysym")]
+    internal static partial nuint XLookupKeysym(byte* keyEvent, int index);
+
+    /// <summary>Native <c>XCreateFontCursor</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="shape">The shape number in the standard cursor font.</param>
+    /// <returns>The cursor.</returns>
+    [LibraryImport(Library, EntryPoint = "XCreateFontCursor")]
+    internal static partial nint XCreateFontCursor(X11DisplayHandle display, uint shape);
+
+    /// <summary>Native <c>XDefineCursor</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="window">The window.</param>
+    /// <param name="cursor">The cursor, or 0 for the parent's cursor.</param>
+    /// <returns>The status.</returns>
+    [LibraryImport(Library, EntryPoint = "XDefineCursor")]
+    internal static partial int XDefineCursor(X11DisplayHandle display, nint window, nint cursor);
+
     /// <summary>Native <c>XFlush</c>.</summary>
     /// <param name="display">The display.</param>
     /// <returns>The status.</returns>

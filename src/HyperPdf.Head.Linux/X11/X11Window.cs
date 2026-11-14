@@ -4,7 +4,6 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 using HyperPdf.Presentation.Input;
 using HyperPdf.Rendering.Cpu;
@@ -51,6 +50,9 @@ public sealed unsafe class X11Window : IPlatformWindow
     /// <summary>The bits per pixel and scan line pad of the BGRA frame.</summary>
     private const int BitsPerPixel = 32;
 
+    /// <summary>The offset of the pixel pointer in an XImage.</summary>
+    private const int ImageDataOffset = 16;
+
     /// <summary>The first window width in pixels.</summary>
     private const int InitialWidth = 1024;
 
@@ -66,8 +68,17 @@ public sealed unsafe class X11Window : IPlatformWindow
     /// <summary>The depth of the screen.</summary>
     private readonly uint _depth;
 
+    /// <summary>The wake-up that ends a wait for events.</summary>
+    private readonly EventWake _wake;
+
+    /// <summary>The cursors made so far, by <see cref="ViewerCursor"/> value. They are freed with the display connection.</summary>
+    private readonly nint[] _cursors = new nint[CursorShapes.Length];
+
     /// <summary>The size the head last reported or was created with.</summary>
     private SurfaceSize _size = new(InitialWidth, InitialHeight);
+
+    /// <summary>One when a frame was asked for and not yet reported.</summary>
+    private int _frameWanted;
 
     /// <summary>One once the window is disposed.</summary>
     private int _disposed;
@@ -81,6 +92,8 @@ public sealed unsafe class X11Window : IPlatformWindow
         ArgumentNullException.ThrowIfNull(accessibility);
         Accessibility = accessibility;
         Core.Platform.NativeLibraries.Register(typeof(NativeMethods).Assembly, NativeMethods.Library, ["libX11.so.6", "libX11.so"]);
+        Core.Platform.NativeLibraries.Register(typeof(NativeMethods).Assembly, Wayland.NativeMethods.Library, ["libc.so.6"]);
+        _wake = new();
         _display = NativeMethods.XOpenDisplay(null);
         if (_display.IsInvalid)
         {
@@ -114,6 +127,9 @@ public sealed unsafe class X11Window : IPlatformWindow
     /// <inheritdoc/>
     public IAccessibilityBridge Accessibility { get; }
 
+    /// <summary>Gets the shape numbers in the standard X cursor font, by <see cref="ViewerCursor"/> value: none, left pointer, hand, crosshair, text beam and four arrows.</summary>
+    private static ReadOnlySpan<uint> CursorShapes => [0x00, 0x44, 0x3C, 0x22, 0x98, 0x34];
+
     /// <inheritdoc/>
     public void SetTitle(string title)
     {
@@ -128,12 +144,20 @@ public sealed unsafe class X11Window : IPlatformWindow
     /// <inheritdoc/>
     public void SetCursor(ViewerCursor cursor)
     {
-        // Cursor shapes need the X cursor font, which arrives with the input work; the default arrow stays until then.
-        _ = cursor;
+        _ = NativeMethods.XDefineCursor(_display, (nint)_ids.Window, CursorFor(cursor));
+        _ = NativeMethods.XFlush(_display);
     }
 
     /// <inheritdoc/>
-    public void RequestFrame() => _ = NativeMethods.XFlush(_display);
+    public void RequestFrame()
+    {
+        Volatile.Write(ref _frameWanted, 1);
+        _wake.Signal();
+    }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Wake() => _wake.Signal();
 
     /// <inheritdoc/>
     public void Show()
@@ -152,7 +176,17 @@ public sealed unsafe class X11Window : IPlatformWindow
     public void PumpEvents(int timeoutMilliseconds, WindowEventHandler handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
-        _ = timeoutMilliseconds;
+        if (timeoutMilliseconds != 0 && Volatile.Read(ref _frameWanted) == 0 && NativeMethods.XPending(_display) == 0)
+        {
+            // XPending flushed the requests, so the wait is only for the server or a wake-up.
+            _ = _wake.Wait(NativeMethods.XConnectionNumber(_display), timeoutMilliseconds);
+        }
+
+        if (Interlocked.Exchange(ref _frameWanted, 0) != 0)
+        {
+            handler(new(WindowEventKind.Exposed, 0, 0, 0, 0));
+        }
+
         byte* buffer = stackalloc byte[XEventSize];
         while (Volatile.Read(ref _disposed) == 0 && NativeMethods.XPending(_display) > 0)
         {
@@ -182,6 +216,7 @@ public sealed unsafe class X11Window : IPlatformWindow
 
         Backend.Dispose();
         Accessibility.Dispose();
+        _wake.Dispose();
         _ = NativeMethods.XFreeGC(_display, (nint)_ids.Gc);
         _ = NativeMethods.XDestroyWindow(_display, (nint)_ids.Window);
         _display.Dispose();
@@ -198,20 +233,42 @@ public sealed unsafe class X11Window : IPlatformWindow
             return;
         }
 
-        // XDestroyImage frees the pixel memory with free(), so it must come from malloc.
-        var length = stride * size.Height;
-        var data = (byte*)NativeMemory.Alloc((nuint)length);
-        pixels[..length].CopyTo(new(data, length));
-        var image = NativeMethods.XCreateImage(_display, (nint)_ids.Visual, _depth, ZPixmap, 0, data, (uint)size.Width, (uint)size.Height, BitsPerPixel, stride);
-        if (image == 0)
+        fixed (byte* data = pixels)
         {
-            NativeMemory.Free(data);
-            return;
+            // The image only wraps the frame for the length of the call, so the frame is sent without being copied first.
+            var image = NativeMethods.XCreateImage(_display, (nint)_ids.Visual, _depth, ZPixmap, 0, data, (uint)size.Width, (uint)size.Height, BitsPerPixel, stride);
+            if (image == 0)
+            {
+                return;
+            }
+
+            _ = NativeMethods.XPutImage(_display, (nint)_ids.Window, (nint)_ids.Gc, image, 0, 0, 0, 0, (uint)size.Width, (uint)size.Height);
+
+            // XDestroyImage frees the pixel memory it finds, and this memory belongs to the backend, so the image lets go of it first.
+            *(byte**)(image + ImageDataOffset) = null;
+            _ = NativeMethods.XDestroyImage(image);
         }
 
-        _ = NativeMethods.XPutImage(_display, (nint)_ids.Window, (nint)_ids.Gc, image, 0, 0, 0, 0, (uint)size.Width, (uint)size.Height);
-        _ = NativeMethods.XDestroyImage(image);
         _ = NativeMethods.XFlush(_display);
+    }
+
+    /// <summary>Gets the cursor of a shape from the standard cursor font, making it on first use.</summary>
+    /// <param name="cursor">The shape.</param>
+    /// <returns>The cursor, or 0 for the window manager's own.</returns>
+    private nint CursorFor(ViewerCursor cursor)
+    {
+        var index = (int)cursor;
+        if ((uint)index >= (uint)_cursors.Length || CursorShapes[index] == 0)
+        {
+            return 0;
+        }
+
+        if (_cursors[index] == 0)
+        {
+            _cursors[index] = NativeMethods.XCreateFontCursor(_display, CursorShapes[index]);
+        }
+
+        return _cursors[index];
     }
 
     /// <summary>Gets an atom by name.</summary>

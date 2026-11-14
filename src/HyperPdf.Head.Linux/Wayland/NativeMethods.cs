@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 
 namespace HyperPdf.Head.Linux.Wayland;
 
-/// <summary>Source generated entry points of libc that the Wayland layer needs: an anonymous memory file and sending a file descriptor.</summary>
+/// <summary>Source generated entry points of libc that the Linux head needs: an anonymous memory file, sending a file descriptor, and waiting on descriptors with a wake-up.</summary>
 internal static unsafe partial class NativeMethods
 {
     /// <summary>The native library name, resolved through <see cref="Core.Platform.NativeLibraries"/>.</summary>
@@ -26,4 +26,41 @@ internal static unsafe partial class NativeMethods
     /// <returns>The bytes sent, or -1 on failure.</returns>
     [LibraryImport(Library, EntryPoint = "sendmsg")]
     internal static partial nint SendMessage(int socket, byte* message, int flags);
+
+    /// <summary>Native <c>eventfd</c>.</summary>
+    /// <param name="initial">The starting counter.</param>
+    /// <param name="flags">The flags.</param>
+    /// <returns>The file descriptor, or -1 on failure.</returns>
+    [LibraryImport(Library, EntryPoint = "eventfd")]
+    internal static partial int EventDescriptor(uint initial, int flags);
+
+    /// <summary>Native <c>poll</c>.</summary>
+    /// <param name="descriptors">The pollfd array.</param>
+    /// <param name="count">The number of entries.</param>
+    /// <param name="timeoutMilliseconds">The longest wait, or -1 for no limit.</param>
+    /// <returns>The number of ready descriptors, 0 on a timeout, or -1 on failure.</returns>
+    [LibraryImport(Library, EntryPoint = "poll")]
+    internal static partial int Poll(byte* descriptors, nuint count, int timeoutMilliseconds);
+
+    /// <summary>Native <c>read</c>.</summary>
+    /// <param name="descriptor">The file descriptor.</param>
+    /// <param name="buffer">Receives the bytes.</param>
+    /// <param name="count">The most bytes to read.</param>
+    /// <returns>The bytes read, or -1 on failure.</returns>
+    [LibraryImport(Library, EntryPoint = "read")]
+    internal static partial nint Read(int descriptor, byte* buffer, nuint count);
+
+    /// <summary>Native <c>write</c>.</summary>
+    /// <param name="descriptor">The file descriptor.</param>
+    /// <param name="buffer">The bytes.</param>
+    /// <param name="count">The number of bytes.</param>
+    /// <returns>The bytes written, or -1 on failure.</returns>
+    [LibraryImport(Library, EntryPoint = "write")]
+    internal static partial nint Write(int descriptor, byte* buffer, nuint count);
+
+    /// <summary>Native <c>close</c>.</summary>
+    /// <param name="descriptor">The file descriptor.</param>
+    /// <returns>0 on success.</returns>
+    [LibraryImport(Library, EntryPoint = "close")]
+    internal static partial int Close(int descriptor);
 }
