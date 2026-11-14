@@ -32,8 +32,14 @@ internal static class ViewerCanvasInput
     /// <returns>What the canvas state asked for, or <see langword="null"/> when the event is not input.</returns>
     internal static InputEffects? Route(ViewerCanvas canvas, ref ClickCounter clicks, in WindowEvent windowEvent)
     {
-        var inWindow = canvas.ToWindowPoint(windowEvent.X, windowEvent.Y);
+        var isPointer = windowEvent.Kind is WindowEventKind.PointerDown or WindowEventKind.PointerMoved or WindowEventKind.PointerUp;
+        var inWindow = isPointer ? canvas.ToWindowPoint(windowEvent.X, windowEvent.Y) : canvas.PointerInWindow;
         var position = new CanvasPoint(inWindow.X + canvas.Offset.X, inWindow.Y + canvas.Offset.Y);
+        if (isPointer)
+        {
+            canvas.PointerInWindow = inWindow;
+        }
+
         switch (windowEvent.Kind)
         {
             case WindowEventKind.PointerDown:
@@ -80,7 +86,8 @@ internal static class ViewerCanvasInput
         {
             if (canvas.State.Tab is { } tab && notches != 0)
             {
-                var inWindow = canvas.ToWindowPoint(windowEvent.X, windowEvent.Y);
+                // A scroll event carries amounts, not a place, so the zoom stays put around where the pointer last was.
+                var inWindow = canvas.PointerInWindow;
                 canvas.State.ZoomByWheel(tab, Math.Pow(WheelZoomFactor, notches), new(inWindow.X + canvas.Offset.X, inWindow.Y + canvas.Offset.Y));
             }
 

@@ -93,6 +93,9 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
     /// <inheritdoc/>
     public CanvasSize ScrollerSize => ViewportSize;
 
+    /// <summary>Gets or sets where the pointer last was inside the window, in canvas units. Wheel zoom stays put around it.</summary>
+    internal CanvasPoint PointerInWindow { get; set; }
+
     /// <summary>Shows a tab, or no tab.</summary>
     /// <param name="tab">The tab, or <see langword="null"/> for the empty window.</param>
     public void ShowTab(DocumentTabViewModel? tab)

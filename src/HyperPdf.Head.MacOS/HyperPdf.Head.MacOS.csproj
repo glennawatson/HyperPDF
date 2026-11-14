@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>macOS head for HyperPDF: a native Cocoa window that shows the page canvas through the Metal or CPU render backend, with no UI toolkit.</Description>
+    <RootNamespace>HyperPdf.Head.MacOS</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Metal\HyperPdf.Rendering.Metal.csproj" />
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Windowing.Tests" />
+  </ItemGroup>
+</Project>

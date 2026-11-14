@@ -10,6 +10,8 @@
     <Project Path="HyperPdf.Viewer/HyperPdf.Viewer.csproj" />
     <Project Path="HyperPdf.Linux/HyperPdf.Linux.csproj" />
     <Project Path="HyperPdf.Windows/HyperPdf.Windows.csproj" />
+    <Project Path="HyperPdf.MacOS/HyperPdf.MacOS.csproj" />
+    <Project Path="HyperPdf.Head.MacOS/HyperPdf.Head.MacOS.csproj" />
     <Project Path="HyperPdf.Core/HyperPdf.Core.csproj" />
     <Project Path="HyperPdf.Localisation/HyperPdf.Localisation.csproj" />
     <Project Path="HyperPdf.ViewModels/HyperPdf.ViewModels.csproj" />
