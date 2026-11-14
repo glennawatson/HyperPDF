@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Linux head for HyperPDF: a native X11 window that shows the page canvas through the CPU or GPU render backend.</Description>
+    <RootNamespace>HyperPdf.Head.Linux</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Windowing.Tests" />
+  </ItemGroup>
+</Project>
