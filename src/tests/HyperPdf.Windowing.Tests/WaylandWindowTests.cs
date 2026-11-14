@@ -45,17 +45,17 @@ public sealed class WaylandWindowTests
         await Assert.That(bridge.Disposed).IsTrue();
     }
 
-    /// <summary>The Linux selector opens Wayland first when a compositor is reachable.</summary>
+    /// <summary>The Linux selector opens Wayland first for the CPU backend when a compositor is reachable. The GPU backend may pick X11, which it can present to.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task SelectorPrefersWaylandWhenAvailable()
+    public async Task SelectorPrefersWaylandForTheCpuBackend()
     {
         if (!WaylandWindow.IsAvailable())
         {
             Skip.Test("No Wayland compositor is available.");
         }
 
-        using var window = LinuxWindows.Open(RenderBackendPreference.Gpu, new RecordingAccessibilityBridge(), out var system);
+        using var window = LinuxWindows.Open(RenderBackendPreference.Cpu, new RecordingAccessibilityBridge(), out var system);
 
         await Assert.That(system).IsEqualTo(LinuxWindowSystem.Wayland);
     }

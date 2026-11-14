@@ -4,6 +4,7 @@
 
 using HyperPdf.Head.Linux.Wayland;
 using HyperPdf.Head.Linux.X11;
+using HyperPdf.Rendering.Vulkan;
 using HyperPdf.Windowing.Accessibility;
 using HyperPdf.Windowing.Rendering;
 using HyperPdf.Windowing.Windows;
@@ -21,6 +22,20 @@ public static class LinuxWindows
     public static IPlatformWindow Open(RenderBackendPreference preference, IAccessibilityBridge accessibility, out LinuxWindowSystem system)
     {
         ArgumentNullException.ThrowIfNull(accessibility);
+
+        // The GPU backend presents to X11 windows today, so a session that has an X server (a Wayland session does, through XWayland)
+        // and a GPU that can present gets an X11 window. The Wayland window draws with the CPU until it can present GPU frames too.
+        if (preference == RenderBackendPreference.Gpu && HasX11Display() && VulkanContext.TryCreate(forWindow: true) is { } context)
+        {
+            if (context.CanPresent)
+            {
+                system = LinuxWindowSystem.X11;
+                return new X11Window(preference, accessibility, context);
+            }
+
+            context.Dispose();
+        }
+
         if (WaylandWindow.IsAvailable())
         {
             var wayland = TryOpenWayland(preference, accessibility);
@@ -34,6 +49,10 @@ public static class LinuxWindows
         system = LinuxWindowSystem.X11;
         return new X11Window(preference, accessibility);
     }
+
+    /// <summary>Tells whether the session names an X server.</summary>
+    /// <returns><see langword="true"/> when DISPLAY is set.</returns>
+    private static bool HasX11Display() => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY"));
 
     /// <summary>Opens a Wayland window, or reports that the compositor cannot host one.</summary>
     /// <param name="preference">What the settings ask for.</param>

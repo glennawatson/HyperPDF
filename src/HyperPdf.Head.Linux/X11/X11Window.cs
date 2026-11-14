@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdf.Presentation.Input;
 using HyperPdf.Rendering.Cpu;
+using HyperPdf.Rendering.Vulkan;
 using HyperPdf.Windowing.Accessibility;
 using HyperPdf.Windowing.Rendering;
 using HyperPdf.Windowing.Windows;
@@ -80,6 +81,9 @@ public sealed unsafe class X11Window : IPlatformWindow
     /// <summary>One when a frame was asked for and not yet reported.</summary>
     private int _frameWanted;
 
+    /// <summary>A Vulkan context handed to the constructor, until the backend takes it.</summary>
+    private VulkanContext? _gpu;
+
     /// <summary>One once the window is disposed.</summary>
     private int _disposed;
 
@@ -88,9 +92,20 @@ public sealed unsafe class X11Window : IPlatformWindow
     /// <param name="accessibility">The bridge that publishes this window to AT-SPI.</param>
     /// <exception cref="PlatformNotSupportedException">No X server could be reached.</exception>
     public X11Window(RenderBackendPreference preference, IAccessibilityBridge accessibility)
+        : this(preference, accessibility, null)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="X11Window"/> class.</summary>
+    /// <param name="preference">What the settings ask for.</param>
+    /// <param name="accessibility">The bridge that publishes this window to AT-SPI.</param>
+    /// <param name="gpu">A Vulkan context already made for a window, which the window owns from here on, or <see langword="null"/> to make one when the GPU is asked for.</param>
+    /// <exception cref="PlatformNotSupportedException">No X server could be reached.</exception>
+    public X11Window(RenderBackendPreference preference, IAccessibilityBridge accessibility, VulkanContext? gpu)
     {
         ArgumentNullException.ThrowIfNull(accessibility);
         Accessibility = accessibility;
+        _gpu = gpu;
         Core.Platform.NativeLibraries.Register(typeof(NativeMethods).Assembly, NativeMethods.Library, ["libX11.so.6", "libX11.so"]);
         Core.Platform.NativeLibraries.Register(typeof(NativeMethods).Assembly, Wayland.NativeMethods.Library, ["libc.so.6"]);
         _wake = new();
@@ -111,7 +126,7 @@ public sealed unsafe class X11Window : IPlatformWindow
             window,
             ExposureMask | StructureNotifyMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask);
 
-        Backend = RenderBackendSelector.Choose(preference, this, static _ => null, static window => new CpuRenderBackend(window.Present)).Backend;
+        Backend = RenderBackendSelector.Choose(preference, this, static window => window.StartVulkan(), static window => new CpuRenderBackend(window.Present)).Backend;
         Backend.Resize(_size);
     }
 
@@ -215,6 +230,7 @@ public sealed unsafe class X11Window : IPlatformWindow
         }
 
         Backend.Dispose();
+        Interlocked.Exchange(ref _gpu, null)?.Dispose();
         Accessibility.Dispose();
         _wake.Dispose();
         _ = NativeMethods.XFreeGC(_display, (nint)_ids.Gc);
@@ -250,6 +266,30 @@ public sealed unsafe class X11Window : IPlatformWindow
         }
 
         _ = NativeMethods.XFlush(_display);
+    }
+
+    /// <summary>Starts the Vulkan backend and attaches it to this window.</summary>
+    /// <returns>The backend, or <see langword="null"/> when the machine has no GPU that can present to an X11 window.</returns>
+    private VulkanRenderBackend? StartVulkan()
+    {
+        var context = Interlocked.Exchange(ref _gpu, null) ?? VulkanContext.TryCreate(forWindow: true);
+        if (context is null)
+        {
+            return null;
+        }
+
+        var backend = new VulkanRenderBackend(context);
+
+        // Xlib hands back the display pointer of the default screen, which is the pointer Vulkan needs. The surface keeps it after the
+        // call, and the window disposes the backend before it closes the display, so the pointer outlives the surface.
+        var display = NativeMethods.XDisplayOfScreen(NativeMethods.XDefaultScreenOfDisplay(_display));
+        if (backend.TryPresentToXlibWindow(display, (nuint)_ids.Window))
+        {
+            return backend;
+        }
+
+        backend.Dispose();
+        return null;
     }
 
     /// <summary>Gets the cursor of a shape from the standard cursor font, making it on first use.</summary>

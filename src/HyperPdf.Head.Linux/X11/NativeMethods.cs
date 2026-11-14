@@ -177,6 +177,18 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library, EntryPoint = "XDestroyImage")]
     internal static partial int XDestroyImage(nint image);
 
+    /// <summary>Native <c>XDefaultScreenOfDisplay</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <returns>The Screen structure of the default screen.</returns>
+    [LibraryImport(Library, EntryPoint = "XDefaultScreenOfDisplay")]
+    internal static partial nint XDefaultScreenOfDisplay(X11DisplayHandle display);
+
+    /// <summary>Native <c>XDisplayOfScreen</c>.</summary>
+    /// <param name="screen">A Screen structure.</param>
+    /// <returns>The display pointer the screen belongs to.</returns>
+    [LibraryImport(Library, EntryPoint = "XDisplayOfScreen")]
+    internal static partial nint XDisplayOfScreen(nint screen);
+
     /// <summary>Native <c>XConnectionNumber</c>.</summary>
     /// <param name="display">The display.</param>
     /// <returns>The file descriptor of the connection to the X server.</returns>

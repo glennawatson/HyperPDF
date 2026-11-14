@@ -67,6 +67,20 @@ internal static unsafe class VulkanCommands
         NativeMethods.CmdCopyImageToBuffer(commandBuffer, image, VkEnums.LayoutTransferSource, buffer, 1, region);
     }
 
+    /// <summary>Records a copy of a whole image into another whole image, scaled when their sizes differ and converted when their formats differ.</summary>
+    /// <param name="commandBuffer">The command buffer.</param>
+    /// <param name="source">The source image, in the transfer source layout.</param>
+    /// <param name="destination">The destination image, in the transfer destination layout.</param>
+    /// <param name="size">The sizes of the two images.</param>
+    internal static void Blit(ulong commandBuffer, ulong source, ulong destination, in BlitSize size)
+    {
+        byte* region = stackalloc byte[StructSize];
+        var writer = new VkWriter(new(region, StructSize));
+        WriteWholeImage(ref writer, size.SourceWidth, size.SourceHeight);
+        WriteWholeImage(ref writer, size.TargetWidth, size.TargetHeight);
+        NativeMethods.CmdBlitImage(commandBuffer, source, VkEnums.LayoutTransferSource, destination, VkEnums.LayoutTransferDestination, 1, region, VkEnums.FilterNearest);
+    }
+
     /// <summary>Begins the frame's render pass and sets the viewport and scissor to the whole frame.</summary>
     /// <param name="commandBuffer">The command buffer.</param>
     /// <param name="renderPass">The render pass.</param>
@@ -160,6 +174,24 @@ internal static unsafe class VulkanCommands
         writer.U32((uint)width);
         writer.U32((uint)height);
         writer.U32(1);
+    }
+
+    /// <summary>Writes one side of a VkImageBlit: the colour layer of an image and the two corners of its whole area.</summary>
+    /// <param name="writer">The writer of the region.</param>
+    /// <param name="width">The image width.</param>
+    /// <param name="height">The image height.</param>
+    private static void WriteWholeImage(ref VkWriter writer, int width, int height)
+    {
+        writer.U32(VkEnums.AspectColor);
+        writer.U32(0);
+        writer.U32(0);
+        writer.U32(1);
+        writer.I32(0);
+        writer.I32(0);
+        writer.I32(0);
+        writer.I32(width);
+        writer.I32(height);
+        writer.I32(1);
     }
 
     /// <summary>Sets the dynamic viewport and scissor to the whole frame.</summary>

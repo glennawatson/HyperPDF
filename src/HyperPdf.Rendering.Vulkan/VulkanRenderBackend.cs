@@ -36,6 +36,9 @@ public sealed class VulkanRenderBackend : IRenderBackend
     /// <summary>The pass handed out for every frame, so a frame allocates nothing. It is made on the first frame.</summary>
     private VulkanFramePass? _pass;
 
+    /// <summary>The window frames are shown in, or <see langword="null"/> when frames are only read back.</summary>
+    private VulkanSwapchain? _window;
+
     /// <summary>The buffer that receives frame readbacks, made on first use.</summary>
     private VulkanBuffer? _readback;
 
@@ -81,6 +84,7 @@ public sealed class VulkanRenderBackend : IRenderBackend
 
         Size = size.IsEmpty ? default : size;
         _frame.Resize(Size.Width, Size.Height);
+        _window?.Resize(Size.Width, Size.Height);
     }
 
     /// <inheritdoc/>
@@ -90,6 +94,24 @@ public sealed class VulkanRenderBackend : IRenderBackend
         _frame.ReleaseRetired(_retired);
         _ops.Clear();
         return _pass ??= new(this);
+    }
+
+    /// <summary>Shows every frame from now on in an X11 window, waiting for the display's refresh.</summary>
+    /// <param name="display">The Xlib display pointer.</param>
+    /// <param name="window">The X11 window id.</param>
+    /// <returns><see langword="true"/> when the GPU can present to the window. When it cannot, the head should use another backend.</returns>
+    public bool TryPresentToXlibWindow(nint display, nuint window)
+    {
+        ObjectDisposedException.ThrowIf(!IsAlive, this);
+        if (VulkanSwapchain.TryCreateForXlib(_context, display, window) is not { } swapchain)
+        {
+            return false;
+        }
+
+        _window?.Dispose();
+        _window = swapchain;
+        swapchain.Resize(Size.Width, Size.Height);
+        return true;
     }
 
     /// <summary>Reads the frame just drawn as premultiplied BGRA with the top line first, the layout the CPU backend uses.</summary>
@@ -125,6 +147,7 @@ public sealed class VulkanRenderBackend : IRenderBackend
         _ = NativeMethods.DeviceWaitIdle(_context.Device);
         _frame.ReleaseRetired(_retired);
         _readback?.Dispose();
+        _window?.Dispose();
         _frame.Dispose();
         _context.Dispose();
 
@@ -145,6 +168,6 @@ public sealed class VulkanRenderBackend : IRenderBackend
             return;
         }
 
-        VulkanFrameRecorder.Render(_frame, _ops, _uploads);
+        VulkanFrameRecorder.Render(_frame, _ops, _uploads, _window);
     }
 }

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdf.Core.Platform;
 using HyperPdf.Rendering.Vulkan.Interop;
@@ -28,6 +29,12 @@ public sealed unsafe class VulkanContext : IDisposable
     /// <summary>The number of device extensions needed to export a dmabuf.</summary>
     private const uint DmabufExtensionCount = 2;
 
+    /// <summary>The number of instance extensions needed to present to an X11 window.</summary>
+    private const uint SurfaceExtensionCount = 2;
+
+    /// <summary>The most device extensions the context enables: two for dmabufs and one for the swapchain.</summary>
+    private const int MaxDeviceExtensions = 3;
+
     /// <summary>The score of a discrete GPU.</summary>
     private const int DiscreteScore = 3;
 
@@ -42,6 +49,15 @@ public sealed unsafe class VulkanContext : IDisposable
 
     /// <summary>The device extension that lets those descriptors be dmabufs.</summary>
     private static readonly byte[] ExternalMemoryDmaBuf = "VK_EXT_external_memory_dma_buf\0"u8.ToArray();
+
+    /// <summary>The device extension that presents images to a window.</summary>
+    private static readonly byte[] SwapchainExtension = "VK_KHR_swapchain\0"u8.ToArray();
+
+    /// <summary>The instance extension that every window surface builds on.</summary>
+    private static readonly byte[] SurfaceExtension = "VK_KHR_surface\0"u8.ToArray();
+
+    /// <summary>The instance extension that makes a surface from an X11 window.</summary>
+    private static readonly byte[] XlibSurfaceExtension = "VK_KHR_xlib_surface\0"u8.ToArray();
 
     /// <summary>The names the Vulkan loader goes by on Windows, Linux and macOS.</summary>
     private static readonly string[] LoaderNames = ["vulkan-1.dll", "libvulkan.so.1", "libvulkan.so", "libvulkan.1.dylib", "libMoltenVK.dylib"];
@@ -78,6 +94,12 @@ public sealed unsafe class VulkanContext : IDisposable
     /// <summary>Gets a value indicating whether the GPU can export an image as a dmabuf, which is how frames reach a Wayland compositor.</summary>
     public bool CanExportDmabuf { get; }
 
+    /// <summary>Gets a value indicating whether the context can present frames to a window through a swapchain.</summary>
+    public bool CanPresent { get; private init; }
+
+    /// <summary>Gets the instance handle.</summary>
+    internal ulong Instance => _instance;
+
     /// <summary>Gets the device handle.</summary>
     internal ulong Device => _device;
 
@@ -89,12 +111,18 @@ public sealed unsafe class VulkanContext : IDisposable
 
     /// <summary>Creates a context on the best GPU.</summary>
     /// <returns>The context, or <see langword="null"/> when the machine has no Vulkan loader, driver or graphics queue.</returns>
-    public static VulkanContext? TryCreate()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static VulkanContext? TryCreate() => TryCreate(forWindow: false);
+
+    /// <summary>Creates a context on the best GPU.</summary>
+    /// <param name="forWindow">Whether to ask for X11 window presentation. When the driver has none, the context is still made and <see cref="CanPresent"/> is <see langword="false"/>.</param>
+    /// <returns>The context, or <see langword="null"/> when the machine has no Vulkan loader, driver or graphics queue.</returns>
+    public static VulkanContext? TryCreate(bool forWindow)
     {
         NativeLibraries.Register(typeof(NativeMethods).Assembly, NativeMethods.Library, LoaderNames);
         try
         {
-            return Create();
+            return Create(forWindow);
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or PlatformNotSupportedException)
         {
@@ -112,15 +140,17 @@ public sealed unsafe class VulkanContext : IDisposable
     }
 
     /// <summary>Creates the instance and device.</summary>
+    /// <param name="forWindow">Whether to ask for X11 window presentation.</param>
     /// <returns>The context.</returns>
     /// <exception cref="PlatformNotSupportedException">The machine has no usable GPU.</exception>
-    private static VulkanContext Create()
+    private static VulkanContext Create(bool forWindow)
     {
-        var instance = CreateInstance();
+        var windowInstance = forWindow ? CreateWindowInstance() : 0;
+        var instance = windowInstance != 0 ? windowInstance : CreateInstance();
         try
         {
             var selection = SelectGpu(instance);
-            return new(instance, selection, CreateDevice(selection));
+            return new(instance, selection, CreateDevice(selection)) { CanPresent = windowInstance != 0 && selection.HasSwapchain };
         }
         catch (PlatformNotSupportedException)
         {
@@ -136,16 +166,56 @@ public sealed unsafe class VulkanContext : IDisposable
     {
         foreach (var version in (ReadOnlySpan<uint>)[VkConstants.ApiVersion11, VkConstants.ApiVersion10])
         {
-            var application = new VkApplicationInfo { SType = VkConstants.ApplicationInfoType, ApiVersion = version };
-            var info = new VkInstanceCreateInfo { SType = VkConstants.InstanceCreateInfoType, ApplicationInfo = (ulong)&application };
-            ulong instance;
-            if (NativeMethods.CreateInstance(&info, null, &instance) == VkConstants.Success)
+            var instance = CreateInstanceWith(version, 0, 0);
+            if (instance != 0)
             {
                 return instance;
             }
         }
 
         throw new PlatformNotSupportedException("No Vulkan driver accepted an instance.");
+    }
+
+    /// <summary>Creates an instance that can present to X11 windows, or reports that the driver cannot.</summary>
+    /// <returns>The instance handle, or 0 when no driver has the X11 surface extensions.</returns>
+    private static ulong CreateWindowInstance()
+    {
+        fixed (byte* surface = SurfaceExtension)
+        {
+            fixed (byte* xlib = XlibSurfaceExtension)
+            {
+                ulong* names = stackalloc ulong[] { (ulong)surface, (ulong)xlib };
+                foreach (var version in (ReadOnlySpan<uint>)[VkConstants.ApiVersion11, VkConstants.ApiVersion10])
+                {
+                    var instance = CreateInstanceWith(version, SurfaceExtensionCount, (ulong)names);
+                    if (instance != 0)
+                    {
+                        return instance;
+                    }
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>Creates an instance for one API version and set of extensions.</summary>
+    /// <param name="version">The API version asked for.</param>
+    /// <param name="extensionCount">The number of instance extensions.</param>
+    /// <param name="extensionNames">A pointer to the extension name pointers, or 0.</param>
+    /// <returns>The instance handle, or 0 when the driver refused.</returns>
+    private static ulong CreateInstanceWith(uint version, uint extensionCount, ulong extensionNames)
+    {
+        var application = new VkApplicationInfo { SType = VkConstants.ApplicationInfoType, ApiVersion = version };
+        var info = new VkInstanceCreateInfo
+        {
+            SType = VkConstants.InstanceCreateInfoType,
+            ApplicationInfo = (ulong)&application,
+            EnabledExtensionCount = extensionCount,
+            EnabledExtensionNames = extensionNames,
+        };
+        ulong instance;
+        return NativeMethods.CreateInstance(&info, null, &instance) == VkConstants.Success ? instance : 0;
     }
 
     /// <summary>Picks the GPU: discrete first, then integrated, then anything that has a graphics queue.</summary>
@@ -188,7 +258,8 @@ public sealed unsafe class VulkanContext : IDisposable
             VkConstants.IntegratedGpu => IntegratedScore,
             _ => OtherScore,
         };
-        return new(physicalDevice, ReadName(properties + VkConstants.DeviceNameOffset), (uint)family, score, HasDmabufExport(physicalDevice));
+        var extensions = ReadExtensions(physicalDevice);
+        return new(physicalDevice, ReadName(properties + VkConstants.DeviceNameOffset), (uint)family, score, extensions.Dmabuf, extensions.Swapchain);
     }
 
     /// <summary>Finds the first queue family that can draw.</summary>
@@ -224,16 +295,17 @@ public sealed unsafe class VulkanContext : IDisposable
         return Encoding.UTF8.GetString(name, length);
     }
 
-    /// <summary>Tells whether a GPU has the two extensions that export memory as a dmabuf.</summary>
+    /// <summary>Finds the optional extensions a GPU has: the two that export memory as a dmabuf and the swapchain.</summary>
     /// <param name="physicalDevice">The GPU.</param>
-    /// <returns><see langword="true"/> when both are there.</returns>
-    private static bool HasDmabufExport(ulong physicalDevice)
+    /// <returns>What the GPU has.</returns>
+    private static GpuExtensions ReadExtensions(ulong physicalDevice)
     {
         uint count = MaxExtensions;
         byte* extensions = stackalloc byte[MaxExtensions * VkConstants.ExtensionPropertiesSize];
         _ = NativeMethods.EnumerateDeviceExtensionProperties(physicalDevice, null, &count, extensions);
         var fd = false;
         var dmabuf = false;
+        var swapchain = false;
         for (var i = 0; i < count; i++)
         {
             var name = new ReadOnlySpan<byte>(extensions + (i * VkConstants.ExtensionPropertiesSize), VkConstants.ExtensionNameLength);
@@ -241,12 +313,13 @@ public sealed unsafe class VulkanContext : IDisposable
             var trimmed = length < 0 ? name : name[..length];
             fd |= trimmed.SequenceEqual(ExternalMemoryFd.AsSpan(0, ExternalMemoryFd.Length - 1));
             dmabuf |= trimmed.SequenceEqual(ExternalMemoryDmaBuf.AsSpan(0, ExternalMemoryDmaBuf.Length - 1));
+            swapchain |= trimmed.SequenceEqual(SwapchainExtension.AsSpan(0, SwapchainExtension.Length - 1));
         }
 
-        return fd && dmabuf;
+        return new(fd && dmabuf, swapchain);
     }
 
-    /// <summary>Creates the logical device with one graphics queue, and the dmabuf export extensions when the GPU has them.</summary>
+    /// <summary>Creates the logical device with one graphics queue, and the dmabuf export and swapchain extensions when the GPU has them.</summary>
     /// <param name="selection">The chosen GPU.</param>
     /// <returns>The device handle.</returns>
     /// <exception cref="PlatformNotSupportedException">The GPU refused to create a device.</exception>
@@ -258,19 +331,36 @@ public sealed unsafe class VulkanContext : IDisposable
         {
             fixed (byte* dmabuf = ExternalMemoryDmaBuf)
             {
-                ulong* names = stackalloc ulong[] { (ulong)fd, (ulong)dmabuf };
-                var info = new VkDeviceCreateInfo
+                fixed (byte* swapchain = SwapchainExtension)
                 {
-                    SType = VkConstants.DeviceCreateInfoType,
-                    QueueCreateInfoCount = 1,
-                    QueueCreateInfos = (ulong)&queue,
-                    EnabledExtensionCount = selection.CanExportDmabuf ? DmabufExtensionCount : 0,
-                    EnabledExtensionNames = selection.CanExportDmabuf ? (ulong)names : 0,
-                };
-                ulong device;
-                return NativeMethods.CreateDevice(selection.PhysicalDevice, &info, null, &device) == VkConstants.Success
-                    ? device
-                    : throw new PlatformNotSupportedException("The GPU refused to create a Vulkan device.");
+                    ulong* names = stackalloc ulong[MaxDeviceExtensions];
+                    var count = 0U;
+                    if (selection.CanExportDmabuf)
+                    {
+                        names[0] = (ulong)fd;
+                        names[1] = (ulong)dmabuf;
+                        count = DmabufExtensionCount;
+                    }
+
+                    if (selection.HasSwapchain)
+                    {
+                        names[count] = (ulong)swapchain;
+                        count++;
+                    }
+
+                    var info = new VkDeviceCreateInfo
+                    {
+                        SType = VkConstants.DeviceCreateInfoType,
+                        QueueCreateInfoCount = 1,
+                        QueueCreateInfos = (ulong)&queue,
+                        EnabledExtensionCount = count,
+                        EnabledExtensionNames = count == 0 ? 0 : (ulong)names,
+                    };
+                    ulong device;
+                    return NativeMethods.CreateDevice(selection.PhysicalDevice, &info, null, &device) == VkConstants.Success
+                        ? device
+                        : throw new PlatformNotSupportedException("The GPU refused to create a Vulkan device.");
+                }
             }
         }
     }

@@ -12,5 +12,6 @@ namespace HyperPdf.Rendering.Vulkan;
 /// <param name="QueueFamily">The first queue family that can draw.</param>
 /// <param name="Score">3 for a discrete GPU, 2 for an integrated one and 1 for anything else.</param>
 /// <param name="CanExportDmabuf">Whether the GPU has the extensions that export memory as a dmabuf.</param>
+/// <param name="HasSwapchain">Whether the GPU has the extension that presents images to a window.</param>
 [DebuggerDisplay("GpuSelection {Name}, score {Score}")]
-internal readonly record struct GpuSelection(ulong PhysicalDevice, string Name, uint QueueFamily, int Score, bool CanExportDmabuf);
+internal readonly record struct GpuSelection(ulong PhysicalDevice, string Name, uint QueueFamily, int Score, bool CanExportDmabuf, bool HasSwapchain);

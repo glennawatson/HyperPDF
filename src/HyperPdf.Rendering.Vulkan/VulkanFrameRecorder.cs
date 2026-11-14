@@ -43,8 +43,9 @@ internal static unsafe class VulkanFrameRecorder
     /// <param name="frame">The objects the frame uses.</param>
     /// <param name="ops">The operations in drawing order.</param>
     /// <param name="uploads">A list the caller keeps between frames. It is cleared here and holds the tiles uploaded this frame.</param>
+    /// <param name="window">The window the finished frame is shown in, or <see langword="null"/> when the frame is only read back.</param>
     /// <exception cref="InvalidOperationException">The GPU failed.</exception>
-    internal static void Render(VulkanFrameResources frame, List<VulkanDrawOp> ops, List<VulkanTileSurface> uploads)
+    internal static void Render(VulkanFrameResources frame, List<VulkanDrawOp> ops, List<VulkanTileSurface> uploads, VulkanSwapchain? window)
     {
         var total = PrepareTiles(frame, ops, uploads);
         frame.EnsureStaging(total);
@@ -60,7 +61,9 @@ internal static unsafe class VulkanFrameRecorder
         VulkanCommands.BeginFrame(frame.Commands.Buffer, frame.Pipelines.RenderPass, frame.Target.Framebuffer, frame.Target.Width, frame.Target.Height);
         RecordDraws(frame, ops);
         NativeMethods.CmdEndRenderPass(frame.Commands.Buffer);
+        window?.RecordCopy(frame.Commands.Buffer, frame.Target);
         frame.Commands.SubmitAndWait();
+        window?.Present();
     }
 
     /// <summary>Makes sure every tile in the frame has a GPU image and finds the ones whose pixels must be uploaded.</summary>

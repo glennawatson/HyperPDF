@@ -270,4 +270,28 @@ internal static class VkEnums
 
     /// <summary>The offset of the alignment in VkMemoryRequirements.</summary>
     internal const int AlignmentOffset = 8;
+
+    /// <summary>The structure type of VkSwapchainCreateInfoKHR.</summary>
+    internal const uint SwapchainCreateInfoType = 1_000_001_000;
+
+    /// <summary>The structure type of VkPresentInfoKHR.</summary>
+    internal const uint PresentInfoType = 1_000_001_001;
+
+    /// <summary>The structure type of VkXlibSurfaceCreateInfoKHR.</summary>
+    internal const uint XlibSurfaceCreateInfoType = 1_000_004_000;
+
+    /// <summary>The image layout a swapchain image must be in to be presented.</summary>
+    internal const uint LayoutPresentSource = 1_000_001_002;
+
+    /// <summary>The VkResult of a swapchain that still works but no longer matches the window exactly.</summary>
+    internal const int Suboptimal = 1_000_001_003;
+
+    /// <summary>The VkResult of a swapchain that no longer matches the window and must be made again.</summary>
+    internal const int OutOfDate = -1_000_001_004;
+
+    /// <summary>The present mode that waits for the display's refresh, which every driver has.</summary>
+    internal const uint PresentModeFifo = 2;
+
+    /// <summary>The composite alpha bit of an opaque window.</summary>
+    internal const uint CompositeAlphaOpaque = 1;
 }

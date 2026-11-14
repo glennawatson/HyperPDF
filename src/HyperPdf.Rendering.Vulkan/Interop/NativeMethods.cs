@@ -574,4 +574,101 @@ internal static unsafe partial class NativeMethods
     /// <returns>A VkResult.</returns>
     [LibraryImport(Library, EntryPoint = "vkResetFences")]
     internal static partial int ResetFences(ulong device, uint count, ulong* fences);
+
+    /// <summary>Native <c>vkCreateXlibSurfaceKHR</c>.</summary>
+    /// <param name="instance">The instance.</param>
+    /// <param name="info">The VkXlibSurfaceCreateInfoKHR.</param>
+    /// <param name="allocator">The allocation callbacks, or null.</param>
+    /// <param name="surface">Receives the surface.</param>
+    /// <returns>A VkResult.</returns>
+    [LibraryImport(Library, EntryPoint = "vkCreateXlibSurfaceKHR")]
+    internal static partial int CreateXlibSurface(ulong instance, byte* info, void* allocator, ulong* surface);
+
+    /// <summary>Native <c>vkDestroySurfaceKHR</c>.</summary>
+    /// <param name="instance">The instance.</param>
+    /// <param name="surface">The surface.</param>
+    /// <param name="allocator">The allocation callbacks, or null.</param>
+    [LibraryImport(Library, EntryPoint = "vkDestroySurfaceKHR")]
+    internal static partial void DestroySurface(ulong instance, ulong surface, void* allocator);
+
+    /// <summary>Native <c>vkGetPhysicalDeviceSurfaceSupportKHR</c>.</summary>
+    /// <param name="physicalDevice">The GPU.</param>
+    /// <param name="queueFamily">The queue family.</param>
+    /// <param name="surface">The surface.</param>
+    /// <param name="supported">Receives nonzero when the queue family can present to the surface.</param>
+    /// <returns>A VkResult.</returns>
+    [LibraryImport(Library, EntryPoint = "vkGetPhysicalDeviceSurfaceSupportKHR")]
+    internal static partial int GetSurfaceSupport(ulong physicalDevice, uint queueFamily, ulong surface, uint* supported);
+
+    /// <summary>Native <c>vkGetPhysicalDeviceSurfaceCapabilitiesKHR</c>.</summary>
+    /// <param name="physicalDevice">The GPU.</param>
+    /// <param name="surface">The surface.</param>
+    /// <param name="capabilities">Receives the VkSurfaceCapabilitiesKHR, 52 bytes.</param>
+    /// <returns>A VkResult.</returns>
+    [LibraryImport(Library, EntryPoint = "vkGetPhysicalDeviceSurfaceCapabilitiesKHR")]
+    internal static partial int GetSurfaceCapabilities(ulong physicalDevice, ulong surface, byte* capabilities);
+
+    /// <summary>Native <c>vkGetPhysicalDeviceSurfaceFormatsKHR</c>.</summary>
+    /// <param name="physicalDevice">The GPU.</param>
+    /// <param name="surface">The surface.</param>
+    /// <param name="count">The room in formats on entry and the number written on return.</param>
+    /// <param name="formats">Receives VkSurfaceFormatKHR values, 8 bytes each.</param>
+    /// <returns>A VkResult.</returns>
+    [LibraryImport(Library, EntryPoint = "vkGetPhysicalDeviceSurfaceFormatsKHR")]
+    internal static partial int GetSurfaceFormats(ulong physicalDevice, ulong surface, uint* count, byte* formats);
+
+    /// <summary>Native <c>vkCreateSwapchainKHR</c>.</summary>
+    /// <param name="device">The device.</param>
+    /// <param name="info">The VkSwapchainCreateInfoKHR.</param>
+    /// <param name="allocator">The allocation callbacks, or null.</param>
+    /// <param name="swapchain">Receives the swapchain.</param>
+    /// <returns>A VkResult.</returns>
+    [LibraryImport(Library, EntryPoint = "vkCreateSwapchainKHR")]
+    internal static partial int CreateSwapchain(ulong device, byte* info, void* allocator, ulong* swapchain);
+
+    /// <summary>Native <c>vkDestroySwapchainKHR</c>.</summary>
+    /// <param name="device">The device.</param>
+    /// <param name="swapchain">The swapchain.</param>
+    /// <param name="allocator">The allocation callbacks, or null.</param>
+    [LibraryImport(Library, EntryPoint = "vkDestroySwapchainKHR")]
+    internal static partial void DestroySwapchain(ulong device, ulong swapchain, void* allocator);
+
+    /// <summary>Native <c>vkGetSwapchainImagesKHR</c>.</summary>
+    /// <param name="device">The device.</param>
+    /// <param name="swapchain">The swapchain.</param>
+    /// <param name="count">The room in images on entry and the number written on return.</param>
+    /// <param name="images">Receives the image handles.</param>
+    /// <returns>A VkResult.</returns>
+    [LibraryImport(Library, EntryPoint = "vkGetSwapchainImagesKHR")]
+    internal static partial int GetSwapchainImages(ulong device, ulong swapchain, uint* count, ulong* images);
+
+    /// <summary>Native <c>vkAcquireNextImageKHR</c>.</summary>
+    /// <param name="device">The device.</param>
+    /// <param name="swapchain">The swapchain.</param>
+    /// <param name="timeout">The longest wait in nanoseconds.</param>
+    /// <param name="semaphore">A semaphore to signal, or 0.</param>
+    /// <param name="fence">A fence to signal, or 0.</param>
+    /// <param name="index">Receives the index of the image.</param>
+    /// <returns>A VkResult.</returns>
+    [LibraryImport(Library, EntryPoint = "vkAcquireNextImageKHR")]
+    internal static partial int AcquireNextImage(ulong device, ulong swapchain, ulong timeout, ulong semaphore, ulong fence, uint* index);
+
+    /// <summary>Native <c>vkQueuePresentKHR</c>.</summary>
+    /// <param name="queue">The queue.</param>
+    /// <param name="info">The VkPresentInfoKHR.</param>
+    /// <returns>A VkResult.</returns>
+    [LibraryImport(Library, EntryPoint = "vkQueuePresentKHR")]
+    internal static partial int QueuePresent(ulong queue, byte* info);
+
+    /// <summary>Native <c>vkCmdBlitImage</c>.</summary>
+    /// <param name="commandBuffer">The command buffer.</param>
+    /// <param name="source">The source image.</param>
+    /// <param name="sourceLayout">The layout of the source image.</param>
+    /// <param name="destination">The destination image.</param>
+    /// <param name="destinationLayout">The layout of the destination image.</param>
+    /// <param name="regionCount">The number of regions.</param>
+    /// <param name="regions">The VkImageBlit regions.</param>
+    /// <param name="filter">The filter used when the sizes differ.</param>
+    [LibraryImport(Library, EntryPoint = "vkCmdBlitImage")]
+    internal static partial void CmdBlitImage(ulong commandBuffer, ulong source, uint sourceLayout, ulong destination, uint destinationLayout, uint regionCount, byte* regions, uint filter);
 }
