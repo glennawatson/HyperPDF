@@ -6,6 +6,7 @@ using HyperPdf.Head.Windows.Accessibility;
 using HyperPdf.Head.Windows.Win32;
 using HyperPdf.Presentation.Input;
 using HyperPdf.Windowing.Rendering;
+using HyperPdf.Windowing.Windows;
 
 namespace HyperPdf.Windowing.Tests;
 
@@ -23,6 +24,15 @@ public sealed class Win32WindowTests
 
     /// <summary>The UI Automation control type id of a window.</summary>
     private const int WindowControlType = 50_032;
+
+    /// <summary>The WM_CHAR message.</summary>
+    private const uint CharacterMessage = 0x0102;
+
+    /// <summary>The character posted to the window, the letter é.</summary>
+    private const nuint TypedCharacter = 0xE9;
+
+    /// <summary>The text put on the clipboard.</summary>
+    private const string ClipboardSample = "HyperPDF clipboard check ✓";
 
     /// <summary>How long to wait for events in the test, in milliseconds.</summary>
     private const int WaitMilliseconds = 100;
@@ -56,6 +66,38 @@ public sealed class Win32WindowTests
         }
 
         await Assert.That(bridge.Disposed).IsTrue();
+    }
+
+    /// <summary>Text the window copies can be read back from the Windows clipboard, and a character message becomes a typed text event.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task WindowSetsTheClipboardAndReportsTypedText()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            Skip.Test("Win32 windows only run on Windows.");
+            return;
+        }
+
+        var typed = new List<uint>();
+        string? copied;
+        using (var window = new Win32Window(RenderBackendPreference.Cpu, new RecordingAccessibilityBridge()))
+        {
+            window.Show();
+            window.SetClipboardText(ClipboardSample);
+            copied = Win32ClipboardReader.ReadText((nint)window.WindowHandle);
+            _ = NativeMethods.PostMessage((nint)window.WindowHandle, CharacterMessage, TypedCharacter, 0);
+            window.PumpEvents(WaitMilliseconds, (in windowEvent) =>
+            {
+                if (windowEvent.Kind == WindowEventKind.TextInput)
+                {
+                    typed.Add(windowEvent.Code);
+                }
+            });
+        }
+
+        await Assert.That(copied).IsEqualTo(ClipboardSample);
+        await Assert.That(typed).Contains((uint)TypedCharacter);
     }
 
     /// <summary>The window answers UI Automation, so a screen reader reads its name and control type from the published tree.</summary>
