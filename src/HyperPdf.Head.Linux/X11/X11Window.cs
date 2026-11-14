@@ -146,11 +146,13 @@ public sealed unsafe class X11Window : IPlatformWindow
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Close() => Dispose();
 
-    /// <summary>Handles every queued event without waiting.</summary>
+    /// <summary>Handles every queued event. X11 events are read without waiting, so the timeout is not used.</summary>
+    /// <param name="timeoutMilliseconds">Not used.</param>
     /// <param name="handler">Receives each event.</param>
-    public void PumpEvents(WindowEventHandler handler)
+    public void PumpEvents(int timeoutMilliseconds, WindowEventHandler handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
+        _ = timeoutMilliseconds;
         byte* buffer = stackalloc byte[XEventSize];
         while (Volatile.Read(ref _disposed) == 0 && NativeMethods.XPending(_display) > 0)
         {

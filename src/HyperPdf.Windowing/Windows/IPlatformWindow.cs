@@ -34,6 +34,11 @@ public interface IPlatformWindow : IDisposable
     /// <summary>Asks for the canvas to be drawn on the next frame.</summary>
     void RequestFrame();
 
+    /// <summary>Handles queued window events.</summary>
+    /// <param name="timeoutMilliseconds">The longest to wait for the first event, or 0 to only handle what is queued. A head may return sooner.</param>
+    /// <param name="handler">Receives each event.</param>
+    void PumpEvents(int timeoutMilliseconds, WindowEventHandler handler);
+
     /// <summary>Shows the window.</summary>
     void Show();
 

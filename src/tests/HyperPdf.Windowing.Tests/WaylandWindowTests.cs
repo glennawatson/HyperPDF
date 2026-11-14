@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdf.Head.Linux;
 using HyperPdf.Head.Linux.Wayland;
 using HyperPdf.Windowing.Rendering;
 
@@ -42,5 +43,20 @@ public sealed class WaylandWindowTests
         }
 
         await Assert.That(bridge.Disposed).IsTrue();
+    }
+
+    /// <summary>The Linux selector opens Wayland first when a compositor is reachable.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SelectorPrefersWaylandWhenAvailable()
+    {
+        if (!WaylandWindow.IsAvailable())
+        {
+            Skip.Test("No Wayland compositor is available.");
+        }
+
+        using var window = LinuxWindows.Open(RenderBackendPreference.Gpu, new RecordingAccessibilityBridge(), out var system);
+
+        await Assert.That(system).IsEqualTo(LinuxWindowSystem.Wayland);
     }
 }
