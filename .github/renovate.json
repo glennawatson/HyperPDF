@@ -39,6 +39,11 @@
   "packageRules": [
     {
       "matchManagers": ["nuget"],
+      "matchPackageNames": ["/^HyperCodecs(\\.|$)/"],
+      "groupName": "HyperCodecs"
+    },
+    {
+      "matchManagers": ["nuget"],
       "matchPackageNames": ["/^Avalonia(\\.|$)/"],
       "groupName": "Avalonia"
     },
