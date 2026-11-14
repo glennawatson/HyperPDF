@@ -169,6 +169,17 @@ public sealed class ViewerChrome : IDisposable
         return dialog.Answer;
     }
 
+    /// <summary>Asks for one line of text in a dialog.</summary>
+    /// <param name="request">What is asked.</param>
+    /// <returns>The text typed, or <see langword="null"/> when the dialog was cancelled.</returns>
+    public Task<string?> PromptAsync(PromptRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var dialog = new PromptOverlay(request);
+        Show(dialog);
+        return dialog.Answer;
+    }
+
     /// <summary>Opens the search bar of the tab shown.</summary>
     public void ShowFind()
     {

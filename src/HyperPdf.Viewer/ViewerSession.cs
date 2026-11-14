@@ -4,9 +4,11 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using HyperPdf.Core.Theming;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Dialogs;
+using HyperPdf.ViewModels.Markup;
 using HyperPdf.ViewModels.Services;
 using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer.Accessibility;
@@ -44,6 +46,12 @@ public sealed class ViewerSession : IDisposable
 
     /// <summary>The event handler handed to every pump, made once so a turn of the loop allocates nothing.</summary>
     private WindowEventHandler? _handleEvent;
+
+    /// <summary>The tab whose password question the user turned down, so it is not asked again at every turn of the loop.</summary>
+    private DocumentTabViewModel? _passwordDeclined;
+
+    /// <summary>Whether the password dialog is open.</summary>
+    private bool _askingPassword;
 
     /// <summary>Whether the user asked to close the window.</summary>
     private bool _closed;
@@ -122,6 +130,7 @@ public sealed class ViewerSession : IDisposable
         _context.Drain();
 
         // Posted work changes view models without a window event, so the controls and the tree are checked after it too.
+        OfferPassword();
         Chrome.RequestFrameIfChanged();
         Accessibility.RefreshIfRead(Main, Canvas);
         return !_closed;
@@ -157,7 +166,65 @@ public sealed class ViewerSession : IDisposable
     {
         Canvas.ShowTab(tab);
         _window.SetTitle(Main.WindowTitle);
-        _tabDialogs.Disposable = tab?.SaveAsInteraction.RegisterHandler(AskWhereToSaveAsync);
+        _tabDialogs.Disposable = tab is null
+            ? null
+            : new MultipleDisposable(tab.SaveAsInteraction.RegisterHandler(AskWhereToSaveAsync), tab.Annotations.PromptInteraction.RegisterHandler(AskForTextAsync));
+    }
+
+    /// <summary>Asks for a line of text, such as the words of a note.</summary>
+    /// <param name="context">The interaction to answer.</param>
+    /// <returns>A task that ends when the dialog closes.</returns>
+    private async Task AskForTextAsync(IInteractionContext<TextPrompt, string?> context)
+    {
+        var asked = context.Input;
+        context.SetOutput(await Chrome.PromptAsync(new(asked.Title, asked.Label, asked.Text, asked.AcceptText, false)).ConfigureAwait(true));
+    }
+
+    /// <summary>Asks for the password of the tab shown when its document needs one and the user has not turned the question down.</summary>
+    private void OfferPassword()
+    {
+        if (Main.SelectedTab is not { NeedsPassword: true } tab)
+        {
+            _passwordDeclined = null;
+            return;
+        }
+
+        if (_askingPassword || Chrome.HasOverlay || ReferenceEquals(tab, _passwordDeclined))
+        {
+            return;
+        }
+
+        _askingPassword = true;
+        _ = AskForPasswordAsync(tab);
+    }
+
+    /// <summary>Shows the password dialog and opens the document with what was typed.</summary>
+    /// <param name="tab">The tab whose document is locked.</param>
+    /// <returns>A task that ends when the dialog closes.</returns>
+    private async Task AskForPasswordAsync(DocumentTabViewModel tab)
+    {
+        try
+        {
+            var request = new PromptRequest(UiText.Get("This document is locked"), UiText.Format("Type the password for {0}.", tab.FileName), string.Empty, UiText.Get("Open"), true);
+            var password = await Chrome.PromptAsync(request).ConfigureAwait(true);
+            if (password is null)
+            {
+                // The question is not asked again for this tab until the user picks another tab or reloads it.
+                _passwordDeclined = tab;
+                return;
+            }
+
+            tab.PasswordEntry = password;
+            ICommand submit = tab.SubmitPasswordCommand;
+            if (submit.CanExecute(null))
+            {
+                submit.Execute(null);
+            }
+        }
+        finally
+        {
+            _askingPassword = false;
+        }
     }
 
     /// <summary>Draws with the colours of a theme.</summary>

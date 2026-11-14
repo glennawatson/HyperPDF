@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using HyperPdf.Core.Accessibility;
 using HyperPdf.Core.Settings;
 using HyperPdf.Engine;
+using HyperPdf.Engine.Tests;
 using HyperPdf.Presentation.Input;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels.Services;
@@ -38,6 +39,18 @@ public sealed class ViewerChromeTests
 
     /// <summary>The longest the test waits for one step, in seconds.</summary>
     private const double TimeoutSeconds = 30;
+
+    /// <summary>The turns of the loop given to a dialog that should not come back.</summary>
+    private const int SettleTurns = 10;
+
+    /// <summary>The password of the locked test document.</summary>
+    private const string Password = "open-sesame";
+
+    /// <summary>What the typing box shows for that password: one dot for each character.</summary>
+    private const string MaskedPassword = "•••••••••••";
+
+    /// <summary>The name of the settings file each run keeps in its own folder.</summary>
+    private const string SettingsFile = "settings.json";
 
     /// <summary>The divisor that finds the middle of a control.</summary>
     private const double Half = 2;
@@ -101,6 +114,74 @@ public sealed class ViewerChromeTests
         await Assert.That(outcome.Hidden).IsTrue();
     }
 
+    /// <summary>A locked document asks for its password in a dialog that never shows the password, opens with the right one, and is not asked again once declined.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LockedDocumentAsksForItsPassword()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"hyperpdf-locked-{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(folder);
+        var before = SynchronizationContext.Current;
+        LockedOutcome outcome;
+        try
+        {
+            outcome = RunLocked(folder);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(before);
+            Directory.Delete(folder, true);
+        }
+
+        await Assert.That(outcome.AskedFirst).IsTrue();
+        await Assert.That(outcome.DeclinedStaysClosed).IsTrue();
+        await Assert.That(outcome.AskedAgainOnReturn).IsTrue();
+        await Assert.That(outcome.ShownWhileTyping).IsEqualTo(MaskedPassword);
+        await Assert.That(outcome.Opened).IsTrue();
+    }
+
+    /// <summary>Opens a locked document, declines the password once, reloads it and then types the password.</summary>
+    /// <param name="folder">A folder for the settings and the document.</param>
+    /// <returns>What the password dialog did.</returns>
+    private static LockedOutcome RunLocked(string folder)
+    {
+        var path = Path.Combine(folder, "locked.pdf");
+        File.WriteAllBytes(path, UserPasswordPdf.Create(Password, "owner"));
+        using var window = new HeadlessWindow(Width, Height);
+        var context = ViewerSession.UseWindowThread(window);
+        using var services = new AppServices(new SettingsStore(Path.Combine(folder, SettingsFile)), new HyperPdfEngine(), new FallbackPlatform(), new ViewerRenderHead(window));
+        using var session = new ViewerSession(window, services, context);
+        var chrome = session.Chrome;
+        session.Open([path]);
+        var asked = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item.Kind == ChromeItemKind.Field));
+
+        // Escape turns the question down, and the dialog must not come straight back.
+        window.Send(new(WindowEventKind.KeyDown, 0, 0, (uint)ViewerKey.Escape, 0));
+        _ = PumpUntil(session, () => !chrome.HasOverlay);
+        for (var turn = 0; turn < SettleTurns; turn++)
+        {
+            _ = session.PumpOnce(PumpMilliseconds);
+        }
+
+        var staysClosed = !chrome.HasOverlay;
+
+        // Leaving the tab and coming back asks again, as the user has shown they still want the document.
+        session.Main.SelectedTab = null;
+        _ = session.PumpOnce(PumpMilliseconds);
+        session.Main.SelectedTab = session.Main.Tabs[0];
+        var askedAgain = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item.Kind == ChromeItemKind.Field));
+        foreach (var character in Password)
+        {
+            window.Send(new(WindowEventKind.TextInput, 0, 0, character, 0));
+        }
+
+        _ = PumpUntil(session, () => chrome.OverlayItems.FirstOrDefault(static item => item.Kind == ChromeItemKind.Field)?.Text.Length == Password.Length);
+        var shown = chrome.OverlayItems.FirstOrDefault(static item => item.Kind == ChromeItemKind.Field)?.Text ?? string.Empty;
+        window.Send(new(WindowEventKind.KeyDown, 0, 0, (uint)ViewerKey.Enter, 0));
+        var opened = PumpUntil(session, () => session.Main.SelectedTab is { IsLoaded: true, NeedsPassword: false });
+        return new(asked, staysClosed, askedAgain, shown, opened);
+    }
+
     /// <summary>Opens a document with two bookmarks and uses the bookmarks panel.</summary>
     /// <param name="folder">A folder for the settings and the document.</param>
     /// <returns>What the panel did.</returns>
@@ -110,7 +191,7 @@ public sealed class ViewerChromeTests
         File.WriteAllBytes(path, OpenHintSamples.CreateStyledOutline());
         using var window = new HeadlessWindow(Width, Height);
         var context = ViewerSession.UseWindowThread(window);
-        using var services = new AppServices(new SettingsStore(Path.Combine(folder, "settings.json")), new HyperPdfEngine(), new FallbackPlatform(), new ViewerRenderHead(window));
+        using var services = new AppServices(new SettingsStore(Path.Combine(folder, SettingsFile)), new HyperPdfEngine(), new FallbackPlatform(), new ViewerRenderHead(window));
         using var session = new ViewerSession(window, services, context);
         var chrome = session.Chrome;
         session.Open([path]);
@@ -141,7 +222,7 @@ public sealed class ViewerChromeTests
         File.WriteAllBytes(second, TestPdf.CreateTextFilled(Pages, Lines));
         using var window = new HeadlessWindow(Width, Height);
         var context = ViewerSession.UseWindowThread(window);
-        using var services = new AppServices(new SettingsStore(Path.Combine(folder, "settings.json")), new HyperPdfEngine(), new FallbackPlatform(), new ViewerRenderHead(window));
+        using var services = new AppServices(new SettingsStore(Path.Combine(folder, SettingsFile)), new HyperPdfEngine(), new FallbackPlatform(), new ViewerRenderHead(window));
         using var session = new ViewerSession(window, services, context);
         var chrome = session.Chrome;
         session.Open([first]);
@@ -294,6 +375,14 @@ public sealed class ViewerChromeTests
 
         return true;
     }
+
+    /// <summary>What the password dialog did.</summary>
+    /// <param name="AskedFirst">Whether opening the locked document showed the dialog.</param>
+    /// <param name="DeclinedStaysClosed">Whether the dialog stayed away after Escape.</param>
+    /// <param name="AskedAgainOnReturn">Whether choosing the tab again showed the dialog again.</param>
+    /// <param name="ShownWhileTyping">The text in the typing box after the password was typed.</param>
+    /// <param name="Opened">Whether the document opened with the password.</param>
+    private readonly record struct LockedOutcome(bool AskedFirst, bool DeclinedStaysClosed, bool AskedAgainOnReturn, string ShownWhileTyping, bool Opened);
 
     /// <summary>What the bookmarks panel did.</summary>
     /// <param name="Shown">Whether the panel took room beside the pages.</param>

@@ -2,8 +2,10 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Dialogs;
+using HyperPdf.ViewModels.Markup;
 using HyperPdf.ViewModels.Viewing;
 
 namespace HyperPdf.Viewer.Chrome;
@@ -38,6 +40,7 @@ internal static class MainMenu
         entries.Add(MenuEntry.Separator());
         entries.Add(MenuEntry.Submenu(UiText.Get("_View"), tab.IsLoaded, View(main, tab)));
         entries.Add(MenuEntry.Submenu(UiText.Get("_Go"), tab.IsLoaded, Go(tab)));
+        entries.Add(MenuEntry.Submenu(UiText.Get("T_ools"), tab.IsLoaded, Tools(tab)));
         entries.Add(MenuEntry.Submenu(UiText.Get("_Tabs"), true, Tabs(main, tab)));
         return entries;
     }
@@ -93,6 +96,44 @@ internal static class MainMenu
         MenuEntry.Separator(),
         MenuEntry.Item(UiText.Get("F_ind…"), "Ctrl+F", tab.FindCommand, null, true),
     ];
+
+    /// <summary>Lists what the pointer does on the page: the page tools, and the marking tools that need no typed text or picked file.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>The entries, with the tool in use ticked.</returns>
+    private static List<MenuEntry> Tools(DocumentTabViewModel tab)
+    {
+        var pages = tab.PageTools;
+        var marks = tab.Annotations;
+        var marking = marks.Tool != AnnotationTool.Select;
+        return
+        [
+            MenuEntry.Radio(UiText.Get("_Select Text"), pages.SetPageToolCommand, PageTool.SelectText, !marking && pages.PageTool == PageTool.SelectText),
+            MenuEntry.Radio(UiText.Get("_Hand"), pages.SetPageToolCommand, PageTool.Hand, !marking && pages.PageTool == PageTool.Hand),
+            MenuEntry.Radio(UiText.Get("_Zoom to Area"), pages.SetPageToolCommand, PageTool.ZoomArea, !marking && pages.PageTool == PageTool.ZoomArea),
+            MenuEntry.Separator(),
+            MarkTool(marks, UiText.Get("H_ighlight"), AnnotationTool.Highlight),
+            MarkTool(marks, UiText.Get("_Underline"), AnnotationTool.Underline),
+            MarkTool(marks, UiText.Get("Stri_ke Out"), AnnotationTool.StrikeOut),
+            MarkTool(marks, UiText.Get("_Draw"), AnnotationTool.Draw),
+            MarkTool(marks, UiText.Get("_Note"), AnnotationTool.Note),
+            MarkTool(marks, UiText.Get("_Rectangle"), AnnotationTool.Rectangle),
+            MarkTool(marks, UiText.Get("_Ellipse"), AnnotationTool.Ellipse),
+            MarkTool(marks, UiText.Get("_Arrow"), AnnotationTool.Arrow),
+            MarkTool(marks, UiText.Get("_Line"), AnnotationTool.Line),
+            MenuEntry.Separator(),
+            MenuEntry.Item(UiText.Get("U_ndo"), null, marks.UndoCommand, null, true),
+            MenuEntry.Item(UiText.Get("Re_do"), null, marks.RedoCommand, null, true),
+        ];
+    }
+
+    /// <summary>Makes the entry of a marking tool, ticked while it is the tool in use.</summary>
+    /// <param name="marks">The marking tools of the tab shown.</param>
+    /// <param name="header">The entry's text.</param>
+    /// <param name="tool">The tool.</param>
+    /// <returns>The entry.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MenuEntry MarkTool(AnnotationsViewModel marks, string header, AnnotationTool tool) =>
+        MenuEntry.Radio(header, marks.SetToolCommand, tool, marks.Tool == tool);
 
     /// <summary>Lists what can be done with the tabs.</summary>
     /// <param name="main">The main view model.</param>

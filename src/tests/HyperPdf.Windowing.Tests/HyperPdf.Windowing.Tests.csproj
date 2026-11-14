@@ -4,6 +4,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The password-protected document the engine tests build, shared so the password dialog is tested with a real locked file. -->
+    <Compile Include="..\HyperPdf.Engine.Tests\UserPasswordPdf.cs" Link="UserPasswordPdf.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
     <ProjectReference Include="..\..\HyperPdf.Rendering.Vulkan\HyperPdf.Rendering.Vulkan.csproj" />
