@@ -722,10 +722,10 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.SourceGenerators
-- Version: 4.2.0
+- Version: 5.0.0
 - Origin: NuGet package
-- Copyright: Copyright (c) .NET Foundation and Contributors
-- Link: https://reactiveui.net/
+- Copyright: Copyright (c) 2026 ReactiveUI and Contributors
+- Link: https://github.com/reactiveui/ReactiveUI.Binding.SourceGenerators
 
 ````text
 MIT License
