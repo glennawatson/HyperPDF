@@ -4,6 +4,8 @@
     <Description>Hyper PDF Viewer for Linux: a native Wayland or X11 window that shows the page canvas through the CPU or GPU render backend, with no UI toolkit.</Description>
     <RootNamespace>HyperPdf.Head.Linux</RootNamespace>
     <IsAotCompatible>true</IsAotCompatible>
+    <!-- The Licences window shows these notices: the packages in the heads' assets, the font and CMap resource packs, and the data the app downloads. -->
+    <NoticesComponents>unicode-ucd;open-font-pack;adobe-cmaps;opus-reference-decoder;pv-aac-decoder;tessdata-fast;kokoro;misaki;melotts;bert-base-uncased;g2p-en;cmudict;verapdf-profile-text</NoticesComponents>
     <!-- Ships the English text recognition data (Directory.Build.targets). -->
     <UsesRecognitionData>true</UsesRecognitionData>
   </PropertyGroup>
@@ -29,6 +31,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />
+    <None Include="..\licenses\notices\HyperPdf.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
     <ProjectReference Include="..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
     <ProjectReference Include="..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
     <ProjectReference Include="..\HyperPdf.Rendering.Vulkan\HyperPdf.Rendering.Vulkan.csproj" />

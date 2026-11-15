@@ -8,7 +8,7 @@ using HyperPdf.Core.Licences;
 namespace HyperPdf.ViewModels.Services;
 
 /// <summary>
-/// Reads the third-party notices file that the app copies to its output folder (<c>src/licenses/notices/HyperPdf.App.md</c>,
+/// Reads the third-party notices file that the app copies to its output folder (<c>src/licenses/notices/HyperPdf.md</c>,
 /// kept current by the refresh-notices workflow with <c>src/tools/GenerateThirdPartyNotices.cs</c>). Each application
 /// lifetime reads the file once.
 /// </summary>
