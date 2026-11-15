@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using HyperPdf.Core.Platform;
 using HyperPdf.Platform.Cups;
+using HyperPdf.Platform.MacOS.Compat;
 
 namespace HyperPdf.Platform.MacOS;
 
@@ -46,14 +47,8 @@ public sealed class MacPrintService : IPrintService
         var start = new ProcessStartInfo(ScriptRunner) { UseShellExecute = false };
         start.ArgumentList.Add("-e");
         start.ArgumentList.Add(BuildScript(filePath));
-        using var process = Process.Start(start);
-        if (process is null)
-        {
-            return false;
-        }
 
         // Preview owns the dialog from here; the person prints or cancels there.
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        return true;
+        return await ProcessRuns.RunAsync(start, cancellationToken).ConfigureAwait(false);
     }
 }

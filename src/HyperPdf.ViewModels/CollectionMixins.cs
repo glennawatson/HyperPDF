@@ -11,14 +11,14 @@ using ReactiveUI.Primitives.Signals;
 namespace HyperPdf.ViewModels;
 
 /// <summary>Streams of the lists view models share with views.</summary>
-internal static class CollectionMixins
+public static class CollectionMixins
 {
     /// <summary>Adds the edit stream of a list.</summary>
     /// <param name="list">The list.</param>
     extension(IList list)
     {
         /// <summary>Gets the list now, and again each time it is changed in place when it reports its changes.</summary>
-        internal IObservable<IList> Edits => list is INotifyCollectionChanged collection
+        public IObservable<IList> CollectionChanges => list is INotifyCollectionChanged collection
             ? collection.Events().CollectionChanged.SelectWith(list, static (edited, _) => edited).StartWith(list)
             : Signal.Return(list);
     }

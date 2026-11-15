@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="../HyperPdfLibrary/HyperPdfLibrary.csproj" />
     <ProjectReference Include="../HyperPdfLibrary.Render.Skia/HyperPdfLibrary.Render.Skia.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
   </ItemGroup>

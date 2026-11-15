@@ -9,6 +9,7 @@ using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Extensions;
 using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
@@ -52,10 +53,10 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
         _head = head;
         Cache = new(cacheBytes);
         _surfaceFactory = head.CreateSurfaceFactory(RequestSoftwareRecovery);
-        Scheduler = new(_surfaceFactory);
+        Scheduler = new(_surfaceFactory, RenderScheduler.DefaultWorkers);
         Preparer = new(HasVisibleWork, UnderPressure, NeighbourPagePreparer.DefaultDebounce, TimeProvider.System);
-        TilesArrived = this.WhenChanged(static hub => hub.TileVersion).Skip(1).Select(static _ => RxVoid.Default);
-        PreviewsArrived = this.WhenChanged(static hub => hub.PreviewVersion).Skip(1).Select(static _ => RxVoid.Default);
+        TilesArrived = this.WhenChanged(static hub => hub.TileVersion).Skip(1).AsSignal();
+        PreviewsArrived = this.WhenChanged(static hub => hub.PreviewVersion).Skip(1).AsSignal();
 
         // Closing is first, so work that finishes while the rest is released finds the hub closed.
         var recoveryRequests = new Signal<RxVoid>();

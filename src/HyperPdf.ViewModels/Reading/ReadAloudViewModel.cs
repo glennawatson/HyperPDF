@@ -13,6 +13,7 @@ using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Extensions;
 using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
@@ -137,12 +138,12 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         // Each move of the page, sentence or word being read moves the marks version on, which the views follow.
         _subscriptions.Add(
             Signal.Merge(
-                this.WhenChanged(static vm => vm.SpokenPage).Skip(1).Select(static _ => RxVoid.Default),
+                this.WhenChanged(static vm => vm.SpokenPage).Skip(1).AsSignal(),
                 this.WhenChanged(
                     static vm
-                    => vm.SpokenRange).Skip(1).Select(static _ => RxVoid.Default),
+                    => vm.SpokenRange).Skip(1).AsSignal(),
                 this.WhenChanged(static vm => vm.SpokenWord).Skip(1)
-                .Select(static _ => RxVoid.Default)).SubscribeSafe(_ => MarksVersion++, ErrorTrace.Write));
+                .AsSignal()).SubscribeSafe(_ => MarksVersion++, ErrorTrace.Write));
     }
 
     /// <summary>Gets or sets a value indicating whether the Read Aloud bar is shown. Opening starts reading from the current page.</summary>

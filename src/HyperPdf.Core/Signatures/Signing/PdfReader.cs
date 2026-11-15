@@ -2,8 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.IO.Compression;
 using System.Runtime.InteropServices;
+using HyperPdf.Core.Compat;
 
 namespace HyperPdf.Core.Signatures.Signing;
 
@@ -382,12 +382,7 @@ internal static class PdfReader
             throw new NotSupportedException("This PDF stores its structure in a way the signer does not support yet.");
         }
 
-        using var input = new MemoryStream(raw.ToArray());
-        using var inflater = new ZLibStream(input, CompressionMode.Decompress);
-        using var output = new MemoryStream();
-        inflater.CopyTo(output);
-        var decoded = output.ToArray();
-        return Unpredict(file, dictionary, decoded);
+        return Unpredict(file, dictionary, ZLibInflate.ToArray(raw));
     }
 
     /// <summary>Reads a stream's length, resolving an indirect one when possible.</summary>

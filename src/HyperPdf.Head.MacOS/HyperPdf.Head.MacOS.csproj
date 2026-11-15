@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Description>Hyper PDF Viewer for macOS: a native Cocoa window that shows the page canvas through the Metal or CPU render backend, with no UI toolkit.</Description>
+    <RootNamespace>HyperPdf.Head.MacOS</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- Ships the English text recognition data (Directory.Build.targets). -->
+    <UsesRecognitionData>true</UsesRecognitionData>
+  </PropertyGroup>
+
+  <!-- The published program is called hyperpdf. A build keeps the project's own name, because the tests load every head side by side. -->
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+    <AssemblyName>hyperpdf</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Native AOT">
+    <PublishAot>true</PublishAot>
+    <EventSourceSupport>true</EventSourceSupport>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+    <TieredPGO>true</TieredPGO>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <PublishDocumentationFiles>false</PublishDocumentationFiles>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />
+    <ProjectReference Include="..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Metal\HyperPdf.Rendering.Metal.csproj" />
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Windowing.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.CocoaWindowRun" />
+  </ItemGroup>
+</Project>

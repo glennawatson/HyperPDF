@@ -75,6 +75,9 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
     /// <summary>Gets the interface languages, named in their own language.</summary>
     public static IReadOnlyList<string> InterfaceLanguageOptions { get; } = UiText.CreateChoices([FollowDesktopKey, "English", "Français", "Deutsch", "简体中文", "العربية", "Español", "Português"]);
 
+    /// <summary>Gets the choices of how the window draws. A choice the system cannot use falls to the next best, and the choice takes effect at the next start.</summary>
+    public static IReadOnlyList<string> RenderBackendOptions { get; } = UiText.CreateChoices(["Automatic", "Direct3D 11", "Direct3D 12", "Vulkan", "Processor"]);
+
     /// <summary>Gets the colour scheme choices.</summary>
     public static IReadOnlyList<string> ColorSchemeOptions { get; } = UiText.CreateChoices([FollowDesktopKey, "Calm", "High contrast", "Dark", "Light"]);
 
@@ -192,6 +195,10 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
     /// <summary>Gets or sets the Azure Speech region.</summary>
     [Reactive]
     public partial string AzureRegion { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the index of how the window draws.</summary>
+    [Reactive]
+    public partial int RenderBackend { get; set; }
 
     /// <summary>Gets or sets the colour scheme index.</summary>
     [Reactive]
@@ -366,6 +373,7 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
         ShowPreviewOnlyFonts = settings.ShowPreviewOnlyFonts;
         AzureRegion = settings.AzureSpeechRegion;
         ColorScheme = (int)settings.ColorScheme;
+        RenderBackend = (int)settings.RenderBackend;
         PageTone = (int)settings.PageTone;
         CustomPaper = ColorMath.ToHex(settings.CustomPaperColor);
         CustomInk = ColorMath.ToHex(settings.CustomInkColor);
@@ -468,6 +476,7 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
         FollowServices(settings);
         FollowReading(settings);
         Follow(this.WhenChanged(static x => x.ColorScheme), index => settings.ColorScheme = (ColorSchemeChoice)index);
+        Follow(this.WhenChanged(static x => x.RenderBackend), index => settings.RenderBackend = (RenderBackendSetting)index);
         Follow(this.WhenChanged(static x => x.PageTone), index =>
         {
             settings.PageTone = (PageToneChoice)index;

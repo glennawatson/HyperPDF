@@ -19,6 +19,12 @@ public sealed class RenderSchedulerTests
     /// <summary>The document identifier of the document used to occupy the render thread.</summary>
     private const int BlockerDocument = 99;
 
+    /// <summary>The render threads of the scheduler that shares tiles out.</summary>
+    private const int Workers = 4;
+
+    /// <summary>The tiles shared out between the render threads.</summary>
+    private const int ManyTiles = 64;
+
     /// <summary>The page still wanted after the view moves.</summary>
     private const int WantedPage = 2;
 
@@ -49,6 +55,40 @@ public sealed class RenderSchedulerTests
         await Assert.That(document.RenderCount).IsEqualTo(1);
         await Assert.That(scheduler.IsPending(key)).IsFalse();
         tile.Surface.Dispose();
+    }
+
+    /// <summary>Several render threads share out the tiles: each one is rendered once and every one is handed back.</summary>
+    /// <param name="cancellationToken">Ends the waits when the test is cancelled.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SeveralWorkersRenderEveryTileOnce(CancellationToken cancellationToken)
+    {
+        using var scheduler = new RenderScheduler(new FakeSurfaceFactory(), Workers);
+        var document = new FakeDocument(DocumentName, FakeEngine.A4);
+        var client = new RenderClient();
+        for (var page = 0; page < ManyTiles; page++)
+        {
+            await Assert.That(scheduler.Request(Request(Key(page), document, client, RenderPriority.Visible))).IsTrue();
+        }
+
+        var taken = new HashSet<int>();
+        while (taken.Count < ManyTiles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (scheduler.TryTakeCompleted(out var tile))
+            {
+                _ = taken.Add(tile.Key.PageIndex);
+                tile.Surface.Dispose();
+            }
+            else
+            {
+                await Task.Yield();
+            }
+        }
+
+        await Assert.That(taken.Count).IsEqualTo(ManyTiles);
+        await Assert.That(document.RenderCount).IsEqualTo(ManyTiles);
+        await Assert.That(scheduler.IsIdle).IsTrue();
     }
 
     /// <summary>Slow page preparation releases the render thread and resumes the waiting page afterwards.</summary>

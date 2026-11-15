@@ -12,4 +12,8 @@ namespace HyperPdf.Core.Accessibility;
 /// <param name="Previous">The element before the change, or <see langword="null"/> when it was added.</param>
 /// <param name="Current">The element after the change, or <see langword="null"/> when it was removed.</param>
 [DebuggerDisplay("AccessibleChange: {Kind} {NodeId}")]
-public sealed record AccessibleChange(AccessibleChangeKind Kind, int NodeId, AccessibleNode? Previous, AccessibleNode? Current);
+public sealed record AccessibleChange(AccessibleChangeKind Kind, int NodeId, AccessibleNode? Previous, AccessibleNode? Current)
+{
+    /// <summary>Gets the words a screen reader speaks for an <see cref="AccessibleChangeKind.Announcement"/>; <see langword="null"/> for other changes.</summary>
+    public string? Message { get; init; }
+}

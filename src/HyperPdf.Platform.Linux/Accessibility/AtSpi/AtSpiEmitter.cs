@@ -56,6 +56,13 @@ internal sealed class AtSpiEmitter
     internal void PropertyChanged(int id, string property, string value) =>
         Emit(id, AtSpiNames.ObjectEventInterface, AtSpiNames.PropertyChangeSignal, new(property, 0, 0, Payload.Text, 0, value));
 
+    /// <summary>Has screen readers speak a message, politely: after what they are saying now.</summary>
+    /// <param name="id">The element the message is about.</param>
+    /// <param name="message">The words to speak.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Announce(int id, string message) =>
+        Emit(id, AtSpiNames.ObjectEventInterface, AtSpiNames.AnnouncementSignal, new(string.Empty, 1, 0, Payload.Text, 0, message));
+
     /// <summary>Tells screen readers a child was added to or removed from an element.</summary>
     /// <param name="parentId">The parent.</param>
     /// <param name="added">Whether the child was added; otherwise it was removed.</param>

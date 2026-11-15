@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\HyperPdfLibrary\HyperPdfLibrary.csproj" Aliases="global,PdfLibrary" />
     <ProjectReference Include="..\..\HyperPdfLibrary.Render.Skia\HyperPdfLibrary.Render.Skia.csproj" />
+    <ProjectReference Include="..\..\HyperPdfLibrary.Render.Managed\HyperPdfLibrary.Render.Managed.csproj" />
     <ProjectReference Include="..\..\examples\HyperPdf.Examples.csproj" />
     <ProjectReference Include="..\HyperPdf.TestAssets\HyperPdf.TestAssets.csproj" />
   </ItemGroup>

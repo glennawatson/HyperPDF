@@ -14,6 +14,9 @@ internal sealed class FontDownloadHandler(params object[] replies) : HttpMessage
     /// <summary>Gets the number of GET attempts.</summary>
     internal int Attempts { get; private set; }
 
+    /// <summary>Gets or sets what runs as each GET attempt is counted, before its outcome is returned.</summary>
+    internal Action? Attempted { get; set; }
+
     /// <summary>Returns the next deterministic transport outcome.</summary>
     /// <param name="request">The generated GET.</param>
     /// <param name="cancellationToken">Cancels transport.</param>
@@ -29,6 +32,7 @@ internal sealed class FontDownloadHandler(params object[] replies) : HttpMessage
 
         var reply = replies[Attempts];
         Attempts++;
+        Attempted?.Invoke();
         _previous = (reply as HttpResponseMessage)?.Content as FontDownloadContent;
         return reply is Exception error ? Task.FromException<HttpResponseMessage>(error) : Task.FromResult((HttpResponseMessage)reply);
     }

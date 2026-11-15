@@ -36,4 +36,7 @@ public enum AccessibleChangeKind
 
     /// <summary>The element's bounds changed.</summary>
     Bounds = 9,
+
+    /// <summary>Something happened that has no element of its own, such as a search finishing. A screen reader speaks the change's message.</summary>
+    Announcement = 10,
 }

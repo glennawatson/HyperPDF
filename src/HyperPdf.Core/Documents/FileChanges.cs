@@ -4,6 +4,7 @@
 
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Advanced;
+using ReactiveUI.Primitives.Extensions;
 using ReactiveUI.Primitives.ObservableEvents;
 using ReactiveUI.Primitives.Signals;
 
@@ -56,6 +57,6 @@ public static class FileChanges
         var created = watcher.Events().Created;
         var renamed = watcher.Events().Renamed;
         watcher.EnableRaisingEvents = true;
-        return new(Signal.Merge(changed.Select(static _ => RxVoid.Default), created.Select(static _ => RxVoid.Default), renamed.Select(static _ => RxVoid.Default)));
+        return new(Signal.Merge(changed.AsSignal(), created.AsSignal(), renamed.AsSignal()));
     }
 }

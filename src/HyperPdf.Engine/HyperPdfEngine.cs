@@ -14,7 +14,7 @@ using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
-using HyperPdfLibrary.Render.Skia;
+using HyperPdfLibrary.Render.Managed;
 
 namespace HyperPdf.Engine;
 
@@ -54,7 +54,7 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
     /// <param name="fontFactory">The loader for each document's fonts, or null to disable font loading.</param>
     /// <param name="annotationClock">The clock used for annotation modification dates.</param>
     public HyperPdfEngine(Func<PdfDictionary, PdfFont?>? fontFactory, TimeProvider annotationClock)
-        : this(fontFactory, annotationClock, new(new PdfRenderBackendRegistration().UseSkia()) { SharedScratchPools = new() })
+        : this(fontFactory, annotationClock, new(new PdfRenderBackendRegistration().UseManaged()) { SharedScratchPools = new() })
     {
     }
 
@@ -93,7 +93,7 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
     /// <param name="catalog">The installed fonts, scanned on first use.</param>
     /// <returns>The engine.</returns>
     public static HyperPdfEngine WithFontCatalog(Lazy<FontCatalog> catalog) =>
-        new(PdfFontLoader.Load, TimeProvider.System, new(new PdfRenderBackendRegistration().UseSkia()) { SharedScratchPools = new() }, catalog);
+        new(PdfFontLoader.Load, TimeProvider.System, new(new PdfRenderBackendRegistration().UseManaged() with { Fonts = new CatalogFontProvider(catalog) }) { SharedScratchPools = new() }, catalog);
 
     /// <inheritdoc/>
     public async ValueTask WritePicturesAsync(PageImageSource[] images, Stream destination, CancellationToken cancellationToken)

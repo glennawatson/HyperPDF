@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Managed CPU render backend for the HyperPDF platform heads: BGRA tile surfaces and a software frame buffer with no native graphics library.</Description>
+    <RootNamespace>HyperPdf.Rendering.Cpu</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Windowing.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+  </ItemGroup>
+</Project>

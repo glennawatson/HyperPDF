@@ -58,7 +58,23 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
     public ObservableCollection<DocumentMedia> Items { get; } = [];
 
     /// <summary>Gets the player that plays the chosen media in the panel.</summary>
-    public MediaPlayerViewModel Player => _player ??= new(this, _playback);
+    public MediaPlayerViewModel Player
+    {
+        get
+        {
+            if (_player is null)
+            {
+                _player = new(this, _playback);
+                HasPlayer = true;
+            }
+
+            return _player;
+        }
+    }
+
+    /// <summary>Gets a value indicating whether the player was made, which is when media was first played.</summary>
+    [Reactive]
+    public partial bool HasPlayer { get; private set; }
 
     /// <summary>Gets a value indicating whether the document has sound or video.</summary>
     [Reactive]
@@ -70,6 +86,9 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
 
     /// <summary>Gets the interaction asking where to save a file; the input is the suggested name.</summary>
     public Interaction<string, string?> SaveInteraction { get; } = new();
+
+    /// <summary>Gets the question that shows the window where the chosen media plays. It is answered when the window is put away.</summary>
+    public Interaction<MediaPlayerViewModel, RxVoid> ShowPlayerInteraction { get; } = new();
 
     /// <summary>Gets a value indicating whether the reader asked for less motion, which makes video show a picture only once a second.</summary>
     internal bool ReduceMotion => _owner.ReduceMotion;
@@ -209,6 +228,12 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
             return false;
         }
     }
+
+    /// <summary>Shows the window where the selected media plays, and ends when the window is put away.</summary>
+    /// <returns>A task.</returns>
+    [ReactiveCommand(CanExecute = nameof(_canAct))]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private async Task ShowPlayerAsync() => _ = await ShowPlayerInteraction.Handle(Player).ToTask().ConfigureAwait(true);
 
     /// <summary>Hands the selected media to the system player, after the reader confirms.</summary>
     /// <returns>A task.</returns>

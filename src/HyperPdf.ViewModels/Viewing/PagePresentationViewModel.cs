@@ -10,6 +10,7 @@ using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Extensions;
 using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
@@ -76,7 +77,7 @@ public sealed partial class PagePresentationViewModel : ReactiveObject, IDisposa
     /// <param name="step">The step.</param>
     /// <returns>A stream that ticks once when the wait is over.</returns>
     private static IObservable<RxVoid> WaitForAdvance(PresentationStep? step) =>
-        step?.AdvanceAfterSeconds is { } seconds ? Signal.Timer(TimeSpan.FromSeconds(seconds), RxSchedulers.MainThreadScheduler).Select(static _ => RxVoid.Default) : Signal.Never<RxVoid>();
+        step?.AdvanceAfterSeconds is { } seconds ? Signal.Timer(TimeSpan.FromSeconds(seconds), RxSchedulers.MainThreadScheduler).AsSignal() : Signal.Never<RxVoid>();
 
     /// <summary>Plans how the page now shown appears.</summary>
     /// <param name="showing">Whether the tab presents, and the page shown.</param>

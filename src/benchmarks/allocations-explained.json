@@ -5073,5 +5073,25 @@
     "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Media.U3d.U3dMesh]",
     "frame": "HyperPdfLibrary.Media.U3d.U3dRenderScene..ctor",
     "reason": "Per-frame setup: the lookup tables, node placements and lights of one scene are built once per frame and the frame object is the result. The triangle and pixel loops allocate nothing."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdf.Rendering.Cpu.CpuPixelSurface..ctor",
+    "reason": "The array is the pixels of a new surface, which is the result. A tile or a piece of window text is drawn into it once and kept, so frames that show it again allocate nothing."
+  },
+  {
+    "type": "HyperPdf.Rendering.Cpu.CpuPixelSurface",
+    "frame": "HyperPdf.Rendering.Cpu.CpuSurfaceFactory.Create",
+    "reason": "The surface is the result of the call and lives until the tile or text it holds is dropped."
+  },
+  {
+    "type": "HyperPdf.Viewer.Text.TextRun",
+    "frame": "HyperPdf.Viewer.Text.TextRuns.Draw",
+    "reason": "One record for each piece of window text the first time it is shown. It is kept in the cache, so later frames get it back without allocating."
+  },
+  {
+    "type": "System.Single[]",
+    "frame": "HyperPdf.Viewer.Text.CoverageBuffer.Reset",
+    "reason": "The coverage buffer grows to the largest piece of text drawn so far and is then reused for every piece after it."
   }
 ]

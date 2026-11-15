@@ -66,4 +66,85 @@ public enum ViewerKey
 
     /// <summary>The C key.</summary>
     C = 19,
+
+    /// <summary>The F key.</summary>
+    F = 20,
+
+    /// <summary>The O key.</summary>
+    O = 21,
+
+    /// <summary>The S key.</summary>
+    S = 22,
+
+    /// <summary>The W key.</summary>
+    W = 23,
+
+    /// <summary>The V key.</summary>
+    V = 24,
+
+    /// <summary>The B key.</summary>
+    B = 25,
+
+    /// <summary>The E key.</summary>
+    E = 26,
+
+    /// <summary>The G key.</summary>
+    G = 27,
+
+    /// <summary>The I key.</summary>
+    I = 28,
+
+    /// <summary>The N key.</summary>
+    N = 29,
+
+    /// <summary>The P key.</summary>
+    P = 30,
+
+    /// <summary>The T key.</summary>
+    T = 31,
+
+    /// <summary>The Y key.</summary>
+    Y = 32,
+
+    /// <summary>The Z key.</summary>
+    Z = 33,
+
+    /// <summary>The comma key.</summary>
+    Comma = 34,
+
+    /// <summary>The full stop key.</summary>
+    Period = 35,
+
+    /// <summary>The 0 key.</summary>
+    Digit0 = 36,
+
+    /// <summary>The 1 key.</summary>
+    Digit1 = 37,
+
+    /// <summary>The 2 key.</summary>
+    Digit2 = 38,
+
+    /// <summary>The 4 key.</summary>
+    Digit4 = 39,
+
+    /// <summary>The F3 key, which finds the next match.</summary>
+    F3 = 40,
+
+    /// <summary>The F4 key.</summary>
+    F4 = 41,
+
+    /// <summary>The F6 key, which moves the keyboard between the page and the window's controls.</summary>
+    F6 = 42,
+
+    /// <summary>The F7 key, which turns the keyboard cursor on the page on or off.</summary>
+    F7 = 43,
+
+    /// <summary>The F9 key, which shows or hides the side panel.</summary>
+    F9 = 44,
+
+    /// <summary>The F10 key, which opens the main menu.</summary>
+    F10 = 45,
+
+    /// <summary>The menu key, which opens the menu of what the keyboard is on.</summary>
+    Menu = 46,
 }

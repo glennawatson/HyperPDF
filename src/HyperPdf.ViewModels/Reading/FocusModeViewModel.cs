@@ -10,6 +10,7 @@ using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Extensions;
 using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
@@ -77,8 +78,8 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable, IL
         // What is read aloud is marked as it moves on, and again when the band is turned on or off.
         _subscriptions.Add(
             Signal.Merge(
-                owner.ReadAloud.WhenChanged(static reader => reader.MarksVersion).Skip(1).Select(static _ => RxVoid.Default),
-                this.WhenChanged(static x => x.FocusBand).Skip(1).Select(static _ => RxVoid.Default)).SubscribeSafe(_ => MarkSpoken(), ErrorTrace.Write));
+                owner.ReadAloud.WhenChanged(static reader => reader.MarksVersion).Skip(1).AsSignal(),
+                this.WhenChanged(static x => x.FocusBand).Skip(1).AsSignal()).SubscribeSafe(_ => MarkSpoken(), ErrorTrace.Write));
 
         // Opening shows the place being viewed; closing returns to the pages at the place read.
         var switches = this.WhenChanged(static x => x.IsOn).Skip(1);

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Description>Metal render backend for the HyperPDF macOS head: page tiles are textures and each frame is one batch of quads, called through the Objective-C runtime with no wrapper library and no reflection.</Description>
+    <RootNamespace>HyperPdf.Rendering.Metal</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Windowing.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+  </ItemGroup>
+</Project>

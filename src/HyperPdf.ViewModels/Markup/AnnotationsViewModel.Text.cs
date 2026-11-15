@@ -10,6 +10,7 @@ using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Text;
 using HyperPdf.Core.Text.Fonts;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Extensions;
 using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
@@ -510,7 +511,7 @@ public sealed partial class AnnotationsViewModel
             this.WhenChanged(static x => x.FontFamily, static x => x.FontSize, static x => x.TextColor, static (_, _, _) => RxVoid.Default).Skip(1),
             this.WhenChanged(static x => x.IsBold, static x => x.IsItalic, static x => x.IsUnderline, static (_, _, _) => RxVoid.Default).Skip(1),
             this.WhenChanged(static x => x.TextAlignment, static x => x.LineSpacing, static x => x.CharacterSpacing, static (_, _, _) => RxVoid.Default).Skip(1),
-            this.WhenChanged(static x => x.CombCells).Skip(1).Select(static _ => RxVoid.Default))
+            this.WhenChanged(static x => x.CombCells).Skip(1).AsSignal())
             .WhereWith(
             this,
             static (annotations, _) => !annotations._loadingFormat)

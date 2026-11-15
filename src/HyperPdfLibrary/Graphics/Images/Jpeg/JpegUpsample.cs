@@ -4,6 +4,7 @@
 
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
+using HyperPdfLibrary.Compat;
 
 namespace HyperPdfLibrary.Graphics.Images.Jpeg;
 
@@ -15,9 +16,6 @@ internal static class JpegUpsample
 
     /// <summary>The samples one step reads.</summary>
     private const int StepSamples = 16;
-
-    /// <summary>The bits in a byte, the shift that copies a byte into the byte above it in a 16-bit lane.</summary>
-    private const int ByteBits = 8;
 
     /// <summary>The bytes one half of a step writes.</summary>
     private const int HalfStepBytes = 16;
@@ -38,13 +36,10 @@ internal static class JpegUpsample
         var read = 0;
         for (; read + StepSamples <= source.Length && (read * Doubling) + (StepSamples * Doubling) <= destination.Length; read += StepSamples)
         {
-            // Widening a byte to 16 bits and ORing it with itself shifted up a byte makes the byte twice, in order.
             var bytes = Vector128.LoadUnsafe(ref input, (nuint)read);
-            var low = Vector128.WidenLower(bytes);
-            var high = Vector128.WidenUpper(bytes);
             var at = (nuint)(read * Doubling);
-            (low | Vector128.ShiftLeft(low, ByteBits)).AsByte().StoreUnsafe(ref output, at);
-            (high | Vector128.ShiftLeft(high, ByteBits)).AsByte().StoreUnsafe(ref output, at + HalfStepBytes);
+            ByteLanes.RepeatLower(bytes).StoreUnsafe(ref output, at);
+            ByteLanes.RepeatUpper(bytes).StoreUnsafe(ref output, at + HalfStepBytes);
         }
 
         return read * Doubling;

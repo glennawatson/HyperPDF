@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <ApplicationIcon>..\..\packaging\windows\HyperPdf.ico</ApplicationIcon>
+    <Description>Hyper PDF Viewer for Windows: a native Win32 window that shows the page canvas through the Direct3D or CPU render backend, with no UI toolkit.</Description>
+    <RootNamespace>HyperPdf.Head.Windows</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+    <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <!-- Ships the English text recognition data (Directory.Build.targets). -->
+    <UsesRecognitionData>true</UsesRecognitionData>
+  </PropertyGroup>
+
+  <!-- The published program is called hyperpdf. A build keeps the project's own name, because the tests load every head side by side. -->
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+    <AssemblyName>hyperpdf</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Native AOT">
+    <PublishAot>true</PublishAot>
+    <EventSourceSupport>true</EventSourceSupport>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+    <TieredPGO>true</TieredPGO>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <PublishDocumentationFiles>false</PublishDocumentationFiles>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />
+    <ProjectReference Include="..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Direct3D\HyperPdf.Rendering.Direct3D.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Direct3D12\HyperPdf.Rendering.Direct3D12.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Vulkan\HyperPdf.Rendering.Vulkan.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Windowing.Tests" />
+  </ItemGroup>
+</Project>

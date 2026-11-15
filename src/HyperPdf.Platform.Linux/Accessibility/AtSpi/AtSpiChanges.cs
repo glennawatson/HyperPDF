@@ -37,6 +37,12 @@ internal static class AtSpiChanges
                 break;
             }
 
+            case AccessibleChangeKind.Announcement when change.Message is { } message:
+            {
+                emitter.Announce(change.NodeId, message);
+                break;
+            }
+
             case AccessibleChangeKind.Name:
             {
                 emitter.PropertyChanged(change.NodeId, "accessible-name", change.Current?.Name ?? string.Empty);

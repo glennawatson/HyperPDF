@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
-using HyperPdf.App.Services;
+using HyperPdf.Viewer.Services;
 
 namespace HyperPdf.Benchmarks;
 

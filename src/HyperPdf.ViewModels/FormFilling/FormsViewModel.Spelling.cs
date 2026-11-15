@@ -41,21 +41,30 @@ public sealed partial class FormsViewModel
     /// <param name="index">A character index in <see cref="EditText"/>.</param>
     /// <param name="suggestions">Receives the corrections, after it is cleared; it stays empty when the word is spelled correctly or there is none.</param>
     /// <param name="word">The word found there, or an empty range.</param>
-    public void SuggestAt(int index, List<string> suggestions, out TextRange word)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void SuggestAt(int index, List<string> suggestions, out TextRange word) => SuggestIn(EditText, index, suggestions, out word);
+
+    /// <summary>Gets corrections for the misspelled word at a place in any text, such as the words of a text box on the page.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="index">A character index in <paramref name="text"/>.</param>
+    /// <param name="suggestions">Receives the corrections, after it is cleared; it stays empty when the word is spelled correctly or there is none.</param>
+    /// <param name="word">The word found there, or an empty range.</param>
+    public void SuggestIn(string text, int index, List<string> suggestions, out TextRange word)
     {
+        ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(suggestions);
         suggestions.Clear();
-        word = SpellingWords.WordAt(EditText, index);
+        word = SpellingWords.WordAt(text, index);
         if (!ChecksSpelling || word.IsEmpty)
         {
             return;
         }
 
-        var text = EditText.Substring(word.Start, word.Length);
+        var spelled = text.Substring(word.Start, word.Length);
         var checker = _owner.Services.SpellChecker;
-        if (!checker.IsCorrect(text) && !IgnoredWords().Contains(text))
+        if (!checker.IsCorrect(spelled) && !IgnoredWords().Contains(spelled))
         {
-            checker.Suggest(text, suggestions);
+            checker.Suggest(spelled, suggestions);
         }
     }
 

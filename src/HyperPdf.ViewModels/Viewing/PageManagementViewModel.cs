@@ -88,7 +88,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         // The sidebar's two-way selection binding either replaces the collection or edits it in place; both select the
         // pages it holds. The first value is the collection the view model starts with, which holds nothing yet.
         _subscriptions.Add(
-            this.WhenChanged(static vm => vm.SelectedThumbnails).SwitchMap(static thumbnails => thumbnails.Edits).Skip(1).SubscribeSafe(SelectThumbnailPages, ErrorTrace.Write));
+            this.WhenChanged(static vm => vm.SelectedThumbnails).SwitchMap(static thumbnails => thumbnails.CollectionChanges).Skip(1).SubscribeSafe(SelectThumbnailPages, ErrorTrace.Write));
         RefreshState();
     }
 

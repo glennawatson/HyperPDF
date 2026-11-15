@@ -17,6 +17,15 @@ namespace HyperPdf.Platform.Windows.Accessibility.Uia;
 [DebuggerDisplay("UiaEvents")]
 internal sealed class UiaEvents : IDisposable
 {
+    /// <summary>The UI Automation notification kind for something that fits no other kind.</summary>
+    private const int NotificationKindOther = 4;
+
+    /// <summary>The UI Automation notification processing that keeps only the newest waiting message of an activity.</summary>
+    private const int NotificationMostRecent = 3;
+
+    /// <summary>The name screen readers know the viewer's spoken messages by.</summary>
+    private const string AnnouncementActivity = "HyperPdf.Status";
+
     /// <summary>How long structure changes are gathered before they are sent.</summary>
     private static readonly TimeSpan GatherPeriod = TimeSpan.FromMilliseconds(100);
 
@@ -113,6 +122,12 @@ internal sealed class UiaEvents : IDisposable
                 break;
             }
 
+            case AccessibleChangeKind.Announcement when change.Message is { } message:
+            {
+                RaiseAnnouncement(change.NodeId, message);
+                break;
+            }
+
             case AccessibleChangeKind.Name or AccessibleChangeKind.Description:
             {
                 RaiseTextProperty(change);
@@ -162,6 +177,35 @@ internal sealed class UiaEvents : IDisposable
         {
             oldValue.Free();
             newValue.Free();
+        }
+    }
+
+    /// <summary>Has a screen reader speak a message. Only the newest message of the kind is kept when several wait to be spoken.</summary>
+    /// <param name="id">The element the message is about.</param>
+    /// <param name="message">The words to speak.</param>
+    private void RaiseAnnouncement(int id, string message)
+    {
+        if (_elements.Tree.Get(id) is null)
+        {
+            return;
+        }
+
+        var provider = NativeMethods.ComPointerOf<IRawElementProviderSimple>(_elements.Get(id));
+        var words = Marshal.StringToBSTR(message);
+        var activity = Marshal.StringToBSTR(AnnouncementActivity);
+        try
+        {
+            _ = NativeMethods.UiaRaiseNotificationEvent(provider, NotificationKindOther, NotificationMostRecent, words, activity);
+        }
+        catch (EntryPointNotFoundException)
+        {
+            // Windows before 10 version 1709 has no way to speak a message that is not a property of an element.
+        }
+        finally
+        {
+            Marshal.FreeBSTR(words);
+            Marshal.FreeBSTR(activity);
+            _ = Marshal.Release(provider);
         }
     }
 

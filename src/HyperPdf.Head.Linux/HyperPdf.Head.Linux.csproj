@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Description>Hyper PDF Viewer for Linux: a native Wayland or X11 window that shows the page canvas through the CPU or GPU render backend, with no UI toolkit.</Description>
+    <RootNamespace>HyperPdf.Head.Linux</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- Ships the English text recognition data (Directory.Build.targets). -->
+    <UsesRecognitionData>true</UsesRecognitionData>
+  </PropertyGroup>
+
+  <!-- The published program is called hyperpdf. A build keeps the project's own name, because the tests load every head side by side. -->
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+    <AssemblyName>hyperpdf</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Native AOT">
+    <PublishAot>true</PublishAot>
+    <EventSourceSupport>true</EventSourceSupport>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <OptimizationPreference>Speed</OptimizationPreference>
+    <StripSymbols>true</StripSymbols>
+    <TieredPGO>true</TieredPGO>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <PublishDocumentationFiles>false</PublishDocumentationFiles>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HyperPdf.Viewer\HyperPdf.Viewer.csproj" />
+    <ProjectReference Include="..\HyperPdf.Windowing\HyperPdf.Windowing.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Cpu\HyperPdf.Rendering.Cpu.csproj" />
+    <ProjectReference Include="..\HyperPdf.Rendering.Vulkan\HyperPdf.Rendering.Vulkan.csproj" />
+    <ProjectReference Include="..\HyperPdf.Core\HyperPdf.Core.csproj" />
+    <ProjectReference Include="..\HyperPdf.Platform.Linux\HyperPdf.Platform.Linux.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdf.Windowing.Tests" />
+  </ItemGroup>
+</Project>

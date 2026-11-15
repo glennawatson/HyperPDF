@@ -11,6 +11,7 @@ using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Extensions;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.ViewModels.Output;
@@ -322,15 +323,15 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     /// <summary>Subscribes to the format choice and each sub-viewmodel so the window's status and progress stay in sync.</summary>
     private void WatchSubViewModels()
     {
-        var sync = this.WhenChanged(static vm => vm.SelectedFormat).Select(static _ => RxVoid.Default)
-            .Merge(Optimize.WhenChanged(static vm => vm.IsRunning, static vm => vm.ProgressPercent, static vm => vm.StatusText).Select(static _ => RxVoid.Default))
-            .Merge(Optimize.WhenChanged(static vm => vm.Error, static vm => vm.ResultText, static vm => vm.SavedPath).Select(static _ => RxVoid.Default))
-            .Merge(Archive.WhenChanged(static vm => vm.IsRunning, static vm => vm.ProgressPercent, static vm => vm.StatusText).Select(static _ => RxVoid.Default))
-            .Merge(Archive.WhenChanged(static vm => vm.Error, static vm => vm.ResultText, static vm => vm.SavedPath).Select(static _ => RxVoid.Default))
-            .Merge(Pdf20.WhenChanged(static vm => vm.IsRunning, static vm => vm.ProgressPercent, static vm => vm.StatusText).Select(static _ => RxVoid.Default))
-            .Merge(Pdf20.WhenChanged(static vm => vm.Error, static vm => vm.ResultText, static vm => vm.SavedPath).Select(static _ => RxVoid.Default))
-            .Merge(Flatten.WhenChanged(static vm => vm.IsRunning, static vm => vm.ProgressPercent, static vm => vm.StatusText).Select(static _ => RxVoid.Default))
-            .Merge(Flatten.WhenChanged(static vm => vm.Error, static vm => vm.ResultText, static vm => vm.SavedPath).Select(static _ => RxVoid.Default));
+        var sync = this.WhenChanged(static vm => vm.SelectedFormat).AsSignal()
+            .Merge(Optimize.WhenChanged(static vm => vm.IsRunning, static vm => vm.ProgressPercent, static vm => vm.StatusText).AsSignal())
+            .Merge(Optimize.WhenChanged(static vm => vm.Error, static vm => vm.ResultText, static vm => vm.SavedPath).AsSignal())
+            .Merge(Archive.WhenChanged(static vm => vm.IsRunning, static vm => vm.ProgressPercent, static vm => vm.StatusText).AsSignal())
+            .Merge(Archive.WhenChanged(static vm => vm.Error, static vm => vm.ResultText, static vm => vm.SavedPath).AsSignal())
+            .Merge(Pdf20.WhenChanged(static vm => vm.IsRunning, static vm => vm.ProgressPercent, static vm => vm.StatusText).AsSignal())
+            .Merge(Pdf20.WhenChanged(static vm => vm.Error, static vm => vm.ResultText, static vm => vm.SavedPath).AsSignal())
+            .Merge(Flatten.WhenChanged(static vm => vm.IsRunning, static vm => vm.ProgressPercent, static vm => vm.StatusText).AsSignal())
+            .Merge(Flatten.WhenChanged(static vm => vm.Error, static vm => vm.ResultText, static vm => vm.SavedPath).AsSignal());
         _lifetime.Add(sync.SelectWith(this, static (self, _) => self).SubscribeSafe(static self => self.SyncState(), ErrorTrace.Write));
     }
 

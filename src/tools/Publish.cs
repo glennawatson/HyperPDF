@@ -46,9 +46,17 @@ Console.CancelKeyPress += (_, e) =>
     cancellation.Cancel();
 };
 
+// Each operating system has its own head project, with its own window and render backends. It publishes as hyperpdf.
+var head = rid switch
+{
+    "linux-x64" or "linux-arm64" => "HyperPdf.Head.Linux",
+    "win-x64" or "win-arm64" => "HyperPdf.Head.Windows",
+    _ => "HyperPdf.Head.MacOS",
+};
+
 string[] arguments = [
     "publish",
-    Path.Combine(root, "src", "HyperPdf.App", "HyperPdf.App.csproj"),
+    Path.Combine(root, "src", head, $"{head}.csproj"),
     "-c",
     "Release",
     "-f",

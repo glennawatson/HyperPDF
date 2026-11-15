@@ -255,6 +255,9 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     /// <summary>Gets the command that undoes the latest edit of the document, which may be a tag edit.</summary>
     public ICommand UndoCommand => _owner.Pages.UndoCommand;
 
+    /// <summary>Gets the question that shows the window where the chosen tag is changed. It is answered when the window is put away.</summary>
+    public Interaction<TagsViewModel, RxVoid> EditInteraction { get; } = new();
+
     /// <summary>Gets the choice that means a header scope or list numbering is not given.</summary>
     private static string NotSet => UiText.Get("Not set");
 
@@ -328,6 +331,12 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
             changes.Add(new(field, trimmed));
         }
     }
+
+    /// <summary>Shows the window where the chosen tag is changed, and ends when it is put away.</summary>
+    /// <returns>A task.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private async Task EditAsync() => _ = await EditInteraction.Handle(this).ToTask().ConfigureAwait(true);
 
     /// <summary>Runs the accessibility check and lists what it found.</summary>
     /// <returns>A task.</returns>

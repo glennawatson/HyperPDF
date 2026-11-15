@@ -82,6 +82,9 @@ internal static class AtSpiNames
     /// <summary>The signal member for a change of an object's property.</summary>
     internal const string PropertyChangeSignal = "PropertyChange";
 
+    /// <summary>The signal that has a screen reader speak a message.</summary>
+    internal const string AnnouncementSignal = "Announcement";
+
     /// <summary>The signal member for a change of an object's state.</summary>
     internal const string StateChangedSignal = "StateChanged";
 

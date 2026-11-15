@@ -43,6 +43,9 @@ public sealed class AppSettings
     /// <summary>Gets or sets how tool bar buttons are labelled.</summary>
     public ToolbarStyle ToolbarStyle { get; set; }
 
+    /// <summary>Gets or sets which way the window draws. It is read when the window opens, so a change takes effect the next time the viewer starts.</summary>
+    public RenderBackendSetting RenderBackend { get; set; }
+
     /// <summary>Gets or sets what happens when an open file changes on disk.</summary>
     public FileChangeAction FileChangeAction { get; set; }
 

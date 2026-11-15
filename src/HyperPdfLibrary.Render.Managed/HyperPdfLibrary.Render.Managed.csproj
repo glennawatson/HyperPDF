@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>HyperPdfLibrary.Render.Managed</RootNamespace>
+    <Description>Managed drawing services for HyperPdfLibrary: a CPU rasteriser with no native dependency.</Description>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../HyperPdfLibrary/HyperPdfLibrary.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="HyperPdfLibrary.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Engine.Tests" />
+    <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
+  </ItemGroup>
+</Project>

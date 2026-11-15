@@ -316,6 +316,16 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("uiautomationcore.dll", EntryPoint = "UiaRaiseAutomationPropertyChangedEvent")]
     internal static partial int UiaRaiseAutomationPropertyChangedEvent(nint provider, int propertyId, Accessibility.Uia.ComVariant oldValue, Accessibility.Uia.ComVariant newValue);
 
+    /// <summary>Native <c>UiaRaiseNotificationEvent</c>, which has a screen reader speak a message. Windows 10 version 1709 and later have it.</summary>
+    /// <param name="provider">The element the message is about.</param>
+    /// <param name="notificationKind">What kind of thing happened.</param>
+    /// <param name="notificationProcessing">How the message joins the ones still waiting to be spoken.</param>
+    /// <param name="displayString">The words, as a BSTR.</param>
+    /// <param name="activityId">A name for the kind of message, as a BSTR.</param>
+    /// <returns>An HRESULT.</returns>
+    [LibraryImport("uiautomationcore.dll", EntryPoint = "UiaRaiseNotificationEvent")]
+    internal static partial int UiaRaiseNotificationEvent(nint provider, int notificationKind, int notificationProcessing, nint displayString, nint activityId);
+
     /// <summary>Native <c>UiaRaiseStructureChangedEvent</c>.</summary>
     /// <param name="provider">The element whose children changed.</param>
     /// <param name="changeType">How they changed.</param>
