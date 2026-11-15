@@ -19,6 +19,9 @@ public static class CanvasPointerMixins
     /// <summary>How many clicks in a row make a double-click.</summary>
     private const int DoubleClick = 2;
 
+    /// <summary>How far from the centre of a resize handle a press still counts as on it, in screen pixels.</summary>
+    private const double HandlePixels = 8;
+
     /// <summary>Adds the pointer handling to a canvas state.</summary>
     /// <param name="state">The canvas state.</param>
     extension(PageCanvasState state)
@@ -128,7 +131,7 @@ public static class CanvasPointerMixins
                 return fx;
             }
 
-            if (tab.ContentEdit.EndDrag())
+            if (tab.ContentEdit.EndResize() || tab.ContentEdit.EndDrag())
             {
                 fx.ReleaseCapture = true;
                 fx.Handled = true;
@@ -359,6 +362,16 @@ public static class CanvasPointerMixins
             fx.Handled = true;
         }
 
+        /// <summary>Gets how far from the centre of a handle a press still counts as on it, in page points: a few screen pixels at any zoom.</summary>
+        /// <param name="tab">The tab.</param>
+        /// <param name="page">The page.</param>
+        /// <returns>The reach in points.</returns>
+        private float HandleReach(DocumentTabViewModel tab, int page)
+        {
+            var transform = new PageTransform(state.Layout.GetPageBounds(page), state.Sizes[page], tab.Rotation, state.Layout.Options.Scale);
+            return (float)(HandlePixels / transform.Scale);
+        }
+
         /// <summary>Picks the text, picture or drawing under a press in Edit mode.</summary>
         /// <param name="tab">The tab.</param>
         /// <param name="press">The press.</param>
@@ -374,7 +387,22 @@ public static class CanvasPointerMixins
             var edit = tab.ContentEdit;
             var point = state.ToPage(tab, page, press.Position);
 
-            // A press on the object already picked starts a drag; any other press picks what is under it.
+            // Shift or Control adds the object under the press to the pick, or takes it out.
+            if ((press.Modifiers & (ViewerModifiers.Shift | ViewerModifiers.Control)) != ViewerModifiers.None && press.ClickCount < DoubleClick)
+            {
+                _ = edit.ExtendPickAsync(page, point);
+                fx.Handled = true;
+                return;
+            }
+
+            // A press on a handle of the object already picked starts a resize; a press on the object starts a drag; any other press picks what is under it.
+            if (press.ClickCount < DoubleClick && edit.Selected is { } picked && picked.Page == page && edit.BeginResize(page, point, state.HandleReach(tab, page)))
+            {
+                fx.Capture = true;
+                fx.Handled = true;
+                return;
+            }
+
             if (press.ClickCount < DoubleClick && edit.BeginDrag(page, point))
             {
                 fx.Capture = true;

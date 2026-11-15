@@ -20,6 +20,9 @@ public static class PdfPageContentWriter
     /// <summary>The components of a CMYK colour.</summary>
     internal const int CmykComponents = 4;
 
+    /// <summary>The key of a graphics state parameter dictionary that sets the opacity of filling.</summary>
+    private const string FillOpacityKey = "ca";
+
     /// <summary>Gets the byte that ends a line.</summary>
     internal static ReadOnlySpan<byte> NewLine => "\n"u8;
 
@@ -111,6 +114,11 @@ public static class PdfPageContentWriter
     /// <param name = "mode">The mode.</param>
     internal static void WriteAll(PdfPageContent state, ref PdfContentBuilder builder, PdfRegenerateMode mode)
     {
+        if (state.Prepended.Count > 0)
+        {
+            builder.WriteRaw(CollectionsMarshal.AsSpan(state.Prepended));
+        }
+
         var wrapped = state.Appended.Count > 0;
         for (var i = 0; wrapped && i <= state.Underflow; i++)
         {
@@ -161,7 +169,7 @@ public static class PdfPageContentWriter
         {
             var mark = state.Begins[next];
             next++;
-            if (!mark.IsScrubbed || mark.BeginSource.Start < position)
+            if (!(mark.IsScrubbed || mark.IsArtifact) || mark.BeginSource.Start < position)
             {
                 continue;
             }
@@ -182,6 +190,12 @@ public static class PdfPageContentWriter
     {
         var names = state.Document.Objects.Names;
         builder.WriteRaw(PdfPageContentWriter.NewLine);
+        if (mark.IsArtifact)
+        {
+            builder.BeginMarkedContent("Artifact"u8);
+            return;
+        }
+
         var tag = names.GetSpelling(mark.Tag);
         if (mark.Properties is not { } properties)
         {
@@ -223,12 +237,14 @@ public static class PdfPageContentWriter
             return;
         }
 
-        var wrap = item.IsTransformed || item.IsRecoloured;
+        var wrap = item.IsTransformed || item.IsRecoloured || item.IsRestyled;
         if (wrap)
         {
             builder.SaveState();
             PdfPageContentWriter.WriteTransform(ref builder, item);
             PdfPageContentWriter.WritePaints(state, ref builder, item);
+            PdfPageContentWriter.WriteStyle(state, ref builder, item);
+            PdfPageContentWriter.WriteCrop(ref builder, item);
         }
 
         PdfPageContentWriter.WriteBody(state, ref builder, item, wrap, mode);
@@ -289,6 +305,14 @@ public static class PdfPageContentWriter
     /// <param name = "mode">The mode.</param>
     internal static void WriteImage(PdfPageContent state, ref PdfContentBuilder builder, PdfImageObject image, PdfRegenerateMode mode)
     {
+        if (image.ReplacementImage.IsValid)
+        {
+            var stored = PdfPageContentEditing.AllocateName(state, KnownName.XObject, "Rg");
+            state.Generated.Add(new(KnownName.XObject, stored, PdfValue.FromReference(image.ReplacementImage), null));
+            builder.DrawXObject(state.Document.Objects.Names.GetSpelling(stored));
+            return;
+        }
+
         if (image.Replacement is { } replacement)
         {
             var name = PdfPageContentEditing.AllocateName(state, KnownName.XObject, "Rg");
@@ -331,6 +355,49 @@ public static class PdfPageContentWriter
     {
         builder.WriteRaw(state.SourceBytes.AsSpan(item.Source.Start, item.Source.Length));
         builder.WriteRaw(PdfPageContentWriter.NewLine);
+    }
+
+    /// <summary>Writes the clip that crops an object to part of its frame. The frame is the unit square, which pictures and forms are drawn in.</summary>
+    /// <param name = "builder">The output.</param>
+    /// <param name = "item">The object.</param>
+    internal static void WriteCrop(ref PdfContentBuilder builder, PdfPageObject item)
+    {
+        if (item.ChangedCrop is not { } crop)
+        {
+            return;
+        }
+
+        builder.Rectangle(crop.Left, crop.Bottom, 1F - crop.Left - crop.Right, 1F - crop.Top - crop.Bottom);
+        builder.Clip();
+        builder.EndPath();
+    }
+
+    /// <summary>Writes the operators for an object's changed line style and opacity.</summary>
+    /// <param name = "state">The owned parse or content state.</param>
+    /// <param name = "builder">The output.</param>
+    /// <param name = "item">The object.</param>
+    internal static void WriteStyle(PdfPageContent state, ref PdfContentBuilder builder, PdfPageObject item)
+    {
+        if (item.ChangedLineStyle is { } line)
+        {
+            builder.SetLineCap((int)line.Cap);
+            builder.SetLineJoin((int)line.Join);
+            builder.SetDash(line.Dash, line.Phase);
+        }
+
+        if (item.ChangedOpacity is not { } opacity)
+        {
+            return;
+        }
+
+        var objects = state.Document.Objects;
+        var name = PdfPageContentEditing.AllocateName(state, KnownName.ExtGState, "RgS");
+        var graphicsState = new PdfDictionary(objects);
+        graphicsState.Set(KnownName.Type, PdfValue.FromName(KnownName.ExtGState));
+        graphicsState.Set(KnownName.CA, PdfValue.FromReal(opacity));
+        graphicsState.Set(objects.Names.Intern(FillOpacityKey), PdfValue.FromReal(opacity));
+        state.Generated.Add(new(KnownName.ExtGState, name, PdfValue.FromDictionary(graphicsState), null));
+        builder.SetGraphicsState(objects.Names.GetSpelling(name));
     }
 
     /// <summary>Writes the colour operators for an object's changed colours.</summary>

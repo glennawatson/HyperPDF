@@ -86,6 +86,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <summary>Edit mode, made when first used.</summary>
     private PageContentEditViewModel? _contentEdit;
 
+    /// <summary>The tools that add decorations to the pages, made on first use.</summary>
+    private PageDecorationViewModel? _decorations;
+
+    /// <summary>The form design, made on first use.</summary>
+    private FormDesignViewModel? _formDesign;
+
     /// <summary>The colour separation bar, once used.</summary>
     private PageSeparationViewModel? _separations;
 
@@ -478,6 +484,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
 
     /// <summary>Gets Edit mode: picking, moving, retyping and removing the objects a page is made of, on the page.</summary>
     public PageContentEditViewModel ContentEdit => _contentEdit ??= Owned(new PageContentEditViewModel(this));
+
+    /// <summary>Gets the tools that add watermarks, headers, footers, page numbers, a background and a crop to the pages.</summary>
+    public PageDecorationViewModel Decorations => _decorations ??= Owned(new PageDecorationViewModel(this));
+
+    /// <summary>Gets the preparation of the form: adding, removing and changing fields.</summary>
+    public FormDesignViewModel FormDesign => _formDesign ??= Owned(new FormDesignViewModel(this));
 
     /// <summary>Gets the selection and undoable actions for the document's pages.</summary>
     public PageManagementViewModel Pages => PagesInUse ??= Owned(new PageManagementViewModel(this));

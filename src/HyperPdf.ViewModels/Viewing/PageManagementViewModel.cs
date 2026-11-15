@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
+using HyperPdf.ViewModels.Markup;
 using HyperPdf.ViewModels.Rendering;
 using HyperPdfLibrary;
 using ReactiveUI;
@@ -65,6 +66,12 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Whether an edit can be redone.</summary>
     private readonly IObservable<bool> _canRedo;
+
+    /// <summary>The page number settings, made when first asked for.</summary>
+    private PageLabelsViewModel? _labels;
+
+    /// <summary>The settings that take hidden information out of the document, made when first asked for.</summary>
+    private SanitizeViewModel? _sanitize;
 
     /// <summary>Initializes a new instance of the <see cref="PageManagementViewModel"/> class.</summary>
     /// <param name="owner">The tab holding the document.</param>
@@ -153,6 +160,12 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <summary>Gets the interaction asking which picture files to add as pages.</summary>
     public Interaction<RxVoid, string[]> InsertImagesInteraction { get; } = new();
 
+    /// <summary>Gets the settings that number a run of pages a different way, such as i, ii, iii for the front matter.</summary>
+    public PageLabelsViewModel Labels => _labels ??= new PageLabelsViewModel(_owner);
+
+    /// <summary>Gets the settings that take hidden information out of the document before it is shared.</summary>
+    public SanitizeViewModel Sanitize => _sanitize ??= new SanitizeViewModel(_owner);
+
     /// <summary>Gets the interaction asking where to save the selected pages.</summary>
     public Interaction<string, string?> ExtractInteraction { get; } = new();
 
@@ -221,6 +234,10 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <summary>Tells the tab that the pages' sizes or order changed by an edit made outside this view model, so it reads the page structure again.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void NotifyStructureChanged() => StructureVersion++;
 
     /// <inheritdoc/>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -427,6 +444,35 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     [ReactiveCommand(CanExecute = nameof(_canEditSelection))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Task DuplicateAsync() => RunSelectedEditAsync(PageEditKind.Duplicate, SelectedPages[^1] + 1, UiText.Get("Could not duplicate pages."));
+
+    /// <summary>Selects every page of the document.</summary>
+    [ReactiveCommand]
+    private void SelectAll()
+    {
+        var pages = new int[_owner.PageCount];
+        for (var i = 0; i < pages.Length; i++)
+        {
+            pages[i] = i;
+        }
+
+        SelectPages(pages);
+    }
+
+    /// <summary>Adds the page being read to the pages selected, so several pages can be changed at once.</summary>
+    [ReactiveCommand]
+    private void AddCurrentToSelection()
+    {
+        var current = _owner.CurrentPageIndex;
+        var pages = new List<int>(SelectedPages);
+        if (pages.BinarySearch(current) >= 0)
+        {
+            return;
+        }
+
+        pages.Add(current);
+        pages.Sort();
+        SelectPages(pages);
+    }
 
     /// <summary>Moves the selected pages one position earlier.</summary>
     /// <returns>A task.</returns>

@@ -502,6 +502,27 @@ public sealed partial class AnnotationsViewModel
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void FinishText() => _ = CommitText();
 
+    /// <summary>Turns bold on or off for the text being typed and the picked text box.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ToggleBold() => IsBold = !IsBold;
+
+    /// <summary>Turns italic on or off for the text being typed and the picked text box.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ToggleItalic() => IsItalic = !IsItalic;
+
+    /// <summary>Turns underlining on or off for the text being typed and the picked text box.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ToggleUnderline() => IsUnderline = !IsUnderline;
+
+    /// <summary>Chooses how the lines of the text sit across its width.</summary>
+    /// <param name="alignment">The alignment.</param>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SetAlignment(TextBoxAlignment alignment) => TextAlignment = alignment;
+
     /// <summary>Reads the formats' changes and the pick, applying format changes to the picked text box.</summary>
     /// <returns>The subscriptions.</returns>
     private IDisposable[] WatchTextFormat() =>

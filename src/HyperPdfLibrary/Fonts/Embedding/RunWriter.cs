@@ -30,18 +30,28 @@ internal static class RunWriter
     /// <param name="fontSize">The font size in text space units, which scales the text rise.</param>
     internal static void Write(ref PdfContentBuilder builder, in RunContext context, ReadOnlySpan<char> text, ReadOnlySpan<PdfShapedGlyph> glyphs, List<ClusterGroup> groups, float fontSize)
     {
-        foreach (var group in groups)
+        var at = 0;
+        while (at < groups.Count)
         {
+            var group = groups[at];
+            at++;
             if (group.Mark)
             {
                 BeginActualText(ref builder, context.Sink, text.Slice(group.TextStart, group.TextLength));
+                WriteGroup(ref builder, context, glyphs.Slice(group.FirstGlyph, group.GlyphCount), fontSize);
+                builder.EndMarkedContent();
+                continue;
             }
 
-            WriteGroup(ref builder, context, glyphs.Slice(group.FirstGlyph, group.GlyphCount), fontSize);
-            if (group.Mark)
+            // Neighbouring groups that need no replacement text are written as one show, so a line of text is one object when a page is read.
+            var count = group.GlyphCount;
+            while (at < groups.Count && !groups[at].Mark && groups[at].FirstGlyph == group.FirstGlyph + count)
             {
-                builder.EndMarkedContent();
+                count += groups[at].GlyphCount;
+                at++;
             }
+
+            WriteGroup(ref builder, context, glyphs.Slice(group.FirstGlyph, count), fontSize);
         }
     }
 

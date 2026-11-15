@@ -23,6 +23,9 @@ internal sealed record PreferenceRow(
     Func<PreferencesViewModel, string> Value,
     Action<PreferencesViewModel, FormEdit> Apply)
 {
+    /// <summary>Gets a value indicating whether a field row's text is secret and shown as dots.</summary>
+    internal bool Masked { get; init; }
+
     /// <summary>Makes the name of a group of settings.</summary>
     /// <param name="label">The name in English.</param>
     /// <returns>The row.</returns>
@@ -45,6 +48,14 @@ internal sealed record PreferenceRow(
     /// <returns>The row.</returns>
     internal static PreferenceRow Toggle(string label, Func<PreferencesViewModel, bool> get, Action<PreferencesViewModel, bool> set) =>
         new(FormRowKind.Toggle, label, [], preferences => get(preferences) ? 1 : 0, static _ => string.Empty, (preferences, edit) => set(preferences, edit.On));
+
+    /// <summary>Makes a setting typed as text that is secret, which the dialog shows as dots.</summary>
+    /// <param name="label">The name in English.</param>
+    /// <param name="get">Reads the text.</param>
+    /// <param name="set">Writes the text.</param>
+    /// <returns>The row.</returns>
+    internal static PreferenceRow Secret(string label, Func<PreferencesViewModel, string> get, Action<PreferencesViewModel, string> set) =>
+        Field(label, get, set) with { Masked = true };
 
     /// <summary>Makes a setting typed as text.</summary>
     /// <param name="label">The name in English.</param>

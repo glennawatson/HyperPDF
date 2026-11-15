@@ -94,6 +94,19 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void SetStatusText(LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _localizedStatusText, message, nameof(StatusText));
 
+    /// <summary>Ticks or unticks a language, and downloads it when it is ticked and not on this computer yet.</summary>
+    /// <param name="item">The language.</param>
+    public void Pick(OcrLanguageItemViewModel item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        item.IsSelected = !item.IsSelected;
+        this.RaisePropertyChanged(nameof(Items));
+        if (item.IsSelected && item.CanDownload)
+        {
+            _ = DownloadAsync([item.Pack]);
+        }
+    }
+
     /// <inheritdoc/>
     void ILocalisationChildren.Refresh(HashSet<object> visited)
     {
@@ -211,6 +224,19 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
         }
 
         return onComputer ? UiText.Get("On this computer") : UiText.Format("Not downloaded, {0}", OcrLanguageCatalog.DescribeSize(pack.Bytes));
+    }
+
+    /// <summary>Deletes the downloaded packs of languages that are not ticked, to free the space they take.</summary>
+    [ReactiveCommand]
+    private void RemoveUnticked()
+    {
+        foreach (var item in Items)
+        {
+            if (item.IsDownloaded && !item.IsSelected && item.CanRemove)
+            {
+                Remove(item);
+            }
+        }
     }
 
     /// <summary>Stops the download in progress, keeping packs already finished.</summary>

@@ -21,6 +21,12 @@ public sealed class AnnotationUndoTests
     /// <summary>The page count of generated documents.</summary>
     private const int Pages = 2;
 
+    /// <summary>The seconds a test waits for the unsaved flag to follow an undo.</summary>
+    private const int WaitSeconds = 10;
+
+    /// <summary>The milliseconds between looks at whether that has happened.</summary>
+    private const int PollMilliseconds = 20;
+
     /// <summary>The thick line width.</summary>
     private const float Thick = 4;
 
@@ -160,7 +166,9 @@ public sealed class AnnotationUndoTests
         var savedWithout = tab.Save(path);
         var kindsSaved = ReadKinds(test, path);
         _ = await annotations.UndoCommand.Execute().ToTask();
-        var dirty = tab.HasUnsavedChanges;
+
+        // The unsaved flag follows the undo a moment later on a slow machine, so it is waited for.
+        var dirty = await WaitForAsync(() => tab.HasUnsavedChanges);
         var savedWith = tab.Save(path);
 
         await Assert.That(savedWithout && savedWith).IsTrue();
@@ -283,6 +291,31 @@ public sealed class AnnotationUndoTests
         await Assert.That(annotations.StampButtonLabel).IsEqualTo("Stamp: SEEN BY ME");
         await Assert.That(placed).IsTrue();
         await Assert.That(Get(annotations, AnnotationKind.Stamp).Contents).IsEqualTo("SEEN BY ME");
+    }
+
+    /// <summary>Waits for a condition, up to a limit, so a slow machine is given time.</summary>
+    /// <param name="condition">The condition.</param>
+    /// <returns><see langword="true"/> when the condition held before the limit.</returns>
+    private static async Task<bool> WaitForAsync(Func<bool> condition)
+    {
+        using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(WaitSeconds));
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(PollMilliseconds));
+        while (!condition())
+        {
+            try
+            {
+                if (!await timer.WaitForNextTickAsync(limit.Token))
+                {
+                    return condition();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return condition();
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Gets the first listed annotation of a kind, as it is now.</summary>

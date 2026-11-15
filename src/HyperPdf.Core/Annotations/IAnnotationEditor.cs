@@ -58,6 +58,13 @@ public interface IAnnotationEditor : IDocumentFeature
     /// <returns>The new annotation's index, or -1.</returns>
     int AddCaret(int pageIndex, PagePoint location, uint color);
 
+    /// <summary>Adds a link over an area of a page, which sends a reader to a web or mail address or to another page when pressed.</summary>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="area">The area the link covers, in page space.</param>
+    /// <param name="target">An address such as <c>https://example.com</c> or <c>mailto:me@example.com</c>, or <c>page:</c> and a page number counted from one.</param>
+    /// <returns>The new annotation's index, or -1 when the page, the area or the target is not valid or the document cannot add links.</returns>
+    int AddLink(int pageIndex, PageRect area, string target) => -1;
+
     /// <summary>Writes text on the page, or places a typed signature.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="location">The top-left corner of the first line.</param>

@@ -14,7 +14,7 @@ namespace HyperPdf.Platform.MacOS;
 /// <summary>
 /// The macOS desktop: the light or dark appearance and accent colour, the Finder, the Dock's recent items, one window per
 /// user through a Unix domain socket, printing through CUPS and Preview's print dialog, and sound through CoreAudio.
-/// Documents opened from the Finder arrive through Avalonia's activation events.
+/// Documents opened from the Finder arrive through the Cocoa window's open-file events.
 /// </summary>
 [DebuggerDisplay("MacPlatform: {Name}")]
 public sealed class MacPlatform : IDesktopPlatform

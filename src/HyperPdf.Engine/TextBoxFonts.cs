@@ -48,7 +48,7 @@ internal static class TextBoxFonts
             return new(standard, null, standard, false, false);
         }
 
-        if (FindFallback(state, catalog, text, format) is { } fallback)
+        if ((FindFallback(state, catalog, text, format) ?? FindBundled(state, text)) is { } fallback)
         {
             return fallback;
         }
@@ -139,6 +139,13 @@ internal static class TextBoxFonts
         found[key] = face;
         return Installed(state, program, format.IsBold && face.Weight < BoldWeight, format.IsItalic && !face.IsItalic);
     }
+
+    /// <summary>Finds a font that ships with the app for text no installed font has every character of.</summary>
+    /// <param name="state">The engine's font state.</param>
+    /// <param name="text">The text.</param>
+    /// <returns>The font, or <see langword="null"/> when none has every character.</returns>
+    private static TextBoxFont? FindBundled(TextBoxFontState state, string text) =>
+        state.Scripts.OpenFor(text) is { } face && state.LoadBundled(face) is { } program ? Installed(state, program, false, false) : null;
 
     /// <summary>Uses an installed face when it covers all the requested text.</summary>
     /// <param name="state">The viewer engine's reusable font state.</param>

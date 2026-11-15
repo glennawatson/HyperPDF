@@ -46,6 +46,11 @@ internal sealed class FakeAccessibleTree : IAccessibleTree
         Add(SecondLineId, PageId, AccessibleRole.Paragraph, "Second line", [], new(0, LineHeight, Width, LineHeight));
     }
 
+    /// <summary>Initializes a new instance of the <see cref="FakeAccessibleTree"/> class whose window element stands for a real window.</summary>
+    /// <param name="window">The handle of the window the window element stands for.</param>
+    internal FakeAccessibleTree(long window)
+        : this() => _nodes[WindowId] = _nodes[WindowId] with { WindowNumber = window };
+
     /// <inheritdoc/>
     public int RootId => ApplicationId;
 

@@ -21,4 +21,16 @@ public enum PdfWatermarkAnchor
 
     /// <summary>In the bottom right corner, inside the margin.</summary>
     BottomRight = 4,
+
+    /// <summary>Centred along the top edge, inside the margin.</summary>
+    TopCenter = 5,
+
+    /// <summary>Centred along the bottom edge, inside the margin.</summary>
+    BottomCenter = 6,
+
+    /// <summary>Centred down the left edge, inside the margin.</summary>
+    MiddleLeft = 7,
+
+    /// <summary>Centred down the right edge, inside the margin.</summary>
+    MiddleRight = 8,
 }

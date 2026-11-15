@@ -37,6 +37,7 @@ internal static class Program
         using var session = new ViewerSession(window, services, context);
         session.Follow(instance.Requests);
         session.Open(args);
+        session.AskForLanguage();
         session.Run();
     }
 }

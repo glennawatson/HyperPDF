@@ -67,6 +67,10 @@ internal sealed class HyperPdfAnnotationEditorService : IAnnotationEditor
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int AddLink(int pageIndex, PageRect area, string target) => HyperPdfDocumentAnnotationEditing.AddLink(_owner, pageIndex, area, target);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int AddCaret(int pageIndex, PagePoint location, uint color) => HyperPdfDocumentAnnotationEditing.AddCaret(_owner, pageIndex, location, color);
 
     /// <inheritdoc/>

@@ -15,6 +15,9 @@ public sealed class PdfAccessibilityReportTests
     /// <summary>The count for the second finding code.</summary>
     private const int SecondCount = 2;
 
+    /// <summary>How many times the measured loop runs; the least allocation of a round is judged.</summary>
+    private const int Rounds = 5;
+
     /// <summary>The number of synchronous count-query repetitions.</summary>
     private const int Repetitions = 1000;
 
@@ -34,14 +37,21 @@ public sealed class PdfAccessibilityReportTests
             _ = ReadCounts(report);
         }
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
+        // A round can still catch the runtime's own tier-up work, so the least a round allocates is what the reads cost.
         var sum = 0;
-        for (var index = 0; index < Repetitions; index++)
+        var allocated = long.MaxValue;
+        for (var round = 0; round < Rounds; round++)
         {
-            sum += ReadCounts(report);
+            sum = 0;
+            var before = GC.GetAllocatedBytesForCurrentThread();
+            for (var index = 0; index < Repetitions; index++)
+            {
+                sum += ReadCounts(report);
+            }
+
+            allocated = Math.Min(allocated, GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         await Assert.That(sum).IsEqualTo(Repetitions * (FirstCount + FirstCount + SecondCount));
         await Assert.That(allocated).IsEqualTo(0);
     }

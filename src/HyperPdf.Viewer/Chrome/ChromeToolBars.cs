@@ -101,6 +101,7 @@ internal static class ChromeToolBars
             bars.Add(new(text.LanguageBarText, [Item(text.LanguageActionText, text.ConfirmLanguageCommand), Item("Close", text.CloseLanguageBarCommand)]));
         }
 
+        AddInks(bars, tab.Separations);
         var focus = tab.FocusMode;
         if (focus.IsOn)
         {
@@ -108,6 +109,25 @@ internal static class ChromeToolBars
                 UiText.Get("Focus mode: one column of plain text."),
                 [Item("Larger", focus.LargerCommand), Item("Smaller", focus.SmallerCommand), Item("Back to the pages", focus.ToggleCommand)]));
         }
+    }
+
+    /// <summary>Adds the bar that says which ink of a colour separated page is shown and offers the others.</summary>
+    /// <param name="bars">The bars so far.</param>
+    /// <param name="inks">The separations of the document.</param>
+    private static void AddInks(List<ToolBar> bars, PageSeparationViewModel inks)
+    {
+        if (!inks.HasSeparations || inks.Description is not { Length: > 0 } description)
+        {
+            return;
+        }
+
+        var actions = new List<MenuEntry>(inks.Colorants.Count);
+        for (var i = 0; i < inks.Colorants.Count; i++)
+        {
+            actions.Add(MenuEntry.Item(UiText.Format("Show {0}", inks.Colorants[i]), null, inks.ShowInkCommand, i, i != inks.SelectedIndex));
+        }
+
+        bars.Add(new(Label(UiText.Get("Inks"), description), [.. actions]));
     }
 
     /// <summary>Adds the state of the tools that work on the page: scrolling by itself, measuring, filling and signing, and changing the page's own content.</summary>

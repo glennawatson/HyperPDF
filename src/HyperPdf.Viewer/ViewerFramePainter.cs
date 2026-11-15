@@ -279,11 +279,17 @@ internal sealed class ViewerFramePainter : ITilePainter, IOverlayPainter, IMarks
             return;
         }
 
-        // Square handles at the corners show the object can be moved.
+        // Square handles at the corners and the middles of the sides resize the object.
+        var middleX = rect.X + (rect.Width * Half);
+        var middleY = rect.Y + (rect.Height * Half);
         Handle(rect.X, rect.Y);
+        Handle(middleX, rect.Y);
         Handle(rect.Right, rect.Y);
-        Handle(rect.X, rect.Bottom);
+        Handle(rect.Right, middleY);
         Handle(rect.Right, rect.Bottom);
+        Handle(middleX, rect.Bottom);
+        Handle(rect.X, rect.Bottom);
+        Handle(rect.X, middleY);
     }
 
     /// <inheritdoc/>

@@ -98,7 +98,6 @@ public sealed partial class AppServices : ReactiveObject, IDisposable, ILocalisa
         Downloader = new(Path.Combine(Path.GetTempPath(), "hyperpdf-downloads"));
         CurrentTheme = ThemeResolver.Resolve(Settings, null);
         Speech = SpeechSetup.CreateDefault(platform);
-        FocusAnnouncements = platform.CreateFocusAnnouncementCheck();
         Theme = this.WhenChanged(static services => services.CurrentTheme);
         _subscriptions.Add(RenderHub);
         _subscriptions.Add(Pool);
@@ -106,8 +105,6 @@ public sealed partial class AppServices : ReactiveObject, IDisposable, ILocalisa
         {
             _subscriptions.Add(themeSource);
         }
-
-        _subscriptions.Add(FocusAnnouncements);
 
         // The speech engine in use is open until settings choose another or the services end.
         _subscriptions.Add(this.WhenChanged(static services => services.SpeechEngine).OwnLatest().SubscribeSafeErrors(ErrorTrace.Write));
@@ -142,9 +139,6 @@ public sealed partial class AppServices : ReactiveObject, IDisposable, ILocalisa
 
     /// <summary>Gets the desktop integration.</summary>
     public IDesktopPlatform Platform { get; }
-
-    /// <summary>Gets the check that keyboard focus changes reach the screen reader.</summary>
-    public IFocusAnnouncementCheck FocusAnnouncements { get; }
 
     /// <summary>Gets the recent documents store.</summary>
     public IRecentDocumentStore RecentDocuments => Platform.RecentDocuments;

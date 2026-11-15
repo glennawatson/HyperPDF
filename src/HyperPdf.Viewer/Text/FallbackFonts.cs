@@ -56,6 +56,9 @@ internal sealed class FallbackFonts
         "Bold", "Italic", "Oblique", "Light", "Thin", "Black", "Heavy", "Medium", "Condensed", "Narrow", "Mono", "Serif", "Display",
     ];
 
+    /// <summary>The fonts that ship with the app, for scripts no installed font has.</summary>
+    private readonly BundledScriptFonts _scripts = new();
+
     /// <summary>The fonts that have helped so far.</summary>
     private readonly List<UiFont> _kept = [];
 
@@ -89,7 +92,7 @@ internal sealed class FallbackFonts
             return null;
         }
 
-        var found = FindKept(rune) ?? Search(rune);
+        var found = FindKept(rune) ?? Search(rune) ?? Bundled(rune);
         if (found is null)
         {
             if (_missing.Count >= MissingLimit)
@@ -207,6 +210,21 @@ internal sealed class FallbackFonts
         }
 
         return null;
+    }
+
+    /// <summary>Finds the font that ships with the app for a character, when no installed font has it, and keeps it.</summary>
+    /// <param name="rune">The character.</param>
+    /// <returns>The font, or <see langword="null"/> when none has the character.</returns>
+    private UiFont? Bundled(Rune rune)
+    {
+        if (_scripts.Open(rune.Value) is not { } face)
+        {
+            return null;
+        }
+
+        var font = new UiFont(face);
+        _kept.Add(font);
+        return font;
     }
 
     /// <summary>Looks through the fonts that have helped before.</summary>

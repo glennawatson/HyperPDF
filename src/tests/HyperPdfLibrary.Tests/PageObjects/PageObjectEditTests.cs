@@ -3,10 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.TestAssets;
+using HyperPdfLibrary.Annotations;
+using HyperPdfLibrary.Creation;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.PageObjects;
 using HyperPdfLibrary.Tests.Rendering;
+using HyperPdfLibrary.Tests.Writing;
 using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.Tests.PageObjects;
@@ -19,6 +23,21 @@ public sealed class PageObjectEditTests
 
     /// <summary>The largest channel difference accepted.</summary>
     private const int Tolerance = 3;
+
+    /// <summary>How solid an object made half see-through is.</summary>
+    private const float HalfSolid = 0.5F;
+
+    /// <summary>The value of a channel at full strength.</summary>
+    private const int FullChannel = 255;
+
+    /// <summary>The length of a dash and of a gap, in points.</summary>
+    private const float DashLength = 6F;
+
+    /// <summary>The value of the green and blue channels where half solid red covers white.</summary>
+    private const int HalfChannel = 128;
+
+    /// <summary>How far a pixel under half solid red may be from the exact blend, which depends on how colours are rounded.</summary>
+    private const int PaleTolerance = 4;
 
     /// <summary>The tolerance for positions in points.</summary>
     private const float PositionTolerance = 0.05F;
@@ -83,6 +102,49 @@ public sealed class PageObjectEditTests
     /// <summary>The page with a red and a blue rectangle.</summary>
     private const string TwoRectangles = "1 0 0 rg 20 20 60 40 re f 0 0 1 rg 120 120 40 40 re f";
 
+    /// <summary>A copy of an object of a tagged page is written without structure links: its marked content is an artifact and holds no /MCID.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ACopyHasNoMarkedContentNumbers()
+    {
+        var content = PageObjectSamples.Read(TestPdf.CreateTagged());
+        var text = content.Objects.First(static o => o is PdfTextObject);
+
+        var form = PdfPageContentObjectCopy.CreateForm(content, text);
+        await using var inflater = new System.IO.Compression.ZLibStream(new MemoryStream(form.CopyRawData()), System.IO.Compression.CompressionMode.Decompress);
+        using var reader = new StreamReader(inflater, System.Text.Encoding.Latin1);
+        var written = await reader.ReadToEndAsync();
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(written).Contains("/Artifact BMC");
+            await Assert.That(written).DoesNotContain("/MCID");
+            await Assert.That(written).Contains("BT");
+        }
+    }
+
+    /// <summary>A line the built-in fonts cannot show uses the bundled font when it has the letters, the fallback when it lacks them, and no embedding when a built-in font will do.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task NewTextPicksTheBuiltInBundledOrFallbackFont()
+    {
+        var content = PageObjectSamples.Read(TestPdf.CreateTagged());
+        var emoji = PdfBundledFonts.OpenOrThrow(PdfBundledFontFamily.Emoji, false, false);
+
+        var plain = PdfNewTextRun.Create(content, "Plain", AppearanceFont.Helvetica, emoji);
+        var greek = PdfNewTextRun.Create(content, "Καλημέρα", AppearanceFont.Helvetica, emoji);
+        var smile = PdfNewTextRun.Create(content, "\U0001F600", AppearanceFont.Helvetica, emoji);
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(plain.IsEmbedded).IsFalse();
+            await Assert.That(greek.IsEmbedded).IsTrue();
+            await Assert.That(PdfNewTextRun.NeedsFallback("Καλημέρα", AppearanceFont.Helvetica)).IsFalse();
+            await Assert.That(PdfNewTextRun.NeedsFallback("\U0001F600", AppearanceFont.Helvetica)).IsTrue();
+            await Assert.That(smile.IsEmbedded).IsTrue();
+        }
+    }
+
     /// <summary>Deleting an object leaves the others where they were.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -137,6 +199,37 @@ public sealed class PageObjectEditTests
 
         await Assert.That(image.IsNear(RedColumn, RedRow, Rgb.Green255, Tolerance)).IsTrue();
         await Assert.That(image.IsNear(BlueColumn, BlueRow, Rgb.Blue255, Tolerance)).IsTrue();
+    }
+
+    /// <summary>Making an object half solid lightens it over the white page, and leaves the other object alone.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task OpacityMakesOnlyThatObjectSeeThrough()
+    {
+        var pdf = PageObjectSamples.Page(TwoRectangles);
+        var edited = PageObjectSamples.Edit(pdf, static content => content.Objects[0].SetOpacity(HalfSolid));
+        var image = PageObjectSamples.Render(edited);
+
+        await Assert.That(image.IsNear(RedColumn, RedRow, new(FullChannel, HalfChannel, HalfChannel), PaleTolerance)).IsTrue();
+        await Assert.That(image.IsNear(BlueColumn, BlueRow, Rgb.Blue255, Tolerance)).IsTrue();
+    }
+
+    /// <summary>A dash pattern written for an object is kept in the file, and a bad one is refused.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LineStyleIsWrittenAndValidated()
+    {
+        var pdf = PageObjectSamples.Page("4 w 20 100 m 180 100 l S");
+        var style = new PdfLineStyle(PdfLineCap.Round, PdfLineJoin.Bevel, [DashLength, DashLength], 0F);
+        var edited = PageObjectSamples.Edit(pdf, content => content.Objects[0].SetLineStyle(style));
+        using var document = PdfDocumentReader.Open(edited, null);
+        var text = System.Text.Encoding.Latin1.GetString(WritingTestDocuments.PageContents(document.Objects)[0]);
+
+        await Assert.That(text).Contains("[6 6] 0 d");
+        await Assert.That(text).Contains("1 J");
+        await Assert.That(text).Contains("2 j");
+        await Assert.That(() => PageObjectSamples.Edit(pdf, static content => content.Objects[0].SetLineStyle(new(PdfLineCap.Butt, PdfLineJoin.Miter, [0F, 0F], 0F))))
+            .Throws<ArgumentOutOfRangeException>();
     }
 
     /// <summary>Recolouring text does not change the colour of text drawn after it.</summary>
@@ -250,6 +343,44 @@ public sealed class PageObjectEditTests
         await Assert.That(marked.GetGlyphs(FirstId).Length).IsGreaterThan(0);
         await Assert.That(marked.GetGlyphs(SecondId).Length).IsGreaterThan(0);
         await Assert.That(marked.HasContent(FigureId)).IsTrue();
+    }
+
+    /// <summary>Moving a tagged object to the front keeps its text tied to its tag and writes its marked-content number once.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task MovingATaggedObjectWritesItsMarkedContentNumberOnce()
+    {
+        var edited = PageObjectSamples.Edit(TestPdf.CreateTagged(), static content => PdfPageContentObjectCopy.MoveInline(content, [content.Objects[HeadingObject]], false));
+        using var after = PdfDocumentReader.Open(edited, null);
+        var marked = PdfDocumentTagged.GetMarkedContent(after, 0);
+        var source = System.Text.Encoding.ASCII.GetString(PdfDocumentPageContent.GetPageContent(after, 0).Source);
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(source.Split("/H1 << /MCID 0 >> BDC").Length - 1).IsEqualTo(1);
+            await Assert.That(source).Contains("/Artifact BMC");
+            await Assert.That(marked.GetGlyphs(HeadingId).Length).IsGreaterThan(0);
+            await Assert.That(marked.GetGlyphs(FirstId).Length).IsGreaterThan(0);
+        }
+    }
+
+    /// <summary>Moving one object of a marked-content sequence to the front moves the whole sequence, so its structure link stays whole and is written once.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task MovingPartOfASequenceMovesTheWholeSequence()
+    {
+        var pdf = PageObjectSamples.Page(
+            "/P << /MCID 0 >> BDC BT /F1 12 Tf 10 100 Td (Aaa) Tj ET BT /F1 12 Tf 10 80 Td (Bbb) Tj ET EMC BT /F1 12 Tf 10 60 Td (Ccc) Tj ET");
+        var edited = PageObjectSamples.Edit(pdf, static content => PdfPageContentObjectCopy.MoveInline(content, [content.Objects[0]], false));
+        var after = PageObjectSamples.Read(edited);
+        var order = string.Join(",", after.Objects.OfType<PdfTextObject>().Select(static o => o.Text));
+        var source = System.Text.Encoding.ASCII.GetString(after.Source);
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(order).IsEqualTo("Ccc,Aaa,Bbb");
+            await Assert.That(source.Split("/P << /MCID 0 >> BDC").Length - 1).IsEqualTo(1);
+        }
     }
 
     /// <summary>An edit joins the document's undo history.</summary>

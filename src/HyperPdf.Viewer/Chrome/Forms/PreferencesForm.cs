@@ -49,9 +49,21 @@ internal static class PreferencesForm
             static p => p.FormHighlightOpacity,
             static (p, value) => p.FormHighlightOpacity = value),
         PreferenceRow.Field("Name on comments", static p => p.CommentAuthor, static (p, value) => p.CommentAuthor = value),
+        PreferenceRow.Heading("Sharpness of text and pictures"),
+        PreferenceRow.Choice("Edges", SharpnessViewModel.PresetOptions, static p => p.Sharpness.Preset, static (p, value) => p.Sharpness.Preset = value),
+        PreferenceRow.Choice("Text edges", SharpnessViewModel.TextEdgeOptions, static p => p.Sharpness.TextEdges, static (p, value) => p.Sharpness.TextEdges = value),
+        PreferenceRow.Choice("Fit small text to pixels", SharpnessViewModel.TextHintingOptions, static p => p.Sharpness.TextHinting, static (p, value) => p.Sharpness.TextHinting = value),
+        PreferenceRow.Choice("Small text contrast", SharpnessViewModel.TextContrastOptions, static p => p.Sharpness.TextContrast, static (p, value) => p.Sharpness.TextContrast = value),
+        PreferenceRow.Choice("Fit lines to pixels", SharpnessViewModel.StrokeAdjustmentOptions, static p => p.Sharpness.StrokeAdjustment, static (p, value) => p.Sharpness.StrokeAdjustment = value),
+        PreferenceRow.Choice("Thinnest line", SharpnessViewModel.MinimumLineOptions, static p => p.Sharpness.MinimumLineWidth, static (p, value) => p.Sharpness.MinimumLineWidth = value),
+        PreferenceRow.Toggle("Smooth the edges of lines and shapes", static p => p.Sharpness.SmoothGraphics, static (p, on) => p.Sharpness.SmoothGraphics = on),
+        PreferenceRow.Toggle("Smooth pictures", static p => p.Sharpness.SmoothImages, static (p, on) => p.Sharpness.SmoothImages = on),
+        PreferenceRow.Toggle("Average pixels when shrinking big pictures", static p => p.Sharpness.AreaImageReduction, static (p, on) => p.Sharpness.AreaImageReduction = on),
+        PreferenceRow.Toggle("Remember the shapes of small letters", static p => p.Sharpness.SmallTextMasks, static (p, on) => p.Sharpness.SmallTextMasks = on),
         PreferenceRow.Heading("Services"),
         PreferenceRow.Choice("Read aloud voice", PreferencesViewModel.SpeechEngineOptions, static p => p.SpeechEngine, static (p, value) => p.SpeechEngine = value),
         PreferenceRow.Field("Azure speech region", static p => p.AzureRegion, static (p, value) => p.AzureRegion = value),
+        PreferenceRow.Secret("Azure speech key", static p => p.AzureKey, static (p, value) => p.AzureKey = value),
         PreferenceRow.Field("Timestamp server for signing", static p => p.TimestampServer, static (p, value) => p.TimestampServer = value),
     ];
 
@@ -93,6 +105,12 @@ internal static class PreferencesForm
 
                 case FormRowKind.Field:
                     {
+                        if (row.Masked)
+                        {
+                            form.Secret(label, row.Value(preferences), i);
+                            break;
+                        }
+
                         form.Field(label, row.Value(preferences), i);
                         break;
                     }

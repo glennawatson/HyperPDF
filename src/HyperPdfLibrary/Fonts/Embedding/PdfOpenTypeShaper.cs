@@ -18,9 +18,13 @@ namespace HyperPdfLibrary.Fonts.Embedding;
 /// <see cref="PdfEmbeddedFontOptions.Shaper"/> is not set. Members are safe to call from several threads.
 /// </summary>
 /// <remarks>
-/// Scripts that need their own shaping model are Arabic and the Indic scripts; other scripts use the default features, with
-/// mark positioning, which covers Latin, Greek, Cyrillic, Hebrew, Thai and Han. Khmer, Myanmar, Tibetan, Sinhala, Hangul
-/// jamo and Mongolian have no model of their own here, so they get the default features only.
+/// Scripts that need their own shaping model are Arabic, the Indic scripts, Khmer, Myanmar, and Sinhala, Tibetan and Mongolian,
+/// which follow the Universal Shaping Engine model; other scripts use the default features, with mark positioning, which covers
+/// Latin, Greek, Cyrillic, Hebrew, Thai and Han. Khmer puts the subscript ro and the vowel signs written before the base in
+/// front of it, Myanmar orders each syllable by position so the kinzi, medials and vowel signs fall where the font expects,
+/// Sinhala moves its vowel signs written before the consonant and splits the ones that wrap it, and Mongolian joins its
+/// letters into initial, medial and final forms. Hangul jamo join into the syllable's own character when the font has it, and
+/// the Thai and Lao vowel sign "am" splits when the font lacks it.
 /// </remarks>
 [DebuggerDisplay("PdfOpenTypeShaper: {_source.PostScriptName}")]
 public sealed class PdfOpenTypeShaper : IPdfGlyphShaper

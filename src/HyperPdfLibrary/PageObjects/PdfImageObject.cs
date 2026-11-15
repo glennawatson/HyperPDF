@@ -25,6 +25,9 @@ public sealed class PdfImageObject : PdfPageObject
     /// <summary>The replacement image stream, or null while the image is as the content wrote it.</summary>
     private PdfStream? _replacement;
 
+    /// <summary>The image stored in the document that stands in for this one, set by <see cref="ReplaceWithImage"/>.</summary>
+    private PdfObjectId _replacementImage;
+
     /// <summary>Initializes a new instance of the <see cref="PdfImageObject"/> class.</summary>
     internal PdfImageObject()
     {
@@ -64,13 +67,16 @@ public sealed class PdfImageObject : PdfPageObject
     public PdfValue ColorSpace { get; internal init; }
 
     /// <inheritdoc/>
-    public override bool IsModified => base.IsModified || _replacement is not null;
+    public override bool IsModified => base.IsModified || _replacement is not null || _replacementImage.IsValid;
 
     /// <summary>Gets the inline image's data between <c>ID</c> and <c>EI</c>; empty for an XObject.</summary>
     internal byte[] InlineData { get; init; } = [];
 
     /// <summary>Gets the replacement image stream, or null.</summary>
     internal PdfStream? Replacement => _replacement;
+
+    /// <summary>Gets the stored image that stands in for this one, or an invalid id when none does.</summary>
+    internal PdfObjectId ReplacementImage => _replacementImage;
 
     /// <summary>Copies the data as stored in the file, before any filter is undone.</summary>
     /// <returns>The raw bytes.</returns>
@@ -125,6 +131,21 @@ public sealed class PdfImageObject : PdfPageObject
     /// <exception cref="ArgumentException">A buffer is not the length the size and format need.</exception>
     public void SetPixels(int width, int height, PdfImagePixelFormat format, ReadOnlySpan<byte> pixels, ReadOnlySpan<byte> alpha) =>
         _replacement = ImageStreams.Create(Dictionary.Owner, width, height, format, pixels, alpha);
+
+    /// <summary>
+    /// Draws another image, one already stored in the document, in place of this one, in the same frame. The new image is stretched to the frame.
+    /// </summary>
+    /// <param name="image">The stored image.</param>
+    /// <exception cref="ArgumentException"><paramref name="image"/> is not a valid object id.</exception>
+    public void ReplaceWithImage(PdfObjectId image)
+    {
+        if (!image.IsValid)
+        {
+            throw new ArgumentException("The image must be an object stored in the document.", nameof(image));
+        }
+
+        _replacementImage = image;
+    }
 
     /// <summary>Replaces a stencil mask's shape. The regenerated content paints a new 1-bit mask in the same place.</summary>
     /// <param name="width">The width in pixels.</param>

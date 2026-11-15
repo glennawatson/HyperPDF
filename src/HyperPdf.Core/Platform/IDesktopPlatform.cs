@@ -45,10 +45,6 @@ public interface IDesktopPlatform
     /// <returns><see langword="true"/> when a running instance took the request, so this process can exit.</returns>
     Task<bool> TryForwardAsync(OpenRequest request);
 
-    /// <summary>Creates the check that keyboard focus changes reach the screen reader; dispose it when done.</summary>
-    /// <returns>The check; platforms whose bridge announces every change return one that never acts.</returns>
-    IFocusAnnouncementCheck CreateFocusAnnouncementCheck() => NoFocusAnnouncementCheck.Instance;
-
     /// <summary>Claims the single running window for this process.</summary>
     /// <returns>The claim, or <see langword="null"/> when the desktop has no such mechanism or another process holds it.</returns>
     Task<ISingleInstance?> TryClaimSingleInstanceAsync();

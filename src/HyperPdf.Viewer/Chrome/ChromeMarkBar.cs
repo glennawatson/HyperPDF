@@ -37,6 +37,7 @@ internal static class ChromeMarkBar
             row = row.Button(NameOf(tool), ChromeCommand.MarkTool, (int)tool, marks.Tool == tool);
         }
 
+        row = row.Button(UiText.Get("More…"), ChromeCommand.MarkMore, true);
         row = row.Space();
         row = row.Button(UiText.Format("Colour: {0}", marks.ColorName), ChromeCommand.MarkColor, true);
         row = row.Button(marks.LineWidthName, ChromeCommand.MarkWidth, true);

@@ -43,6 +43,7 @@ internal static class ChromeBindings
         presses.WhereCommand(ChromeCommand.SelectTab).SelectWith(main, TabAt).KeepNotNull().SubscribeSafe(tab => main.SelectedTab = tab, ErrorTrace.Write),
         presses.WhereCommand(ChromeCommand.CloseTab).SelectWith(main, TabAt).KeepNotNull().InvokeCommand(main.CloseTabCommand),
         presses.InvokeCommandOn(ChromeCommand.Open, main.OpenCommand),
+        presses.InvokeCommandOn(ChromeCommand.DismissStatus, main.DismissStatusCommand),
         presses.InvokeCommandOn(ChromeCommand.NextTab, main.NextTabCommand),
         presses.InvokeCommandOn(ChromeCommand.PreviousTab, main.PreviousTabCommand));
 
@@ -62,6 +63,7 @@ internal static class ChromeBindings
         presses.InvokeCommandOn(ChromeCommand.FitPage, tab.FitPageCommand),
         presses.InvokeCommandOn(ChromeCommand.Sidebar, tab.ToggleSidebarCommand),
         Marks(presses, tab.Annotations),
+        presses.WhereCommand(ChromeCommand.GoToPage).SubscribeSafe(_ => AskForPage(tab, chrome), ErrorTrace.Write),
         Media(presses, tab, chrome),
         Panel(presses, tab, chrome));
 
@@ -85,6 +87,23 @@ internal static class ChromeBindings
             .SwitchMap(made => made ? PlayerChanges(tab.Media.Player) : Signal.Never<RxVoid>())
             .SubscribeSafe(_ => chrome.InvalidateBars(), ErrorTrace.Write),
     ];
+
+    /// <summary>Asks which page to go to, and goes there.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="chrome">The window's controls, which ask.</param>
+    private static void AskForPage(DocumentTabViewModel tab, ViewerChrome chrome) =>
+        _ = chrome.Prompt(new(UiText.Get("Go to a page"), UiText.Get("Page number"), tab.PageEntry, UiText.Get("Go"), false)).SubscribeSafe(
+            answer =>
+            {
+                if (answer is null)
+                {
+                    return;
+                }
+
+                tab.PageEntry = answer;
+                Run(tab.GoToPageEntryCommand);
+            },
+            ErrorTrace.Write);
 
     /// <summary>Runs a command when it can run.</summary>
     /// <param name="command">The command.</param>
@@ -153,7 +172,15 @@ internal static class ChromeBindings
                     chrome.ResetSidebarScroll();
                 },
                 ErrorTrace.Write),
-            rows.OfType<ThumbnailItemViewModel>().SubscribeSafe(page => tab.GoToPage(page.PageIndex), ErrorTrace.Write),
+            rows.OfType<ThumbnailItemViewModel>().SubscribeSafe(
+                page =>
+                {
+                    tab.GoToPage(page.PageIndex);
+
+                    // The page picked is the page the page tools change.
+                    tab.Pages.SelectPages([page.PageIndex]);
+                },
+                ErrorTrace.Write),
             rows.OfType<OutlineItemViewModel>().SubscribeSafe(bookmark => PickBookmark(bookmark, tab), ErrorTrace.Write),
             rows.OfType<AnnotationItemViewModel>().InvokeCommand(tab.Annotations.GoToCommand),
             rows.OfType<LayerItemViewModel>().SubscribeSafe(static layer => layer.IsVisible = !layer.IsVisible, ErrorTrace.Write),

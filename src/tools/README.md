@@ -12,7 +12,10 @@ Each entry point targets .NET 11. Files named `*Builder.cs`, `ScriptProcess.cs` 
 | Publish Native AOT and separate debug symbols | `Publish.cs <runtime identifier> [publish arguments]` |
 | Install a published Linux build and desktop integration | `InstallLinux.cs [--prefix directory] [--from directory]` |
 | Check screen reader access on a private Linux display and D-Bus session | `CheckScreenReader.cs [--wayland] <app path> [minimum controls]` |
+| Read the viewer as a screen reader does on Linux: move focus to every control and check each is named and announced (no Orca needed) | `CheckScreenReader.cs --read <app path> [minimum controls]` |
+| Read the viewer as JAWS or ZoomText do on Windows, as a UI Automation client: set focus on every control, check each is named, takes focus and raises a focus event, and read the page through the Text pattern. Run it in a logged-in desktop session; a service or SSH session has no desktop, so UI Automation delivers no events there | `CheckUiaReader.cs <viewer exe> <PDF>` on Windows |
 | Write the accessibility check PDF or walk an existing AT-SPI tree | `AccessibilityCheck.cs` |
+| Pack the Noto fonts the app draws Khmer, Myanmar, Indic, Sinhala, Tibetan, Mongolian and other scripts with when no installed font has them (reads `Noto*-Regular.ttf`, writes the `.ttf.z` files the engine embeds) | `PackScriptFonts.cs <font folder> <output folder>` |
 | Fetch reference PDFs and check PDF 2.0 copies | `FetchReferencePdfs.cs`, `CheckPdf20Copies.cs` |
 | Install veraPDF and record PDF/A validation results | `InstallVeraPdf.cs`, `FetchVeraPdfTestFiles.cs`, `FetchVeraPdfProfiles.cs`, `RecordVeraPdfResults.cs` |
 | Extract the Isartor PDF/A test files | `ExtractIsartorSuite.cs` |

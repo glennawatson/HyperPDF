@@ -76,6 +76,9 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     /// <summary>Gets the languages offered in the language bar, English first.</summary>
     public static IReadOnlyList<string> LanguageNames { get; } = BuildLanguageNames();
 
+    /// <summary>Gets the interaction that shows the window that manages the languages; the output says whether the window was accepted.</summary>
+    public Interaction<OcrLanguagesViewModel, bool> ManageLanguagesInteraction { get; } = new();
+
     /// <summary>Gets the latest page recognition wrote text on; the tab redraws the page it names.</summary>
     [Reactive]
     public partial PageChange LastPageChange { get; private set; }
@@ -242,6 +245,15 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     [ReactiveCommand(CanExecute = nameof(_isIdle))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private Task RecognizeAsync() => RunAsync(false);
+
+    /// <summary>Opens the window that lists the languages text can be recognised in, to tick them, download them and remove the ones that are not used.</summary>
+    /// <returns>A task that ends when the window is closed.</returns>
+    [ReactiveCommand]
+    private async Task ManageLanguagesAsync()
+    {
+        using var languages = new OcrLanguagesViewModel(_services);
+        _ = await ManageLanguagesInteraction.Handle(languages).ToTask().ConfigureAwait(true);
+    }
 
     /// <summary>Opens the language bar so a language can be picked before recognising.</summary>
     [ReactiveCommand(CanExecute = nameof(_isIdle))]

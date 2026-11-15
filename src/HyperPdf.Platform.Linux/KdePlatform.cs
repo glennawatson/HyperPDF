@@ -7,7 +7,6 @@ using System.Runtime.CompilerServices;
 using HyperPdf.Core.Media;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Speech;
-using HyperPdf.Platform.Linux.Accessibility;
 using HyperPdf.Platform.Linux.Audio;
 using HyperPdf.Platform.Linux.DBus;
 using HyperPdf.Platform.Linux.Kde;
@@ -49,10 +48,6 @@ public sealed class KdePlatform : IDesktopPlatform
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public string? GetLaunchActivationToken() => SingleInstanceHost.GetLaunchActivationToken();
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IFocusAnnouncementCheck CreateFocusAnnouncementCheck() => new AtSpiFocusAnnouncementCheck();
 
     /// <inheritdoc/>
     public Task<bool> TryForwardAsync(OpenRequest request)

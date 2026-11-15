@@ -25,6 +25,9 @@ internal static class FormOverlays
     /// <summary>The lines of rows shown at once.</summary>
     private const int VisibleLines = 15;
 
+    /// <summary>The character shown in place of each letter of a secret.</summary>
+    private const char Dot = '•';
+
     /// <summary>The lines moved by Page Up and Page Down.</summary>
     private const int PageLines = 12;
 
@@ -182,6 +185,11 @@ internal static class FormOverlays
                 }
         }
     }
+
+    /// <summary>Gets the text a field row shows: its text, or dots in place of each letter when the text is secret.</summary>
+    /// <param name="row">The row.</param>
+    /// <returns>The text to show.</returns>
+    private static string Shown(FormRow row) => ReferenceEquals(row.Target, FormBuilder.MaskedField) ? new string(Dot, row.Value.Length) : row.Value;
 
     /// <summary>Changes the text of the text box being typed into.</summary>
     /// <param name="request">What the dialog shows.</param>
@@ -442,7 +450,7 @@ internal static class FormOverlays
             case FormRowKind.Field:
                 {
                     lines.Add(new(ChromeItemKind.Row, ChromeCommand.PickRow, index, ChromeText.Fit(row.Label, style, width, runs), true, false));
-                    lines.Add(new(ChromeItemKind.Field, ChromeCommand.PickRow, index, ChromeText.Fit(row.Value, style, width, runs), true, ui.Focus == index));
+                    lines.Add(new(ChromeItemKind.Field, ChromeCommand.PickRow, index, ChromeText.Fit(Shown(row), style, width, runs), true, ui.Focus == index));
                     break;
                 }
 

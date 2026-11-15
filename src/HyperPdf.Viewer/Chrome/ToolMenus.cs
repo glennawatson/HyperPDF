@@ -4,9 +4,12 @@
 
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using HyperPdf.Core.Documents;
 using HyperPdf.Core.Layout;
+using HyperPdf.Core.Text;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Dialogs;
+using HyperPdf.ViewModels.Markup;
 using HyperPdf.ViewModels.Output;
 using HyperPdf.ViewModels.Viewing;
 
@@ -18,8 +21,56 @@ namespace HyperPdf.Viewer.Chrome;
 /// </summary>
 internal static class ToolMenus
 {
+    /// <summary>How close two spacings are for them to be the same choice.</summary>
+    private const float SpacingTolerance = 0.001F;
+
     /// <summary>The zoom levels offered, in percent.</summary>
     private static readonly string[] ZoomLevels = ["50", "75", "100", "125", "150", "200", "400"];
+
+    /// <summary>How solid the picked objects can be made, in percent.</summary>
+    private static readonly string[] Opacities = ["100", "75", "50", "25"];
+
+    /// <summary>The sides a picture can be cropped from, with the words of the entry that crops each, in English.</summary>
+    private static readonly CropSide[] CropSides =
+    [
+        new("all", "Crop {0}% off Every Side of the Picked Picture"),
+        new("left", "Crop {0}% off the Left of the Picked Picture"),
+        new("top", "Crop {0}% off the Top of the Picked Picture"),
+        new("right", "Crop {0}% off the Right of the Picked Picture"),
+        new("bottom", "Crop {0}% off the Bottom of the Picked Picture"),
+    ];
+
+    /// <summary>The shares of a picture a crop menu entry cuts off, in percent.</summary>
+    private static readonly string[] CropPercents = ["5", "10", "25"];
+
+    /// <summary>The dash patterns the lines of picked objects can have, by name.</summary>
+    private static readonly string[] DashNames = ["Solid", "Dashed", "Dotted", "DashDot"];
+
+    /// <summary>The line ends the lines of picked objects can have, by name.</summary>
+    private static readonly string[] CapNames = ["Butt", "Round", "Square"];
+
+    /// <summary>The corners the lines of picked objects can have, by name.</summary>
+    private static readonly string[] JoinNames = ["Miter", "Round", "Bevel"];
+
+    /// <summary>The words of the stamps that can be chosen.</summary>
+    private static readonly string[] StampLabels = ["APPROVED", "REVIEWED", "DRAFT", "CONFIDENTIAL", "FINAL", "NOT APPROVED"];
+
+    /// <summary>The sizes in points the menus offer for picked text.</summary>
+    private static readonly string[] TextSizes = ["8", "10", "12", "14", "18", "24", "36"];
+
+    /// <summary>The colours the menus offer for the fill and the line of a picked object.</summary>
+    private static readonly PaletteColour[] PaletteColours =
+    [
+        new("Black", "000000"),
+        new("White", "FFFFFF"),
+        new("Grey", "808080"),
+        new("Red", "D32F2F"),
+        new("Orange", "F57C00"),
+        new("Yellow", "FBC02D"),
+        new("Green", "388E3C"),
+        new("Blue", "1976D2"),
+        new("Purple", "7B1FA2"),
+    ];
 
     /// <summary>Lists the kinds of copy that can be saved.</summary>
     /// <param name="tab">The tab shown.</param>
@@ -55,11 +106,39 @@ internal static class ToolMenus
             Item("Move the Page _Earlier", pages.MoveEarlierCommand),
             Item("Move the Page La_ter", pages.MoveLaterCommand),
             Item("_Duplicate the Page", pages.DuplicateCommand),
+            Item("Delete the Page", pages.DeleteCommand),
+            MenuEntry.Separator(),
+            Item("Select _Every Page", pages.SelectAllCommand),
+            Item("Add the Page I Am On to the Selection", pages.AddCurrentToSelectionCommand),
             MenuEntry.Separator(),
             Item("E_xtract Pages…", pages.ExtractCommand),
             Item("_Insert Pages from Files…", pages.InsertFilesCommand),
             Item("Insert _Pictures as Pages…", pages.InsertImagesCommand),
             Item("_Merge Files…", pages.MergeFilesCommand),
+            MenuEntry.Separator(),
+            Named(pages.UndoText, pages.UndoCommand),
+            Named(pages.RedoText, pages.RedoCommand),
+        ];
+    }
+
+    /// <summary>Lists what can be added around the content of the pages: watermarks, headers, footers, page and Bates numbers, a background colour and a crop.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>The entries.</returns>
+    internal static List<MenuEntry> Decorations(DocumentTabViewModel tab)
+    {
+        var decorations = tab.Decorations;
+        return
+        [
+            Item("Add a _Watermark…", decorations.ShowWatermarkCommand),
+            Item("Add a _Header…", decorations.ShowHeaderCommand),
+            Item("Add a _Footer…", decorations.ShowFooterCommand),
+            Item("Add _Page Numbers…", decorations.ShowPageNumbersCommand),
+            Item("Add _Bates Numbers…", decorations.ShowBatesCommand),
+            MenuEntry.Separator(),
+            Item("Fill the Page _Background…", decorations.ShowBackgroundCommand),
+            Item("_Crop the Pages…", decorations.ShowCropCommand),
+            MenuEntry.Separator(),
+            Item("Number the Pages i, ii, iii or A-1…", tab.Pages.Labels.ShowCommand),
         ];
     }
 
@@ -113,6 +192,7 @@ internal static class ToolMenus
             MenuEntry.Separator(),
             Item("Recognise _Text in Scanned Pages", text.RecognizeCommand),
             Item("Choose the Language to Recognise…", text.ChooseLanguageCommand),
+            Item("Manage the Recognition Languages…", text.ManageLanguagesCommand),
             Item("Stop Recognising", text.StopCommand),
             MenuEntry.Separator(),
             Item("Next Place in the Article", tab.Parts.NextPlaceCommand),
@@ -163,6 +243,7 @@ internal static class ToolMenus
             Item("Place My _Signature…", sign.SignatureCommand),
             Item("Place My _Initials…", sign.InitialsCommand),
             Item("Put the Mark Down", sign.PlaceCommand),
+            Item("Adjust the Mark", sign.AdjustCommand),
             Item("Make the Mark Bigger", sign.BiggerCommand),
             Item("Make the Mark Smaller", sign.SmallerCommand),
             Item("Remove the Mark", sign.RemoveMarkCommand),
@@ -171,6 +252,30 @@ internal static class ToolMenus
             Item("_Edit the Page's Own Content", edit.ToggleEditingCommand),
             Item("Change the Picked Text…", edit.EditPickedTextCommand),
             Item("Remove the Picked Object", edit.RemovePickedCommand),
+            Item("Add a _Rectangle", edit.AddRectangleCommand),
+            Item("Add an _Ellipse", edit.AddEllipseCommand),
+            Item("Add a _Line", edit.AddLineCommand),
+            Item("Add Some _Text", edit.AddTextCommand),
+            Item("Add a _Picture…", edit.AddPictureCommand),
+            .. TextFont(edit),
+            .. GroupWork(edit),
+            Item("Make the Picked Object Larger", edit.GrowPickedCommand),
+            Item("Make the Picked Object Smaller", edit.ShrinkPickedCommand),
+            Item("Turn the Picked Object to the Right", edit.TurnRightCommand),
+            Item("Turn the Picked Object to the Left", edit.TurnLeftCommand),
+            Item("Flip the Picked Object Across", edit.FlipAcrossCommand),
+            Item("Flip the Picked Object Upside Down", edit.FlipDownCommand),
+            .. Palette("Fill the Picked Object with {0}", edit.SetPickedFillCommand),
+            .. Palette("Colour the Picked Object's Line {0}", edit.SetPickedLineCommand),
+            .. Looks(edit),
+            MenuEntry.Separator(),
+            Item("Add a Form _Text Field", tab.FormDesign.AddTextFieldCommand),
+            Item("Add a Form Check _Box", tab.FormDesign.AddCheckBoxCommand),
+            Item("Add a Form Drop-_Down List", tab.FormDesign.AddDropDownCommand),
+            Item("Add a Form _Button", tab.FormDesign.AddButtonCommand),
+            Item("Make the Picked Field Required or Not", tab.FormDesign.ToggleRequiredCommand),
+            Item("Make the Picked Field Read-Only or Not", tab.FormDesign.ToggleReadOnlyCommand),
+            Item("Remove the Picked Form Field", tab.FormDesign.RemoveFocusedCommand),
             MenuEntry.Separator(),
             Item("Stamp from a _Picture…", marks.PictureStampCommand),
             Item("Stamp with My Own _Words…", marks.CustomStampCommand),
@@ -181,6 +286,66 @@ internal static class ToolMenus
             Item("Take a Picture of an _Area", tab.PageTools.ToggleSnapshotToolCommand),
             Item("Show Every _Layer as the Document Sets It", tab.Layers.ResetCommand),
         ];
+    }
+
+    /// <summary>
+    /// Lists the marking tools and settings the bar has no room for: the stamps, callouts, polygons, clouds, poly-lines, redaction and
+    /// caret tools, the stamp words, and every setting of typed text. The entry of the tool in use, and of each setting in use, is ticked.
+    /// </summary>
+    /// <param name="marks">The marking tools of the tab shown.</param>
+    /// <returns>The entries.</returns>
+    internal static List<MenuEntry> MoreMarks(AnnotationsViewModel marks)
+    {
+        List<MenuEntry> entries =
+        [
+            MarkTool(marks, UiText.Get("_Stamp"), AnnotationTool.Stamp),
+            MarkTool(marks, UiText.Get("_Callout"), AnnotationTool.Callout),
+            MarkTool(marks, UiText.Get("_Polygon"), AnnotationTool.Polygon),
+            MarkTool(marks, UiText.Get("C_loud"), AnnotationTool.Cloud),
+            MarkTool(marks, UiText.Get("Poly-_line"), AnnotationTool.PolyLine),
+            MarkTool(marks, UiText.Get("Freehand H_ighlighter"), AnnotationTool.FreehandHighlight),
+            MarkTool(marks, UiText.Get("Insert Te_xt Here"), AnnotationTool.Caret),
+            MarkTool(marks, UiText.Get("Redact an _Area"), AnnotationTool.Redact),
+            MarkTool(marks, UiText.Get("Redact Selected Te_xt"), AnnotationTool.RedactText),
+            MenuEntry.Separator(),
+        ];
+        foreach (var label in StampLabels)
+        {
+            entries.Add(MenuEntry.Radio(UiText.Format("Stamp {0}", label), marks.SetStampCommand, label, marks.Tool == AnnotationTool.Stamp && marks.StampLabel == label));
+        }
+
+        entries.Add(Item("Stamp with My Own _Words…", marks.CustomStampCommand));
+        entries.Add(Item("Stamp from a _Picture…", marks.PictureStampCommand));
+        entries.Add(MenuEntry.Separator());
+        entries.Add(Item("Text _Properties…", marks.EditTextPropertiesCommand));
+        entries.Add(Item("_Finish Typing the Text", marks.FinishTextCommand));
+        entries.Add(Item("_Edit the Picked Note…", marks.EditNoteCommand));
+        entries.Add(MenuEntry.Separator());
+        entries.Add(MenuEntry.Radio(UiText.Get("Bol_d"), marks.ToggleBoldCommand, null, marks.IsBold));
+        entries.Add(MenuEntry.Radio(UiText.Get("_Italic"), marks.ToggleItalicCommand, null, marks.IsItalic));
+        entries.Add(MenuEntry.Radio(UiText.Get("_Underlined"), marks.ToggleUnderlineCommand, null, marks.IsUnderline));
+        entries.Add(MenuEntry.Radio(UiText.Get("Align _Left"), marks.SetAlignmentCommand, TextBoxAlignment.Left, marks.TextAlignment == TextBoxAlignment.Left));
+        entries.Add(MenuEntry.Radio(UiText.Get("Align _Centre"), marks.SetAlignmentCommand, TextBoxAlignment.Center, marks.TextAlignment == TextBoxAlignment.Center));
+        entries.Add(MenuEntry.Radio(UiText.Get("Align _Right"), marks.SetAlignmentCommand, TextBoxAlignment.Right, marks.TextAlignment == TextBoxAlignment.Right));
+        entries.Add(Item("Make the Typed Text Larger", marks.GrowTextCommand));
+        entries.Add(Item("Make the Typed Text Smaller", marks.ShrinkTextCommand));
+        entries.Add(MenuEntry.Separator());
+        foreach (var option in AnnotationsViewModel.TextColors)
+        {
+            entries.Add(MenuEntry.Radio(UiText.Format("Text Colour: {0}", UiText.Get(option.NameKey)), marks.SetTextColorCommand, option.NameKey, marks.TextColor == option.Color));
+        }
+
+        foreach (var option in AnnotationsViewModel.LineSpacings)
+        {
+            entries.Add(Spacing("Line Spacing: {0}", option, marks.LineSpacing, marks.SetLineSpacingCommand));
+        }
+
+        foreach (var option in AnnotationsViewModel.CharacterSpacings)
+        {
+            entries.Add(Spacing("Letter Spacing: {0}", option, marks.CharacterSpacing, marks.SetCharacterSpacingCommand));
+        }
+
+        return entries;
     }
 
     /// <summary>Lists what can be done with signatures and with the document's accessibility tags.</summary>
@@ -223,10 +388,167 @@ internal static class ToolMenus
         where T : class, ICopyWindowRequest =>
         MenuEntry.Item(action.MenuText, null, action.RunCommand, null, action.CanRun);
 
+    /// <summary>Makes the entry of a marking tool, ticked while it is the tool in use.</summary>
+    /// <param name="marks">The marking tools of the tab shown.</param>
+    /// <param name="header">The entry's text.</param>
+    /// <param name="tool">The tool.</param>
+    /// <returns>The entry.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MenuEntry MarkTool(AnnotationsViewModel marks, string header, AnnotationTool tool) =>
+        MenuEntry.Radio(header, marks.SetToolCommand, tool, marks.Tool == tool);
+
+    /// <summary>Makes the entry of one spacing choice, ticked while it is the spacing in use.</summary>
+    /// <param name="format">The words of the entry, with the spacing's name in place of the placeholder.</param>
+    /// <param name="option">The choice.</param>
+    /// <param name="current">The spacing in use.</param>
+    /// <param name="command">The command that takes the choice's name.</param>
+    /// <returns>The entry.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MenuEntry Spacing(string format, LineSpacingOption option, float current, ICommand command) =>
+        MenuEntry.Radio(UiText.Format(format, UiText.Get(option.NameKey)), command, option.NameKey, Math.Abs(current - option.Value) < SpacingTolerance);
+
     /// <summary>Makes an entry that runs a command, greyed while the command cannot run.</summary>
     /// <param name="header">The entry's text in English, which is looked up in the language shown.</param>
     /// <param name="command">The command.</param>
     /// <returns>The entry.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static MenuEntry Item(string header, ICommand command) => MenuEntry.Item(UiText.Get(header), null, command, null, command.CanExecute(null));
+
+    /// <summary>Makes an entry whose words are already in the user's language, as the undo text is.</summary>
+    /// <param name="text">The words.</param>
+    /// <param name="command">The command.</param>
+    /// <returns>The entry.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MenuEntry Named(string text, ICommand command) => MenuEntry.Item(text, null, command, null, command.CanExecute(null));
+
+    /// <summary>Lists what can be done with several picked objects: picking them all, lining them up and spreading them.</summary>
+    /// <param name="edit">The view model of Edit mode.</param>
+    /// <returns>The entries.</returns>
+    private static List<MenuEntry> GroupWork(PageContentEditViewModel edit) =>
+    [
+        Item("Copy the Picked Object", edit.CopyPickedObjectCommand),
+        Item("Cut the Picked Object", edit.CutPickedObjectCommand),
+        Item("Paste the Copied Object", edit.PasteObjectCommand),
+        Item("Duplicate the Picked Object", edit.DuplicateObjectCommand),
+        Item("Bring the Picked Object to the Front", edit.BringToFrontCommand),
+        Item("Bring the Picked Object Forward One Step", edit.BringForwardCommand),
+        Item("Send the Picked Object Back One Step", edit.SendBackwardCommand),
+        Item("Send the Picked Object to the Back", edit.SendToBackCommand),
+        Item("Pick Every Object on the Page", edit.PickEveryObjectCommand),
+        Item("Line Up the Picked Objects on the Left", edit.AlignLeftCommand),
+        Item("Line Up the Picked Objects on Their Middles, Across", edit.AlignCentreCommand),
+        Item("Line Up the Picked Objects on the Right", edit.AlignRightCommand),
+        Item("Line Up the Picked Objects on the Top", edit.AlignTopCommand),
+        Item("Line Up the Picked Objects on Their Middles, Down", edit.AlignMiddleCommand),
+        Item("Line Up the Picked Objects on the Bottom", edit.AlignBottomCommand),
+        Item("Spread the Picked Objects Evenly Across", edit.SpreadAcrossCommand),
+        Item("Spread the Picked Objects Evenly Down", edit.SpreadDownCommand),
+    ];
+
+    /// <summary>Lists the choices of font for new and picked text and the sizes picked text can be set to.</summary>
+    /// <param name="edit">The view model of Edit mode.</param>
+    /// <returns>The entries.</returns>
+    private static List<MenuEntry> TextFont(PageContentEditViewModel edit)
+    {
+        List<MenuEntry> entries =
+        [
+            MenuEntry.Radio(UiText.Get("Text in a Sans Serif Font"), edit.ChooseTextFamilyCommand, nameof(PageTextFamily.Sans), edit.NewTextFamily == PageTextFamily.Sans),
+            MenuEntry.Radio(UiText.Get("Text in a Serif Font"), edit.ChooseTextFamilyCommand, nameof(PageTextFamily.Serif), edit.NewTextFamily == PageTextFamily.Serif),
+            MenuEntry.Radio(UiText.Get("Text in a Fixed Width Font"), edit.ChooseTextFamilyCommand, nameof(PageTextFamily.Fixed), edit.NewTextFamily == PageTextFamily.Fixed),
+            MenuEntry.Radio(UiText.Get("Bold Text"), edit.ToggleTextBoldCommand, null, edit.NewTextBold),
+            MenuEntry.Radio(UiText.Get("Italic Text"), edit.ToggleTextItalicCommand, null, edit.NewTextItalic),
+            Item("Set the Picked Text in This Font", edit.ApplyTextFontCommand),
+        ];
+        entries.AddRange(TextSizeEntries(edit.SetPickedTextSizeCommand));
+        return entries;
+    }
+
+    /// <summary>Lists how solid the picked objects can be made, and the dashes, ends and corners their lines can have.</summary>
+    /// <param name="edit">The view model of Edit mode.</param>
+    /// <returns>The entries.</returns>
+    private static List<MenuEntry> Looks(PageContentEditViewModel edit)
+    {
+        var entries = new List<MenuEntry>(Opacities.Length + DashNames.Length + CapNames.Length + JoinNames.Length);
+        AddNamed(entries, "Make the Picked Object {0}% Solid", Opacities, edit.SetPickedOpacityCommand);
+        AddNamed(entries, "Draw the Picked Object's Line {0}", DashNames, edit.SetPickedDashCommand);
+        AddNamed(entries, "End the Picked Object's Line with a {0} End", CapNames, edit.SetPickedCapCommand);
+        AddNamed(entries, "Give the Picked Object's Line {0} Corners", JoinNames, edit.SetPickedJoinCommand);
+        entries.AddRange(Pictures(edit));
+        return entries;
+    }
+
+    /// <summary>Lists what can be done with a picked picture: drawing another in its place, cropping it from each side and from every side, and saving it.</summary>
+    /// <param name="edit">The view model of Edit mode.</param>
+    /// <returns>The entries.</returns>
+    private static List<MenuEntry> Pictures(PageContentEditViewModel edit)
+    {
+        var entries = new List<MenuEntry>
+        {
+            Item("Draw Another Picture in Place of the Picked Picture…", edit.ReplacePickedPictureCommand),
+            Item("Save the Picked Picture as a File…", edit.SavePickedPictureCommand),
+            Item("Make the Picked Object a Link…", edit.AddLinkToPickedCommand),
+        };
+        foreach (var side in CropSides)
+        {
+            foreach (var percent in CropPercents)
+            {
+                var how = $"{side.Key}:{percent}";
+                entries.Add(MenuEntry.Item(UiText.Format(side.Words, percent), null, edit.CropPickedPictureCommand, how, ((ICommand)edit.CropPickedPictureCommand).CanExecute(how)));
+            }
+        }
+
+        return entries;
+    }
+
+    /// <summary>Adds one entry for each choice of a setting, each running the command with the choice's name.</summary>
+    /// <param name="entries">Receives the entries.</param>
+    /// <param name="format">The words of an entry, with the choice's words in place of the placeholder.</param>
+    /// <param name="choices">The names of the choices, each of which is also the words shown for it.</param>
+    /// <param name="command">The command that takes the name.</param>
+    private static void AddNamed(List<MenuEntry> entries, string format, string[] choices, ICommand command)
+    {
+        foreach (var choice in choices)
+        {
+            entries.Add(MenuEntry.Item(UiText.Format(format, UiText.Get(choice)), null, command, choice, command.CanExecute(choice)));
+        }
+    }
+
+    /// <summary>Lists one entry for each text size offered, each running the command with the size in points.</summary>
+    /// <param name="command">The command that takes the size.</param>
+    /// <returns>The entries.</returns>
+    private static List<MenuEntry> TextSizeEntries(ICommand command)
+    {
+        var entries = new List<MenuEntry>(TextSizes.Length);
+        foreach (var size in TextSizes)
+        {
+            entries.Add(MenuEntry.Item(UiText.Format("Set the Picked Text to {0} Points", size), null, command, size, command.CanExecute(size)));
+        }
+
+        return entries;
+    }
+
+    /// <summary>Lists one entry for each colour of the palette, each running the command with the colour's six hexadecimal digits.</summary>
+    /// <param name="format">The words of an entry, with the colour's name in place of the placeholder.</param>
+    /// <param name="command">The command that takes the colour.</param>
+    /// <returns>The entries.</returns>
+    private static List<MenuEntry> Palette(string format, ICommand command)
+    {
+        var entries = new List<MenuEntry>(PaletteColours.Length);
+        foreach (var colour in PaletteColours)
+        {
+            entries.Add(MenuEntry.Item(UiText.Format(format, UiText.Get(colour.Name)), null, command, colour.Rgb, command.CanExecute(colour.Rgb)));
+        }
+
+        return entries;
+    }
+
+    /// <summary>A side a picture can be cropped from.</summary>
+    /// <param name="Key">The word the crop command is given for the side.</param>
+    /// <param name="Words">The words of the menu entry, with the percent in place of the placeholder.</param>
+    private readonly record struct CropSide(string Key, string Words);
+
+    /// <summary>A colour of the palette.</summary>
+    /// <param name="Name">The colour's name in the words of the menus.</param>
+    /// <param name="Rgb">The colour as six hexadecimal digits.</param>
+    private readonly record struct PaletteColour(string Name, string Rgb);
 }

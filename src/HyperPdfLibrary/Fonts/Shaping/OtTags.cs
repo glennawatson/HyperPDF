@@ -112,6 +112,9 @@ internal static class OtTags
     /// <summary>The pstf feature: post-base forms.</summary>
     internal static readonly uint Pstf = OtTag.Of("pstf");
 
+    /// <summary>The cfar feature: conjunct form after ro, used by Khmer.</summary>
+    internal static readonly uint Cfar = OtTag.Of("cfar");
+
     /// <summary>The vatu feature: vattu variants.</summary>
     internal static readonly uint Vatu = OtTag.Of("vatu");
 

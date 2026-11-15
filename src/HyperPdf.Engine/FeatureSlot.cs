@@ -129,4 +129,13 @@ internal enum FeatureSlot
 
     /// <summary>Reading and changing the text, pictures and drawings of a page.</summary>
     PageContentEditor = 39,
+
+    /// <summary>Stamping text, a background colour and a crop on pages.</summary>
+    PageDecorator = 40,
+
+    /// <summary>The ranges of page labels.</summary>
+    PageLabeler = 41,
+
+    /// <summary>Taking hidden information out of the document.</summary>
+    DocumentSanitizer = 42,
 }

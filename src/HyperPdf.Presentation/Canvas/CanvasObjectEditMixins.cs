@@ -27,6 +27,16 @@ public static class CanvasObjectEditMixins
         return true;
     }
 
+    /// <summary>Picks every object of a page.</summary>
+    /// <param name="edit">Edit mode.</param>
+    /// <param name="page">The page.</param>
+    /// <returns><see langword="true"/>, so the key that asked is used.</returns>
+    private static bool PickEvery(PageContentEditViewModel edit, int page)
+    {
+        _ = edit.PickEveryObjectAsync(page);
+        return true;
+    }
+
     /// <summary>Adds the Edit mode helpers to a canvas state.</summary>
     /// <param name="state">The canvas state.</param>
     extension(PageCanvasState state)
@@ -43,8 +53,12 @@ public static class CanvasObjectEditMixins
             }
 
             var edit = tab.ContentEdit;
+            var command = (modifiers & ViewerModifiers.Control) != ViewerModifiers.None;
             return key switch
             {
+                ViewerKey.C when command => edit.CopyPicked(),
+                ViewerKey.V when command => edit.PasteCopied(tab.CurrentPageIndex),
+                ViewerKey.A when command => PickEvery(edit, tab.CurrentPageIndex),
                 ViewerKey.Escape => edit.Escape(),
                 ViewerKey.Delete => edit.DeleteSelected(),
                 ViewerKey.Enter or ViewerKey.F2 when modifiers == ViewerModifiers.None => edit.BeginTextEdit(),
@@ -59,6 +73,14 @@ public static class CanvasObjectEditMixins
         /// <returns><see langword="true"/> while an object is being dragged.</returns>
         public bool DragEditObject(DocumentTabViewModel tab, CanvasPoint position, InputEffects fx)
         {
+            if (tab.ContentEdit.IsResizing)
+            {
+                var edit = tab.ContentEdit;
+                edit.ResizeTo(state.ToPage(tab, edit.Selected!.Page, position), keepShape: false);
+                fx.Cursor = ViewerCursor.Move;
+                return true;
+            }
+
             if (tab.ContentEdit.DragPage < 0)
             {
                 return false;

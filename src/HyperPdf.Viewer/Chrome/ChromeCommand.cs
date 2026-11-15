@@ -132,4 +132,13 @@ public enum ChromeCommand
 
     /// <summary>Shows the film in a window of its own.</summary>
     MediaPicture = 41,
+
+    /// <summary>Opens the menu of the marking tools and text settings the marking bar has no room for.</summary>
+    MarkMore = 42,
+
+    /// <summary>Asks for a page number and goes to that page.</summary>
+    GoToPage = 43,
+
+    /// <summary>Puts away the message in the status bar.</summary>
+    DismissStatus = 44,
 }

@@ -391,6 +391,14 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
         return EditorForChange() is { } editor && Added(page, editor.AddInk(page, points, strokeLengths, color, width, kind));
     }
 
+    /// <summary>Adds a link over an area of a page.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="area">The area the link covers.</param>
+    /// <param name="target">A web or mail address, or <c>page:</c> and a page number.</param>
+    /// <returns><see langword="true"/> when added; <see langword="false"/> when the target is not an address or a page of the document.</returns>
+    public bool AddLink(int page, PageRect area, string target) =>
+        EditorForChange() is { } editor && Added(page, editor.AddLink(page, area, target));
+
     /// <summary>Marks a place where text should be inserted, in the deeper tone of the chosen colour.</summary>
     /// <param name="page">The page.</param>
     /// <param name="location">The place: the caret hangs below this point with its tip on it.</param>

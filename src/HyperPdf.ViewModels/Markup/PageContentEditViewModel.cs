@@ -32,6 +32,9 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <summary>The version text of a PDF 2.0 file.</summary>
     private const string Pdf20 = "2.0";
 
+    /// <summary>The percent that means fully solid.</summary>
+    private const int WholePercent = 100;
+
     /// <summary>The tab holding the document.</summary>
     private readonly DocumentTabViewModel _owner;
 
@@ -49,6 +52,15 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
 
     /// <summary>The page a drag began on, or -1 when none is in progress.</summary>
     private int _dragPage = -1;
+
+    /// <summary>The dashes chosen for the lines of picked objects, kept so a change of the ends or corners keeps them.</summary>
+    private PageLineDash _lineDash;
+
+    /// <summary>The ends chosen for the lines of picked objects.</summary>
+    private PageLineCap _lineCap;
+
+    /// <summary>The corners chosen for the lines of picked objects.</summary>
+    private PageLineJoin _lineJoin;
 
     /// <summary>Where the drag began, in page space.</summary>
     private PagePoint _dragStart;
@@ -175,7 +187,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <returns><see langword="true"/> when a drag began.</returns>
     public bool BeginDrag(int page, PagePoint point)
     {
-        if (!IsEditing || TextEdit is not null || Selected is not { } picked || picked.Page != page || !picked.Object.Bounds.Contains(point))
+        if (!IsEditing || TextEdit is not null || !IsOverPicked(page, point))
         {
             return false;
         }
@@ -270,12 +282,17 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <returns><see langword="true"/> when an object is picked, so the key that asked is used.</returns>
     public bool MoveSelected(float deltaX, float deltaY)
     {
+        if (MoveGroup(deltaX, deltaY))
+        {
+            return true;
+        }
+
         if (!IsEditing || TextEdit is not null || Selected is not { } picked)
         {
             return false;
         }
 
-        var bounds = picked.Object.Bounds with { Left = picked.Object.Bounds.Left + deltaX, Top = picked.Object.Bounds.Top + deltaY };
+        var bounds =picked.Object.Bounds with { Left = picked.Object.Bounds.Left + deltaX, Top = picked.Object.Bounds.Top + deltaY };
         _ = EditAsync(picked, _ => Editor!.MoveAsync(picked.Page, picked.Object.Index, deltaX, deltaY, _lifetime).AsTask(), bounds, UiText.Get("Moved."));
         return true;
     }
@@ -284,6 +301,11 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <returns><see langword="true"/> when an object is picked, so the key that asked is used.</returns>
     public bool DeleteSelected()
     {
+        if (DeleteGroup())
+        {
+            return true;
+        }
+
         if (!IsEditing || TextEdit is not null || Selected is not { } picked)
         {
             return false;
@@ -442,6 +464,8 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     private void Select(PageObjectPick? pick)
     {
         Selected = pick;
+        Group = [];
+        _ = LoadStyleAsync();
         Status = pick is null ? UiText.Get("Nothing picked.") : UiText.Format("Picked {0}.", Describe(pick.Object));
         MarksVersion++;
     }
@@ -464,6 +488,8 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
             await Task.Run(() => edit(expected), _lifetime).ConfigureAwait(true);
             var again = await ReadAgainAsync(picked, expected).ConfigureAwait(true);
             Selected = again < 0 ? null : new(picked.Page, _pages[picked.Page][again]);
+            Group = [];
+            _ = LoadStyleAsync();
             Hovered = null;
             _owner.ReportPageChange(picked.Page);
             Status = done;
@@ -526,6 +552,8 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         _pages.Clear();
         TextEdit = null;
         Selected = null;
+        Group = [];
+        Style = default;
         Hovered = null;
         MarksVersion++;
     }

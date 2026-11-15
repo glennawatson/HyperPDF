@@ -17,6 +17,7 @@ public static class PdfPageContentEditing
     /// <returns>The current value.</returns>
     public static bool IsModified(PdfPageContent state) =>
         state.Appended.Count > 0
+        || state.Prepended.Count > 0
         || state.Pending.Count > 0
         || PdfPageContentEditing.AnyObjectModified(state)
         || PdfPageContentEditing.AnyMarkScrubbed(state);
@@ -29,6 +30,16 @@ public static class PdfPageContentEditing
         _ = state.Appended.EnsureCapacity(state.Appended.Count + content.Length + 1);
         state.Appended.AddRange(content);
         state.Appended.Add((byte)'\n');
+    }
+
+    /// <summary>Adds bytes to the start of the regenerated content, so what they paint lies behind everything the page already paints. They must leave the graphics state balanced.</summary>
+    /// <param name = "state">The owned parse or content state.</param>
+    /// <param name = "content">The operators to add.</param>
+    public static void Prepend(PdfPageContent state, ReadOnlySpan<byte> content)
+    {
+        _ = state.Prepended.EnsureCapacity(state.Prepended.Count + content.Length + 1);
+        state.Prepended.AddRange(content);
+        state.Prepended.Add((byte)'\n');
     }
 
     /// <summary>Makes a resource name that is free in the content's resources and in what has been added.</summary>

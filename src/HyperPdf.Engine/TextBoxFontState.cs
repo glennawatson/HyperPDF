@@ -59,12 +59,31 @@ internal sealed class TextBoxFontState
     /// <summary>Gets fallback faces without keeping discarded font catalogs alive.</summary>
     internal ConditionalWeakTable<FontCatalog, ConcurrentDictionary<FallbackKey, FontFace>> Found { get; } = new();
 
+    /// <summary>Gets the fonts that ship with the app, for scripts no installed font has.</summary>
+    internal BundledScriptFonts Scripts { get; } = new();
+
     /// <summary>Gets the library's view of an installed font: the font to embed, or the plain reason it is refused.</summary>
     /// <param name="program">The font.</param>
     /// <returns>The result of opening the font file for embedding.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal PdfFontOpenResult GetSource(FontProgram program) =>
         Sources.GetOrAdd(program, static font => PdfFontSource.Open(font.Data, font.Face.FaceIndex));
+
+    /// <summary>Makes the program of a font that ships with the app once within this engine's lifetime.</summary>
+    /// <param name="face">The bundled font.</param>
+    /// <returns>The program, or null when the font cannot be read.</returns>
+    internal FontProgram? LoadBundled(ScreenFontFace face)
+    {
+        var descriptor = new FontFace(face.Source.FamilyName, "Regular", $"bundled:{face.Source.FamilyName}", 0);
+        var key = new FaceKey(descriptor.Path, descriptor.FaceIndex);
+        if (_programs.TryGetValue(key, out var existing))
+        {
+            return existing;
+        }
+
+        var program = FontProgram.FromBytes(descriptor, face.Source.Font.ToStandalone());
+        return program is null ? null : _programs.GetOrAdd(key, program);
+    }
 
     /// <summary>Loads a face once within this engine's lifetime.</summary>
     /// <param name="face">The installed face.</param>

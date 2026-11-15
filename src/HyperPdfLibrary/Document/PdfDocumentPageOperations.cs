@@ -30,6 +30,25 @@ new PageEdit(document, [pageIndex], degrees, null),
 static (transaction, edit) => PdfDocumentPageOperations.RotateCore(edit.Document, transaction, edit.Pages, edit.Value, false));
     }
 
+    /// <summary>
+    /// Crops pages by taking an amount off each side as the page is shown, which sets each page's crop box (ISO 32000-2 Table 31 /CropBox).
+    /// Taking nothing off any side shows the whole media box again.
+    /// </summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pages">The zero based page indexes.</param>
+    /// <param name="left">The width taken off the left, in points.</param>
+    /// <param name="top">The height taken off the top, in points.</param>
+    /// <param name="right">The width taken off the right, in points.</param>
+    /// <param name="bottom">The height taken off the bottom, in points.</param>
+    /// <exception cref="ArgumentOutOfRangeException">An index is not a page, a margin is negative or not finite, or the margins leave no page.</exception>
+    public static void CropPages(PdfDocument document, ReadOnlySpan<int> pages, float left, float top, float right, float bottom)
+    {
+        PdfDocumentPageOperations.ValidatePages(document, pages);
+        var margins = new CropMargins(left, top, right, bottom);
+        margins.Validate();
+        PdfDocumentEditing.RunEdit(document, "Crop pages", PdfChangeKinds.PageChanges, new CropEdit(document, pages.ToArray(), margins), static (transaction, edit) => CropCore(edit, transaction));
+    }
+
     /// <summary>Turns pages by an amount, added to each page's current rotation and normalised.</summary>
     /// <param name="document">The document.</param>
     /// <param name="pages">The zero based page indexes.</param>
@@ -368,6 +387,25 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
             var rotation = PdfPage.NormaliseRotation(relative ? page.Rotation + PdfPage.NormaliseRotation(degrees) : degrees);
             var copy = PdfDocumentPageOperations.CloneForEdit(transaction, page);
             copy.Set(KnownName.Rotate, PdfValue.FromInteger(rotation));
+            PdfDocumentPageOperations.StoreEdited(document, transaction, page, copy, ref direct);
+        }
+
+        PdfDocumentPageOperations.FinishEdited(document, transaction, direct);
+    }
+
+    /// <summary>Sets the crop box of pages.</summary>
+    /// <param name="edit">The pages and what is taken off each side.</param>
+    /// <param name="transaction">The transaction.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The margins leave no page.</exception>
+    private static void CropCore(CropEdit edit, PdfEditTransaction transaction)
+    {
+        var document = edit.Document;
+        List<PdfPageSlot>? direct = null;
+        foreach (var index in PdfDocumentPageOperations.UniquePages(edit.Pages, false))
+        {
+            var page = PdfDocumentPages.GetPage(document, index);
+            var copy = PdfDocumentPageOperations.CloneForEdit(transaction, page);
+            copy.Set(KnownName.CropBox, PdfValue.FromArray(edit.Margins.ApplyTo(page).ToArray(document.Objects)));
             PdfDocumentPageOperations.StoreEdited(document, transaction, page, copy, ref direct);
         }
 

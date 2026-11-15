@@ -151,6 +151,10 @@ internal static class PdfWatermarkForms
             PdfWatermarkAnchor.TopRight => new(right, top),
             PdfWatermarkAnchor.BottomLeft => new(left, bottom),
             PdfWatermarkAnchor.BottomRight => new(right, bottom),
+            PdfWatermarkAnchor.TopCenter => new(page.X / Half, top),
+            PdfWatermarkAnchor.BottomCenter => new(page.X / Half, bottom),
+            PdfWatermarkAnchor.MiddleLeft => new(left, page.Y / Half),
+            PdfWatermarkAnchor.MiddleRight => new(right, page.Y / Half),
             _ => page / Half,
         };
     }
