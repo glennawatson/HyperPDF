@@ -6,6 +6,7 @@ using System.Text;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Reading;
 using HyperPdfLibrary.Document;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -65,7 +66,7 @@ public sealed class PageDecoratorTests
         using var test = new HyperPdfTestDocument(Pages);
         var decorator = DocumentFeature<IPageDecorator>.Get(test.Document)!;
 
-        await decorator.StampTextAsync(EveryPage, Stamp("Page {page} of {pages}", PageStampAnchor.BottomCenter), CancellationToken.None);
+        await decorator.StampText(EveryPage, Stamp("Page {page} of {pages}", PageStampAnchor.BottomCenter)).ToTask();
 
         await Assert.That(TextOf(test, 1)).Contains("Page 2 of 3");
         await Assert.That(TextOf(test, 0)).Contains("Page 1 of 3");
@@ -80,7 +81,7 @@ public sealed class PageDecoratorTests
         var decorator = DocumentFeature<IPageDecorator>.Get(test.Document)!;
         var stamp = Stamp("ACME-{number}", PageStampAnchor.BottomRight) with { FirstNumber = FirstBates, Digits = BatesDigits };
 
-        await decorator.StampTextAsync(EveryPage, stamp, CancellationToken.None);
+        await decorator.StampText(EveryPage, stamp).ToTask();
 
         await Assert.That(TextOf(test, 0)).Contains("ACME-000100");
         await Assert.That(TextOf(test, LastPage)).Contains("ACME-000102");
@@ -94,7 +95,7 @@ public sealed class PageDecoratorTests
         using var test = new HyperPdfTestDocument(Pages);
         var decorator = DocumentFeature<IPageDecorator>.Get(test.Document)!;
 
-        await decorator.StampTextAsync(SecondPage, Stamp(Draft, PageStampAnchor.Center), CancellationToken.None);
+        await decorator.StampText(SecondPage, Stamp(Draft, PageStampAnchor.Center)).ToTask();
 
         await Assert.That(TextOf(test, 1)).Contains(Draft);
         await Assert.That(TextOf(test, 0)).DoesNotContain(Draft);
@@ -109,7 +110,7 @@ public sealed class PageDecoratorTests
         var decorator = DocumentFeature<IPageDecorator>.Get(test.Document)!;
         var before = PdfDocumentPages.GetPage(test.Document.Document, 0).CropBox;
 
-        await decorator.CropAsync(FirstPage, new(CropAmount, CropAmount, CropAmount, CropAmount), CancellationToken.None);
+        await decorator.Crop(FirstPage, new(CropAmount, CropAmount, CropAmount, CropAmount)).ToTask();
         var cropped = PdfDocumentPages.GetPage(test.Document.Document, 0).CropBox;
         _ = HyperPdfEditTransactions.Step(test.Document.Document, true);
         var restored = PdfDocumentPages.GetPage(test.Document.Document, 0).CropBox;
@@ -129,9 +130,9 @@ public sealed class PageDecoratorTests
         using var test = new HyperPdfTestDocument(Pages);
         var decorator = DocumentFeature<IPageDecorator>.Get(test.Document)!;
         var media = PdfDocumentPages.GetPage(test.Document.Document, 0).MediaBox;
-        await decorator.CropAsync(FirstPage, new(CropAmount, CropAmount, CropAmount, CropAmount), CancellationToken.None);
+        await decorator.Crop(FirstPage, new(CropAmount, CropAmount, CropAmount, CropAmount)).ToTask();
 
-        await decorator.CropAsync(FirstPage, default, CancellationToken.None);
+        await decorator.Crop(FirstPage, default).ToTask();
 
         await Assert.That(PdfDocumentPages.GetPage(test.Document.Document, 0).CropBox).IsEqualTo(media);
     }
@@ -145,7 +146,7 @@ public sealed class PageDecoratorTests
         var decorator = DocumentFeature<IPageDecorator>.Get(test.Document)!;
         var editor = DocumentFeature<IPageContentEditor>.Get(test.Document)!;
 
-        await decorator.FillBackgroundAsync(FirstPage, Yellow, CancellationToken.None);
+        await decorator.FillBackground(FirstPage, Yellow).ToTask();
         var style = await editor.ReadStyleAsync(0, 0, CancellationToken.None);
 
         await Assert.That(style.Fill).IsEqualTo(Yellow);
@@ -159,7 +160,7 @@ public sealed class PageDecoratorTests
         using var test = new HyperPdfTestDocument(Pages);
         var decorator = DocumentFeature<IPageDecorator>.Get(test.Document)!;
 
-        await Assert.That(async () => await decorator.CropAsync(ReadOnlyMemory<int>.Empty, default, CancellationToken.None)).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(async () => await decorator.Crop(ReadOnlyMemory<int>.Empty, default).ToTask()).Throws<ArgumentOutOfRangeException>();
     }
 
     /// <summary>Makes a stamp of black text.</summary>

@@ -3,10 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.PageObjects;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine;
 
@@ -45,7 +47,26 @@ internal sealed class HyperPdfPageDecoratorService : IPageDecorator
     public IDocument Document => _owner;
 
     /// <inheritdoc/>
-    public async ValueTask StampTextAsync(ReadOnlyMemory<int> pages, PageTextStamp stamp, CancellationToken cancellationToken)
+    public IObservable<RxVoid> StampText(ReadOnlyMemory<int> pages, PageTextStamp stamp)
+    {
+        ArgumentNullException.ThrowIfNull(stamp);
+        return LibrarySignals.Run(token => StampTextAsync(pages, stamp, token));
+    }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<RxVoid> FillBackground(ReadOnlyMemory<int> pages, uint argb) => LibrarySignals.Run(token => FillBackgroundAsync(pages, argb, token));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<RxVoid> Crop(ReadOnlyMemory<int> pages, PageMargins margins) => LibrarySignals.Run(token => CropAsync(pages, margins, token));
+
+    /// <summary>Stamps text on pages, awaiting the library.</summary>
+    /// <param name="pages">The zero based pages.</param>
+    /// <param name="stamp">The words and how they are drawn.</param>
+    /// <param name="cancellationToken">Cancels before the edit.</param>
+    /// <returns>A task completing after the pages have changed.</returns>
+    internal async ValueTask StampTextAsync(ReadOnlyMemory<int> pages, PageTextStamp stamp, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(stamp);
         var selected = await LoadAsync(pages, cancellationToken).ConfigureAwait(false);
@@ -68,8 +89,12 @@ internal sealed class HyperPdfPageDecoratorService : IPageDecorator
         });
     }
 
-    /// <inheritdoc/>
-    public async ValueTask FillBackgroundAsync(ReadOnlyMemory<int> pages, uint argb, CancellationToken cancellationToken)
+    /// <summary>Fills the background of pages, awaiting the library.</summary>
+    /// <param name="pages">The zero based pages.</param>
+    /// <param name="argb">The colour as an opaque ARGB value.</param>
+    /// <param name="cancellationToken">Cancels before the edit.</param>
+    /// <returns>A task completing after the pages have changed.</returns>
+    internal async ValueTask FillBackgroundAsync(ReadOnlyMemory<int> pages, uint argb, CancellationToken cancellationToken)
     {
         var selected = await LoadAsync(pages, cancellationToken).ConfigureAwait(false);
         var contents = new PdfPageContent[selected.Length];
@@ -89,8 +114,12 @@ internal sealed class HyperPdfPageDecoratorService : IPageDecorator
         });
     }
 
-    /// <inheritdoc/>
-    public async ValueTask CropAsync(ReadOnlyMemory<int> pages, PageMargins margins, CancellationToken cancellationToken)
+    /// <summary>Crops pages, awaiting the library.</summary>
+    /// <param name="pages">The zero based pages.</param>
+    /// <param name="margins">What to take off each side.</param>
+    /// <param name="cancellationToken">Cancels before the edit.</param>
+    /// <returns>A task completing after the pages have changed.</returns>
+    internal async ValueTask CropAsync(ReadOnlyMemory<int> pages, PageMargins margins, CancellationToken cancellationToken)
     {
         var selected = await LoadAsync(pages, cancellationToken).ConfigureAwait(false);
         Edit("Crop pages", () => PdfDocumentPageOperations.CropPages(_owner.Document, selected, margins.Left, margins.Top, margins.Right, margins.Bottom));

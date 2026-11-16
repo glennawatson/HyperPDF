@@ -49,19 +49,7 @@ public static class PictureConversion
     /// <returns>A cold signal giving the number of pages written.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static IObservable<int> Write(IPictureDocumentWriter writer, PageImageSource[] pictures, string destination) =>
-        CopyFile.Write(destination, ".writing", (stream, token) => WritePictures(writer, pictures, stream, token), static _ => true, CancellationToken.None);
-
-    /// <summary>Writes the pictures with the engine's async writer, the one task here.</summary>
-    /// <param name="writer">The engine's picture document writer.</param>
-    /// <param name="pictures">The pictures.</param>
-    /// <param name="stream">Where the PDF goes.</param>
-    /// <param name="cancellationToken">Stops the write.</param>
-    /// <returns>A task giving the number of pages written.</returns>
-    private static async Task<int> WritePictures(IPictureDocumentWriter writer, PageImageSource[] pictures, Stream stream, CancellationToken cancellationToken)
-    {
-        await writer.WritePicturesAsync(pictures, stream, cancellationToken).ConfigureAwait(false);
-        return pictures.Length;
-    }
+        CopyFile.WriteSignal(destination, ".writing", stream => writer.WritePictures(pictures, stream).Select(_ => pictures.Length), static _ => true);
 
     /// <summary>Reads each picture in order, skipping files that are not pictures.</summary>
     /// <param name="services">The app services.</param>

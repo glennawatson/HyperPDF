@@ -378,7 +378,8 @@ public sealed partial class PageDecorationViewModel : ReactiveObject, IDisposabl
         // The library reads the whole document before its first await, so the subscription starts on the pool and the result comes back to the UI thread.
         return IsText && string.IsNullOrWhiteSpace(Text)
             ? Refuse("Type the words to add first.")
-            : Signal.FromAsync(token => RunAsync(decorator, pages, token), _lifetime.Token)
+            : Decorate(decorator, pages)
+                .ThrowWhenCancelled(_lifetime.Token)
                 .SubscribeOn(TaskPoolSequencer.Default)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Do(_ => Done(pages))
@@ -428,31 +429,13 @@ public sealed partial class PageDecorationViewModel : ReactiveObject, IDisposabl
     /// <summary>Calls the feature for the kind being added.</summary>
     /// <param name="decorator">The feature.</param>
     /// <param name="pages">The zero based pages.</param>
-    /// <param name="token">Stops the work.</param>
-    /// <returns>A task that ends when the library is done.</returns>
-    private async Task<RxVoid> RunAsync(IPageDecorator decorator, int[] pages, CancellationToken token)
-    {
-        switch (Kind)
+    /// <returns>A cold signal that ends when the pages have changed; the settings are read when it is subscribed.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Decorate(IPageDecorator decorator, int[] pages) =>
+        Signal.Defer(() => Kind switch
         {
-            case PageDecorationKind.Background:
-            {
-                await decorator.FillBackgroundAsync(pages, BackgroundColors[Math.Clamp(BackgroundIndex, 0, BackgroundColors.Length - 1)], token).ConfigureAwait(false);
-                break;
-            }
-
-            case PageDecorationKind.Crop:
-            {
-                await decorator.CropAsync(pages, new((float)CropLeft, (float)CropTop, (float)CropRight, (float)CropBottom), token).ConfigureAwait(false);
-                break;
-            }
-
-            default:
-            {
-                await decorator.StampTextAsync(pages, MakeStamp(), token).ConfigureAwait(false);
-                break;
-            }
-        }
-
-        return RxVoid.Default;
-    }
+            PageDecorationKind.Background => decorator.FillBackground(pages, BackgroundColors[Math.Clamp(BackgroundIndex, 0, BackgroundColors.Length - 1)]),
+            PageDecorationKind.Crop => decorator.Crop(pages, new((float)CropLeft, (float)CropTop, (float)CropRight, (float)CropBottom)),
+            _ => decorator.StampText(pages, MakeStamp()),
+        });
 }

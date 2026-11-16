@@ -43,6 +43,25 @@ internal static class CopyFile
                     .Do(result => Finish(copy, path, wasMade(result)))
                     .Catch<TResult, Exception>(error => Discard<TResult>(copy, error)));
 
+    /// <summary>Writes the copy through a signal, then moves it over <paramref name="path"/> when it was made.</summary>
+    /// <typeparam name="TResult">What the write reports about the copy.</typeparam>
+    /// <param name="path">Where the copy goes.</param>
+    /// <param name="suffix">The ending of the temporary file.</param>
+    /// <param name="write">Starts writing the copy to the stream it is given.</param>
+    /// <param name="wasMade">Whether the result means a copy was made, so the file is kept.</param>
+    /// <returns>A cold signal giving the result on the interface thread; unsubscribing stops the write and deletes the temporary file.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IObservable<TResult> WriteSignal<TResult>(string path, string suffix, Func<Stream, IObservable<TResult>> write, Func<TResult, bool> wasMade) =>
+        Signal.Using(
+            () => new TemporaryCopy(path + suffix),
+            copy => write(copy.Stream)
+
+                // The library reads and rewrites the whole document before its first await, so the write starts on the pool to keep the window responsive.
+                .SubscribeOn(TaskPoolSequencer.Default)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Do(result => Finish(copy, path, wasMade(result)))
+                .Catch<TResult, Exception>(error => Discard<TResult>(copy, error)));
+
     /// <summary>Writes the copy with plain file I/O on the pool, then moves it over <paramref name="path"/> when it was made.</summary>
     /// <typeparam name="TResult">What the write reports about the copy.</typeparam>
     /// <param name="path">Where the copy goes.</param>

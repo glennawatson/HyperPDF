@@ -15,6 +15,7 @@ using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Render.Managed;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine;
 
@@ -96,11 +97,10 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
         new(PdfFontLoader.Load, TimeProvider.System, new(new PdfRenderBackendRegistration().UseManaged() with { Fonts = new CatalogFontProvider(catalog) }) { SharedScratchPools = new() }, catalog);
 
     /// <inheritdoc/>
-    public async ValueTask WritePicturesAsync(PageImageSource[] images, Stream destination, CancellationToken cancellationToken)
+    public IObservable<RxVoid> WritePictures(PageImageSource[] images, Stream destination)
     {
         ArgumentNullException.ThrowIfNull(destination);
-        var bytes = HyperPdfPictureDocuments.Create(images, cancellationToken);
-        await destination.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        return LibrarySignals.Run(token => WritePicturesAsync(images, destination, token));
     }
 
     /// <inheritdoc/>
@@ -434,4 +434,15 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
     /// <returns>The error.</returns>
     private static DocumentOpenException CertificateFileError(string path) =>
         new(DocumentOpenError.Certificate, $"The certificate file '{path}' could not be read.");
+
+    /// <summary>Builds the picture PDF and writes it to the stream.</summary>
+    /// <param name="images">The pictures, at least one.</param>
+    /// <param name="destination">The stream receiving the PDF.</param>
+    /// <param name="cancellationToken">Cancels building the pages and writing.</param>
+    /// <returns>A task completing after the file is written.</returns>
+    private static async ValueTask WritePicturesAsync(PageImageSource[] images, Stream destination, CancellationToken cancellationToken)
+    {
+        var bytes = HyperPdfPictureDocuments.Create(images, cancellationToken);
+        await destination.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+    }
 }
