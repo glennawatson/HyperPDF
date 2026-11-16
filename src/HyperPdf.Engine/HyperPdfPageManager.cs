@@ -10,6 +10,7 @@ using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -71,48 +72,76 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<RxVoid> Apply(PageEditRequest request) => LibrarySignals.Run(token => ApplyCoreAsync(request, null, token));
+    public IObservable<RxVoid> Apply(PageEditRequest request) => Signal.FromAsync(async token =>
+        {
+            await ApplyCoreAsync(request, null, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     public IObservable<RxVoid> Apply(PageEditRequest request, PageEditReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        return LibrarySignals.Run(token => ApplyCoreAsync(request, report, token));
+        return Signal.FromAsync(async token =>
+        {
+            await ApplyCoreAsync(request, report, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<RxVoid> Insert(int index, string[] files) => LibrarySignals.Run(token => InsertCoreAsync(index, files, null, token));
+    public IObservable<RxVoid> Insert(int index, string[] files) => Signal.FromAsync(async token =>
+        {
+            await InsertCoreAsync(index, files, null, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     public IObservable<RxVoid> Insert(int index, string[] files, PageEditReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        return LibrarySignals.Run(token => InsertCoreAsync(index, files, report, token));
+        return Signal.FromAsync(async token =>
+        {
+            await InsertCoreAsync(index, files, report, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<RxVoid> InsertImages(int index, PageImageSource[] images) => LibrarySignals.Run(token => InsertImagesCoreAsync(index, images, token));
+    public IObservable<RxVoid> InsertImages(int index, PageImageSource[] images) => Signal.FromAsync(async token =>
+        {
+            await InsertImagesCoreAsync(index, images, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<RxVoid> Extract(ReadOnlyMemory<int> pages, Stream destination) => LibrarySignals.Run(token => ExtractCoreAsync(pages, destination, null, token));
+    public IObservable<RxVoid> Extract(ReadOnlyMemory<int> pages, Stream destination) => Signal.FromAsync(async token =>
+        {
+            await ExtractCoreAsync(pages, destination, null, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     public IObservable<RxVoid> Extract(ReadOnlyMemory<int> pages, Stream destination, PageEditReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        return LibrarySignals.Run(token => ExtractCoreAsync(pages, destination, report, token));
+        return Signal.FromAsync(async token =>
+        {
+            await ExtractCoreAsync(pages, destination, report, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<bool> Undo() => LibrarySignals.Run(token => new ValueTask<bool>(StepHistory(true, token)));
+    public IObservable<bool> Undo() => Signal.FromAsync(token => new ValueTask<bool>(StepHistory(true, token)).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<bool> Redo() => LibrarySignals.Run(token => new ValueTask<bool>(StepHistory(false, token)));
+    public IObservable<bool> Redo() => Signal.FromAsync(token => new ValueTask<bool>(StepHistory(false, token)).AsTask());
 
     /// <inheritdoc/>
     public void Dispose()

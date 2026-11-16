@@ -471,7 +471,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> ReadPage(int page, IPageContentEditor editor) =>
         editor.ReadObjects(page)
-            .ThrowWhenCancelled(_lifetime)
+            .TakeUntil(_lifetime)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(objects => PageRead(page, objects))
@@ -554,7 +554,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> Call(IObservable<RxVoid> call) =>
         call
-            .ThrowWhenCancelled(_lifetime)
+            .TakeUntil(_lifetime)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler);
 

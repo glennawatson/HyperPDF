@@ -173,7 +173,7 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
 
         return designer.GetFields()
             .SwitchMap(fields => Create(designer, NextName(fields), new(kind, string.Empty, [new(page, bounds)]) { Options = options ?? [] }, page))
-            .ThrowWhenCancelled(_lifetime.Token)
+            .TakeUntil(_lifetime.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Catch<RxVoid, OperationCanceledException>(Stopped);
     }
@@ -210,7 +210,7 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
         }
 
         return edit(designer, field)
-            .ThrowWhenCancelled(_lifetime.Token)
+            .TakeUntil(_lifetime.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(result => Finish(result, field.PageIndex, done))
             .Catch<RxVoid, OperationCanceledException>(Stopped);

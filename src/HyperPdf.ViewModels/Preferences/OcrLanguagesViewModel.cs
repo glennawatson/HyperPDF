@@ -199,7 +199,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
         var progress = new Progress<double>(fraction => DownloadProgress = fraction);
 
         return _services.Ocr.Download(packs, progress)
-            .ThrowWhenCancelled(download.Token)
+            .TakeUntil(download.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Do(_ => SetStatusText(LocalizedMessage.Format(UiText, "{0} downloaded.", DescribePacks(packs))))
             .Catch<RxVoid, Exception>(DownloadFailed)

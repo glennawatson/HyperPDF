@@ -331,7 +331,7 @@ public sealed partial class PageContentEditViewModel
         }
 
         return editor.ReadStyle(picked.Page, picked.Object.Index)
-            .ThrowWhenCancelled(_lifetime)
+            .TakeUntil(_lifetime)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(style => StyleRead(picked, style))

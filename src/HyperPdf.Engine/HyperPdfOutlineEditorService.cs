@@ -7,6 +7,7 @@ using HyperPdf.Core.Documents;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Objects;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -25,23 +26,24 @@ internal sealed class HyperPdfOutlineEditorService : IOutlineEditor
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> AddBookmark(int parentId, int index, string title, int pageIndex) => LibrarySignals.Run(token => AddBookmarkAsync(parentId, index, title, pageIndex, token));
+    public IObservable<DocumentEditResult> AddBookmark(int parentId, int index, string title, int pageIndex) =>
+        Signal.FromAsync(token => AddBookmarkAsync(parentId, index, title, pageIndex, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> RemoveBookmark(int id) => LibrarySignals.Run(token => RemoveBookmarkAsync(id, token));
+    public IObservable<DocumentEditResult> RemoveBookmark(int id) => Signal.FromAsync(token => RemoveBookmarkAsync(id, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> RenameBookmark(int id, string title) => LibrarySignals.Run(token => RenameBookmarkAsync(id, title, token));
+    public IObservable<DocumentEditResult> RenameBookmark(int id, string title) => Signal.FromAsync(token => RenameBookmarkAsync(id, title, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> MoveBookmark(int id, int newParentId, int index) => LibrarySignals.Run(token => MoveBookmarkAsync(id, newParentId, index, token));
+    public IObservable<DocumentEditResult> MoveBookmark(int id, int newParentId, int index) => Signal.FromAsync(token => MoveBookmarkAsync(id, newParentId, index, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> SetBookmarkOpen(int id, bool open) => LibrarySignals.Run(token => SetBookmarkOpenAsync(id, open, token));
+    public IObservable<DocumentEditResult> SetBookmarkOpen(int id, bool open) => Signal.FromAsync(token => SetBookmarkOpenAsync(id, open, token).AsTask());
 
     /// <summary>Runs AddBookmark against the library.</summary>
     /// <param name="parentId">The parentId.</param>

@@ -255,7 +255,7 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable, 
             ? Signal.Return(RxVoid.Default)
 
             : edit(editor)
-                .ThrowWhenCancelled(_lifetime)
+                .TakeUntil(_lifetime)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Select(result => Edited(result, done, selectId))
                 .Catch<RxVoid, OperationCanceledException>(Stopped);

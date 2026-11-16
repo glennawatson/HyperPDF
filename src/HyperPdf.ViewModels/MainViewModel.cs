@@ -688,7 +688,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
         SetStatusMessage(LocalizedMessage.Format(UiText, "Downloading {0}…", uri.Host));
 
         return _services.Downloader.Download(uri)
-            .ThrowWhenCancelled(_lifetime)
+            .TakeUntil(_lifetime)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(OpenDownloaded)
             .Catch<RxVoid, Exception>(DownloadFailed);

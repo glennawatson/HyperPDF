@@ -9,6 +9,7 @@ using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.PageObjects;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -50,16 +51,28 @@ internal sealed class HyperPdfPageDecoratorService : IPageDecorator
     public IObservable<RxVoid> StampText(ReadOnlyMemory<int> pages, PageTextStamp stamp)
     {
         ArgumentNullException.ThrowIfNull(stamp);
-        return LibrarySignals.Run(token => StampTextAsync(pages, stamp, token));
+        return Signal.FromAsync(async token =>
+        {
+            await StampTextAsync(pages, stamp, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<RxVoid> FillBackground(ReadOnlyMemory<int> pages, uint argb) => LibrarySignals.Run(token => FillBackgroundAsync(pages, argb, token));
+    public IObservable<RxVoid> FillBackground(ReadOnlyMemory<int> pages, uint argb) => Signal.FromAsync(async token =>
+        {
+            await FillBackgroundAsync(pages, argb, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<RxVoid> Crop(ReadOnlyMemory<int> pages, PageMargins margins) => LibrarySignals.Run(token => CropAsync(pages, margins, token));
+    public IObservable<RxVoid> Crop(ReadOnlyMemory<int> pages, PageMargins margins) => Signal.FromAsync(async token =>
+        {
+            await CropAsync(pages, margins, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <summary>Stamps text on pages, awaiting the library.</summary>
     /// <param name="pages">The zero based pages.</param>

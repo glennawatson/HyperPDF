@@ -8,6 +8,7 @@ using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Forms;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -26,31 +27,31 @@ internal sealed class HyperPdfFormDesignerService : IFormDesigner
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<IReadOnlyList<FormFieldInfo>> GetFields() => LibrarySignals.Run(GetFieldsAsync);
+    public IObservable<IReadOnlyList<FormFieldInfo>> GetFields() => Signal.FromAsync(token => GetFieldsAsync(token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> CreateField(FormFieldDesign design) => LibrarySignals.Run(token => CreateFieldAsync(design, token));
+    public IObservable<DocumentEditResult> CreateField(FormFieldDesign design) => Signal.FromAsync(token => CreateFieldAsync(design, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> RemoveField(string name) => LibrarySignals.Run(token => RemoveFieldAsync(name, token));
+    public IObservable<DocumentEditResult> RemoveField(string name) => Signal.FromAsync(token => RemoveFieldAsync(name, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> RenameField(string name, string newName) => LibrarySignals.Run(token => RenameFieldAsync(name, newName, token));
+    public IObservable<DocumentEditResult> RenameField(string name, string newName) => Signal.FromAsync(token => RenameFieldAsync(name, newName, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> RenameFieldPartial(string name, string newPartialName) => LibrarySignals.Run(token => RenameFieldPartialAsync(name, newPartialName, token));
+    public IObservable<DocumentEditResult> RenameFieldPartial(string name, string newPartialName) => Signal.FromAsync(token => RenameFieldPartialAsync(name, newPartialName, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> ChangeField(string name, FormFieldChanges changes) => LibrarySignals.Run(token => ChangeFieldAsync(name, changes, token));
+    public IObservable<DocumentEditResult> ChangeField(string name, FormFieldChanges changes) => Signal.FromAsync(token => ChangeFieldAsync(name, changes, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> MoveWidget(string name, int widgetIndex, PageRect bounds) => LibrarySignals.Run(token => MoveWidgetAsync(name, widgetIndex, bounds, token));
+    public IObservable<DocumentEditResult> MoveWidget(string name, int widgetIndex, PageRect bounds) => Signal.FromAsync(token => MoveWidgetAsync(name, widgetIndex, bounds, token).AsTask());
 
     /// <summary>Runs GetFields against the library.</summary>
     /// <param name="cancellationToken">Cancels the work.</param>

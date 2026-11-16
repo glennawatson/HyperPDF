@@ -6,7 +6,6 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Security.Cryptography;
 using HyperPdf.Core.Ocr;
-using HyperPdf.Core.Reactive;
 using HyperPdf.Http;
 using HyperPdf.Http.Ocr;
 using ReactiveUI.Primitives;
@@ -122,7 +121,7 @@ public sealed class OcrLanguagePackDownloaderTests
         using var cancellation = new CancellationTokenSource();
         var progress = new RecordingProgress(cancellation.Cancel);
 
-        _ = await Assert.ThrowsAsync<OperationCanceledException>(() => downloader.Download(Api(handler), [pack], folder.Path, progress).ThrowWhenCancelled(cancellation.Token).ToTask());
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(() => downloader.Download(Api(handler), [pack], folder.Path, progress).ToTask(cancellation.Token));
 
         // The copy notices the cancellation on its own thread and deletes the partial file straight afterwards.
         await Assert.That(await NoFilesLeft(folder.Path)).IsTrue();

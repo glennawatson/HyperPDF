@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Structure.Tagged;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -93,12 +94,12 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> SetRoleMapping(string type, string mapsTo) =>
-        LibrarySignals.Run(token => SetRoleMappingAsync(type, mapsTo, token));
+        Signal.FromAsync(token => SetRoleMappingAsync(type, mapsTo, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> RemoveRoleMapping(string type) =>
-        LibrarySignals.Run(token => RemoveRoleMappingAsync(type, token));
+        Signal.FromAsync(token => RemoveRoleMappingAsync(type, token).AsTask());
 
     /// <inheritdoc/>
     public IReadOnlyList<DocumentTagProblem> GetProblems(CancellationToken cancellationToken)
@@ -124,57 +125,57 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> SetType(int id, string type) =>
-        LibrarySignals.Run(token => SetTypeAsync(id, type, token));
+        Signal.FromAsync(token => SetTypeAsync(id, type, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> SetText(int id, DocumentTagField field, string? text) =>
-        LibrarySignals.Run(token => SetTextAsync(id, field, text, token));
+        Signal.FromAsync(token => SetTextAsync(id, field, text, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> SetTableScope(int id, DocumentTableScope scope) =>
-        LibrarySignals.Run(token => SetTableScopeAsync(id, scope, token));
+        Signal.FromAsync(token => SetTableScopeAsync(id, scope, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> Move(int id, int offset) =>
-        LibrarySignals.Run(token => MoveAsync(id, offset, token));
+        Signal.FromAsync(token => MoveAsync(id, offset, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> Nest(int id) =>
-        LibrarySignals.Run(token => NestAsync(id, token));
+        Signal.FromAsync(token => NestAsync(id, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> SetCellSpans(int id, int rows, int columns) =>
-        LibrarySignals.Run(token => SetCellSpansAsync(id, rows, columns, token));
+        Signal.FromAsync(token => SetCellSpansAsync(id, rows, columns, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> SetListNumbering(int id, string? numbering) =>
-        LibrarySignals.Run(token => SetListNumberingAsync(id, numbering, token));
+        Signal.FromAsync(token => SetListNumberingAsync(id, numbering, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> SetPlacement(int id, string? placement) =>
-        LibrarySignals.Run(token => SetPlacementAsync(id, placement, token));
+        Signal.FromAsync(token => SetPlacementAsync(id, placement, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> MoveInto(int id, int newParentId) =>
-        LibrarySignals.Run(token => MoveIntoAsync(id, newParentId, token));
+        Signal.FromAsync(token => MoveIntoAsync(id, newParentId, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> Unnest(int id) =>
-        LibrarySignals.Run(token => UnnestAsync(id, token));
+        Signal.FromAsync(token => UnnestAsync(id, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> Remove(int id) =>
-        LibrarySignals.Run(token => RemoveAsync(id, token));
+        Signal.FromAsync(token => RemoveAsync(id, token).AsTask());
 
     /// <summary>Runs SetType against the library.</summary>
     /// <param name="id">The id.</param>

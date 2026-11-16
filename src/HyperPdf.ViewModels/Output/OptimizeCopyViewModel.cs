@@ -295,7 +295,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
 
         return setup.Download(new Progress<double>(static _ => { }))
             .Select(_ => setup.CreateDescriber())
-            .ThrowWhenCancelled(cancellationToken)
+            .TakeUntil(cancellationToken)
             .ObserveOn(RxSchedulers.MainThreadScheduler);
     }
 

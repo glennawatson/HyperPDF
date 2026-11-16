@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -24,112 +25,188 @@ internal sealed class HyperPdfPageContentEditorService : IPageContentEditor
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<PageObjectInfo[]> ReadObjects(int pageIndex) =>
-        LibrarySignals.Run(token => ReadObjectsAsync(pageIndex, token));
+        Signal.FromAsync(token => ReadObjectsAsync(pageIndex, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> Move(int pageIndex, int objectIndex, float deltaX, float deltaY) =>
-        LibrarySignals.Run(token => MoveAsync(pageIndex, objectIndex, deltaX, deltaY, token));
+        Signal.FromAsync(async token =>
+        {
+            await MoveAsync(pageIndex, objectIndex, deltaX, deltaY, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> Transform(int pageIndex, int objectIndex, System.Numerics.Matrix3x2 transformation) =>
-        LibrarySignals.Run(token => TransformAsync(pageIndex, objectIndex, transformation, token));
+        Signal.FromAsync(async token =>
+        {
+            await TransformAsync(pageIndex, objectIndex, transformation, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> TransformMany(int pageIndex, PageObjectChange[] changes) =>
-        LibrarySignals.Run(token => TransformManyAsync(pageIndex, changes, token));
+        Signal.FromAsync(async token =>
+        {
+            await TransformManyAsync(pageIndex, changes, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> DeleteMany(int pageIndex, int[] objectIndexes) =>
-        LibrarySignals.Run(token => DeleteManyAsync(pageIndex, objectIndexes, token));
+        Signal.FromAsync(async token =>
+        {
+            await DeleteManyAsync(pageIndex, objectIndexes, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> Copy(int pageIndex, int objectIndex, int targetPageIndex, HyperPdf.Core.Geometry.PagePoint offset) =>
-        LibrarySignals.Run(token => CopyAsync(pageIndex, objectIndex, targetPageIndex, offset, token));
+        Signal.FromAsync(async token =>
+        {
+            await CopyAsync(pageIndex, objectIndex, targetPageIndex, offset, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> BringToFront(int pageIndex, int objectIndex) =>
-        LibrarySignals.Run(token => BringToFrontAsync(pageIndex, objectIndex, token));
+        Signal.FromAsync(async token =>
+        {
+            await BringToFrontAsync(pageIndex, objectIndex, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> BringForward(int pageIndex, int objectIndex) =>
-        LibrarySignals.Run(token => BringForwardAsync(pageIndex, objectIndex, token));
+        Signal.FromAsync(async token =>
+        {
+            await BringForwardAsync(pageIndex, objectIndex, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> SendBackward(int pageIndex, int objectIndex) =>
-        LibrarySignals.Run(token => SendBackwardAsync(pageIndex, objectIndex, token));
+        Signal.FromAsync(async token =>
+        {
+            await SendBackwardAsync(pageIndex, objectIndex, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> SendToBack(int pageIndex, int objectIndex) =>
-        LibrarySignals.Run(token => SendToBackAsync(pageIndex, objectIndex, token));
+        Signal.FromAsync(async token =>
+        {
+            await SendToBackAsync(pageIndex, objectIndex, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> SetColorsMany(int pageIndex, int[] objectIndexes, PageObjectColors colors) =>
-        LibrarySignals.Run(token => SetColorsManyAsync(pageIndex, objectIndexes, colors, token));
+        Signal.FromAsync(async token =>
+        {
+            await SetColorsManyAsync(pageIndex, objectIndexes, colors, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> ReplacePicture(int pageIndex, int objectIndex, ReadOnlyMemory<byte> file) =>
-        LibrarySignals.Run(token => ReplacePictureAsync(pageIndex, objectIndex, file, token));
+        Signal.FromAsync(async token =>
+        {
+            await ReplacePictureAsync(pageIndex, objectIndex, file, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> CropPicture(int pageIndex, int objectIndex, PageMargins shares) =>
-        LibrarySignals.Run(token => CropPictureAsync(pageIndex, objectIndex, shares, token));
+        Signal.FromAsync(async token =>
+        {
+            await CropPictureAsync(pageIndex, objectIndex, shares, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<PageObjectFile> ExtractPicture(int pageIndex, int objectIndex) =>
-        LibrarySignals.Run(token => ExtractPictureAsync(pageIndex, objectIndex, token));
+        Signal.FromAsync(token => ExtractPictureAsync(pageIndex, objectIndex, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> SetLookMany(int pageIndex, int[] objectIndexes, PageObjectLook look) =>
-        LibrarySignals.Run(token => SetLookManyAsync(pageIndex, objectIndexes, look, token));
+        Signal.FromAsync(async token =>
+        {
+            await SetLookManyAsync(pageIndex, objectIndexes, look, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> SetColors(int pageIndex, int objectIndex, PageObjectColors colors) =>
-        LibrarySignals.Run(token => SetColorsAsync(pageIndex, objectIndex, colors, token));
+        Signal.FromAsync(async token =>
+        {
+            await SetColorsAsync(pageIndex, objectIndex, colors, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<PageObjectStyle> ReadStyle(int pageIndex, int objectIndex) =>
-        LibrarySignals.Run(token => ReadStyleAsync(pageIndex, objectIndex, token));
+        Signal.FromAsync(token => ReadStyleAsync(pageIndex, objectIndex, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> Add(int pageIndex, PageObjectDraft draft) =>
-        LibrarySignals.Run(token => AddAsync(pageIndex, draft, token));
+        Signal.FromAsync(async token =>
+        {
+            await AddAsync(pageIndex, draft, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> AddPicture(int pageIndex, HyperPdf.Core.Geometry.PageRect area, ReadOnlyMemory<byte> file) =>
-        LibrarySignals.Run(token => AddPictureAsync(pageIndex, area, file, token));
+        Signal.FromAsync(async token =>
+        {
+            await AddPictureAsync(pageIndex, area, file, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> Delete(int pageIndex, int objectIndex) =>
-        LibrarySignals.Run(token => DeleteAsync(pageIndex, objectIndex, token));
+        Signal.FromAsync(async token =>
+        {
+            await DeleteAsync(pageIndex, objectIndex, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> ReplaceText(int pageIndex, int objectIndex, string text) =>
-        LibrarySignals.Run(token => ReplaceTextAsync(pageIndex, objectIndex, text, token));
+        Signal.FromAsync(async token =>
+        {
+            await ReplaceTextAsync(pageIndex, objectIndex, text, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> RestyleText(int pageIndex, int objectIndex, PageTextStyle style) =>
-        LibrarySignals.Run(token => RestyleTextAsync(pageIndex, objectIndex, style, token));
+        Signal.FromAsync(async token =>
+        {
+            await RestyleTextAsync(pageIndex, objectIndex, style, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <summary>Runs ReadObjects against the library.</summary>
     /// <param name="pageIndex">The pageIndex.</param>

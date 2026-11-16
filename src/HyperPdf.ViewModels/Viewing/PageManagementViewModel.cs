@@ -674,7 +674,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         var report = new PageEditReport();
         var pages = CopySelectedPages();
         return CopyFile.WriteSignal(destination, TemporarySuffix, stream => manager.Extract(pages, stream, report).Select(static _ => true), static written => written)
-            .ThrowWhenCancelled(_lifetime)
+            .TakeUntil(_lifetime)
             .Select(_ => Extracted(report));
     }
 
@@ -697,7 +697,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<TResult> OnPool<TResult>(IObservable<TResult> call) =>
         call
-            .ThrowWhenCancelled(_lifetime)
+            .TakeUntil(_lifetime)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler);
 

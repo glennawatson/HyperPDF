@@ -663,7 +663,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
             ? Signal.Return(false)
 
             : edit(editor)
-                .ThrowWhenCancelled(_lifetime)
+                .TakeUntil(_lifetime)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Select(Reported)
                 .Catch<bool, OperationCanceledException>(Stopped);

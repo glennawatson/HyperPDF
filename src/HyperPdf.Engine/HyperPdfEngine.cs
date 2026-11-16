@@ -16,6 +16,7 @@ using HyperPdfLibrary.IO;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Render.Managed;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -100,7 +101,11 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
     public IObservable<RxVoid> WritePictures(PageImageSource[] images, Stream destination)
     {
         ArgumentNullException.ThrowIfNull(destination);
-        return LibrarySignals.Run(token => WritePicturesAsync(images, destination, token));
+        return Signal.FromAsync(async token =>
+        {
+            await WritePicturesAsync(images, destination, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
     }
 
     /// <inheritdoc/>

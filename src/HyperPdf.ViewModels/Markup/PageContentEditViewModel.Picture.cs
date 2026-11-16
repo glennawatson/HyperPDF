@@ -166,7 +166,7 @@ public sealed partial class PageContentEditViewModel
         }
 
         return editor.ExtractPicture(picked.Page, picked.Object.Index)
-            .ThrowWhenCancelled(_lifetime)
+            .TakeUntil(_lifetime)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SwitchMap(file => _owner.PageTools.SaveImageInteraction.Handle(string.Create(CultureInfo.InvariantCulture, $"picture-{picked.Page + 1}.{file.Extension}")).ToSignal()

@@ -379,7 +379,7 @@ public sealed partial class PageDecorationViewModel : ReactiveObject, IDisposabl
         return IsText && string.IsNullOrWhiteSpace(Text)
             ? Refuse("Type the words to add first.")
             : Decorate(decorator, pages)
-                .ThrowWhenCancelled(_lifetime.Token)
+                .TakeUntil(_lifetime.Token)
                 .SubscribeOn(TaskPoolSequencer.Default)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Do(_ => Done(pages))

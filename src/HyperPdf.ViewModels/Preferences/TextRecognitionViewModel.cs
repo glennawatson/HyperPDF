@@ -330,7 +330,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
 
         return _services.Ocr.Download(packs, progress)
             .Select(static _ => true)
-            .ThrowWhenCancelled(download.Token)
+            .TakeUntil(download.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Catch<bool, Exception>(DownloadFailed)
             .Finally(() => EndDownload(download));
