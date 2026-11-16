@@ -542,7 +542,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI
-- Version: 26.0.1
+- Version: 27.0.0
 - Origin: NuGet package
 - Copyright: Copyright (c) .NET Foundation and Contributors
 - Link: https://reactiveui.net/
@@ -602,7 +602,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Core
-- Version: 26.0.1
+- Version: 27.0.0
 - Origin: NuGet package
 - Copyright: Copyright (c) .NET Foundation and Contributors
 - Link: https://reactiveui.net/
@@ -752,7 +752,7 @@ SOFTWARE.
 ````
 
 ### Refit
-- Version: 16.4.0
+- Version: 17.0.0
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI and Contributors
 - Link: https://github.com/reactiveui/refit
