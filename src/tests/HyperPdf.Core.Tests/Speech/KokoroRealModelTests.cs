@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using HyperPdf.Core.Speech;
 using HyperPdf.Speech.Kokoro;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Speech;
 
@@ -82,7 +83,7 @@ public sealed class KokoroRealModelTests : IDisposable
         await KokoroModelFixture.EnsureAsync();
         using var engine = new KokoroEngine(KokoroModelFixture.Directory);
 
-        var audio = await engine.SynthesizeAsync(Sentence, Heart, 1, CancellationToken.None);
+        var audio = await engine.Synthesize(Sentence, Heart, 1).ToTask();
 
         await Assert.That(engine.IsReady).IsTrue();
         await Assert.That(audio.SampleRate).IsEqualTo(Hertz);
@@ -97,14 +98,14 @@ public sealed class KokoroRealModelTests : IDisposable
     {
         await KokoroModelFixture.EnsureAsync();
         using var engine = new KokoroEngine(KokoroModelFixture.Directory);
-        _ = await engine.SynthesizeAsync("Warm up.", Heart, 1, CancellationToken.None);
+        _ = await engine.Synthesize("Warm up.", Heart, 1).ToTask();
 
         // The best of a few readings: the engine's speed, not a moment of contention.
         var best = double.MaxValue;
         for (var attempt = 0; attempt < TimingAttempts; attempt++)
         {
             var start = Stopwatch.GetTimestamp();
-            var audio = await engine.SynthesizeAsync(Sentence, Heart, 1, CancellationToken.None);
+            var audio = await engine.Synthesize(Sentence, Heart, 1).ToTask();
             best = Math.Min(best, Stopwatch.GetElapsedTime(start).TotalSeconds / audio.Duration.TotalSeconds);
         }
 
@@ -119,9 +120,9 @@ public sealed class KokoroRealModelTests : IDisposable
         await KokoroModelFixture.EnsureAsync();
         using var engine = new KokoroEngine(KokoroModelFixture.Directory);
 
-        var first = await engine.SynthesizeAsync(Sentence, Heart, 1, CancellationToken.None);
-        var second = await engine.SynthesizeAsync(Sentence, Heart, 1, CancellationToken.None);
-        var fast = await engine.SynthesizeAsync(Sentence, Heart, Fast, CancellationToken.None);
+        var first = await engine.Synthesize(Sentence, Heart, 1).ToTask();
+        var second = await engine.Synthesize(Sentence, Heart, 1).ToTask();
+        var fast = await engine.Synthesize(Sentence, Heart, Fast).ToTask();
 
         await Assert.That(second.Samples.Length).IsEqualTo(first.Samples.Length);
         await Assert.That(fast.Samples.Length).IsLessThan((int)(first.Samples.Length * FastShare));
@@ -137,7 +138,7 @@ public sealed class KokoroRealModelTests : IDisposable
 
         foreach (var voice in KokoroModel.Voices)
         {
-            var audio = await engine.SynthesizeAsync("Reading aloud should feel calm.", voice.Id, 1, CancellationToken.None);
+            var audio = await engine.Synthesize("Reading aloud should feel calm.", voice.Id, 1).ToTask();
             await AssertSpeechLike(audio);
         }
     }
@@ -151,7 +152,7 @@ public sealed class KokoroRealModelTests : IDisposable
         using var engine = new KokoroEngine(KokoroModelFixture.Directory);
         var paragraph = string.Concat(Enumerable.Repeat("Dr. Smith measured 3.5% growth in 1984, & the PDF reports agree. ", LongRepeats));
 
-        var audio = await engine.SynthesizeAsync(paragraph, Heart, 1, CancellationToken.None);
+        var audio = await engine.Synthesize(paragraph, Heart, 1).ToTask();
 
         await Assert.That(audio.Duration.TotalSeconds).IsGreaterThan(LongRepeats * MinSecondsPerRepeat);
         await AssertSpeechLike(audio);
@@ -165,7 +166,7 @@ public sealed class KokoroRealModelTests : IDisposable
         await KokoroModelFixture.EnsureAsync();
         using var engine = new KokoroEngine(KokoroModelFixture.Directory);
 
-        var audio = await engine.SynthesizeAsync("— … —", Heart, 1, CancellationToken.None);
+        var audio = await engine.Synthesize("— … —", Heart, 1).ToTask();
 
         await Assert.That(audio.Duration.TotalSeconds).IsLessThan(1);
     }

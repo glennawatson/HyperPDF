@@ -4,6 +4,7 @@
 
 using System.Runtime.InteropServices;
 using HyperPdf.Speech.Kokoro;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Speech;
 
@@ -63,7 +64,7 @@ public sealed class KokoroEngineTests
             List<long> tokens = [];
             KokoroVocabulary.Tokenize(engine.Phonemize(Greeting, Heart), tokens);
 
-            var audio = await engine.SynthesizeAsync(Greeting, Heart, Double, CancellationToken.None);
+            var audio = await engine.Synthesize(Greeting, Heart, Double).ToTask();
 
             await Assert.That(engine.IsReady).IsTrue();
             await Assert.That(tokens.Count).IsGreaterThan(0);
@@ -95,7 +96,7 @@ public sealed class KokoroEngineTests
             for (var round = 0; round < DisposeRounds; round++)
             {
                 var engine = new KokoroEngine(directory);
-                _ = await engine.SynthesizeAsync(Greeting, Heart, 1F, cancellationToken);
+                _ = await engine.Synthesize(Greeting, Heart, 1F).ToTask(cancellationToken);
                 var phonemize = DedicatedThread.Run(new PhonemizeJob(engine, longText), PhonemizeIfOpen, cancellationToken);
                 var synthesize = Task.Run(() => SynthesizeIfOpenAsync(engine, cancellationToken), cancellationToken);
 
@@ -178,7 +179,7 @@ public sealed class KokoroEngineTests
     {
         try
         {
-            _ = await engine.SynthesizeAsync(Greeting, Heart, 1F, cancellationToken);
+            _ = await engine.Synthesize(Greeting, Heart, 1F).ToTask(cancellationToken);
         }
         catch (ObjectDisposedException)
         {

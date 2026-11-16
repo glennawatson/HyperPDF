@@ -9,6 +9,7 @@ using HyperPdf.Core.Tests.Speech.Melo;
 using HyperPdf.Speech.English;
 using HyperPdf.Speech.Kokoro;
 using HyperPdf.Speech.Melo;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Speech.Listening;
 
@@ -229,7 +230,7 @@ public sealed class ListeningCorpusTests : IDisposable
         {
             var words = SentenceSplitter.ToSpeech(text.AsSpan(sentence.Start, sentence.Length));
             var started = Stopwatch.GetTimestamp();
-            var audio = await engine.SynthesizeAsync(words, voice, 1, CancellationToken.None);
+            var audio = await engine.Synthesize(words, voice, 1).ToTask();
             var work = Stopwatch.GetElapsedTime(started);
             var letters = words.Count(char.IsLetterOrDigit);
             spoken.Add(new(words, audio, SpeechMeasurement.Measure(audio, letters), work));

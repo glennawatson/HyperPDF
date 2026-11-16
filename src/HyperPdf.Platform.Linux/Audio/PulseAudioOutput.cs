@@ -5,7 +5,9 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Platform;
+using HyperPdf.Core.Reactive;
 using HyperPdf.Core.Speech;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Platform.Linux.Audio;
 
@@ -105,21 +107,18 @@ public sealed unsafe class PulseAudioOutput : IAudioOutput
     }
 
     /// <inheritdoc/>
-    public Task PlayAsync(SpeechAudio audio, CancellationToken cancellationToken)
+    public IObservable<RxVoid> Play(SpeechAudio audio)
     {
         ArgumentNullException.ThrowIfNull(audio);
 
         // Playback waits for the clip to be heard, so it gets its own thread rather than holding a pool thread.
-        return Task.Factory.StartNew(
-            static state =>
+        return DedicatedThread.Run(
+            "HyperPdf speech",
+            token =>
             {
-                var (output, clip, token) = ((PulseAudioOutput, SpeechAudio, CancellationToken))state!;
-                output.Play(clip, token);
-            },
-            (this, audio, cancellationToken),
-            CancellationToken.None,
-            TaskCreationOptions.LongRunning,
-            TaskScheduler.Default);
+                PlayBlocking(audio, token);
+                return RxVoid.Default;
+            });
     }
 
     /// <summary>Determines whether libpulse-simple can be loaded.</summary>
@@ -160,7 +159,7 @@ public sealed unsafe class PulseAudioOutput : IAudioOutput
     /// <summary>Writes the audio piece by piece, then waits for it to finish playing.</summary>
     /// <param name="audio">The audio.</param>
     /// <param name="cancellationToken">Stops at once, discarding what is buffered.</param>
-    private void Play(SpeechAudio audio, CancellationToken cancellationToken)
+    private void PlayBlocking(SpeechAudio audio, CancellationToken cancellationToken)
     {
         lock (_gate)
         {

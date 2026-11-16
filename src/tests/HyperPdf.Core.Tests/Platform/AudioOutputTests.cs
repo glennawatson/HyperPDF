@@ -7,6 +7,7 @@ using HyperPdf.Core.Speech;
 using HyperPdf.Platform.Linux.Audio;
 using HyperPdf.Platform.MacOS.Audio;
 using HyperPdf.Platform.Windows.Audio;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Platform;
 
@@ -50,7 +51,7 @@ public sealed class AudioOutputTests
         var clip = new SpeechAudio(Tone(ClipSeconds), Hertz);
         var watch = Stopwatch.GetTimestamp();
 
-        await output.PlayAsync(clip, CancellationToken.None);
+        await output.Play(clip).ToTask();
 
         await Assert.That(Stopwatch.GetElapsedTime(watch)).IsGreaterThan(clip.Duration * MinimumShare);
         await Assert.That(Stopwatch.GetElapsedTime(watch)).IsLessThan(clip.Duration + Overrun);
@@ -65,11 +66,11 @@ public sealed class AudioOutputTests
         using var cancellation = new CancellationTokenSource(StopAfter);
         var watch = Stopwatch.GetTimestamp();
 
-        await output.PlayAsync(new(Tone(LongSeconds), Hertz), cancellation.Token);
+        _ = await output.Play(new(Tone(LongSeconds), Hertz)).TakeUntil(cancellation.Token).ToList().ToTask();
 
         await Assert.That(Stopwatch.GetElapsedTime(watch)).IsLessThan(StopAfter + StopWithin);
         var again = Stopwatch.GetTimestamp();
-        await output.PlayAsync(new(Tone(ClipSeconds), Hertz), CancellationToken.None);
+        await output.Play(new(Tone(ClipSeconds), Hertz)).ToTask();
         await Assert.That(Stopwatch.GetElapsedTime(again)).IsLessThan(TimeSpan.FromSeconds(ClipSeconds) + Overrun);
     }
 
@@ -81,8 +82,8 @@ public sealed class AudioOutputTests
         using var output = await RequireServerAsync();
         const int OtherRate = 16_000;
 
-        await output.PlayAsync(new(new float[OtherRate / Tenths], OtherRate), CancellationToken.None);
-        await output.PlayAsync(new(new float[Hertz / Tenths], Hertz), CancellationToken.None);
+        await output.Play(new(new float[OtherRate / Tenths], OtherRate)).ToTask();
+        await output.Play(new(new float[Hertz / Tenths], Hertz)).ToTask();
 
         await Assert.That(output.IsAvailable).IsTrue();
     }
@@ -119,7 +120,7 @@ public sealed class AudioOutputTests
         {
             // Read Aloud keeps one stream open across sentences; a silent sink takes a moment to start a new one, so the
             // timings are measured on a warm stream.
-            await output.PlayAsync(new(new float[Hertz / Tenths], Hertz), CancellationToken.None);
+            await output.Play(new(new float[Hertz / Tenths], Hertz)).ToTask();
             return output;
         }
 

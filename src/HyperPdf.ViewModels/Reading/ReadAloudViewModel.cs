@@ -96,6 +96,9 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     /// </summary>
     private Action? _stopWork;
 
+    /// <summary>Whether reading is being cancelled only to start again.</summary>
+    private bool _restarting;
+
     /// <summary>The resource identity of the displayed StatusText.</summary>
     private LocalizedMessage _localizedStatusText = LocalizedMessage.Literal(string.Empty);
 
@@ -391,21 +394,6 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         return names;
     }
 
-    /// <summary>Observes a sentence prepared but not read, so a failure in it is not left unobserved.</summary>
-    /// <param name="prepared">The prepared sentence.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static void ObservePrepared(Task<SpeechAudio>? prepared) =>
-        prepared?.ToSignal().SubscribeSafe(static _ => { }, static _ => { });
-
-    /// <summary>Waits for the audio output to finish playing a clip.</summary>
-    /// <param name="playing">The audio output's task for the clip.</param>
-    /// <returns>A task giving the completion value.</returns>
-    private static async Task<RxVoid> Await(Task playing)
-    {
-        await playing.ConfigureAwait(false);
-        return RxVoid.Default;
-    }
-
     /// <summary>Forgets documents that have gone; if that is not enough, starts the list afresh.</summary>
     /// <param name="positions">The remembered positions.</param>
     private static void Prune(Dictionary<string, ReadingPosition> positions)
@@ -433,7 +421,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     /// <summary>Starts reading from the requested place, or the top of the current page.</summary>
     private void Begin()
     {
-        CancelWork();
+        Restart();
         RefreshVoices();
         _pageOnly = _pageOnlyNext;
         _pageOnlyNext = false;
@@ -573,11 +561,25 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     /// <summary>Starts the reading loop from the current place.</summary>
     private void Play()
     {
-        CancelWork();
+        Restart();
         var work = new CancellationTokenSource();
         _stopWork = work.Cancel;
         _services.ClaimSpeech(this);
         _subscriptions.Add(Read(work).SubscribeSafe(static _ => { }, ErrorTrace.Write));
+    }
+
+    /// <summary>Cancels the reading in progress because new reading is about to start, so the bar does not show reading as stopped in between.</summary>
+    private void Restart()
+    {
+        _restarting = true;
+        try
+        {
+            CancelWork();
+        }
+        finally
+        {
+            _restarting = false;
+        }
     }
 
     /// <summary>Cancels the reading or download in progress.</summary>
@@ -685,9 +687,12 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         }
 
         SetPlaying(true);
+
+        // Pausing or stopping cancels the token, which unsubscribes the voice and the sound output straight away.
         return ReadSentences(document, engine, work.Token)
             .Select(_ => FinishedReading())
             .Catch<RxVoid, Exception>(ReadingStopped)
+            .TakeUntil(work.Token)
             .Finally(() => EndRead(work));
     }
 
@@ -729,7 +734,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
             _stopWork = null;
             SetPlaying(false);
         }
-        else if (_stopWork is null)
+        else if (_stopWork is null && !_restarting)
         {
             SetPlaying(false);
         }
@@ -746,12 +751,12 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     {
         var voice = engine.Voices[Math.Clamp(VoiceIndex, 0, engine.Voices.Count - 1)].Id;
         var speed = Speed;
-        var prefetch = new SpeechPrefetch();
-        return LazySequence.Concat(Sentences(document, engine, voice, speed, prefetch, token))
-            .TakeWhile(static more => more)
-            .Count()
-            .Select(static _ => RxVoid.Default)
-            .Finally(() => ObservePrepared(prefetch.Prepared));
+        return Signal.Using(
+            static () => new SpeechPrefetch(),
+            prefetch => LazySequence.Concat(Sentences(document, engine, voice, speed, prefetch, token))
+                .TakeWhile(static more => more)
+                .Count()
+                .Select(static _ => RxVoid.Default));
     }
 
     /// <summary>Makes the reading of each sentence, one at a time as the caller moves along, for as long as the caller asks.</summary>
@@ -787,9 +792,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         token.ThrowIfCancellationRequested();
         SetStatusText(LocalizedMessage.Format(UiText, "Reading page {0} of {1}", SpokenPage + 1, document.PageCount));
 
-        // The voice and the audio output are native, task-based APIs, so their tasks are the only ones here.
-        var clip = prefetch.Prepared ?? engine.SynthesizeAsync(SentenceText(_sentence), voice, speed, token);
-        return clip.ToSignal()
+        return (prefetch.Prepared ?? engine.Synthesize(SentenceText(_sentence), voice, speed))
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SwitchMap(audio => PlayPrepared(engine, voice, speed, prefetch, audio, token))
             .Select(_ => NextSentence(token));
@@ -805,10 +808,18 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     /// <returns>A cold signal that ends once the sentence has played.</returns>
     private IObservable<RxVoid> PlayPrepared(ISpeechEngine engine, string voice, float speed, SpeechPrefetch prefetch, SpeechAudio audio, CancellationToken token)
     {
-        prefetch.Prepared = _sentence + 1 < _sentences.Count ? engine.SynthesizeAsync(SentenceText(_sentence + 1), voice, speed, token) : null;
+        if (_sentence + 1 < _sentences.Count)
+        {
+            prefetch.Begin(engine.Synthesize(SentenceText(_sentence + 1), voice, speed));
+        }
+        else
+        {
+            prefetch.Clear();
+        }
+
         token.ThrowIfCancellationRequested();
         Highlight();
-        return PlayTrackingWords(audio, token);
+        return PlayTrackingWords(audio);
     }
 
     /// <summary>Moves on to the next sentence.</summary>
@@ -823,18 +834,18 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
 
     /// <summary>Plays a sentence, moving the word mark along with it when word highlighting is on.</summary>
     /// <param name="clip">The sentence's audio.</param>
-    /// <param name="token">Stops playing.</param>
-    /// <returns>A cold signal that ends once the sentence has played.</returns>
+    /// <returns>A cold signal that ends once the sentence has played; unsubscribing stops the sound.</returns>
     /// <remarks>The voice gives no word timings, so the mark moves in proportion to the characters spoken.</remarks>
-    private IObservable<RxVoid> PlayTrackingWords(SpeechAudio clip, CancellationToken token)
-    {
-        var playing = _services.Audio.PlayAsync(clip, token);
-        var tracking = TrackWords(clip);
-        return Signal.FromAsync(() => Await(playing))
-            .ObserveOn(RxSchedulers.MainThreadScheduler)
-            .Do(_ => EndTracking(tracking))
-            .Finally(() => EndTracking(tracking));
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> PlayTrackingWords(SpeechAudio clip) =>
+        Signal.Defer(() =>
+        {
+            var tracking = TrackWords(clip);
+            return _services.Audio.Play(clip)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Do(_ => EndTracking(tracking))
+                .Finally(() => EndTracking(tracking));
+        });
 
     /// <summary>Starts moving the word mark along with a sentence, when word highlighting is on.</summary>
     /// <param name="clip">The sentence's audio.</param>

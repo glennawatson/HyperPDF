@@ -4,6 +4,8 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Speech;
 
@@ -16,7 +18,7 @@ public sealed class NullAudioOutput : IAudioOutput
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task PlayAsync(SpeechAudio audio, CancellationToken cancellationToken) => Task.CompletedTask;
+    public IObservable<RxVoid> Play(SpeechAudio audio) => Signal.Return(RxVoid.Default);
 
     /// <inheritdoc/>
     public void Dispose()

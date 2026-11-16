@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using HyperCodecs;
 using HyperCodecs.Platform.Video;
 using HyperCodecs.Video;
+using HyperPdf.Core.Reactive;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Disposables;
@@ -79,12 +80,7 @@ public sealed class ManagedMediaPlayer : MediaPlayerBase
         Volatile.Write(ref _clock, clock);
 
         // Decoding and the sound output block, so the playing gets a thread of its own, which unsubscribing stops.
-        return Signal.Create<string?>(observer =>
-        {
-            var run = new DecodeThread(this, path, start, pump, clock, observer);
-            run.Start();
-            return run;
-        });
+        return DedicatedThread.Run("HyperPdf media", token => PlayOnThread(new(this, path, start, pump, clock, token)));
     }
 
     /// <summary>Opens the file to see whether it can be played.</summary>
@@ -226,71 +222,6 @@ public sealed class ManagedMediaPlayer : MediaPlayerBase
 
         sound.Dispose();
         return null;
-    }
-
-    /// <summary>Plays one run on a thread of its own and gives the result to the subscriber; disposing stops the playing.</summary>
-    private sealed class DecodeThread : IDisposable
-    {
-        /// <summary>The player.</summary>
-        private readonly ManagedMediaPlayer _player;
-
-        /// <summary>What to play.</summary>
-        private readonly RunRequest _request;
-
-        /// <summary>Told how the run ended.</summary>
-        private readonly IObserver<string?> _observer;
-
-        /// <summary>Stops the playing.</summary>
-        private readonly CancellationTokenSource _stop = new();
-
-        /// <summary>Initializes a new instance of the <see cref="DecodeThread"/> class.</summary>
-        /// <param name="player">The player.</param>
-        /// <param name="path">The full path of the file.</param>
-        /// <param name="start">Where to begin.</param>
-        /// <param name="pump">Receives the pictures, or <see langword="null"/>.</param>
-        /// <param name="clock">The clock to play by.</param>
-        /// <param name="observer">Told how the run ended.</param>
-        internal DecodeThread(ManagedMediaPlayer player, string path, TimeSpan start, FramePump? pump, PlaybackClock clock, IObserver<string?> observer)
-        {
-            _player = player;
-            _observer = observer;
-
-            // The token is taken once, so a thread that starts after disposal never reads a disposed source.
-            _request = new(player, path, start, pump, clock, _stop.Token);
-        }
-
-        /// <inheritdoc />
-        public void Dispose()
-        {
-            _stop.Cancel();
-            _stop.Dispose();
-        }
-
-        /// <summary>Starts the thread.</summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal void Start() => new Thread(Run) { IsBackground = true, Name = "HyperPdf media" }.Start();
-
-        /// <summary>Plays the file and reports how it ended, unless it was stopped.</summary>
-        private void Run()
-        {
-            try
-            {
-                var problem = _player.PlayOnThread(_request);
-                if (!_request.Token.IsCancellationRequested)
-                {
-                    _observer.OnNext(problem);
-                    _observer.OnCompleted();
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // Pausing, stopping or seeking stops the run, which is the end of it.
-            }
-            catch (Exception error) when (!_request.Token.IsCancellationRequested)
-            {
-                _observer.OnError(error);
-            }
-        }
     }
 
     /// <summary>What one run needs, handed to the thread that plays it.</summary>

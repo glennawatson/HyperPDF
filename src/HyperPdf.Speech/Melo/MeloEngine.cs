@@ -10,6 +10,9 @@ using System.Text;
 using HyperPdf.Core.Speech;
 using HyperPdf.Speech.English;
 using Microsoft.ML.OnnxRuntime;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Speech.Melo;
 
@@ -134,11 +137,15 @@ public sealed class MeloEngine : ISpeechEngine
     }
 
     /// <inheritdoc/>
-    public Task<SpeechAudio> SynthesizeAsync(string text, string voiceId, float speed, CancellationToken cancellationToken)
+    public IObservable<SpeechAudio> Synthesize(string text, string voiceId, float speed)
     {
         ArgumentNullException.ThrowIfNull(text);
         ArgumentNullException.ThrowIfNull(voiceId);
-        return Task.Run(() => Synthesize(text, voiceId, speed, cancellationToken), cancellationToken);
+
+        // Unsubscribing cancels the model between windows.
+        return Signal.Using(
+            static () => new CancellationDisposable(),
+            stop => Signal.Start(() => Render(text, voiceId, speed, stop.Token), TaskPoolSequencer.Default));
     }
 
     /// <summary>Turns text into the phone symbols the voice would read, for tests and diagnostics.</summary>
@@ -287,7 +294,7 @@ public sealed class MeloEngine : ISpeechEngine
     /// <param name="speed">The speed.</param>
     /// <param name="cancellationToken">Cancels between pieces.</param>
     /// <returns>The audio.</returns>
-    private SpeechAudio Synthesize(string text, string voiceId, float speed, CancellationToken cancellationToken)
+    private SpeechAudio Render(string text, string voiceId, float speed, CancellationToken cancellationToken)
     {
         try
         {
