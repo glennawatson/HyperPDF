@@ -149,141 +149,140 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable, 
     }
 
     /// <summary>Adds a bookmark to the current page, below the selected bookmark or at the top level.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the bookmark is added or the question was given up.</returns>
     [ReactiveCommand(CanExecute = nameof(_canAdd))]
-    private async Task AddAsync()
+    private IObservable<RxVoid> Add()
     {
         var page = _owner.CurrentPageIndex;
-        var suggestion = UiText.Format("Page {0}", _owner.GetPageDisplay(page));
-        var title = await PromptInteraction.Handle(new(
-            LocalizedMessage.Get(UiText, "Add Bookmark"),
-            LocalizedMessage.Get(UiText, "Title"),
-            suggestion,
-            LocalizedMessage.Get(UiText, "Add Bookmark"),
-            false)).ToTask().ConfigureAwait(true);
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            return;
-        }
-
-        var parentId = _owner.SelectedOutlineItem?.Id ?? 0;
-        await RunAsync(
-            (editor, token) => editor.AddBookmarkAsync(parentId, Append, title, page, token),
-            UiText.Format("Added bookmark {0}.", title),
-            _owner.SelectedOutlineItem?.Id ?? 0).ConfigureAwait(true);
+        return Ask(
+            new(
+                LocalizedMessage.Get(UiText, "Add Bookmark"),
+                LocalizedMessage.Get(UiText, "Title"),
+                UiText.Format("Page {0}", _owner.GetPageDisplay(page)),
+                LocalizedMessage.Get(UiText, "Add Bookmark"),
+                false),
+            title => Run(
+                (editor, token) => editor.AddBookmarkAsync(_owner.SelectedOutlineItem?.Id ?? 0, Append, title, page, token),
+                UiText.Format("Added bookmark {0}.", title),
+                _owner.SelectedOutlineItem?.Id ?? 0));
     }
 
     /// <summary>Asks for a new title for the selected bookmark and renames it.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the bookmark is renamed or the question was given up.</returns>
     [ReactiveCommand(CanExecute = nameof(_canChange))]
-    private async Task RenameAsync()
-    {
-        if (_owner.SelectedOutlineItem is not { } item)
-        {
-            return;
-        }
-
-        var title = await PromptInteraction.Handle(new(
-            LocalizedMessage.Get(UiText, "Rename Bookmark"),
-            LocalizedMessage.Get(UiText, "Title"),
-            item.Title,
-            LocalizedMessage.Get(UiText, "Rename"),
-            false)).ToTask().ConfigureAwait(true);
-        if (!string.IsNullOrWhiteSpace(title))
-        {
-            await RunAsync((editor, token) => editor.RenameBookmarkAsync(item.Id, title, token), UiText.Format("Renamed bookmark to {0}.", title), item.Id).ConfigureAwait(true);
-        }
-    }
+    private IObservable<RxVoid> Rename() =>
+        _owner.SelectedOutlineItem is not { } item
+            ? Signal.Return(RxVoid.Default)
+            : Ask(
+                new(
+                    LocalizedMessage.Get(UiText, "Rename Bookmark"),
+                    LocalizedMessage.Get(UiText, "Title"),
+                    item.Title,
+                    LocalizedMessage.Get(UiText, "Rename"),
+                    false),
+                title => Run((editor, token) => editor.RenameBookmarkAsync(item.Id, title, token), UiText.Format("Renamed bookmark to {0}.", title), item.Id));
 
     /// <summary>Removes the selected bookmark and the bookmarks below it. Undo puts them back.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the bookmark is removed or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canChange))]
-    private Task RemoveAsync() => _owner.SelectedOutlineItem is { } item
-        ? RunAsync(
-        (editor, token) => editor
-        .RemoveBookmarkAsync(item.Id, token),
-        UiText.Format("Removed bookmark {0}. Undo puts it back.", item.Title),
-        0)
-        : Task.CompletedTask;
+    private IObservable<RxVoid> Remove() => _owner.SelectedOutlineItem is { } item
+        ? Run(
+            (editor, token) => editor.RemoveBookmarkAsync(item.Id, token),
+            UiText.Format("Removed bookmark {0}. Undo puts it back.", item.Title),
+            0)
+        : Signal.Return(RxVoid.Default);
 
     /// <summary>Moves the selected bookmark above its previous sibling.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the bookmark is moved or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canMoveUp))]
-    private Task MoveUpAsync() => Place() is { } place && _owner.SelectedOutlineItem is { } item
-        ? RunAsync(
-        (editor, token)
-        => editor.MoveBookmarkAsync(item.Id, place.ParentId, place.Index - 1, token),
-        UiText.Format("Moved {0} up.", item.Title),
-        item.Id)
-        : Task.CompletedTask;
+    private IObservable<RxVoid> MoveUp() => Place() is { } place && _owner.SelectedOutlineItem is { } item
+        ? Run(
+            (editor, token) => editor.MoveBookmarkAsync(item.Id, place.ParentId, place.Index - 1, token),
+            UiText.Format("Moved {0} up.", item.Title),
+            item.Id)
+        : Signal.Return(RxVoid.Default);
 
     /// <summary>Moves the selected bookmark below its next sibling.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the bookmark is moved or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canMoveDown))]
-    private Task MoveDownAsync() => Place() is { } place && _owner.SelectedOutlineItem is { } item
-        ? RunAsync(
-        (
-            editor,
-            token) => editor.MoveBookmarkAsync(item.Id, place.ParentId, place.Index + 1, token),
-        UiText.Format("Moved {0} down.", item.Title),
-        item.Id)
-        : Task.CompletedTask;
+    private IObservable<RxVoid> MoveDown() => Place() is { } place && _owner.SelectedOutlineItem is { } item
+        ? Run(
+            (editor, token) => editor.MoveBookmarkAsync(item.Id, place.ParentId, place.Index + 1, token),
+            UiText.Format("Moved {0} down.", item.Title),
+            item.Id)
+        : Signal.Return(RxVoid.Default);
 
     /// <summary>Makes the selected bookmark the last child of the bookmark above it.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the bookmark is moved or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canIndent))]
-    private Task IndentAsync() => Place() is { } place && _owner.SelectedOutlineItem is { } item
-        ? RunAsync(
-        (editor, token)
-        => editor.MoveBookmarkAsync(item.Id, place.PreviousId, Append, token),
-        UiText.Format("Moved {0} into the bookmark above.", item.Title),
-        item.Id)
-        : Task.CompletedTask;
+    private IObservable<RxVoid> Indent() => Place() is { } place && _owner.SelectedOutlineItem is { } item
+        ? Run(
+            (editor, token) => editor.MoveBookmarkAsync(item.Id, place.PreviousId, Append, token),
+            UiText.Format("Moved {0} into the bookmark above.", item.Title),
+            item.Id)
+        : Signal.Return(RxVoid.Default);
 
     /// <summary>Moves the selected bookmark out of its parent, to just after the parent.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the bookmark is moved or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canOutdent))]
-    private Task OutdentAsync() => Place() is { } place && _owner.SelectedOutlineItem is { } item
-        ? RunAsync(
-        (
-            editor,
-            token) => editor.MoveBookmarkAsync(item.Id, place.GrandParentId, place.ParentIndex + 1, token),
-        UiText.Format("Moved {0} out of its parent.", item.Title),
-        item.Id)
-        : Task.CompletedTask;
+    private IObservable<RxVoid> Outdent() => Place() is { } place && _owner.SelectedOutlineItem is { } item
+        ? Run(
+            (editor, token) => editor.MoveBookmarkAsync(item.Id, place.GrandParentId, place.ParentIndex + 1, token),
+            UiText.Format("Moved {0} out of its parent.", item.Title),
+            item.Id)
+        : Signal.Return(RxVoid.Default);
 
     /// <summary>Gets the selected bookmark's place in the tree.</summary>
     /// <returns>The place, or <see langword="null"/> when nothing is selected.</returns>
     private OutlinePlace? Place() => _owner.SelectedOutlineItem is { } item ? Locate(_owner.Outline, 0, 0, 0, item.Id) : null;
 
+    /// <summary>Asks for a title and, when one is typed, runs the edit it asks for.</summary>
+    /// <param name="prompt">The question.</param>
+    /// <param name="edit">Makes the edit from the title typed.</param>
+    /// <returns>A cold signal that ends once the edit is made or the question was given up.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Ask(TextPrompt prompt, Func<string, IObservable<RxVoid>> edit) =>
+        PromptInteraction.Handle(prompt).ToSignal()
+            .SwitchMap(title => string.IsNullOrWhiteSpace(title) ? Signal.Return(RxVoid.Default) : edit(title));
+
     /// <summary>Runs one edit, then lists the bookmarks again and says what happened.</summary>
     /// <param name="edit">The edit.</param>
     /// <param name="done">What to say when it worked.</param>
     /// <param name="selectId">The bookmark to select afterwards, or 0 for none.</param>
-    /// <returns>A task.</returns>
-    private async Task RunAsync(Func<IOutlineEditor, CancellationToken, ValueTask<DocumentEditResult>> edit, string done, int selectId)
+    /// <returns>A cold signal that ends once the edit is shown.</returns>
+    private IObservable<RxVoid> Run(Func<IOutlineEditor, CancellationToken, ValueTask<DocumentEditResult>> edit, string done, int selectId) =>
+        DocumentFeature<IOutlineEditor>.Get(_owner.TryGetDocument()) is not { } editor
+            ? Signal.Return(RxVoid.Default)
+
+            // The outline editor is the PDF library's async API, so its call is the one task here.
+            : Signal.FromAsync(token => edit(editor, token).AsTask(), _lifetime)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Select(result => Edited(result, done, selectId))
+                .Catch<RxVoid, OperationCanceledException>(Stopped);
+
+    /// <summary>Lists the bookmarks again after an edit and says what happened.</summary>
+    /// <param name="result">What the library said.</param>
+    /// <param name="done">What to say when it worked.</param>
+    /// <param name="selectId">The bookmark to select afterwards, or 0 for none.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Edited(DocumentEditResult result, string done, int selectId)
     {
-        if (DocumentFeature<IOutlineEditor>.Get(_owner.TryGetDocument()) is not { } editor)
+        if (result.Succeeded)
         {
-            return;
+            ShowEdited(selectId);
+            _owner.Pages.Refresh();
+            EditVersion++;
         }
 
-        try
-        {
-            var result = await edit(editor, _lifetime).ConfigureAwait(true);
-            if (result.Succeeded)
-            {
-                ShowEdited(selectId);
-                _owner.Pages.Refresh();
-                EditVersion++;
-            }
-
-            Status = result.Succeeded ? done : result.Problem ?? UiText.Get("The bookmarks could not be changed.");
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-        }
+        Status = result.Succeeded ? done : result.Problem ?? UiText.Get("The bookmarks could not be changed.");
+        return RxVoid.Default;
     }
+
+    /// <summary>Gives up quietly when the tab closed, and fails otherwise.</summary>
+    /// <param name="error">The cancellation.</param>
+    /// <returns>A signal that ends at once, or fails with the same error.</returns>
+    private IObservable<RxVoid> Stopped(OperationCanceledException error) =>
+        _lifetime.IsCancellationRequested ? Signal.Return(RxVoid.Default) : Signal.Throw<RxVoid>(error);
 
     /// <summary>Lists the bookmarks again, keeping the same entries open and the entry with the given number selected.</summary>
     /// <param name="selectId">The object number of the entry to select, or 0 for none.</param>
