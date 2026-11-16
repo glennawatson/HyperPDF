@@ -14,21 +14,19 @@ public interface IPrintService
     bool IsAvailable { get; }
 
     /// <summary>Hands a PDF file to the desktop's own print dialog.</summary>
-    /// <param name="filePath">The PDF to print; it must stay on disk until the task completes.</param>
+    /// <param name="filePath">The PDF to print; it must stay on disk until the signal ends.</param>
     /// <param name="title">The job title, normally the document's file name.</param>
-    /// <param name="cancellationToken">Cancels waiting for the desktop.</param>
-    /// <returns><see langword="true"/> when the desktop accepted the file.</returns>
-    Task<bool> PrintAsync(string filePath, string title, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving <see langword="true"/> once when the desktop accepted the file; unsubscribing stops waiting for the desktop.</returns>
+    IObservable<bool> Print(string filePath, string title);
 
     /// <summary>Gets the printers that jobs can be sent to directly.</summary>
     /// <returns>The printers; empty when the print system is not available.</returns>
     IReadOnlyList<PrinterInfo> GetPrinters();
 
     /// <summary>Sends a PDF straight to a printer's queue.</summary>
-    /// <param name="filePath">The PDF; it may be deleted once the task completes.</param>
+    /// <param name="filePath">The PDF; it may be deleted once the signal ends.</param>
     /// <param name="title">The job title, normally the document's file name.</param>
     /// <param name="options">The printer and settings.</param>
-    /// <param name="cancellationToken">Cancels waiting for the print system.</param>
-    /// <returns>Whether the queue accepted the job.</returns>
-    Task<PrintOutcome> SubmitAsync(string filePath, string title, PrintJobOptions options, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving whether the queue accepted the job, once; unsubscribing stops waiting for the print system.</returns>
+    IObservable<PrintOutcome> Submit(string filePath, string title, PrintJobOptions options);
 }

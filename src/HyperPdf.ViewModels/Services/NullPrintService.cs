@@ -17,7 +17,7 @@ public sealed class NullPrintService : IPrintService
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<bool> PrintAsync(string filePath, string title, CancellationToken cancellationToken) => Task.FromResult(false);
+    public IObservable<bool> Print(string filePath, string title) => Signal.Return(false);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -25,6 +25,6 @@ public sealed class NullPrintService : IPrintService
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<PrintOutcome> SubmitAsync(string filePath, string title, PrintJobOptions options, CancellationToken cancellationToken) =>
-        Task.FromResult(new PrintOutcome(false, UiText.Get("Printing is not available on this desktop.")));
+    public IObservable<PrintOutcome> Submit(string filePath, string title, PrintJobOptions options) =>
+        Signal.Return(new PrintOutcome(false, UiText.Get("Printing is not available on this desktop.")));
 }

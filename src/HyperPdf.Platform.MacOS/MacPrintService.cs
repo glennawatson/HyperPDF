@@ -6,6 +6,8 @@ using System.Diagnostics;
 using HyperPdf.Core.Platform;
 using HyperPdf.Platform.Cups;
 using HyperPdf.Platform.MacOS.Compat;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Platform.MacOS;
 
@@ -38,17 +40,17 @@ public sealed class MacPrintService : IPrintService
 
     /// <inheritdoc/>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    public Task<PrintOutcome> SubmitAsync(string filePath, string title, PrintJobOptions options, CancellationToken cancellationToken) =>
-        Task.Run(() => CupsPrinting.Submit(filePath, title, options), cancellationToken);
+    public IObservable<PrintOutcome> Submit(string filePath, string title, PrintJobOptions options) =>
+        Signal.Start(() => CupsPrinting.Submit(filePath, title, options), TaskPoolSequencer.Default);
 
     /// <inheritdoc/>
-    public async Task<bool> PrintAsync(string filePath, string title, CancellationToken cancellationToken)
+    public IObservable<bool> Print(string filePath, string title)
     {
         var start = new ProcessStartInfo(ScriptRunner) { UseShellExecute = false };
         start.ArgumentList.Add("-e");
         start.ArgumentList.Add(BuildScript(filePath));
 
-        // Preview owns the dialog from here; the person prints or cancels there.
-        return await ProcessRuns.RunAsync(start, cancellationToken).ConfigureAwait(false);
+        // Preview owns the dialog from here; the person prints or cancels there. Running the program is the operating system's async I/O, so that call is the one task here.
+        return Signal.FromAsync(token => ProcessRuns.RunAsync(start, token));
     }
 }

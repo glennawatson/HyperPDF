@@ -9,7 +9,6 @@ public interface IFileManagerLauncher
 {
     /// <summary>Opens the folder containing a file with the file selected.</summary>
     /// <param name="filePath">The file.</param>
-    /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns><see langword="true"/> when the file manager accepted the request.</returns>
-    Task<bool> ShowItemAsync(string filePath, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving <see langword="true"/> once when the file manager accepted the request; unsubscribing cancels the request.</returns>
+    IObservable<bool> ShowItem(string filePath);
 }

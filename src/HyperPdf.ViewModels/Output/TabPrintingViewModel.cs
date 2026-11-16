@@ -160,8 +160,7 @@ public sealed partial class TabPrintingViewModel : ReactiveObject, ILocalisation
     /// <returns>A cold signal giving <see langword="true"/> when the printer took the job.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<bool> Submit(string file, string label, PrintJobOptions job) =>
-        // The print service is the platform's async API (CUPS or the Windows spooler), so its call is the one task here.
-        Signal.FromAsync(token => _owner.Services.Platform.Printer.SubmitAsync(file, _owner.FileName, job, token))
+        _owner.Services.Platform.Printer.Submit(file, _owner.FileName, job)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(outcome => Sent(outcome, label));
 
@@ -218,8 +217,7 @@ public sealed partial class TabPrintingViewModel : ReactiveObject, ILocalisation
     /// <returns>A cold signal giving <see langword="true"/> when the dialog was opened.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<bool> OpenDialog(string file) =>
-        // The print dialog is the platform's async API, so its call is the one task here.
-        Signal.FromAsync(token => _owner.Services.Platform.Printer.PrintAsync(file, _owner.FileName, token))
+        _owner.Services.Platform.Printer.Print(file, _owner.FileName)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(DialogOpened);
 

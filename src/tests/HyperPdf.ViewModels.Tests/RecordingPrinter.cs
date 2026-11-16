@@ -7,6 +7,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Platform;
 using HyperPdf.Engine;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -53,20 +54,22 @@ internal sealed class RecordingPrinter : IPrintService
     public IReadOnlyList<PrinterInfo> GetPrinters() => [new(PrinterQueue, PrinterName, true)];
 
     /// <inheritdoc/>
-    public Task<bool> PrintAsync(string filePath, string title, CancellationToken cancellationToken)
-    {
-        UsedDialog = true;
-        Inspect(filePath, title);
-        return Task.FromResult(true);
-    }
+    public IObservable<bool> Print(string filePath, string title) =>
+        Signal.Defer(() =>
+        {
+            UsedDialog = true;
+            Inspect(filePath, title);
+            return Signal.Return(true);
+        });
 
     /// <inheritdoc/>
-    public Task<PrintOutcome> SubmitAsync(string filePath, string title, PrintJobOptions options, CancellationToken cancellationToken)
-    {
-        Options = options;
-        Inspect(filePath, title);
-        return Task.FromResult(new PrintOutcome(true, string.Empty));
-    }
+    public IObservable<PrintOutcome> Submit(string filePath, string title, PrintJobOptions options) =>
+        Signal.Defer(() =>
+        {
+            Options = options;
+            Inspect(filePath, title);
+            return Signal.Return(new PrintOutcome(true, string.Empty));
+        });
 
     /// <summary>Opens the file handed over and records what is in it.</summary>
     /// <param name="filePath">The file.</param>

@@ -827,9 +827,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     private IObservable<RxVoid> ShowInFolder() =>
         SelectedTab is not { } tab
             ? Signal.Return(RxVoid.Default)
-
-            // The file manager launcher is the platform's async API, so its call is the one task here.
-            : Signal.FromAsync(token => _services.FileManager.ShowItemAsync(tab.FilePath, token))
+            : _services.FileManager.ShowItem(tab.FilePath)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Select(ShowedInFolder);
 

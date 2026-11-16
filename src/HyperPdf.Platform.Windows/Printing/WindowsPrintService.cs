@@ -10,6 +10,8 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Printing;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Platform.Windows.Printing;
 
@@ -173,34 +175,32 @@ public sealed class WindowsPrintService : IPrintService
     }
 
     /// <inheritdoc/>
-    public async Task<PrintOutcome> SubmitAsync(string filePath, string title, PrintJobOptions options, CancellationToken cancellationToken)
+    public IObservable<PrintOutcome> Submit(string filePath, string title, PrintJobOptions options)
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(title);
-        return await Task.Run(() => SubmitJobAsync(filePath, title, options, cancellationToken), cancellationToken).ConfigureAwait(false);
+
+        // Drawing the pages uses the PDF library's async API and the spooler, so the job is the one task here.
+        return Signal.FromAsync(token => Task.Run(() => SubmitJobAsync(filePath, title, options, token), token));
     }
 
     /// <inheritdoc/>
-    /// <remarks>Shows the Windows print dialog on the calling (UI) thread, then prints on a background thread.</remarks>
-    public async Task<bool> PrintAsync(string filePath, string title, CancellationToken cancellationToken)
+    /// <remarks>Shows the Windows print dialog on the subscribing (UI) thread, then prints on a background thread.</remarks>
+    public IObservable<bool> Print(string filePath, string title)
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(title);
-        var deviceContext = ShowDialog();
-        if (deviceContext == 0)
+        return Signal.Defer(() =>
         {
-            return false;
-        }
+            var deviceContext = ShowDialog();
+            return deviceContext == 0
+                ? Signal.Return(false)
 
-        try
-        {
-            var outcome = await Task.Run(() => PrintDocumentAsync(deviceContext, filePath, title, false, cancellationToken), cancellationToken).ConfigureAwait(false);
-            return outcome.Sent;
-        }
-        finally
-        {
-            DeleteDeviceContext(deviceContext);
-        }
+                // Drawing the pages uses the PDF library's async API and the spooler, so the job is the one task here.
+                : Signal.FromAsync(token => Task.Run(() => PrintDocumentAsync(deviceContext, filePath, title, false, token), token))
+                    .Select(static outcome => outcome.Sent)
+                    .Finally(() => DeleteDeviceContext(deviceContext));
+        });
     }
 
     /// <summary>Gets the DEVMODE paper value for a paper size.</summary>
