@@ -244,7 +244,7 @@ public sealed class NeighbourPagePreparer : IDisposable
         }
 
         var token = attempt.Token;
-        return document.PreparePage(info.PageIndex, token)
+        return document.PreparePage(info.PageIndex).ThrowWhenCancelled(token)
             .Do(prepared =>
             {
                 _ = document.PrepareAhead(info, token);

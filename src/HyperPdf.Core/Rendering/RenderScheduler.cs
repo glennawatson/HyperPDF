@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Documents;
+using HyperPdf.Core.Reactive;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Signals;
@@ -372,22 +373,6 @@ public sealed class RenderScheduler : IDisposable
     private static bool IsRecoverable(Exception exception) =>
         exception is not (OutOfMemoryException or AccessViolationException);
 
-    /// <summary>Reports synchronous preparation failures through the returned task.</summary>
-    /// <param name="request">The page request.</param>
-    /// <param name="cancellationToken">Cancels preparation.</param>
-    /// <returns>The preparation task.</returns>
-    private static ValueTask Prepare(in RenderRequest request, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return request.Document.PreparePageAsync(request.Info.PageIndex, cancellationToken);
-        }
-        catch (Exception exception) when (IsRecoverable(exception))
-        {
-            return ValueTask.FromException(exception);
-        }
-    }
-
     /// <summary>Applies the change of a pending tile's latest priority to the count of visible tiles; call with the gate held.</summary>
     /// <param name="before">The priority before the change, or <see langword="null"/> when the tile was not pending.</param>
     /// <param name="after">The priority after the change, or <see langword="null"/> when the tile is no longer pending.</param>
@@ -563,11 +548,8 @@ public sealed class RenderScheduler : IDisposable
                     continue;
                 }
 
-                var prepare = Prepare(request, WorkToken(request));
-                if (!prepare.IsCompletedSuccessfully)
+                if (!PreparedAtOnce(request, epoch, token))
                 {
-                    // The wait ends by itself, or when the scheduler stops, so nothing needs to hold the subscription.
-                    _ = PrepareAndRequeue(prepare, request, epoch, token).SubscribeSafe(static _ => { }, static error => AppLog.Error(error, "Page preparation ended with an unexpected failure."));
                     continue;
                 }
 
@@ -604,44 +586,53 @@ public sealed class RenderScheduler : IDisposable
     private bool IsInvalidated(in TileKey key, long epoch) =>
         _invalidated.TryGetValue(key.DocumentId, out var changed) && epoch < changed;
 
-    /// <summary>Waits for external resources without occupying the render thread, then requeues the latest tile.</summary>
-    /// <param name="prepare">The resource preparation.</param>
-    /// <param name="request">The request waiting for resources.</param>
+    /// <summary>Prepares the request's page without occupying the render thread when the page has to wait for external resources.</summary>
+    /// <param name="request">The request.</param>
     /// <param name="epoch">The invalidation epoch the preparation started under.</param>
     /// <param name="shutdown">Ends the wait when the scheduler stops.</param>
-    /// <returns>A cold signal that ends when the request is requeued or dropped; unsubscribing stops waiting.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<RxVoid> PrepareAndRequeue(ValueTask prepare, in RenderRequest request, long epoch, CancellationToken shutdown)
+    /// <returns>
+    /// <see langword="true"/> when the page was ready as the subscription was made and the tile can be drawn now; otherwise the
+    /// request is requeued once the page is ready, or dropped when it fails or is cancelled.
+    /// </returns>
+    private bool PreparedAtOnce(in RenderRequest request, long epoch, CancellationToken shutdown)
     {
         // A request cannot be captured by reference, so what the wait needs is taken from it here.
         var key = request.Key;
         var requestToken = request.CancellationToken;
+        var document = request.Document;
+        var pageIndex = request.Info.PageIndex;
+        var wait = new PreparationWait();
 
-        // Preparing a page is the PDF library's own async call, which is the one task here.
-        return Signal.FromAsync(
-                async () =>
-                {
-                    await prepare.ConfigureAwait(false);
-                    return RxVoid.Default;
-                })
-            .Select(_ => Requeue(key, epoch, requestToken))
+        // The wait ends by itself, when its work is cancelled, or when the scheduler stops, so nothing needs to hold the subscription.
+        // The wait object and the pipeline are allocated per tile that is prepared; this runs on the render thread, not the frame path.
+        _ = Signal.Defer(() => document.PreparePage(pageIndex))
+            .ThrowWhenCancelled(WorkToken(request))
             .Catch<RxVoid, Exception>(exception => PreparationFailed(exception, key, epoch))
-            .TakeUntil(shutdown);
+            .TakeUntil(shutdown)
+            .SubscribeSafe(
+                _ =>
+                {
+                    if (wait.ArrivedAfterReturn())
+                    {
+                        Requeue(key, epoch, requestToken);
+                    }
+                },
+                static error => AppLog.Error(error, "Page preparation ended with an unexpected failure."));
+        return wait.ReadyBeforeReturn();
     }
 
     /// <summary>Puts a request whose page is now prepared back in the queue, when it is still wanted.</summary>
     /// <param name="key">The tile of the request that waited.</param>
     /// <param name="epoch">The invalidation epoch the preparation started under.</param>
     /// <param name="requestToken">Cancels the request.</param>
-    /// <returns>The completion value.</returns>
-    private RxVoid Requeue(TileKey key, long epoch, CancellationToken requestToken)
+    private void Requeue(TileKey key, long epoch, CancellationToken requestToken)
     {
         lock (_gate)
         {
             if (Volatile.Read(ref _disposed) != 0 || requestToken.IsCancellationRequested
                 || !_pending.TryGetValue(key, out var pending) || IsInvalidated(key, epoch))
             {
-                return RxVoid.Default;
+                return;
             }
 
             var sequence = _sequence;
@@ -651,8 +642,6 @@ public sealed class RenderScheduler : IDisposable
             _queue.Enqueue(new(key, stamp));
             _ = _signal.Release();
         }
-
-        return RxVoid.Default;
     }
 
     /// <summary>Drops a request whose page could not be prepared, unless the failure means the process is failing.</summary>

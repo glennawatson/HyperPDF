@@ -51,7 +51,7 @@ public sealed class HyperPdfExternalRewriteTests
             await Assert.That(source.Read(1, new byte[ReadLength])).IsEqualTo(0);
             await File.WriteAllBytesAsync(path, TestPdf.Create(ReplacementPages), CancellationToken.None);
             using var replacement = await engine.Load(path, null).ToTask();
-            await replacement.PreparePageAsync(ReplacementPages - 1, CancellationToken.None);
+            await replacement.PreparePage(ReplacementPages - 1).ToTask();
             await Assert.That(replacement.PageCount).IsEqualTo(ReplacementPages);
         }
         finally

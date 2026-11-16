@@ -12,6 +12,7 @@ using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Signatures;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Rendering;
+using ReactiveUI.Primitives;
 namespace HyperPdf.Engine;
 
 /// <summary>
@@ -253,10 +254,7 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask PreparePageAsync(int pageIndex, CancellationToken cancellationToken) => HyperPdfRendering.PreparePageAsync(
-            this,
-            pageIndex,
-            cancellationToken);
+    public IObservable<RxVoid> PreparePage(int pageIndex) => HyperPdfRendering.PreparePage(this, pageIndex);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -279,7 +277,7 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<bool> PrepareAsync(PageRenderInfo info, CancellationToken cancellationToken) => HyperPdfRendering.PrepareAsync(this, info, cancellationToken);
+    public IObservable<bool> PrepareWhenReady(PageRenderInfo info) => HyperPdfRendering.PrepareWhenReady(this, info);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -6,6 +6,9 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Search;
 using HyperPdf.Core.Tests.Fakes;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Extensions;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Tests.Search;
 
@@ -91,7 +94,7 @@ public sealed class DocumentSearchTests
     public async Task ParallelSearchMatchesSequentialSearch(string query, SearchOptions options, int startPage)
     {
         var document = CreateTextDocument(ManyPages);
-        document.Preparation = static async (page, token) => await Task.Delay(page % DelayModulo, token).ConfigureAwait(false);
+        document.Preparation = static page => Signal.Timer(TimeSpan.FromMilliseconds(page % DelayModulo), TaskPoolSequencer.Default).AsSignal();
 
         var expected = new List<string>();
         var clamped = Math.Clamp(startPage, 0, document.PageCount - 1);
@@ -122,7 +125,7 @@ public sealed class DocumentSearchTests
         const int delayStep = 2;
         var document = new FakeDocument(FilePath, [.. Enumerable.Repeat(FakeEngine.A4, pages)])
         {
-            Preparation = static async (page, token) => await Task.Delay((pages - page) * delayStep, token).ConfigureAwait(false),
+            Preparation = static page => Signal.Timer(TimeSpan.FromMilliseconds((pages - page) * delayStep), TaskPoolSequencer.Default).AsSignal(),
         };
         var seen = new List<int>();
 
@@ -226,18 +229,14 @@ public sealed class DocumentSearchTests
     private static FakeDocument CreateBlockedDocument(PreparationCounters counters) =>
         new(FilePath, [.. Enumerable.Repeat(FakeEngine.A4, LongDocumentPages)])
         {
-            Preparation = async (page, token) =>
+            Preparation = page => Signal.Defer(() =>
             {
                 counters.Begin();
-                try
-                {
-                    await Task.Delay(page == 0 ? 1 : Timeout.Infinite, token).ConfigureAwait(false);
-                }
-                finally
-                {
-                    counters.End();
-                }
-            },
+                var work = page == 0
+                    ? Signal.Timer(TimeSpan.FromMilliseconds(1), TaskPoolSequencer.Default).AsSignal()
+                    : Signal.Never<RxVoid>();
+                return work.Finally(counters.End);
+            }),
         };
 
     /// <summary>Gets the text of one page in the differential document.</summary>

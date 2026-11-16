@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Ocr;
+using HyperPdf.Core.Reactive;
 using HyperPdf.Http.Ocr;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -511,7 +512,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         ProgressText = UiText.Format("Recognising text: page {0} of {1}", index + 1, pageCount);
         var check = state.CheckFirst;
 
-        return document.PreparePage(index, cancellation)
+        return document.PreparePage(index).ThrowWhenCancelled(cancellation)
             .SwitchMap(_ => Signal.Start(() => RecognizeOne(document, writer, engine, index, state.Words, check, cancellation), TaskPoolSequencer.Default))
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(result => PageDone(state, result, index));

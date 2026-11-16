@@ -6,6 +6,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Rendering;
+using ReactiveUI.Primitives;
 using SkiaSharp;
 
 namespace HyperPdf.Engine.Tests;
@@ -28,7 +29,7 @@ public sealed class HyperPdfGpuRendererTests
         var layout = new SKImageInfo(Edge, Edge, SKColorType.Bgra8888, SKAlphaType.Premul);
         using var target = new SkiaSurfaceRenderTarget(SKSurface.Create(layout), layout);
 
-        var prepared = await renderer.PrepareAsync(info, cancellationToken);
+        var prepared = await renderer.PrepareWhenReady(info).ToTask(cancellationToken);
         var drawn = renderer.Render(info, target);
         using var snapshot = target.Snapshot();
 

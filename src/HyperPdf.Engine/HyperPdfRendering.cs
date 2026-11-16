@@ -7,11 +7,17 @@ using HyperPdf.Core.Documents;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Rendering;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
+
 namespace HyperPdf.Engine;
 
 /// <summary>Implements Rendering over the document's owned state.</summary>
 internal static class HyperPdfRendering
 {
+    /// <summary>The finished result of a preparation that had nothing to wait for, so that case allocates nothing.</summary>
+    private static readonly Task<RxVoid> Prepared = Task.FromResult(RxVoid.Default);
+
     /// <summary>Gets Renderer.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The current value.</returns>
@@ -45,6 +51,16 @@ internal static class HyperPdfRendering
             ? PdfDocumentPages.PrefetchPageAsync(self.Document, page, cancellationToken)
             : ValueTask.CompletedTask;
     }
+
+    /// <summary>Loads external page resources once subscribed; the library's own async call is awaited here, at its boundary.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <returns>A cold signal giving one value when the resources are ready; unsubscribing cancels the resource I/O.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IObservable<RxVoid> PreparePage(HyperPdfDocument self, int pageIndex) =>
+        Signal.Defer(() => PageToPrepare(self, pageIndex) is { } page
+            ? Signal.FromAsync(token => PrefetchAsync(self, page, token))
+            : Signal.Return(RxVoid.Default));
 
     /// <summary>Renders part of a page into a pixel buffer. The buffer is filled with white first.</summary>
     /// <param name="self">The owning document.</param>
@@ -108,13 +124,10 @@ internal static class HyperPdfRendering
     /// <summary>Loads external page resources, then records the requested content.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="info">The page and flags.</param>
-    /// <param name="cancellationToken">Cancels loading and recording.</param>
-    /// <returns>Whether the page was recorded.</returns>
-    internal static async ValueTask<bool> PrepareAsync(HyperPdfDocument self, PageRenderInfo info, CancellationToken cancellationToken)
-    {
-        await PreparePageAsync(self, info.PageIndex, cancellationToken).ConfigureAwait(false);
-        return Prepare(self, info, cancellationToken);
-    }
+    /// <returns>A cold signal giving whether the page was recorded; unsubscribing cancels the loading, so nothing is recorded.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IObservable<bool> PrepareWhenReady(HyperPdfDocument self, PageRenderInfo info) =>
+        PreparePage(self, info.PageIndex).Select(_ => Prepare(self, info, CancellationToken.None));
 
     /// <summary>Replays a page on the graphics thread into a caller-owned target.</summary>
     /// <param name="self">The owning document.</param>
@@ -184,4 +197,24 @@ internal static class HyperPdfRendering
     /// <returns>The engine request.</returns>
     private static PdfTileRequest ToRequest(in PageRenderInfo info) =>
         new(info.PageIndex, info.Scale, (int)info.Rotation, info.OffsetX, info.OffsetY, ToLibraryFlags(info.Flags));
+
+    /// <summary>Loads a page's external resources, finishing without allocating when the library had nothing to wait for.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="page">The captured page.</param>
+    /// <param name="cancellationToken">Cancels resource I/O.</param>
+    /// <returns>A task completing when the resources are ready.</returns>
+    private static Task<RxVoid> PrefetchAsync(HyperPdfDocument self, PdfPage page, CancellationToken cancellationToken)
+    {
+        var load = PdfDocumentPages.PrefetchPageAsync(self.Document, page, cancellationToken);
+        return load.IsCompletedSuccessfully ? Prepared : Awaited(load);
+    }
+
+    /// <summary>Waits for a load the library did not finish at once.</summary>
+    /// <param name="load">The load.</param>
+    /// <returns>A task completing with the load.</returns>
+    private static async Task<RxVoid> Awaited(ValueTask load)
+    {
+        await load.ConfigureAwait(false);
+        return RxVoid.Default;
+    }
 }

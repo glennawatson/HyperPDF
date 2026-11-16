@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Geometry;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Documents;
 
@@ -51,13 +53,12 @@ public interface IDocument : IDisposable
 
     /// <summary>Loads external page resources before rendering or reading text.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
-    /// <param name="cancellationToken">Cancels resource I/O.</param>
-    /// <returns>A task completing when page resources are ready.</returns>
-    ValueTask PreparePageAsync(int pageIndex, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+    /// <returns>A cold signal giving one value once the page resources are ready, at once when they already are; unsubscribing cancels the resource I/O.</returns>
+    IObservable<RxVoid> PreparePage(int pageIndex) => Signal.Return(RxVoid.Default);
 
     /// <summary>
     /// Records a page the reader is likely to turn to, without drawing any pixels, and keeps it out of the way of the pages on
-    /// screen: if the picture memory runs out, the prepared page is the first to go. Call <see cref="PreparePageAsync"/> first.
+    /// screen: if the picture memory runs out, the prepared page is the first to go. Call <see cref="PreparePage"/> first.
     /// </summary>
     /// <param name="info">The page, scale, rotation and flags the page is likely to be drawn with.</param>
     /// <param name="cancellationToken">Cancels recording.</param>
