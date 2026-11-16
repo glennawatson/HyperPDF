@@ -28,7 +28,7 @@
     <PackageVersion Include="Tmds.DBus.Protocol" Version="0.95.2" />
     <PackageVersion Include="SkiaSharp" Version="$(SkiaVersion)" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="$(SkiaVersion)" />
-    <PackageVersion Include="Refit" Version="16.4.0" />
+    <PackageVersion Include="Refit" Version="17.0.0" />
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.32.0" />
   </ItemGroup>
 
