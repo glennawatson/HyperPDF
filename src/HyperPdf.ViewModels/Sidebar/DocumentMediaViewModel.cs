@@ -121,16 +121,10 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
     /// <param name="media">The media.</param>
     /// <param name="path">Where to save it.</param>
     /// <returns><see langword="true"/> when saved.</returns>
-    public async Task<bool> SaveToAsync(DocumentMedia media, string path)
+    public IObservable<bool> SaveTo(DocumentMedia media, string path)
     {
         ArgumentNullException.ThrowIfNull(media);
-        var saved = await WriteAsync(media, path).ConfigureAwait(true);
-        if (saved)
-        {
-            _owner.SetNotice(LocalizedMessage.Format(UiText, "Saved {0}.", media.FileName));
-        }
-
-        return saved;
+        return Write(media, path).Do(saved => Saved(media, saved));
     }
 
     /// <summary>
@@ -138,11 +132,11 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
     /// confirms, and a program or script is never started.
     /// </summary>
     /// <param name="media">The media.</param>
-    /// <returns><see langword="true"/> when the file was handed to the system.</returns>
-    public async Task<bool> OpenAsync(DocumentMedia media)
+    /// <returns>A cold signal that emits <see langword="true"/> when the file was handed to the system, then completes.</returns>
+    public IObservable<bool> Open(DocumentMedia media)
     {
         ArgumentNullException.ThrowIfNull(media);
-        return await ExtractAsync(media).ConfigureAwait(true) is { } path && await _owner.Links.OpenFileAsync(path, 0).ConfigureAwait(true);
+        return Extract(media).SwitchMap(path => path is null ? Signal.Return(false) : _owner.Links.OpenFile(path, 0));
     }
 
     /// <summary>Releases the player and its temporary file.</summary>
@@ -158,8 +152,8 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
 
     /// <summary>Writes a piece of media to a new temporary file.</summary>
     /// <param name="media">The media.</param>
-    /// <returns>The full path of the file, or <see langword="null"/> when it could not be written; the notice says why.</returns>
-    internal async Task<string?> ExtractAsync(DocumentMedia media)
+    /// <returns>A cold signal giving the full path of the file, or <see langword="null"/> when it could not be written; the notice says why.</returns>
+    internal IObservable<string?> Extract(DocumentMedia media)
     {
         // Each extraction gets its own folder, so files with the same name never replace one another.
         var folder = Path.Combine(Path.GetTempPath(), TempFolderName, Guid.NewGuid().ToString("N"));
@@ -170,16 +164,16 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
         catch (IOException ex)
         {
             _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not open {0}: {1}", media.FileName, ex.Message));
-            return null;
+            return Signal.Return<string?>(null);
         }
         catch (UnauthorizedAccessException ex)
         {
             _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not open {0}: {1}", media.FileName, ex.Message));
-            return null;
+            return Signal.Return<string?>(null);
         }
 
         var path = Path.Combine(folder, media.FileName);
-        return await WriteAsync(media, path).ConfigureAwait(true) ? path : null;
+        return Write(media, path).Select(written => written ? path : null);
     }
 
     /// <summary>Writes media into a new file.</summary>
@@ -196,70 +190,74 @@ public sealed partial class DocumentMediaViewModel : ReactiveObject, IDisposable
     /// <summary>Writes media to a path, saying what went wrong when it cannot.</summary>
     /// <param name="media">The media.</param>
     /// <param name="path">Where to write it.</param>
-    /// <returns><see langword="true"/> when written.</returns>
-    private async Task<bool> WriteAsync(DocumentMedia media, string path)
+    /// <returns>A cold signal that extracts on the pool, so a large clip does not freeze the window, and emits <see langword="true"/> when written.</returns>
+    private IObservable<bool> Write(DocumentMedia media, string path)
     {
         if (DocumentFeature<IDocumentMediaSource>.Get(_owner.TryGetDocument()) is not { } source)
         {
-            return false;
+            return Signal.Return(false);
         }
 
-        try
+        var index = media.Index;
+        return Signal.Start(() => WriteFile(source, index, path), TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Do(written => Read(media, written))
+            .Catch<bool, Exception>(error => Failed(media, error));
+    }
+
+    /// <summary>Says the media could not be read from the document when it was not written.</summary>
+    /// <param name="media">The media.</param>
+    /// <param name="written">Whether it was written.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void Read(DocumentMedia media, bool written) =>
+        _owner.SetNotice(written ? LocalizedMessage.Literal(_owner.Notice) : LocalizedMessage.Format(UiText, "Could not read {0} from the document.", media.FileName));
+
+    /// <summary>Says the media was saved, when it was.</summary>
+    /// <param name="media">The media.</param>
+    /// <param name="saved">Whether it was saved.</param>
+    private void Saved(DocumentMedia media, bool saved)
+    {
+        if (saved)
         {
-            // Extracting and writing the file is synchronous, so it runs on the pool and a large clip does not freeze the window.
-            var index = media.Index;
-            var written = await Task.Run(() => WriteFile(source, index, path), _owner.LifetimeToken).ConfigureAwait(true);
-            _owner.SetNotice(written ? LocalizedMessage.Literal(_owner.Notice) : LocalizedMessage.Format(UiText, "Could not read {0} from the document.", media.FileName));
-            return written;
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Saved {0}.", media.FileName));
         }
-        catch (IOException ex)
+    }
+
+    /// <summary>Says why the media was not written, or passes on a failure that is not expected.</summary>
+    /// <param name="media">The media.</param>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal giving <see langword="false"/> for an expected failure, or failing with the same error.</returns>
+    private IObservable<bool> Failed(DocumentMedia media, Exception error)
+    {
+        var expected = error is IOException or UnauthorizedAccessException or InvalidOperationException;
+        if (expected)
         {
-            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: {1}", media.FileName, ex.Message));
-            return false;
+            _owner.SetNotice(error is InvalidOperationException
+                ? LocalizedMessage.Format(UiText, "Could not save {0}: the document was closed.", media.FileName)
+                : LocalizedMessage.Format(UiText, "Could not save {0}: {1}", media.FileName, error.Message));
         }
-        catch (UnauthorizedAccessException ex)
-        {
-            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: {1}", media.FileName, ex.Message));
-            return false;
-        }
-        catch (InvalidOperationException)
-        {
-            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: the document was closed.", media.FileName));
-            return false;
-        }
+
+        return expected ? Signal.Return(false) : Signal.Throw<bool>(error);
     }
 
     /// <summary>Shows the window where the selected media plays, and ends when the window is put away.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is put away.</returns>
     [ReactiveCommand(CanExecute = nameof(_canAct))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private async Task ShowPlayerAsync() => _ = await ShowPlayerInteraction.Handle(Player).ToTask().ConfigureAwait(true);
+    private IObservable<RxVoid> ShowPlayer() => ShowPlayerInteraction.Handle(Player).ToSignal();
 
     /// <summary>Hands the selected media to the system player, after the reader confirms.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the media was handed over or refused.</returns>
     [ReactiveCommand(CanExecute = nameof(_canAct))]
-    private async Task OpenSelectedAsync()
-    {
-        if (Selected is { } media)
-        {
-            _ = await OpenAsync(media).ConfigureAwait(true);
-        }
-    }
+    private IObservable<RxVoid> OpenSelected() =>
+        Selected is { } media ? Open(media).Select(static _ => RxVoid.Default) : Signal.Return(RxVoid.Default);
 
     /// <summary>Asks where to save the selected media, then saves it.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the media is saved or the choice is given up.</returns>
     [ReactiveCommand(CanExecute = nameof(_canAct))]
-    private async Task SaveAsync()
-    {
-        if (Selected is not { } media)
-        {
-            return;
-        }
-
-        var path = await SaveInteraction.Handle(media.FileName).ToTask().ConfigureAwait(true);
-        if (!string.IsNullOrEmpty(path))
-        {
-            _ = await SaveToAsync(media, path).ConfigureAwait(true);
-        }
-    }
+    private IObservable<RxVoid> Save() =>
+        Selected is not { } media
+            ? Signal.Return(RxVoid.Default)
+            : SaveInteraction.Handle(media.FileName).ToSignal()
+                .SwitchMap(path => string.IsNullOrEmpty(path) ? Signal.Return(RxVoid.Default) : SaveTo(media, path).Select(static _ => RxVoid.Default));
 }

@@ -165,22 +165,16 @@ public sealed partial class AttachmentsViewModel : ReactiveObject, ILocalisation
     /// <param name="attachment">The file.</param>
     /// <param name="path">Where to save it.</param>
     /// <returns><see langword="true"/> when saved.</returns>
-    public async Task<bool> SaveToAsync(DocumentAttachment attachment, string path)
+    public IObservable<bool> SaveTo(DocumentAttachment attachment, string path)
     {
         ArgumentNullException.ThrowIfNull(attachment);
-        var saved = await WriteAsync(attachment, path).ConfigureAwait(true);
-        if (saved)
-        {
-            _owner.SetNotice(LocalizedMessage.Format(UiText, "Saved {0}.", attachment.Name));
-        }
-
-        return saved;
+        return Write(attachment, path).Do(saved => Saved(attachment, saved));
     }
 
     /// <summary>Opens an embedded file: a PDF in a new tab, anything else with another app after asking.</summary>
     /// <param name="attachment">The file.</param>
-    /// <returns><see langword="true"/> when it opened.</returns>
-    public async Task<bool> OpenAsync(DocumentAttachment attachment)
+    /// <returns>A cold signal that emits <see langword="true"/> when it opened, then completes.</returns>
+    public IObservable<bool> Open(DocumentAttachment attachment)
     {
         ArgumentNullException.ThrowIfNull(attachment);
 
@@ -194,16 +188,16 @@ public sealed partial class AttachmentsViewModel : ReactiveObject, ILocalisation
         catch (IOException ex)
         {
             _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not open {0}: {1}", attachment.Name, ex.Message));
-            return false;
+            return Signal.Return(false);
         }
         catch (UnauthorizedAccessException ex)
         {
             _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not open {0}: {1}", attachment.Name, ex.Message));
-            return false;
+            return Signal.Return(false);
         }
 
         var path = Path.Combine(folder, name.Length > 0 ? name : UnnamedFile);
-        return await WriteAsync(attachment, path).ConfigureAwait(true) && await _owner.Links.OpenFileAsync(path, 0).ConfigureAwait(true);
+        return Write(attachment, path).SwitchMap(written => written ? _owner.Links.OpenFile(path, 0) : Signal.Return(false));
     }
 
     /// <inheritdoc/>
@@ -245,71 +239,72 @@ public sealed partial class AttachmentsViewModel : ReactiveObject, ILocalisation
     /// <summary>Writes an embedded file to a path, saying what went wrong when it cannot.</summary>
     /// <param name="attachment">The file.</param>
     /// <param name="path">Where to write it.</param>
-    /// <returns><see langword="true"/> when written.</returns>
-    private async Task<bool> WriteAsync(DocumentAttachment attachment, string path)
+    /// <returns>A cold signal that extracts on the pool, so a large attachment does not freeze the window, and emits <see langword="true"/> when written.</returns>
+    private IObservable<bool> Write(DocumentAttachment attachment, string path)
     {
-        if (DocumentFeature<IAttachmentSource>.Get(_owner.TryGetDocument()) is not
-            {
-            } source)
+        if (DocumentFeature<IAttachmentSource>.Get(_owner.TryGetDocument()) is not { } source)
         {
-            return false;
+            return Signal.Return(false);
         }
 
-        try
-        {
-            // Extracting and writing the file is synchronous, so it runs on the pool and a large attachment does not freeze the window.
-            var index = attachment.Index;
-            var written = await Task.Run(() => WriteFile(source, index, path), _owner.LifetimeToken).ConfigureAwait(true);
+        var index = attachment.Index;
+        return Signal.Start(() => WriteFile(source, index, path), TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Do(written => Read(attachment, written))
+            .Catch<bool, Exception>(error => Failed(attachment, error));
+    }
 
-            if (!written)
-            {
-                _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not read {0} from the document.", attachment.Name));
-            }
+    /// <summary>Says the file could not be read from the document when it was not written.</summary>
+    /// <param name="attachment">The file.</param>
+    /// <param name="written">Whether it was written.</param>
+    private void Read(DocumentAttachment attachment, bool written)
+    {
+        if (!written)
+        {
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not read {0} from the document.", attachment.Name));
+        }
+    }
 
-            return written;
-        }
-        catch (IOException ex)
+    /// <summary>Says the file was saved, when it was.</summary>
+    /// <param name="attachment">The file.</param>
+    /// <param name="saved">Whether it was saved.</param>
+    private void Saved(DocumentAttachment attachment, bool saved)
+    {
+        if (saved)
         {
-            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: {1}", attachment.Name, ex.Message));
-            return false;
+            _owner.SetNotice(LocalizedMessage.Format(UiText, "Saved {0}.", attachment.Name));
         }
-        catch (UnauthorizedAccessException ex)
+    }
+
+    /// <summary>Says why the file was not written, or passes on a failure that is not expected.</summary>
+    /// <param name="attachment">The file.</param>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal giving <see langword="false"/> for an expected failure, or failing with the same error.</returns>
+    private IObservable<bool> Failed(DocumentAttachment attachment, Exception error)
+    {
+        var expected = error is IOException or UnauthorizedAccessException or InvalidOperationException;
+        if (expected)
         {
-            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: {1}", attachment.Name, ex.Message));
-            return false;
+            _owner.SetNotice(error is InvalidOperationException
+                ? LocalizedMessage.Format(UiText, "Could not save {0}: the document was closed.", attachment.Name)
+                : LocalizedMessage.Format(UiText, "Could not save {0}: {1}", attachment.Name, error.Message));
         }
-        catch (InvalidOperationException)
-        {
-            _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not save {0}: the document was closed.", attachment.Name));
-            return false;
-        }
+
+        return expected ? Signal.Return(false) : Signal.Throw<bool>(error);
     }
 
     /// <summary>Opens the selected file.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the file opened or was refused.</returns>
     [ReactiveCommand(CanExecute = nameof(_canSave))]
-    private async Task OpenSelectedAsync()
-    {
-        if (Selected is { } attachment)
-        {
-            _ = await OpenAsync(attachment).ConfigureAwait(true);
-        }
-    }
+    private IObservable<RxVoid> OpenSelected() =>
+        Selected is { } attachment ? Open(attachment).Select(static _ => RxVoid.Default) : Signal.Return(RxVoid.Default);
 
     /// <summary>Asks where to save the selected file, then saves it.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the file is saved or the choice is given up.</returns>
     [ReactiveCommand(CanExecute = nameof(_canSave))]
-    private async Task SaveAsync()
-    {
-        if (Selected is not { } attachment)
-        {
-            return;
-        }
-
-        var path = await SaveInteraction.Handle(Path.GetFileName(attachment.Name)).ToTask().ConfigureAwait(true);
-        if (!string.IsNullOrEmpty(path))
-        {
-            _ = await SaveToAsync(attachment, path).ConfigureAwait(true);
-        }
-    }
+    private IObservable<RxVoid> Save() =>
+        Selected is not { } attachment
+            ? Signal.Return(RxVoid.Default)
+            : SaveInteraction.Handle(Path.GetFileName(attachment.Name)).ToSignal()
+                .SwitchMap(path => string.IsNullOrEmpty(path) ? Signal.Return(RxVoid.Default) : SaveTo(attachment, path).Select(static _ => RxVoid.Default));
 }

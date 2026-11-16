@@ -195,7 +195,7 @@ internal static class ChromeBindings
             rows.OfType<DocumentAttachment>()
                 .SwitchMap(file => chrome.PickFile(FolderOf(tab), Path.GetFileName(file.Name))
                     .KeepNotNull()
-                    .SwitchMap(path => Signal.FromAsync(() => tab.Attachments.SaveToAsync(file, path))))
+                    .SwitchMap(path => tab.Attachments.SaveTo(file, path)))
                 .SubscribeSafe(static _ => { }, ErrorTrace.Write),
 
             // Opening or closing a bookmark changes the rows without changing a view model property the panel follows.

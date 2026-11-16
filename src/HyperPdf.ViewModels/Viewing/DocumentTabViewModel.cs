@@ -525,7 +525,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     public TabCopyActionSet Copies => _copies ??= Owned(new TabCopyActionSet(this));
 
     /// <summary>Gets the links to other files: PDFs open in a tab, other files with the desktop's app after asking.</summary>
-    public TabFileLinks Links => _links ??= new(this);
+    public TabFileLinks Links => _links ??= Owned(new TabFileLinks(this));
 
     /// <summary>Gets the notices about content that cannot be shown and about a repaired file.</summary>
     public TabNoticesViewModel Notices { get; }
