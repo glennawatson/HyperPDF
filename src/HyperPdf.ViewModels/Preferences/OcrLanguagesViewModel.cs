@@ -198,14 +198,8 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
         SetStatusText(LocalizedMessage.Format(UiText, "Downloading {0}…", DescribePacks(packs)));
         var progress = new Progress<double>(fraction => DownloadProgress = fraction);
 
-        // The download is real network and file I/O in the OCR service, so its task is the one call here that is awaited.
-        return Signal.FromAsync(
-                async token =>
-                {
-                    await _services.Ocr.DownloadAsync(packs, progress, token).ConfigureAwait(false);
-                    return RxVoid.Default;
-                },
-                download.Token)
+        return _services.Ocr.Download(packs, progress)
+            .ThrowWhenCancelled(download.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Do(_ => SetStatusText(LocalizedMessage.Format(UiText, "{0} downloaded.", DescribePacks(packs))))
             .Catch<RxVoid, Exception>(DownloadFailed)

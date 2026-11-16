@@ -27,7 +27,7 @@ public sealed record OcrSetup(
     Func<bool> IsEngineInstalled,
     Func<string, string, string?> FindLanguageData,
     Func<string, string, IOcrEngine> CreateEngine,
-    Func<IReadOnlyList<OcrLanguagePack>, string, IProgress<double>, CancellationToken, Task> DownloadPacks) : IDisposable
+    Func<IReadOnlyList<OcrLanguagePack>, string, IProgress<double>, IObservable<RxVoid>> DownloadPacks) : IDisposable
 {
     /// <summary>The extension of a language data file.</summary>
     private const string DataExtension = ".traineddata";
@@ -59,7 +59,7 @@ public sealed record OcrSetup(
             static () => true,
             paths.FindDirectory,
             static (languages, directory) => new ManagedOcrEngine(languages, directory),
-            downloads.DownloadAsync) { Downloads = downloads, };
+            downloads.Download) { Downloads = downloads, };
     }
 
     /// <summary>Determines whether a pack is downloaded into the pack folder.</summary>
@@ -154,9 +154,8 @@ public sealed record OcrSetup(
     /// <summary>Downloads packs into the pack folder.</summary>
     /// <param name="packs">The packs.</param>
     /// <param name="progress">Receives the fraction done.</param>
-    /// <param name="cancellationToken">Cancels the download, keeping packs already finished.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A cold signal giving one value once the packs are in place; unsubscribing stops the download and keeps packs already finished.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task DownloadAsync(IReadOnlyList<OcrLanguagePack> packs, IProgress<double> progress, CancellationToken cancellationToken) =>
-        DownloadPacks(packs, LanguageDirectory, progress, cancellationToken);
+    public IObservable<RxVoid> Download(IReadOnlyList<OcrLanguagePack> packs, IProgress<double> progress) =>
+        DownloadPacks(packs, LanguageDirectory, progress);
 }

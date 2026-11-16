@@ -4,6 +4,7 @@
 
 using HyperPdf.Http.Speech;
 using HyperPdf.Speech.Kokoro;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Speech;
 
@@ -46,7 +47,7 @@ internal static class KokoroModelFixture
         await Gate.WaitAsync();
         try
         {
-            await downloader.DownloadAsync(KokoroModel.Files, Directory, new Progress<double>(), CancellationToken.None);
+            await downloader.Download(KokoroModel.Files, Directory, new Progress<double>()).ToTask();
         }
         finally
         {

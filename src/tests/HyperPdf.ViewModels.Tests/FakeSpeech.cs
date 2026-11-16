@@ -92,19 +92,20 @@ internal sealed class FakeSpeech : ISpeechEngine, IAudioOutput
     /// <param name="directory">The voice folder.</param>
     /// <returns>The setup.</returns>
     internal SpeechSetup CreateSetup(string directory) =>
-        new(directory, static _ => [], (_, _) => this, () => this, (_, progress, _) => DownloadAsync(progress));
+        new(directory, static _ => [], (_, _) => this, () => this, (_, progress) => Download(progress));
 
     /// <summary>Lets the clip being played finish.</summary>
     internal void Release() => _gate?.Release();
 
     /// <summary>Pretends to download the voice.</summary>
     /// <param name="progress">The progress.</param>
-    /// <returns>A task.</returns>
-    private Task DownloadAsync(IProgress<double> progress)
-    {
-        Downloads++;
-        progress.Report(1);
-        IsReady = true;
-        return Task.CompletedTask;
-    }
+    /// <returns>A cold signal that marks the voice ready when subscribed.</returns>
+    private IObservable<RxVoid> Download(IProgress<double> progress) =>
+        Signal.Defer(() =>
+        {
+            Downloads++;
+            progress.Report(1);
+            IsReady = true;
+            return Signal.Return(RxVoid.Default);
+        });
 }

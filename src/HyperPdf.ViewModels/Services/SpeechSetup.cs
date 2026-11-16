@@ -25,7 +25,7 @@ public sealed record SpeechSetup(
     Func<AppSettings, IReadOnlyList<SpeechModelFile>> VoiceFilesFor,
     Func<AppSettings, string, ISpeechEngine> CreateEngine,
     Func<IAudioOutput> CreateAudio,
-    Func<AppSettings, IProgress<double>, CancellationToken, Task> DownloadVoice) : IDisposable
+    Func<AppSettings, IProgress<double>, IObservable<RxVoid>> DownloadVoice) : IDisposable
 {
     /// <summary>Gets the default voice folder, <c>~/.local/share/hyperpdf/voices</c> on Linux.</summary>
     public static string DefaultVoiceDirectory { get; } =
@@ -45,7 +45,7 @@ public sealed record SpeechSetup(
             FilesFor,
             CreateEngineFor,
             platform.CreateAudioOutput,
-            (settings, progress, cancellationToken) => downloads.DownloadAsync(FilesFor(settings), DefaultVoiceDirectory, progress, cancellationToken))
+            (settings, progress) => downloads.Download(FilesFor(settings), DefaultVoiceDirectory, progress))
         { Downloads = downloads, };
     }
 

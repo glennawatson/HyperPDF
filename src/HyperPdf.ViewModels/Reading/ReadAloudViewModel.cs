@@ -1056,14 +1056,8 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         SetStatusText(LocalizedMessage.Get(UiText, "Downloading the voice…"));
         var progress = new Progress<double>(fraction => DownloadProgress = fraction);
 
-        // The download is real network and file I/O in the speech service, so its task is the one call here that is awaited.
-        return Signal.FromAsync(
-                async token =>
-                {
-                    await _services.Speech.DownloadVoice(_services.Settings, progress, token).ConfigureAwait(false);
-                    return RxVoid.Default;
-                },
-                work.Token)
+        return _services.Speech.DownloadVoice(_services.Settings, progress)
+            .ThrowWhenCancelled(work.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(_ => VoiceDownloaded())
             .Catch<RxVoid, Exception>(VoiceDownloadFailed)

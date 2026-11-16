@@ -5,6 +5,8 @@
 using System.Diagnostics;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Ocr;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -93,33 +95,33 @@ internal sealed class FakeOcr : IOcrEngine
         var bundled = Path.Combine(Path.GetDirectoryName(directory)!, "bundled");
         _ = Directory.CreateDirectory(bundled);
         File.WriteAllText(Path.Combine(bundled, "eng.traineddata"), "placeholder");
-        return new(directory, bundled, () => _engineInstalled, (languages, packs) => FindInFolders(languages, packs, bundled), CreateEngine, DownloadAsync);
+        return new(directory, bundled, () => _engineInstalled, (languages, packs) => FindInFolders(languages, packs, bundled), CreateEngine, Download);
     }
 
     /// <summary>Writes a placeholder of the right size and recorded hash for each pack, as a finished download would.</summary>
     /// <param name="packs">The packs.</param>
     /// <param name="directory">The pack folder.</param>
     /// <param name="progress">The progress.</param>
-    /// <param name="cancellationToken">Unused.</param>
-    /// <returns>A task.</returns>
-    internal Task DownloadAsync(IReadOnlyList<OcrLanguagePack> packs, string directory, IProgress<double> progress, CancellationToken cancellationToken)
-    {
-        Downloads++;
-        _ = Directory.CreateDirectory(directory);
-        foreach (var pack in packs)
+    /// <returns>A cold signal that writes the placeholders when subscribed.</returns>
+    internal IObservable<RxVoid> Download(IReadOnlyList<OcrLanguagePack> packs, string directory, IProgress<double> progress) =>
+        Signal.Defer(() =>
         {
-            var path = Path.Combine(directory, pack.FileName);
-            using (var file = File.Create(path))
+            Downloads++;
+            _ = Directory.CreateDirectory(directory);
+            foreach (var pack in packs)
             {
-                file.SetLength(pack.Bytes);
+                var path = Path.Combine(directory, pack.FileName);
+                using (var file = File.Create(path))
+                {
+                    file.SetLength(pack.Bytes);
+                }
+
+                File.WriteAllText($"{path}.sha256", pack.Sha256);
             }
 
-            File.WriteAllText($"{path}.sha256", pack.Sha256);
-        }
-
-        progress.Report(1);
-        return Task.CompletedTask;
-    }
+            progress.Report(1);
+            return Signal.Return(RxVoid.Default);
+        });
 
     /// <summary>Finds one folder holding every language: the pack folder first, then the shipped folder.</summary>
     /// <param name="languages">The language setting.</param>

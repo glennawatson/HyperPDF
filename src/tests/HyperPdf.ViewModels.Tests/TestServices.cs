@@ -93,7 +93,7 @@ internal sealed class TestServices : IDisposable
         Services = new(new SettingsStore(Path.Combine(Directory, "settings.json")), engine, platform, TestHeads.Create())
         {
             Speech = speech.CreateSetup(Directory),
-            Ocr = ocr?.CreateSetup(packs) ?? OcrSetup.CreateDefault() with { LanguageDirectory = packs, DownloadPacks = new FakeOcr(true).DownloadAsync },
+            Ocr = ocr?.CreateSetup(packs) ?? OcrSetup.CreateDefault() with { LanguageDirectory = packs, DownloadPacks = new FakeOcr(true).Download },
             CreateSpellChecker = static () => FakeSpellChecker.Instance,
         };
     }

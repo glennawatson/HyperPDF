@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Ocr;
 using HyperPdf.Http.Remote;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Http.Ocr;
 
@@ -82,15 +84,15 @@ public sealed class OcrLanguagePackDownloader : IDisposable
     /// <param name="packs">The packs wanted.</param>
     /// <param name="directory">The language pack folder.</param>
     /// <param name="progress">Receives the fraction done, 0 to 1.</param>
-    /// <param name="cancellationToken">Cancels the download, keeping packs already finished.</param>
-    /// <returns>A task.</returns>
-    /// <exception cref="HttpRequestException">Thrown when the server fails a request.</exception>
-    /// <exception cref="InvalidDataException">Thrown when a download does not match its SHA-256.</exception>
+    /// <returns>
+    /// A cold signal giving one value once every pack is in place; unsubscribing stops the download and keeps packs already finished. It fails
+    /// with <see cref="HttpRequestException"/> when the server fails a request and with <see cref="InvalidDataException"/> when a download does not match its SHA-256.
+    /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task DownloadAsync(IReadOnlyList<OcrLanguagePack> packs, string directory, IProgress<double> progress, CancellationToken cancellationToken)
+    public IObservable<RxVoid> Download(IReadOnlyList<OcrLanguagePack> packs, string directory, IProgress<double> progress)
     {
         ArgumentNullException.ThrowIfNull(progress);
-        return DownloadMissingAsync(null, packs, directory, progress, cancellationToken);
+        return DownloadMissing(null, packs, directory, progress);
     }
 
     /// <summary>Downloads the missing packs through a given client.</summary>
@@ -98,15 +100,12 @@ public sealed class OcrLanguagePackDownloader : IDisposable
     /// <param name="packs">The packs wanted.</param>
     /// <param name="directory">The language pack folder.</param>
     /// <param name="progress">Receives the fraction done, 0 to 1.</param>
-    /// <param name="cancellationToken">Cancels the download, keeping packs already finished.</param>
-    /// <returns>A task.</returns>
-    /// <exception cref="HttpRequestException">Thrown when the server fails a request.</exception>
-    /// <exception cref="InvalidDataException">Thrown when a download does not match its SHA-256.</exception>
-    public Task DownloadAsync(IRemoteDocumentApi api, IReadOnlyList<OcrLanguagePack> packs, string directory, IProgress<double> progress, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving one value once every pack is in place; unsubscribing stops the download and keeps packs already finished.</returns>
+    public IObservable<RxVoid> Download(IRemoteDocumentApi api, IReadOnlyList<OcrLanguagePack> packs, string directory, IProgress<double> progress)
     {
         ArgumentNullException.ThrowIfNull(api);
         ArgumentNullException.ThrowIfNull(progress);
-        return DownloadMissingAsync(api, packs, directory, progress, cancellationToken);
+        return DownloadMissing(api, packs, directory, progress);
     }
 
     /// <inheritdoc/>
@@ -121,42 +120,22 @@ public sealed class OcrLanguagePackDownloader : IDisposable
     /// <param name="packs">The packs wanted.</param>
     /// <param name="directory">The language pack folder.</param>
     /// <param name="progress">Receives the fraction done, 0 to 1.</param>
-    /// <param name="cancellationToken">Cancels the download.</param>
-    /// <returns>A task.</returns>
-    private async Task DownloadMissingAsync(
-        IRemoteDocumentApi? api,
-        IReadOnlyList<OcrLanguagePack> packs,
-        string directory,
-        IProgress<double> progress,
-        CancellationToken cancellationToken)
-    {
-        using var missing = FindMissing(packs, directory);
-        if (missing.Count == 0)
-        {
-            progress.Report(1D);
-            return;
-        }
-
-        var total = missing.Bytes;
-        var client = api ?? _clients.For(OcrLanguageCatalog.BaseAddress);
-        var done = 0L;
-        var buffer = ArrayPool<byte>.Shared.Rent(VerifiedDownload.BufferSize);
-        try
-        {
-            for (var i = 0; i < missing.Count; i++)
+    /// <returns>A cold signal giving one value once every pack is in place.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> DownloadMissing(IRemoteDocumentApi? api, IReadOnlyList<OcrLanguagePack> packs, string directory, IProgress<double> progress) =>
+        Signal.Using(
+            () => FindMissing(packs, directory),
+            missing =>
             {
-                var pack = missing.Items[i];
-                var file = _files.For(directory, pack.FileName);
-                done += await VerifiedDownload.DownloadAsync(client, pack.RequestPath, file, pack.Sha256, new(buffer, _hashes), new(progress, done, total), cancellationToken).ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
+                if (missing.Count == 0)
+                {
+                    progress.Report(1D);
+                    return Signal.Return(RxVoid.Default);
+                }
 
-        new DownloadProgress(progress, done, total).Complete();
-    }
+                var client = api ?? _clients.For(OcrLanguageCatalog.BaseAddress);
+                return DownloadSequence.Run(missing, progress, (pack, step) => VerifiedDownload.Download(client, pack.RequestPath, _files.For(directory, pack.FileName), pack.Sha256, _hashes, step));
+            });
 
     /// <summary>Snapshots missing packs without allocating a temporary list.</summary>
     /// <param name="packs">The chosen packs.</param>

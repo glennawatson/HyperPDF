@@ -328,14 +328,9 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         LanguageBarText = UiText.Format("Downloading {0}. It stays on this computer for next time.", OcrLanguagesViewModel.DescribePacks(packs));
         var progress = new Progress<double>(fraction => DownloadProgress = fraction);
 
-        // The download is real network and file I/O in the OCR service, so its task is the one call here that is awaited.
-        return Signal.FromAsync(
-                async token =>
-                {
-                    await _services.Ocr.DownloadAsync(packs, progress, token).ConfigureAwait(false);
-                    return true;
-                },
-                download.Token)
+        return _services.Ocr.Download(packs, progress)
+            .Select(static _ => true)
+            .ThrowWhenCancelled(download.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Catch<bool, Exception>(DownloadFailed)
             .Finally(() => EndDownload(download));

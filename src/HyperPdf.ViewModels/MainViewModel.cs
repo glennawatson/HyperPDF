@@ -687,8 +687,8 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     {
         SetStatusMessage(LocalizedMessage.Format(UiText, "Downloading {0}…", uri.Host));
 
-        // The download is real network I/O in the downloader, so its task is the one call here that is awaited.
-        return Signal.FromAsync(token => _services.Downloader.DownloadAsync(uri, token), _lifetime)
+        return _services.Downloader.Download(uri)
+            .ThrowWhenCancelled(_lifetime)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(OpenDownloaded)
             .Catch<RxVoid, Exception>(DownloadFailed);

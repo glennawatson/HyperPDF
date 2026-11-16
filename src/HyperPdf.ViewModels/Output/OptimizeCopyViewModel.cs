@@ -293,14 +293,9 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
 
         SetStatusText(LocalizedMessage.Get(UiText, "Downloading the picture model."));
 
-        // The model download is real network and file I/O, so its task is the one call here that is awaited.
-        return Signal.FromAsync(
-                async token =>
-                {
-                    await setup.Download(new Progress<double>(static _ => { }), token).ConfigureAwait(false);
-                    return setup.CreateDescriber();
-                },
-                cancellationToken)
+        return setup.Download(new Progress<double>(static _ => { }))
+            .Select(_ => setup.CreateDescriber())
+            .ThrowWhenCancelled(cancellationToken)
             .ObserveOn(RxSchedulers.MainThreadScheduler);
     }
 
