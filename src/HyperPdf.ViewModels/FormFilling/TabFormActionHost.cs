@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using ReactiveUI.Primitives;
@@ -72,32 +73,46 @@ internal sealed class TabFormActionHost(DocumentTabViewModel owner, bool allowNa
     }
 
     /// <inheritdoc/>
-    public async ValueTask<bool> ImportAsync(string? file, IFormDataImporter importer, CancellationToken cancellationToken)
+    /// <remarks>The library's interface asks for a task, so the import, which is a signal, is turned into one here at the edge.</remarks>
+    public ValueTask<bool> ImportAsync(string? file, IFormDataImporter importer, CancellationToken cancellationToken) =>
+        new(Import(file, importer).ToTask(cancellationToken));
+
+    /// <summary>Imports form data from a file the reader chooses once the reader agrees.</summary>
+    /// <param name="file">The file name the document gives, which is only shown.</param>
+    /// <param name="importer">Applies the data to the form.</param>
+    /// <returns>A cold signal giving <see langword="true"/> once when the data was imported; unsubscribing gives up on the questions and the read.</returns>
+    internal IObservable<bool> Import(string? file, IFormDataImporter importer)
     {
         ArgumentNullException.ThrowIfNull(importer);
 
         // A page action that runs by itself, such as a page's open action, may not put questions to the reader.
         if (!allowNavigation)
         {
-            return false;
+            return Signal.Return(false);
         }
 
         var name = FormDataFiles.DisplayName(file);
-        if (!await owner.Forms.ConfirmImportInteraction.Handle(name).ToTask(cancellationToken).ConfigureAwait(true))
-        {
-            return false;
-        }
+        return owner.Forms.ConfirmImportInteraction.Handle(name).ToSignal()
+            .SwitchMap(confirmed => confirmed
 
-        // The reader picks the file. The path in the document is only shown, so a form cannot read a file of its choosing.
-        if (await owner.Forms.ChooseImportFileInteraction.Handle(name).ToTask(cancellationToken).ConfigureAwait(true) is not { Length: > 0 } path)
-        {
-            return false;
-        }
-
-        var chosen = Path.GetFileName(path);
-        var data = await FormDataFiles.ReadAsync(path, cancellationToken).ConfigureAwait(true);
-        var result = data is null ? FormDataImportResult.Failed : importer.Import(data);
-        owner.SetNotice(LocalizedMessage.Literal(FormDataFiles.Describe(chosen, result)));
-        return result.Succeeded;
+                // The reader picks the file. The path in the document is only shown, so a form cannot read a file of its choosing.
+                ? owner.Forms.ChooseImportFileInteraction.Handle(name).ToSignal()
+                : Signal.Return<string?>(null))
+            .SwitchMap(path => path is { Length: > 0 } ? Imported(path, importer) : Signal.Return(false));
     }
+
+    /// <summary>Reads the chosen file and applies it to the form.</summary>
+    /// <param name="path">The file the reader chose.</param>
+    /// <param name="importer">Applies the data to the form.</param>
+    /// <returns>A cold signal giving <see langword="true"/> once when the data was imported.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<bool> Imported(string path, IFormDataImporter importer) =>
+        FormDataFiles.Read(path)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(data =>
+            {
+                var result = data is null ? FormDataImportResult.Failed : importer.Import(data);
+                owner.SetNotice(LocalizedMessage.Literal(FormDataFiles.Describe(Path.GetFileName(path), result)));
+                return result.Succeeded;
+            });
 }

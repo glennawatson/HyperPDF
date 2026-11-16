@@ -520,7 +520,7 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     {
         if (_editor is not { } editor)
         {
-            return CopyFile.Write(path, TemporarySuffix, CopyRawFile, static copied => copied, cancellationToken)
+            return CopyFile.WriteBlocking(path, TemporarySuffix, CopyRawFile, static copied => copied, cancellationToken)
                 .Select(static _ => new DocumentSaveOutcome(true, null));
         }
 
@@ -542,16 +542,14 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
         }
     }
 
-    /// <summary>Copies the source file into the temporary file when no editor is available, with async file I/O, the one task here.</summary>
+    /// <summary>Copies the source file into the temporary file when no editor is available; the copy runs on the pool.</summary>
     /// <param name="output">The temporary file.</param>
     /// <param name="cancellationToken">Stops the copy.</param>
-    /// <returns>A task giving <see langword="true"/> once copied.</returns>
-    private async Task<bool> CopyRawFile(Stream output, CancellationToken cancellationToken)
+    /// <returns><see langword="true"/> once copied.</returns>
+    private bool CopyRawFile(Stream output, CancellationToken cancellationToken)
     {
-        var readOptions = new FileStreamOptions { Mode = FileMode.Open, Access = FileAccess.Read, Share = FileShare.ReadWrite, Options = FileOptions.Asynchronous };
-        await using var input = new FileStream(_sourcePath, readOptions);
-        await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
-        return true;
+        using var input = new FileStream(_sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        return CopyFile.CopyChunks(input, output, cancellationToken);
     }
 
     /// <summary>Applies the outcome of a finished standard copy run.</summary>

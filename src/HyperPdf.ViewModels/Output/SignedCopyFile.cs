@@ -29,7 +29,7 @@ internal static class SignedCopyFile
     internal static IObservable<bool> Write(SigningOutcome outcome, string path)
     {
         ArgumentNullException.ThrowIfNull(outcome);
-        return CopyFile.Write(path, TemporarySuffix, (stream, token) => WriteBytes(outcome, stream, token), static written => written, CancellationToken.None);
+        return CopyFile.WriteBlocking(path, TemporarySuffix, (stream, _) => WriteBytes(outcome, stream), static written => written, CancellationToken.None);
     }
 
     /// <summary>Describes a finished run, one point per line: where the copy is saved, then each note the signer gave.</summary>
@@ -58,14 +58,13 @@ internal static class SignedCopyFile
         return outcome.Notes.Count == 0 ? string.Empty : $" {string.Join(' ', outcome.Notes)}";
     }
 
-    /// <summary>Writes the signed bytes with async file I/O, the one task here.</summary>
+    /// <summary>Writes the signed bytes; the write runs on the pool.</summary>
     /// <param name="outcome">The outcome.</param>
     /// <param name="stream">The temporary file.</param>
-    /// <param name="cancellationToken">Stops the write.</param>
-    /// <returns>A task giving <see langword="true"/> once the bytes are written.</returns>
-    private static async Task<bool> WriteBytes(SigningOutcome outcome, Stream stream, CancellationToken cancellationToken)
+    /// <returns><see langword="true"/> once the bytes are written.</returns>
+    private static bool WriteBytes(SigningOutcome outcome, Stream stream)
     {
-        await stream.WriteAsync(outcome.Bytes, cancellationToken).ConfigureAwait(false);
+        stream.Write(outcome.Bytes);
         return true;
     }
 }
