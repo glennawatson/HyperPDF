@@ -4,6 +4,8 @@
 
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Tests.Fakes;
 
@@ -62,7 +64,7 @@ internal sealed class FakeDocument : IDocument
     internal Exception? RenderFailure { get; set; }
 
     /// <summary>Gets or sets asynchronous page preparation.</summary>
-    internal Func<int, CancellationToken, ValueTask>? Preparation { get; set; }
+    internal Func<int, IObservable<RxVoid>>? Preparation { get; set; }
 
     /// <summary>Gets the pages recorded ahead, in order.</summary>
     internal List<int> PreparedAhead { get; } = [];
@@ -92,8 +94,8 @@ internal sealed class FakeDocument : IDocument
     public IReadOnlyList<OutlineNode> GetOutline() => [];
 
     /// <inheritdoc/>
-    public ValueTask PreparePageAsync(int pageIndex, CancellationToken cancellationToken) =>
-        Preparation?.Invoke(pageIndex, cancellationToken) ?? ValueTask.CompletedTask;
+    public IObservable<RxVoid> PreparePage(int pageIndex) =>
+        Preparation?.Invoke(pageIndex) ?? Signal.Return(RxVoid.Default);
 
     /// <inheritdoc/>
     public bool PrepareAhead(in PageRenderInfo info, CancellationToken cancellationToken)
@@ -196,6 +198,16 @@ internal sealed class FakeDocument : IDocument
         IsDisposed = true;
         Started.Dispose();
     }
+
+    /// <summary>Makes a preparation that ends when a task does; unsubscribing cancels the wait.</summary>
+    /// <param name="task">The task to wait for.</param>
+    /// <returns>A cold signal giving one value once the task completes.</returns>
+    internal static IObservable<RxVoid> Awaiting(Task task) =>
+        Signal.FromAsync(async token =>
+        {
+            await task.WaitAsync(token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <summary>Gets the text of a page.</summary>
     /// <param name="pageIndex">The page.</param>
