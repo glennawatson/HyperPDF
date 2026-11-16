@@ -11,6 +11,7 @@ using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Printing;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Platform.Windows.Printing;
@@ -181,7 +182,8 @@ public sealed class WindowsPrintService : IPrintService
         ArgumentNullException.ThrowIfNull(title);
 
         // Drawing the pages uses the PDF library's async API and the spooler, so the job is the one task here.
-        return Signal.FromAsync(token => Task.Run(() => SubmitJobAsync(filePath, title, options, token), token));
+        return Signal.FromAsync(token => SubmitJobAsync(filePath, title, options, token))
+            .SubscribeOn(TaskPoolSequencer.Default);
     }
 
     /// <inheritdoc/>
@@ -197,7 +199,8 @@ public sealed class WindowsPrintService : IPrintService
                 ? Signal.Return(false)
 
                 // Drawing the pages uses the PDF library's async API and the spooler, so the job is the one task here.
-                : Signal.FromAsync(token => Task.Run(() => PrintDocumentAsync(deviceContext, filePath, title, false, token), token))
+                : Signal.FromAsync(token => PrintDocumentAsync(deviceContext, filePath, title, false, token))
+                    .SubscribeOn(TaskPoolSequencer.Default)
                     .Select(static outcome => outcome.Sent)
                     .Finally(() => DeleteDeviceContext(deviceContext));
         });
