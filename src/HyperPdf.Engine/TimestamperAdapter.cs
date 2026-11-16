@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using HyperPdf.Core.Signatures.Signing;
 using HyperPdfLibrary.Signatures;
 using HyperPdfLibrary.Signing;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine;
 
@@ -27,5 +28,5 @@ internal sealed class TimestamperAdapter : IPdfTimestampClient
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> hash, PdfDigestMethod digest, CancellationToken cancellationToken) =>
-        _timestamper.TimestampAsync(hash, SigningMapping.FromDigest(digest), cancellationToken);
+        new(_timestamper.Timestamp(hash, SigningMapping.FromDigest(digest)).ToTask(cancellationToken));
 }

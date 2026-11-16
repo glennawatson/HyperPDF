@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using HyperPdf.Core.Signatures.Signing;
 using HyperPdfLibrary.Signatures;
 using HyperPdfLibrary.Signing;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine;
 
@@ -30,5 +31,5 @@ internal sealed class ProviderAdapter : IPdfSignatureProvider
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<byte[]> SignAsync(ReadOnlyMemory<byte> data, PdfDigestMethod digest, CancellationToken cancellationToken) =>
-        _provider.SignAsync(data, SigningMapping.FromDigest(digest), cancellationToken);
+        new(_provider.Sign(data, SigningMapping.FromDigest(digest)).ToTask(cancellationToken));
 }

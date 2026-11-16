@@ -278,6 +278,6 @@ public sealed class ValidationDataViewModelTests
         public int EstimatedTokenSize => 0;
 
         /// <inheritdoc/>
-        public ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> hash, SigningDigest digest, CancellationToken cancellationToken) => throw new NotSupportedException("The fake signer never asks.");
+        public IObservable<byte[]> Timestamp(ReadOnlyMemory<byte> hash, SigningDigest digest) => throw new NotSupportedException("The fake signer never asks.");
     }
 }

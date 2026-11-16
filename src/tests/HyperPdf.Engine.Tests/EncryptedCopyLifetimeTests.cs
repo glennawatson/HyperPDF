@@ -252,7 +252,6 @@ public sealed class EncryptedCopyLifetimeTests
         public int EstimatedTokenSize => 0;
 
         /// <inheritdoc/>
-        public ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> hash, SigningDigest digest, CancellationToken cancellationToken) =>
-            throw new NotSupportedException("No timestamp authority.");
+        public IObservable<byte[]> Timestamp(ReadOnlyMemory<byte> hash, SigningDigest digest) => throw new NotSupportedException("No timestamp authority.");
     }
 }
