@@ -333,7 +333,7 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
         var totals = new ExportTotals();
 
         // Each file is written after the one before; the first one that is refused ends the rest.
-        return Signal.Concat(Files(path, pages, perPage, totals, cancellationToken))
+        return LazySequence.Concat(Files(path, pages, perPage, totals, cancellationToken))
             .TakeWhile(static written => written)
             .Count()
             .Select(_ => totals.Refusal ?? new(jobs, totals.Skipped, totals.Approximated, path, null));

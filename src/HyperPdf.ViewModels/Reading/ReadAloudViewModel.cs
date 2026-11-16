@@ -747,7 +747,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         var voice = engine.Voices[Math.Clamp(VoiceIndex, 0, engine.Voices.Count - 1)].Id;
         var speed = Speed;
         var prefetch = new SpeechPrefetch();
-        return Signal.Concat(Sentences(document, engine, voice, speed, prefetch, token))
+        return LazySequence.Concat(Sentences(document, engine, voice, speed, prefetch, token))
             .TakeWhile(static more => more)
             .Count()
             .Select(static _ => RxVoid.Default)
@@ -850,7 +850,8 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         var started = Stopwatch.GetTimestamp();
         var duration = clip.Duration;
         MarkWord(sentence, Math.Clamp(Stopwatch.GetElapsedTime(started) / duration, 0, 1));
-        return Signal.Every(WordInterval, RxSchedulers.MainThreadScheduler)
+        return Signal.Every(WordInterval, TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SubscribeSafe(_ => MarkWord(sentence, Math.Clamp(Stopwatch.GetElapsedTime(started) / duration, 0, 1)), ErrorTrace.Write);
     }
 
@@ -922,7 +923,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     private IObservable<bool> LoadPage(IDocument document, CancellationToken cancellationToken)
     {
         var state = new PageLoadState();
-        return Signal.Concat(PageLoads(document, state, cancellationToken)).Count().Select(_ => state.More);
+        return LazySequence.Concat(PageLoads(document, state, cancellationToken)).Count().Select(_ => state.More);
     }
 
     /// <summary>Makes the load of each page that has to be read before a sentence can be, one at a time as the caller moves along.</summary>

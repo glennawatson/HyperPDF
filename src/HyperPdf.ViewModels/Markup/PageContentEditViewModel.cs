@@ -624,7 +624,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     private IObservable<int> ReadAgain(PageObjectPick picked, PageRect expected)
     {
         var state = new RereadState();
-        return Signal.Concat(Rereads(picked, expected, state))
+        return LazySequence.Concat(Rereads(picked, expected, state))
             .TakeWhile(_ => !state.Finished)
             .Count()
             .Select(_ => Resolved(picked.Page, state));

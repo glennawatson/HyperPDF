@@ -776,7 +776,7 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocal
     private IObservable<RxVoid> PageTurned(int pageIndex)
     {
         _ = pageIndex;
-        return Signal.Concat(Turns()).Count().Select(static _ => RxVoid.Default);
+        return LazySequence.Concat(Turns()).Count().Select(static _ => RxVoid.Default);
     }
 
     /// <summary>Makes the run of each waiting turn, one at a time as the caller moves along, so turns queued meanwhile are run too.</summary>

@@ -190,7 +190,7 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable,
     {
         progress.Total = files.Count;
         var token = run.Token;
-        return Signal.Concat(FileSearches(files, query, options, token))
+        return LazySequence.Concat(FileSearches(files, query, options, token))
             .ObserveOn(RxSchedulers.MainThreadScheduler)
 
             // A file that finished just as the search was stopped or replaced must not add old matches to the results.
@@ -304,16 +304,17 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable,
     private SearchOptions Options() => SearchOptionChoices.Of(MatchCase, WholeWord, IgnoreDiacritics, FoldCompatibility);
 
     /// <summary>Asks for a folder.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once a folder is chosen or the choice was given up.</returns>
     [ReactiveCommand]
-    private async Task ChooseFolderAsync()
-    {
-        var folder = await ChooseFolderInteraction.Handle(RxVoid.Default).ToTask().ConfigureAwait(true);
-        if (!string.IsNullOrEmpty(folder))
-        {
-            Folder = folder;
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ChooseFolder() =>
+        ChooseFolderInteraction.Handle(RxVoid.Default).ToSignal()
+            .Where(static folder => !string.IsNullOrEmpty(folder))
+            .Select(folder =>
+            {
+                Folder = folder!;
+                return RxVoid.Default;
+            });
 
     /// <summary>Opens a result at its page.</summary>
     /// <param name="result">The result.</param>

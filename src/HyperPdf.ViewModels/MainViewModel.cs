@@ -482,7 +482,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     /// <returns>A cold signal that ends once every tab's actions have run, one after another.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static IObservable<RxVoid> RunWillClose(List<DocumentTabViewModel> closing) =>
-        Signal.Concat(WillCloseEvents(closing)).Count().Select(static _ => RxVoid.Default);
+        LazySequence.Concat(WillCloseEvents(closing)).Count().Select(static _ => RxVoid.Default);
 
     /// <summary>Makes the will-close actions of each tab, one at a time as the caller moves along.</summary>
     /// <param name="closing">The tabs.</param>

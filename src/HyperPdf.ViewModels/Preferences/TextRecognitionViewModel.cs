@@ -478,7 +478,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         }
 
         var state = new RecognitionState(!confirmed);
-        return Signal.Concat(PageRuns(document, writer, engine, state, cancellation))
+        return LazySequence.Concat(PageRuns(document, writer, engine, state, cancellation))
             .TakeWhile(_ => !state.Done)
             .Count()
             .Select(_ => Reported(document, state.Run, cancellation));

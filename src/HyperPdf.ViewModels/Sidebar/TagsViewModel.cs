@@ -414,7 +414,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     /// <returns>A cold signal that gives <see langword="true"/> for each change the document accepted.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<bool> Changes(DocumentTag tag, TagEditRun run) =>
-        Signal.Concat(Signal.Concat(TypeChanges(tag, run)), Signal.Concat(SpanChanges(tag, run)), Signal.Concat(AttributeChanges(tag, run)));
+        Signal.Concat(LazySequence.Concat(TypeChanges(tag, run)), LazySequence.Concat(SpanChanges(tag, run)), LazySequence.Concat(AttributeChanges(tag, run)));
 
     /// <summary>Makes the type and header scope changes in the form that differ from the tag's.</summary>
     /// <param name="tag">The chosen tag.</param>
