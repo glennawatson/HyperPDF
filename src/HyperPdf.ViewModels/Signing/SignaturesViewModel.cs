@@ -209,14 +209,10 @@ public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationC
         return Signal.Defer(() =>
             {
                 var timestamper = TimestampServers.Create(_services.Settings.TimestampServer);
-                return Signal.FromAsync(async token =>
-                {
-                    var signed = await PdfSigner.SignAsync(document, certificate, signing, timestamper, token).ConfigureAwait(false);
-                    await SignedCopyFile.WriteAsync(signed, destination, token).ConfigureAwait(false);
-                    return signed;
-                });
+                return Signal.FromAsync(token => PdfSigner.SignAsync(document, certificate, signing, timestamper, token).AsTask());
             })
             .SubscribeOn(TaskPoolSequencer.Default)
+            .SwitchMap(signed => SignedCopyFile.Write(signed, destination).Select(_ => signed))
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(signed => Saved(signed, destination))
             .Catch<RxVoid, Exception>(SigningFailed);

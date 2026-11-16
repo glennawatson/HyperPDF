@@ -199,27 +199,30 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
     private void Close() => Cancel();
 
     /// <summary>Asks where to save, then writes the updated copy there.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the copy is saved, refused or stopped, or the choice was given up.</returns>
     [ReactiveCommand(CanExecute = nameof(_canSave))]
-    private async Task SaveAsync()
+    private IObservable<RxVoid> Save()
     {
         SetError(LocalizedMessage.Literal(null));
         if (Action == ValidationAction.AddTimestamp && _timestamper is null)
         {
             SetError(LocalizedMessage.Get(UiText, "No timestamp server is set. Type its address in Preferences, then try again."));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
-        var path = await SaveInteraction.Handle(SuggestedName).ToTask().ConfigureAwait(true);
-        if (string.IsNullOrEmpty(path))
-        {
-            return;
-        }
+        return SaveInteraction.Handle(SuggestedName).ToSignal()
+            .SwitchMap(path => string.IsNullOrEmpty(path) ? Signal.Return(RxVoid.Default) : Update(path));
+    }
 
+    /// <summary>Writes the updated copy to the chosen place.</summary>
+    /// <param name="path">Where to save.</param>
+    /// <returns>A cold signal that ends once the copy is saved, refused or stopped.</returns>
+    private IObservable<RxVoid> Update(string path)
+    {
         if (SignedCopyFile.IsSameFile(path, _sourcePath))
         {
             SetError(LocalizedMessage.Get(UiText, "That would replace the file you have open. Choose a different name for the copy."));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var run = new CancellationDisposable();
@@ -232,54 +235,77 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
             Action == ValidationAction.AddTimestamp
                 ? LocalizedMessage.Get(UiText, "Asking the timestamp server for a trusted time.")
                 : LocalizedMessage.Get(UiText, "Looking up the certificates and revocation answers. This can take a while."));
-        try
-        {
-            var outcome = await RunAsync(run.Token).ConfigureAwait(true);
-            await SignedCopyFile.WriteAsync(outcome, path, run.Token).ConfigureAwait(true);
-            SavedPath = path;
-            ProgressPercent = FullBar;
-            SetStatusText(LocalizedMessage.Get(UiText, "Done. The copy is saved."));
-            _resultDescription = (outcome, path);
-            RefreshResultText();
-        }
-        catch (OperationCanceledException)
-        {
-            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
-        }
-        catch (Exception ex) when (CopyFailure.IsExpected(ex) || ex is HttpRequestException)
-        {
-            SetError(LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(ex)));
-            SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
-        }
-        finally
-        {
-            if (ReferenceEquals(Run, run))
-            {
-                Run = null;
-            }
-
-            IsRunning = false;
-        }
+        return Build(run.Token)
+            .SwitchMap(outcome => SignedCopyFile.Write(outcome, path).Select(_ => outcome))
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(outcome => Saved(outcome, path))
+            .Catch<RxVoid, Exception>(Failed)
+            .Finally(() => EndRun(run));
     }
 
-    /// <summary>Adds the validation data or the timestamp, off the UI thread.</summary>
+    /// <summary>Says the copy was saved.</summary>
+    /// <param name="outcome">The updated file and its notes.</param>
+    /// <param name="path">Where the copy was saved.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Saved(SigningOutcome outcome, string path)
+    {
+        SavedPath = path;
+        ProgressPercent = FullBar;
+        SetStatusText(LocalizedMessage.Get(UiText, "Done. The copy is saved."));
+        _resultDescription = (outcome, path);
+        RefreshResultText();
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says why the copy was not saved, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> Failed(Exception error)
+    {
+        if (error is OperationCanceledException)
+        {
+            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
+            return Signal.Return(RxVoid.Default);
+        }
+
+        if (!CopyFailure.IsExpected(error) && error is not HttpRequestException)
+        {
+            return Signal.Throw<RxVoid>(error);
+        }
+
+        SetError(LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(error)));
+        SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Puts the controls back once the run is over.</summary>
+    /// <param name="run">The run that ended.</param>
+    private void EndRun(CancellationDisposable run)
+    {
+        if (ReferenceEquals(Run, run))
+        {
+            Run = null;
+        }
+
+        IsRunning = false;
+    }
+
+    /// <summary>Adds the validation data or the timestamp on the pool.</summary>
     /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>The updated file and its notes.</returns>
-    private Task<SigningOutcome> RunAsync(CancellationToken cancellationToken)
+    /// <returns>A cold signal giving the updated file and its notes.</returns>
+    private IObservable<SigningOutcome> Build(CancellationToken cancellationToken)
     {
         var action = Action;
         var includeVri = IncludeVri;
 
-        // Building the update is CPU work, so it starts on the pool; the lookups then await. The captures are the choices
-        // made when the run started, so a change in the window cannot alter a run in progress.
-        return action == ValidationAction.AddTimestamp
-            ? Task.Run(
-            () => _signer.AddDocumentTimestampAsync(
-                _timestamper!,
-                SigningDigest.Sha256,
-                cancellationToken).AsTask(),
-            cancellationToken)
-            : Task.Run(() => _signer.AddValidationDataAsync(_revocation, includeVri, cancellationToken).AsTask(), cancellationToken);
+        // Building the update is CPU work, so it starts on the pool, then the lookups await in the signer, the library's async API.
+        // The captures are the choices made when the run started, so a change in the window cannot alter a run in progress.
+        return Signal.FromAsync(
+                token => action == ValidationAction.AddTimestamp
+                    ? _signer.AddDocumentTimestampAsync(_timestamper!, SigningDigest.Sha256, token).AsTask()
+                    : _signer.AddValidationDataAsync(_revocation, includeVri, token).AsTask(),
+                cancellationToken)
+            .SubscribeOn(TaskPoolSequencer.Default);
     }
 
     /// <summary>Rewords the retained report without repeating the operation.</summary>

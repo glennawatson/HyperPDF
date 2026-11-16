@@ -149,6 +149,7 @@ public sealed partial class TabPrintingViewModel : ReactiveObject, ILocalisation
         }
 
         return (destination == PrintDestination.SaveAsPdf ? SavePrintAsPdf(file) : Submit(file, label, job))
+            .Do(_ => TryDelete(file))
             .Finally(() => TryDelete(file));
     }
 
@@ -200,6 +201,7 @@ public sealed partial class TabPrintingViewModel : ReactiveObject, ILocalisation
         return Signal.Start(() => ExportPages(exporter, pages, file), TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SwitchMap(written => written ? OpenDialog(file) : CouldNotPrepare())
+            .Do(_ => TryDelete(file))
             .Finally(() => TryDelete(file));
     }
 
