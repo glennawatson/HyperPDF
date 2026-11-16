@@ -112,7 +112,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
             _subscriptions.Add(subscription);
         }
 
-        _ = LoadFontFamiliesAsync();
+        _subscriptions.Add(LoadFontFamilies().SubscribeSafe(static _ => { }, ErrorTrace.Write));
     }
 
     /// <summary>Gets the stamps offered, in menu order.</summary>

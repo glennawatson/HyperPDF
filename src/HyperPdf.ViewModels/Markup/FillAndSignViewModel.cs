@@ -262,25 +262,35 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
     }
 
     /// <summary>Asks for a signature, offering the remembered one, then starts placing it.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the mark is made or the window was given up.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task Signature() => CreateMarkAsync(SignatureMarkKind.Signature);
+    private IObservable<RxVoid> Signature() => CreateMark(SignatureMarkKind.Signature);
 
     /// <summary>Asks for initials, offering the remembered ones, then starts placing them.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the mark is made or the window was given up.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task Initials() => CreateMarkAsync(SignatureMarkKind.Initials);
+    private IObservable<RxVoid> Initials() => CreateMark(SignatureMarkKind.Initials);
 
     /// <summary>Shows the window that makes a mark, applies the user's remember choice, then starts placing the mark.</summary>
     /// <param name="kind">Signature or initials.</param>
-    /// <returns>A task.</returns>
-    private async Task CreateMarkAsync(SignatureMarkKind kind)
+    /// <returns>A cold signal that ends once the mark is made or the window was given up.</returns>
+    private IObservable<RxVoid> CreateMark(SignatureMarkKind kind)
     {
         _ = Cancel();
-        using var request = new SignatureMarkViewModel(kind, _services.SignatureMarks.Get(kind), _services.Head.LoadImage);
-        var accepted = await MarkInteraction.Handle(request).ToTask().ConfigureAwait(true);
+        return Signal.Using(
+            () => new SignatureMarkViewModel(kind, _services.SignatureMarks.Get(kind), _services.Head.LoadImage),
+            request => MarkInteraction.Handle(request).ToSignal().Select(accepted => MarkMade(kind, request, accepted)));
+    }
+
+    /// <summary>Remembers what the user chose to keep, then starts placing the mark.</summary>
+    /// <param name="kind">Signature or initials.</param>
+    /// <param name="request">The window's settings.</param>
+    /// <param name="accepted">Whether the window was accepted.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid MarkMade(SignatureMarkKind kind, SignatureMarkViewModel request, bool accepted)
+    {
         var remembered = _services.SignatureMarks.Get(kind);
         var mark = accepted ? request.Result : null;
         var keep = ToRemember(request, mark, remembered);
@@ -294,6 +304,8 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
         {
             _ = BeginPlacement(mark);
         }
+
+        return RxVoid.Default;
     }
 
     /// <summary>Places the mark being previewed.</summary>

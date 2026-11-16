@@ -273,17 +273,27 @@ public sealed partial class SignatureMarkViewModel : ReactiveObject, IDisposable
     }
 
     /// <summary>Asks for a picture of a signature and reads it.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the picture is read or the choice was given up.</returns>
     [ReactiveCommand]
-    private async Task ChooseImageAsync()
-    {
-        if (await BrowseImageInteraction.Handle(RxVoid.Default).ToTask().ConfigureAwait(true) is not { Length: > 0 } path)
-        {
-            return;
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ChooseImage() =>
+        BrowseImageInteraction.Handle(RxVoid.Default).ToSignal()
+            .Where(static path => path is { Length: > 0 })
+            .SwitchMap(path => ReadImage(path!));
 
+    /// <summary>Reads a picture on the pool and uses it on the interface thread.</summary>
+    /// <param name="path">The picture file.</param>
+    /// <returns>A cold signal that ends once the picture is used.</returns>
+    private IObservable<RxVoid> ReadImage(string path)
+    {
         var readImage = _readImage;
-        UseImage(await Task.Run(() => readImage(path)).ConfigureAwait(true));
+        return Signal.Start(() => readImage(path), TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(image =>
+            {
+                UseImage(image);
+                return RxVoid.Default;
+            });
     }
 
     /// <summary>Forgets the remembered mark of this kind straight away.</summary>

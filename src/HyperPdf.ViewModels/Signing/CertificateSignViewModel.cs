@@ -4,6 +4,7 @@
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using HyperPdf.Core.Settings;
@@ -321,16 +322,21 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     }
 
     /// <summary>Asks for a certificate file.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the file is chosen or the choice was given up.</returns>
     [ReactiveCommand]
-    private async Task BrowseAsync()
-    {
-        if (await BrowseInteraction.Handle(RxVoid.Default).ToTask().ConfigureAwait(true) is not { Length: > 0 } path)
-        {
-            return;
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Browse() =>
+        BrowseInteraction.Handle(RxVoid.Default).ToSignal()
+            .Where(static path => path is { Length: > 0 })
+            .Select(path => Chosen(path!));
 
+    /// <summary>Uses the chosen certificate file.</summary>
+    /// <param name="path">The file.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Chosen(string path)
+    {
         SelectedCertificate = null;
         CertificatePath = path;
+        return RxVoid.Default;
     }
 }

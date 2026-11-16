@@ -98,13 +98,13 @@ public sealed class AnnotationUndoTests
         _ = annotations.AddShape(0, AnnotationKind.Rectangle, From, To);
         _ = await annotations.AddNote(0, NoteAt).ToTask();
         annotations.Recolor(Get(annotations, AnnotationKind.Note), AnnotationColors.Clay);
-        await annotations.EditNoteAsync(Get(annotations, AnnotationKind.Note));
+        _ = await annotations.EditNote(Get(annotations, AnnotationKind.Note)).ToTask();
         var note = Get(annotations, AnnotationKind.Note);
         var moved = annotations.Move(note, note.Bounds with { Top = note.Bounds.Top + Shift }, false);
         var thick = annotations.Restyle(Get(annotations, AnnotationKind.Rectangle), Thick);
         _ = await annotations.AddText(0, TextAt).ToTask();
         var larger = annotations.Resize(Get(annotations, AnnotationKind.TextBox), ExtraLarge);
-        await annotations.ReplyAsync(Get(annotations, AnnotationKind.Note));
+        _ = await annotations.Reply(Get(annotations, AnnotationKind.Note)).ToTask();
         var accepted = annotations.SetStatus(Get(annotations, AnnotationKind.Note), ReviewState.Accepted);
         annotations.Delete(Get(annotations, AnnotationKind.Rectangle));
         var finalState = Snapshot(annotations);

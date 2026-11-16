@@ -457,19 +457,29 @@ public sealed partial class AnnotationsViewModel
     /// Shows every setting of the text being typed, or of the picked text box, in the text properties dialog, and
     /// applies them when accepted.
     /// </summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the settings are applied or the dialog was given up.</returns>
     [ReactiveCommand]
-    private async Task EditTextPropertiesAsync()
+    private IObservable<RxVoid> EditTextProperties()
     {
         var edit = TextEdit;
         var target = edit is null ? Selected : null;
         var content = target is { Kind: AnnotationKind.TextBox } ? TextBoxes?.GetTextBox(target.PageIndex, target.Index) : null;
         var properties = PropertiesFor(edit, content);
-        if (properties is null || !await TextPropertiesInteraction.Handle(properties).ToTask().ConfigureAwait(true))
-        {
-            return;
-        }
+        return properties is null
+            ? Signal.Return(RxVoid.Default)
+            : TextPropertiesInteraction.Handle(properties).ToSignal()
+                .Where(static accepted => accepted)
+                .Select(_ => PropertiesAccepted(edit, target, content, properties));
+    }
 
+    /// <summary>Applies the settings of the text properties dialog.</summary>
+    /// <param name="edit">The text being typed, or <see langword="null"/>.</param>
+    /// <param name="target">The picked annotation when no text is being typed.</param>
+    /// <param name="content">The picked text box, or <see langword="null"/>.</param>
+    /// <param name="properties">The dialog's settings.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid PropertiesAccepted(TextEditSession? edit, PageAnnotation? target, TextBoxContent? content, TextPropertiesViewModel properties)
+    {
         var format = properties.ToFormat();
         var wrap = (float)Math.Max(properties.WrapWidth, 0);
         LoadFormat(format);
@@ -477,10 +487,11 @@ public sealed partial class AnnotationsViewModel
         {
             EditingText = properties.Text;
             TextEdit = ReferenceEquals(TextEdit, edit) ? edit with { WrapWidth = wrap } : TextEdit;
-            return;
+            return RxVoid.Default;
         }
 
         _ = Replace(target!, new(new(content!.Bounds.Left, content.Bounds.Top), wrap), properties.Text, format);
+        return RxVoid.Default;
     }
 
     /// <summary>Fills the text properties dialog from the text being typed, or else from a picked text box.</summary>
@@ -541,11 +552,19 @@ public sealed partial class AnnotationsViewModel
     ];
 
     /// <summary>Reads the installed font families off the UI thread, then offers them.</summary>
-    /// <returns>A task.</returns>
-    private async Task LoadFontFamiliesAsync()
+    /// <returns>A cold signal that ends once the font families are offered.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> LoadFontFamilies() =>
+        Signal.Start(() => _owner.Services.FontCatalog, TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(_ => FontFamiliesLoaded());
+
+    /// <summary>Offers the font families once the catalogue is read.</summary>
+    /// <returns>The completion value.</returns>
+    private RxVoid FontFamiliesLoaded()
     {
-        _ = await Task.Run(() => _owner.Services.FontCatalog).ConfigureAwait(true);
         RefreshFontFamilies();
+        return RxVoid.Default;
     }
 
     /// <summary>Shows a picked text box's format in the format controls.</summary>
