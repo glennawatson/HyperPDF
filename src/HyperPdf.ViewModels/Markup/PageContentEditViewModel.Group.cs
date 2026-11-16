@@ -3,9 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
-using HyperPdfLibrary;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.ViewModels.Markup;
@@ -26,55 +26,30 @@ public sealed partial class PageContentEditViewModel
     /// <summary>Picks an object or takes it out of the pick, as a press with Shift or Control does.</summary>
     /// <param name="page">The page pressed.</param>
     /// <param name="point">The point pressed in page space.</param>
-    /// <returns>A task completing once the page has been read and the pick changed.</returns>
-    public async Task ExtendPickAsync(int page, PagePoint point)
+    /// <returns>A cold signal that ends once the page has been read and the pick changed.</returns>
+    public IObservable<RxVoid> ExtendPick(int page, PagePoint point)
     {
         if (!IsEditing || page < 0)
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         CommitText();
-        await LoadAsync(page).ConfigureAwait(true);
-        if (Selected is not { } primary || primary.Page != page || Pick(page, point) is not { } hit)
-        {
-            return;
-        }
-
-        Toggle(primary, hit);
-        _ = LoadStyleAsync();
-        Status = UiText.Format("Picked {0} objects.", PickedCount);
-        MarksVersion++;
+        return Load(page).Select(_ => Extended(page, point));
     }
 
     /// <summary>Picks every object on a page.</summary>
     /// <param name="page">The page.</param>
-    /// <returns>A task completing once the page has been read and the objects picked.</returns>
-    public async Task PickEveryObjectAsync(int page)
+    /// <returns>A cold signal that ends once the page has been read and the objects picked.</returns>
+    public IObservable<RxVoid> PickEveryObject(int page)
     {
         if (!IsEditing || page < 0)
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         CommitText();
-        await LoadAsync(page).ConfigureAwait(true);
-        if (!_pages.TryGetValue(page, out var objects) || objects.Length == 0)
-        {
-            return;
-        }
-
-        var all = new PageObjectPick[objects.Length];
-        for (var i = 0; i < objects.Length; i++)
-        {
-            all[i] = new(page, objects[i]);
-        }
-
-        Selected = all[0];
-        Group = all.Length > 1 ? all[1..] : [];
-        _ = LoadStyleAsync();
-        Status = UiText.Format("Picked {0} objects.", PickedCount);
-        MarksVersion++;
+        return Load(page).Select(_ => PickedEvery(page));
     }
 
     /// <summary>Gets the box around every picked object.</summary>
@@ -206,6 +181,48 @@ public sealed partial class PageContentEditViewModel
         return boxes;
     }
 
+    /// <summary>Adds the object under a point to the pick, or takes it out, once its page is read.</summary>
+    /// <param name="page">The page pressed.</param>
+    /// <param name="point">The point pressed in page space.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Extended(int page, PagePoint point)
+    {
+        if (Selected is not { } primary || primary.Page != page || Pick(page, point) is not { } hit)
+        {
+            return RxVoid.Default;
+        }
+
+        Toggle(primary, hit);
+        Track(LoadStyle());
+        Status = UiText.Format("Picked {0} objects.", PickedCount);
+        MarksVersion++;
+        return RxVoid.Default;
+    }
+
+    /// <summary>Picks every object of a page that was read.</summary>
+    /// <param name="page">The page.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid PickedEvery(int page)
+    {
+        if (!_pages.TryGetValue(page, out var objects) || objects.Length == 0)
+        {
+            return RxVoid.Default;
+        }
+
+        var all = new PageObjectPick[objects.Length];
+        for (var i = 0; i < objects.Length; i++)
+        {
+            all[i] = new(page, objects[i]);
+        }
+
+        Selected = all[0];
+        Group = all.Length > 1 ? all[1..] : [];
+        Track(LoadStyle());
+        Status = UiText.Format("Picked {0} objects.", PickedCount);
+        MarksVersion++;
+        return RxVoid.Default;
+    }
+
     /// <summary>Lines the picked objects up on their left edges.</summary>
     [ReactiveCommand]
     private void AlignLeft() => _ = AlignPicked(PageObjectAlignment.Left);
@@ -240,7 +257,8 @@ public sealed partial class PageContentEditViewModel
 
     /// <summary>Picks every object of the page shown.</summary>
     [ReactiveCommand]
-    private void PickEveryObject() => _ = PickEveryObjectAsync(_owner.CurrentPageIndex);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void PickEveryObject() => Track(PickEveryObject(_owner.CurrentPageIndex));
 
     /// <summary>Adds an object to the pick, or takes it out when it is picked already.</summary>
     /// <param name="primary">The main pick.</param>
@@ -297,7 +315,7 @@ public sealed partial class PageContentEditViewModel
         }
 
         var gone = new PageRect[picks.Length];
-        _ = EditGroupAsync(picks, gone, () => Editor!.DeleteManyAsync(picks[0].Page, indexes, _lifetime).AsTask(), UiText.Get("Removed."));
+        Track(EditGroup(picks, gone, () => Editor!.DeleteManyAsync(picks[0].Page, indexes, _lifetime), UiText.Get("Removed.")));
         return true;
     }
 
@@ -331,7 +349,7 @@ public sealed partial class PageContentEditViewModel
             expected[i] = boxes[i] with { Left = boxes[i].Left + moves[i].X, Top = boxes[i].Top + moves[i].Y };
         }
 
-        _ = EditGroupAsync(picks, expected, () => Editor!.TransformManyAsync(picks[0].Page, changes, _lifetime).AsTask(), done);
+        Track(EditGroup(picks, expected, () => Editor!.TransformManyAsync(picks[0].Page, changes, _lifetime), done));
     }
 
     /// <summary>Writes the same change of shape to each picked object.</summary>
@@ -348,7 +366,7 @@ public sealed partial class PageContentEditViewModel
             expected[i] = PageObjectHandles.Carry(picks[i].Object.Bounds, change);
         }
 
-        _ = EditGroupAsync(picks, expected, () => Editor!.TransformManyAsync(picks[0].Page, changes, _lifetime).AsTask(), done);
+        Track(EditGroup(picks, expected, () => Editor!.TransformManyAsync(picks[0].Page, changes, _lifetime), done));
     }
 
     /// <summary>Writes a change of colour to each picked object.</summary>
@@ -364,7 +382,7 @@ public sealed partial class PageContentEditViewModel
             indexes[i] = picks[i].Object.Index;
         }
 
-        _ = EditGroupAsync(picks, expected, () => Editor!.SetColorsManyAsync(picks[0].Page, indexes, colors, _lifetime).AsTask(), done);
+        Track(EditGroup(picks, expected, () => Editor!.SetColorsManyAsync(picks[0].Page, indexes, colors, _lifetime), done));
     }
 
     /// <summary>Writes a change of how objects are drawn to each picked object.</summary>
@@ -380,7 +398,7 @@ public sealed partial class PageContentEditViewModel
             indexes[i] = picks[i].Object.Index;
         }
 
-        _ = EditGroupAsync(picks, expected, () => Editor!.SetLookManyAsync(picks[0].Page, indexes, look, _lifetime).AsTask(), done);
+        Track(EditGroup(picks, expected, () => Editor!.SetLookManyAsync(picks[0].Page, indexes, look, _lifetime), done));
     }
 
     /// <summary>Finds objects again after an edit.</summary>
@@ -413,35 +431,31 @@ public sealed partial class PageContentEditViewModel
     /// <param name="expected">Where each object's box should be afterwards, or an empty box for an object that is meant to be gone.</param>
     /// <param name="edit">The change.</param>
     /// <param name="done">What to say once the edit is made.</param>
-    /// <returns>A task completing when the page is read again.</returns>
-    private async Task EditGroupAsync(PageObjectPick[] picks, PageRect[] expected, Func<Task> edit, string done)
-    {
-        if (Editor is null)
-        {
-            return;
-        }
+    /// <returns>A cold signal that ends when the page is read again.</returns>
+    private IObservable<RxVoid> EditGroup(PageObjectPick[] picks, PageRect[] expected, Func<ValueTask> edit, string done) =>
+        Editor is null
+            ? Signal.Return(RxVoid.Default)
+            : Call(edit)
+                .SwitchMap(_ => Reread(picks[0].Page))
+                .Select(_ => GroupEdited(picks, expected, done))
+                .Catch<RxVoid, Exception>(EditFailed);
 
-        try
-        {
-            await Task.Run(edit, _lifetime).ConfigureAwait(true);
-            var page = picks[0].Page;
-            _ = _pages.Remove(page);
-            await LoadAsync(page).ConfigureAwait(true);
-            var found = FindAgainAll(page, picks, expected);
-            Selected = found.Count > 0 ? found[0] : null;
-            Group = found.Count > 1 ? found.GetRange(1, found.Count - 1).ToArray() : [];
-            _ = LoadStyleAsync();
-            Hovered = null;
-            _owner.ReportPageChange(page);
-            Status = done;
-            MarksVersion++;
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex) when (ex is PdfException or InvalidDataException or IOException or InvalidOperationException or ArgumentOutOfRangeException)
-        {
-            _owner.SetNotice(LocalizedMessage.Literal($"{UiText.Get("Could not edit the page.")} {ex.Message}"));
-        }
+    /// <summary>Picks the edited objects where they should now be and says what was done.</summary>
+    /// <param name="picks">The objects that were changed.</param>
+    /// <param name="expected">Where each object's box should be now, or an empty box for an object that is meant to be gone.</param>
+    /// <param name="done">What to say.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid GroupEdited(PageObjectPick[] picks, PageRect[] expected, string done)
+    {
+        var page = picks[0].Page;
+        var found = FindAgainAll(page, picks, expected);
+        Selected = found.Count > 0 ? found[0] : null;
+        Group = found.Count > 1 ? found.GetRange(1, found.Count - 1).ToArray() : [];
+        Track(LoadStyle());
+        Hovered = null;
+        _owner.ReportPageChange(page);
+        Status = done;
+        MarksVersion++;
+        return RxVoid.Default;
     }
 }

@@ -132,7 +132,7 @@ public sealed class CanvasMarksTests
 
         state.DrawMarks(before, tab, View());
         _ = await tab.ContentEdit.ToggleEditingCommand.Execute().ToTask();
-        await tab.ContentEdit.PressAsync(0, new(target.Bounds.Left + 1, target.Bounds.Top + 1), false);
+        _ = await tab.ContentEdit.Press(0, new(target.Bounds.Left + 1, target.Bounds.Top + 1), false).ToTask();
         state.DrawMarks(after, tab, View());
 
         using (Assert.Multiple())
@@ -156,7 +156,7 @@ public sealed class CanvasMarksTests
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
         var target = Array.Find(await editor.ReadObjectsAsync(0, CancellationToken.None), static o => o.Kind == PageObjectKind.Text);
         _ = await tab.ContentEdit.ToggleEditingCommand.Execute().ToTask();
-        await tab.ContentEdit.PressAsync(0, new(target.Bounds.Left + 1, target.Bounds.Top + 1), false);
+        _ = await tab.ContentEdit.Press(0, new(target.Bounds.Left + 1, target.Bounds.Top + 1), false).ToTask();
 
         var effects = state.PressKey(ViewerKey.Delete, ViewerModifiers.None);
         var written = await TestWait.UntilAsync(() => tab.ContentEdit.Selected is null && tab.ContentEdit.Status == "Removed.");

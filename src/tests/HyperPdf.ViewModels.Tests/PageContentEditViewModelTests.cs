@@ -76,7 +76,7 @@ public sealed class PageContentEditViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("edit-off.pdf", TestPdf.CreateTagged())]);
         var edit = main.SelectedTab!.ContentEdit;
 
-        await edit.PressAsync(0, new(1, 1), false);
+        _ = await edit.Press(0, new(1, 1), false).ToTask();
 
         using (Assert.Multiple())
         {
@@ -94,7 +94,7 @@ public sealed class PageContentEditViewModelTests
         using var main = new MainViewModel(test.Services);
         var (tab, edit, target) = await StartEditingAsync(test, main, "edit-pick.pdf");
 
-        await edit.PressAsync(0, Centre(target), false);
+        _ = await edit.Press(0, Centre(target), false).ToTask();
 
         using (Assert.Multiple())
         {
@@ -114,7 +114,7 @@ public sealed class PageContentEditViewModelTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         var (tab, edit, target) = await StartEditingAsync(test, main, "edit-move.pdf");
-        await edit.PressAsync(0, Centre(target), false);
+        _ = await edit.Press(0, Centre(target), false).ToTask();
         var version = tab.ContentVersion;
         var layout = tab.LayoutVersion;
 
@@ -141,7 +141,7 @@ public sealed class PageContentEditViewModelTests
         using var main = new MainViewModel(test.Services);
         var (tab, edit, target) = await StartEditingAsync(test, main, "edit-drag.pdf");
         var start = Centre(target);
-        await edit.PressAsync(0, start, false);
+        _ = await edit.Press(0, start, false).ToTask();
         var layout = tab.LayoutVersion;
 
         var began = edit.BeginDrag(0, start);
@@ -169,7 +169,7 @@ public sealed class PageContentEditViewModelTests
         using var main = new MainViewModel(test.Services);
         var (tab, edit, target) = await StartEditingAsync(test, main, "edit-remove.pdf");
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
-        await edit.PressAsync(0, Centre(target), false);
+        _ = await edit.Press(0, Centre(target), false).ToTask();
 
         var used = edit.DeleteSelected();
         var gone = await WaitForAsync(() => edit.Selected is null && edit.Status.Length > 0 && !edit.Status.StartsWith("Picked", StringComparison.Ordinal));
@@ -197,7 +197,7 @@ public sealed class PageContentEditViewModelTests
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
         var before = await editor.ReadObjectsAsync(0, CancellationToken.None);
 
-        await edit.PickEveryObjectAsync(0);
+        _ = await edit.PickEveryObject(0).ToTask();
         var picked = edit.PickedCount;
         var used = edit.MoveSelected(Shift, Shift);
         var moved = await WaitForAsync(() => edit.Status == "Moved.");
@@ -227,7 +227,7 @@ public sealed class PageContentEditViewModelTests
         var (tab, edit, _) = await StartEditingAsync(test, main, "edit-group-shape.pdf");
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
         var before = await editor.ReadObjectsAsync(0, CancellationToken.None);
-        await edit.PickEveryObjectAsync(0);
+        _ = await edit.PickEveryObject(0).ToTask();
 
         var scaled = edit.ScaleSelected(Doubled);
         var resized = await WaitForAsync(() => edit.Status == "Resized.");
@@ -254,7 +254,7 @@ public sealed class PageContentEditViewModelTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         var (tab, edit, _) = await StartEditingAsync(test, main, "edit-group-look.pdf");
-        await edit.PickEveryObjectAsync(0);
+        _ = await edit.PickEveryObject(0).ToTask();
 
         ((ICommand)edit.SetPickedDashCommand).Execute(nameof(PageLineDash.Dashed));
         var dashed = await WaitForAsync(() => edit.Status == "Changed the dashes.");
@@ -278,7 +278,7 @@ public sealed class PageContentEditViewModelTests
         var (tab, edit, _) = await StartEditingAsync(test, main, "edit-group-handles.pdf");
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
         var before = await editor.ReadObjectsAsync(0, CancellationToken.None);
-        await edit.PickEveryObjectAsync(0);
+        _ = await edit.PickEveryObject(0).ToTask();
         var box = edit.GroupBounds();
         var corner = new PagePoint(box.Right, box.Bottom);
 
@@ -308,13 +308,13 @@ public sealed class PageContentEditViewModelTests
         using var main = new MainViewModel(test.Services);
         var (tab, edit, target) = await StartEditingAsync(test, main, "edit-duplicate.pdf");
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
-        await edit.PressAsync(0, Centre(target), false);
+        _ = await edit.Press(0, Centre(target), false).ToTask();
         var before = (await editor.ReadObjectsAsync(0, CancellationToken.None)).Length;
 
         var duplicating = edit.DuplicatePicked();
         var duplicated = await WaitForAsync(() => edit.Status == "Duplicated.");
         var afterDuplicate = (await editor.ReadObjectsAsync(0, CancellationToken.None)).Length;
-        await edit.PressAsync(0, Centre(target), false);
+        _ = await edit.Press(0, Centre(target), false).ToTask();
         var copying = edit.CopyPicked();
         var pasting = edit.PasteCopied(0);
         var pasted = await WaitForAsync(() => edit.Status == "Pasted.");
@@ -341,7 +341,7 @@ public sealed class PageContentEditViewModelTests
         using var main = new MainViewModel(test.Services);
         var (tab, edit, target) = await StartEditingAsync(test, main, "edit-retype.pdf");
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
-        await edit.PressAsync(0, Centre(target), true);
+        _ = await edit.Press(0, Centre(target), true).ToTask();
 
         var editing = edit.TextEdit is not null;
         edit.EditingText = NewWords;
@@ -369,7 +369,7 @@ public sealed class PageContentEditViewModelTests
         var untouched = Path.Combine(test.Directory, "untouched.pdf");
         var upgraded = Path.Combine(test.Directory, "upgraded.pdf");
         var savedUntouched = await tab.SaveTo(untouched).ToTask();
-        await edit.PressAsync(0, Centre(target), false);
+        _ = await edit.Press(0, Centre(target), false).ToTask();
         _ = edit.DeleteSelected();
         var written = await WaitForAsync(() => edit.Status == "Removed.");
 
@@ -393,7 +393,7 @@ public sealed class PageContentEditViewModelTests
         using var test = new TestServices();
         using var main = new MainViewModel(test.Services);
         var (_, edit, target) = await StartEditingAsync(test, main, "edit-escape.pdf");
-        await edit.PressAsync(0, Centre(target), false);
+        _ = await edit.Press(0, Centre(target), false).ToTask();
 
         var first = edit.Escape();
         var stillEditing = edit.IsEditing;

@@ -2,8 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Geometry;
-using HyperPdfLibrary;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.ViewModels.Markup;
@@ -45,7 +45,7 @@ public sealed partial class PageContentEditViewModel
             return false;
         }
 
-        _ = CopyOntoAsync(picked, picked.Page, new(CopyStep, CopyStep), UiText.Get("Duplicated."));
+        Track(CopyOnto(picked, picked.Page, new(CopyStep, CopyStep), UiText.Get("Duplicated.")));
         return true;
     }
 
@@ -60,7 +60,7 @@ public sealed partial class PageContentEditViewModel
         }
 
         var offset = page == copied.Page ? new PagePoint(CopyStep, CopyStep) : default;
-        _ = CopyOntoAsync(copied, page, offset, UiText.Get("Pasted."));
+        Track(CopyOnto(copied, page, offset, UiText.Get("Pasted.")));
         return true;
     }
 
@@ -74,7 +74,7 @@ public sealed partial class PageContentEditViewModel
         }
 
         // The object is written again at the end of the page, so it is found again by what it is and where it is.
-        _ = EditAsync(picked, _ => Editor!.BringToFrontAsync(picked.Page, picked.Object.Index, _lifetime).AsTask(), picked.Object.Bounds, UiText.Get("Brought to the front."));
+        Track(Edit(picked, _ => Editor!.BringToFrontAsync(picked.Page, picked.Object.Index, _lifetime), picked.Object.Bounds, UiText.Get("Brought to the front.")));
         return true;
     }
 
@@ -91,11 +91,11 @@ public sealed partial class PageContentEditViewModel
         // The object is written again at the end of the page, so it is found again by what it is and where it is.
         if (backward)
         {
-            _ = EditAsync(picked, _ => Editor!.SendBackwardAsync(picked.Page, picked.Object.Index, _lifetime).AsTask(), picked.Object.Bounds, UiText.Get("Sent back one step."));
+            Track(Edit(picked, _ => Editor!.SendBackwardAsync(picked.Page, picked.Object.Index, _lifetime), picked.Object.Bounds, UiText.Get("Sent back one step.")));
         }
         else
         {
-            _ = EditAsync(picked, _ => Editor!.BringForwardAsync(picked.Page, picked.Object.Index, _lifetime).AsTask(), picked.Object.Bounds, UiText.Get("Brought forward one step."));
+            Track(Edit(picked, _ => Editor!.BringForwardAsync(picked.Page, picked.Object.Index, _lifetime), picked.Object.Bounds, UiText.Get("Brought forward one step.")));
         }
 
         return true;
@@ -110,7 +110,7 @@ public sealed partial class PageContentEditViewModel
             return false;
         }
 
-        _ = EditAsync(picked, _ => Editor!.SendToBackAsync(picked.Page, picked.Object.Index, _lifetime).AsTask(), picked.Object.Bounds, UiText.Get("Sent to the back."));
+        Track(Edit(picked, _ => Editor!.SendToBackAsync(picked.Page, picked.Object.Index, _lifetime), picked.Object.Bounds, UiText.Get("Sent to the back.")));
         return true;
     }
 
@@ -148,11 +148,16 @@ public sealed partial class PageContentEditViewModel
 
     /// <summary>Finds an object again on its page. It may have moved or the page may have been edited since it was picked or copied.</summary>
     /// <param name="source">The object as it was.</param>
+    /// <returns>A cold signal giving the object's number now, or -1 when it is gone.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<int> FindSource(PageObjectPick source) =>
+        Reread(source.Page).Select(_ => SourceIndex(source));
+
+    /// <summary>Gets the number an object has on its page as it was read again.</summary>
+    /// <param name="source">The object as it was.</param>
     /// <returns>The object's number now, or -1 when it is gone.</returns>
-    private async Task<int> FindSourceAsync(PageObjectPick source)
+    private int SourceIndex(PageObjectPick source)
     {
-        _ = _pages.Remove(source.Page);
-        await LoadAsync(source.Page).ConfigureAwait(true);
         if (!_pages.TryGetValue(source.Page, out var objects))
         {
             return -1;
@@ -167,36 +172,28 @@ public sealed partial class PageContentEditViewModel
     /// <param name="page">The page the copy goes on.</param>
     /// <param name="offset">How far from the original's place the copy goes, in page space.</param>
     /// <param name="done">What to say once the copy is made.</param>
-    /// <returns>A task completing when the page is read again.</returns>
-    private async Task CopyOntoAsync(PageObjectPick source, int page, PagePoint offset, string done)
+    /// <returns>A cold signal that ends when the page is read again.</returns>
+    private IObservable<RxVoid> CopyOnto(PageObjectPick source, int page, PagePoint offset, string done) =>
+        Editor is not { } editor
+            ? Signal.Return(RxVoid.Default)
+            : FindSource(source)
+                .SwitchMap(index => index < 0
+                    ? Signal.Return(RxVoid.Default)
+                    : Call(() => editor.CopyAsync(source.Page, index, page, offset, _lifetime))
+                        .SwitchMap(_ => Reread(page))
+                        .Select(_ => Pasted(page, done)))
+                .Catch<RxVoid, Exception>(EditFailed);
+
+    /// <summary>Picks the newest object of a page, which is the copy just painted, and says what was done.</summary>
+    /// <param name="page">The page the copy went on.</param>
+    /// <param name="done">What to say.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Pasted(int page, string done)
     {
-        if (Editor is not { } editor)
-        {
-            return;
-        }
-
-        try
-        {
-            var index = await FindSourceAsync(source).ConfigureAwait(true);
-            if (index < 0)
-            {
-                return;
-            }
-
-            await Task.Run(() => editor.CopyAsync(source.Page, index, page, offset, _lifetime).AsTask(), _lifetime).ConfigureAwait(true);
-            _ = _pages.Remove(page);
-            await LoadAsync(page).ConfigureAwait(true);
-            Select(_pages.TryGetValue(page, out var now) && now.Length > 0 ? new PageObjectPick(page, now[^1]) : null);
-            Hovered = null;
-            _owner.ReportPageChange(page);
-            Status = done;
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex) when (ex is PdfException or InvalidDataException or IOException or InvalidOperationException or ArgumentOutOfRangeException)
-        {
-            _owner.SetNotice(LocalizedMessage.Literal($"{UiText.Get("Could not edit the page.")} {ex.Message}"));
-        }
+        Select(_pages.TryGetValue(page, out var now) && now.Length > 0 ? new PageObjectPick(page, now[^1]) : null);
+        Hovered = null;
+        _owner.ReportPageChange(page);
+        Status = done;
+        return RxVoid.Default;
     }
 }

@@ -107,7 +107,7 @@ public sealed partial class PageContentEditViewModel
         else if (to != from && Selected is { } picked)
         {
             var change = PageObjectHandles.Fit(from, to);
-            _ = EditAsync(picked, _ => Editor!.TransformAsync(picked.Page, picked.Object.Index, change, _lifetime).AsTask(), to, UiText.Get(ResizedText));
+            Track(Edit(picked, _ => Editor!.TransformAsync(picked.Page, picked.Object.Index, change, _lifetime), to, UiText.Get(ResizedText)));
         }
 
         return true;
@@ -215,7 +215,7 @@ public sealed partial class PageContentEditViewModel
             return false;
         }
 
-        _ = EditAsync(picked, _ => Editor!.SetLookManyAsync(picked.Page, [picked.Object.Index], look, _lifetime).AsTask(), picked.Object.Bounds, done);
+        Track(Edit(picked, _ => Editor!.SetLookManyAsync(picked.Page, [picked.Object.Index], look, _lifetime), picked.Object.Bounds, done));
         return true;
     }
 
@@ -321,33 +321,55 @@ public sealed partial class PageContentEditViewModel
     private void FlipDown() => _ = FlipSelected(across: false);
 
     /// <summary>Reads how the picked object is painted, so the properties bar shows it.</summary>
-    /// <returns>A task completing when the style is read.</returns>
-    private async Task LoadStyleAsync()
+    /// <returns>A cold signal that ends when the style is read.</returns>
+    private IObservable<RxVoid> LoadStyle()
     {
         if (Selected is not { } picked || Editor is not { } editor)
         {
             Style = default;
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
-        try
-        {
-            var style = await Task.Run(() => editor.ReadStyleAsync(picked.Page, picked.Object.Index, _lifetime).AsTask(), _lifetime).ConfigureAwait(true);
+        // The page editor is the PDF library's async API, so its call is the one task here.
+        return Signal.FromAsync(token => editor.ReadStyleAsync(picked.Page, picked.Object.Index, token).AsTask(), _lifetime)
+            .SubscribeOn(TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(style => StyleRead(picked, style))
+            .Catch<RxVoid, Exception>(StyleFailed);
+    }
 
-            // The pick may have moved on while the page was read.
-            if (Selected is { } now && now.Page == picked.Page && now.Object.Index == picked.Object.Index)
-            {
-                Style = style;
-                MarksVersion++;
-            }
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+    /// <summary>Shows the style that was read, unless the pick moved on meanwhile.</summary>
+    /// <param name="picked">The object the style was read for.</param>
+    /// <param name="style">How the object is painted.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid StyleRead(PageObjectPick picked, PageObjectStyle style)
+    {
+        if (Selected is { } now && now.Page == picked.Page && now.Object.Index == picked.Object.Index)
         {
+            Style = style;
+            MarksVersion++;
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or InvalidOperationException or ArgumentOutOfRangeException)
+
+        return RxVoid.Default;
+    }
+
+    /// <summary>Clears the style when it could not be read, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> StyleFailed(Exception error)
+    {
+        if (error is OperationCanceledException && _lifetime.IsCancellationRequested)
         {
-            Style = default;
+            return Signal.Return(RxVoid.Default);
         }
+
+        if (error is not (InvalidDataException or IOException or InvalidOperationException or ArgumentOutOfRangeException))
+        {
+            return Signal.Throw<RxVoid>(error);
+        }
+
+        Style = default;
+        return Signal.Return(RxVoid.Default);
     }
 
     /// <summary>Tells whether an object is picked and Edit mode lets it be reshaped.</summary>
@@ -366,7 +388,7 @@ public sealed partial class PageContentEditViewModel
     private void Shape(PageObjectPick picked, Matrix3x2 change, string done)
     {
         var expected = PageObjectHandles.Carry(picked.Object.Bounds, change);
-        _ = EditAsync(picked, _ => Editor!.TransformAsync(picked.Page, picked.Object.Index, change, _lifetime).AsTask(), expected, done);
+        Track(Edit(picked, _ => Editor!.TransformAsync(picked.Page, picked.Object.Index, change, _lifetime), expected, done));
     }
 
     /// <summary>Writes a change of colour to the page.</summary>
@@ -386,7 +408,7 @@ public sealed partial class PageContentEditViewModel
             return false;
         }
 
-        _ = EditAsync(picked, _ => Editor!.SetColorsAsync(picked.Page, picked.Object.Index, colors, _lifetime).AsTask(), picked.Object.Bounds, done);
+        Track(Edit(picked, _ => Editor!.SetColorsAsync(picked.Page, picked.Object.Index, colors, _lifetime), picked.Object.Bounds, done));
         return true;
     }
 }

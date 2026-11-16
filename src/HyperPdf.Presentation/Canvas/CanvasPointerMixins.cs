@@ -390,7 +390,7 @@ public static class CanvasPointerMixins
             // Shift or Control adds the object under the press to the pick, or takes it out.
             if ((press.Modifiers & (ViewerModifiers.Shift | ViewerModifiers.Control)) != ViewerModifiers.None && press.ClickCount < DoubleClick)
             {
-                _ = edit.ExtendPickAsync(page, point);
+                edit.Track(edit.ExtendPick(page, point));
                 fx.Handled = true;
                 return;
             }
@@ -410,7 +410,7 @@ public static class CanvasPointerMixins
                 return;
             }
 
-            _ = edit.PressAsync(page, point, press.ClickCount >= DoubleClick);
+            edit.Track(edit.Press(page, point, press.ClickCount >= DoubleClick));
             fx.Handled = true;
         }
 

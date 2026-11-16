@@ -33,7 +33,7 @@ public static class CanvasObjectEditMixins
     /// <returns><see langword="true"/>, so the key that asked is used.</returns>
     private static bool PickEvery(PageContentEditViewModel edit, int page)
     {
-        _ = edit.PickEveryObjectAsync(page);
+        edit.Track(edit.PickEveryObject(page));
         return true;
     }
 

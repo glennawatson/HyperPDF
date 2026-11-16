@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using ReactiveUI.Primitives;
@@ -71,7 +72,7 @@ public sealed partial class PageContentEditViewModel
         }
 
         var page = Math.Clamp(_owner.CurrentPageIndex, 0, Math.Max(0, _owner.Source.PageSizes.Length - 1));
-        _ = AddAsync(page, DraftFor(kind, _owner.Source.PageSizes[page], NewTextFamily, NewTextBold, NewTextItalic));
+        Track(AddDraft(page, DraftFor(kind, _owner.Source.PageSizes[page], NewTextFamily, NewTextBold, NewTextItalic)));
         return true;
     }
 
@@ -112,69 +113,91 @@ public sealed partial class PageContentEditViewModel
     private void AddText() => _ = AddObject(PageObjectDraftKind.Text);
 
     /// <summary>Asks for a picture file and places it on the current page, in the middle of it.</summary>
-    /// <returns>A task completing when the picture is placed.</returns>
+    /// <returns>A signal that ends when the picture is placed or the choice was given up.</returns>
     [ReactiveCommand]
-    private async Task AddPictureAsync()
+    private IObservable<RxVoid> AddPicture() =>
+        !IsEditing || TextEdit is not null || Editor is not { } editor
+            ? Signal.Return(RxVoid.Default)
+            : _owner.Annotations.ChoosePictureInteraction.Handle(RxVoid.Default).ToSignal()
+                .Where(static path => path is { Length: > 0 })
+                .SwitchMap(path => PlacePicture(editor, path!));
+
+    /// <summary>Reads a picture file and places it on the current page, in the middle of it.</summary>
+    /// <param name="editor">The page editor.</param>
+    /// <param name="path">The picture file.</param>
+    /// <returns>A cold signal that ends when the picture is placed or could not be.</returns>
+    private IObservable<RxVoid> PlacePicture(IPageContentEditor editor, string path)
     {
-        if (!IsEditing || TextEdit is not null || Editor is not { } editor)
-        {
-            return;
-        }
-
-        if (await _owner.Annotations.ChoosePictureInteraction.Handle(RxVoid.Default).ToTask().ConfigureAwait(true) is not { Length: > 0 } path)
-        {
-            return;
-        }
-
         var page = Math.Clamp(_owner.CurrentPageIndex, 0, Math.Max(0, _owner.Source.PageSizes.Length - 1));
         var size = _owner.Source.PageSizes[page];
         var side = size.Width * PictureShare;
         var area = new PageRect((size.Width - side) * HalfShare, (size.Height - side) * HalfShare, side, side);
-        try
+        return Signal.Start(() => File.ReadAllBytes(path), TaskPoolSequencer.Default)
+            .SwitchMap(bytes => Call(() => editor.AddPictureAsync(page, area, bytes, _lifetime)))
+            .SwitchMap(_ => Reread(page))
+            .Select(_ => PictureAdded(page))
+            .Catch<RxVoid, Exception>(PictureFailed);
+    }
+
+    /// <summary>Picks the picture just added and says what was done.</summary>
+    /// <param name="page">The page.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid PictureAdded(int page)
+    {
+        Selected = FindLast(page, PageObjectKind.Image);
+        Track(LoadStyle());
+        _owner.ReportPageChange(page);
+        Status = UiText.Get("Added. Drag its handles to size it, or drag it to move it.");
+        MarksVersion++;
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says why the picture could not be placed, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> PictureFailed(Exception error)
+    {
+        if (error is OperationCanceledException && _lifetime.IsCancellationRequested)
         {
-            var bytes = await File.ReadAllBytesAsync(path, _lifetime).ConfigureAwait(true);
-            await Task.Run(() => editor.AddPictureAsync(page, area, bytes, _lifetime).AsTask(), _lifetime).ConfigureAwait(true);
-            _ = _pages.Remove(page);
-            await LoadAsync(page).ConfigureAwait(true);
-            Selected = FindLast(page, PageObjectKind.Image);
-            _ = LoadStyleAsync();
-            _owner.ReportPageChange(page);
-            Status = UiText.Get("Added. Drag its handles to size it, or drag it to move it.");
-            MarksVersion++;
+            return Signal.Return(RxVoid.Default);
         }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+
+        if (error is not (InvalidDataException or IOException or InvalidOperationException or NotSupportedException or ArgumentOutOfRangeException))
         {
+            return Signal.Throw<RxVoid>(error);
         }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or InvalidOperationException or NotSupportedException or ArgumentOutOfRangeException)
-        {
-            _owner.SetNotice(LocalizedMessage.Literal($"{UiText.Get("That picture could not be read. Choose a PNG, JPEG, BMP or WebP file.")} {ex.Message}"));
-        }
+
+        _owner.SetNotice(LocalizedMessage.Literal($"{UiText.Get("That picture could not be read. Choose a PNG, JPEG, BMP or WebP file.")} {error.Message}"));
+        return Signal.Return(RxVoid.Default);
     }
 
     /// <summary>Writes the new object, reads the page again and picks what was written.</summary>
     /// <param name="page">The page.</param>
     /// <param name="draft">What to add.</param>
-    /// <returns>A task completing when the page is read again.</returns>
-    private async Task AddAsync(int page, PageObjectDraft draft)
+    /// <returns>A cold signal that ends when the page is read again.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> AddDraft(int page, in PageObjectDraft draft)
     {
-        try
-        {
-            await Task.Run(() => Editor!.AddAsync(page, draft, _lifetime).AsTask(), _lifetime).ConfigureAwait(true);
-            _ = _pages.Remove(page);
-            await LoadAsync(page).ConfigureAwait(true);
-            Selected = FindNewest(page, draft);
-            _ = LoadStyleAsync();
-            _owner.ReportPageChange(page);
-            Status = UiText.Get("Added. Drag its handles to size it, or drag it to move it.");
-            MarksVersion++;
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or InvalidOperationException or ArgumentOutOfRangeException)
-        {
-            _owner.SetNotice(LocalizedMessage.Literal($"{UiText.Get("Could not edit the page.")} {ex.Message}"));
-        }
+        // A lambda cannot capture an in parameter, so the draft is copied once.
+        var added = draft;
+        return Call(() => Editor!.AddAsync(page, added, _lifetime))
+            .SwitchMap(_ => Reread(page))
+            .Select(_ => DraftAdded(page, added))
+            .Catch<RxVoid, Exception>(EditFailed);
+    }
+
+    /// <summary>Picks what was written and says what was done.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="draft">What was added.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid DraftAdded(int page, in PageObjectDraft draft)
+    {
+        Selected = FindNewest(page, draft);
+        Track(LoadStyle());
+        _owner.ReportPageChange(page);
+        Status = UiText.Get("Added. Drag its handles to size it, or drag it to move it.");
+        MarksVersion++;
+        return RxVoid.Default;
     }
 
     /// <summary>Finds the last object of a kind on a page, which is the one just added.</summary>

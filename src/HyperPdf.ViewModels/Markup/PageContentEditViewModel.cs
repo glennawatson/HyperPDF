@@ -47,8 +47,8 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <summary>The objects read for each page, until the document's pages change.</summary>
     private readonly Dictionary<int, PageObjectInfo[]> _pages = [];
 
-    /// <summary>The pages being read now, so a page is read once while the pointer moves over it.</summary>
-    private readonly Dictionary<int, Task> _loading = [];
+    /// <summary>The pages being read now, so a page is read once while the pointer moves over it. Each ends when its read does.</summary>
+    private readonly Dictionary<int, Signal<RxVoid>> _loading = [];
 
     /// <summary>The page a drag began on, or -1 when none is in progress.</summary>
     private int _dragPage = -1;
@@ -138,7 +138,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
 
         if (!_pages.TryGetValue(page, out var objects))
         {
-            _ = LoadAsync(page);
+            Track(Load(page));
             Unhover();
             return;
         }
@@ -164,22 +164,23 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <param name="page">The page pressed.</param>
     /// <param name="point">The point pressed in page space.</param>
     /// <param name="doubleClick">Whether the press was a double-click, which also starts retyping a text object.</param>
-    /// <returns>A task completing once the page has been read and the pick made.</returns>
-    public async Task PressAsync(int page, PagePoint point, bool doubleClick)
+    /// <returns>A cold signal that ends once the page has been read and the pick made.</returns>
+    public IObservable<RxVoid> Press(int page, PagePoint point, bool doubleClick)
     {
         if (!IsEditing || page < 0)
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         CommitText();
-        await LoadAsync(page).ConfigureAwait(true);
-        Select(Pick(page, point));
-        if (doubleClick)
-        {
-            _ = BeginTextEdit();
-        }
+        return Load(page).Select(_ => Pressed(page, point, doubleClick));
     }
+
+    /// <summary>Starts work that has no one to wait for it, and ends it when the view model does.</summary>
+    /// <param name="work">The work.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Track(IObservable<RxVoid> work) =>
+        _subscriptions.Add(work.SubscribeSafe(static _ => { }, ErrorTrace.Write));
 
     /// <summary>Starts dragging the picked object, when the press is on it.</summary>
     /// <param name="page">The page pressed.</param>
@@ -260,7 +261,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         MarksVersion++;
         if (text != edit.Object.Text)
         {
-            _ = EditAsync(edit, _ => Editor!.ReplaceTextAsync(edit.Page, edit.Object.Index, text, _lifetime).AsTask(), edit.Object.Bounds, UiText.Get("Changed the text."));
+            Track(Edit(edit, _ => Editor!.ReplaceTextAsync(edit.Page, edit.Object.Index, text, _lifetime), edit.Object.Bounds, UiText.Get("Changed the text.")));
         }
     }
 
@@ -293,7 +294,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         }
 
         var bounds =picked.Object.Bounds with { Left = picked.Object.Bounds.Left + deltaX, Top = picked.Object.Bounds.Top + deltaY };
-        _ = EditAsync(picked, _ => Editor!.MoveAsync(picked.Page, picked.Object.Index, deltaX, deltaY, _lifetime).AsTask(), bounds, UiText.Get("Moved."));
+        Track(Edit(picked, _ => Editor!.MoveAsync(picked.Page, picked.Object.Index, deltaX, deltaY, _lifetime), bounds, UiText.Get("Moved.")));
         return true;
     }
 
@@ -311,7 +312,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
             return false;
         }
 
-        _ = EditAsync(picked, _ => Editor!.DeleteAsync(picked.Page, picked.Object.Index, _lifetime).AsTask(), default, UiText.Get("Removed."));
+        Track(Edit(picked, _ => Editor!.DeleteAsync(picked.Page, picked.Object.Index, _lifetime), default, UiText.Get("Removed.")));
         return true;
     }
 
@@ -351,6 +352,21 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         PageObjectKind.Drawing => UiText.Get("drawing"),
         _ => UiText.Get("object"),
     };
+
+    /// <summary>Tells whether a failure is one an edit reports to the reader rather than a bug.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns><see langword="true"/> for a file, parser or argument failure.</returns>
+    private static bool IsEditFailure(Exception error) =>
+        error is PdfException or InvalidDataException or IOException or InvalidOperationException or ArgumentOutOfRangeException;
+
+    /// <summary>Waits for a library call.</summary>
+    /// <param name="call">The library call.</param>
+    /// <returns>A task giving the completion value.</returns>
+    private static async Task<RxVoid> Wait(Func<ValueTask> call)
+    {
+        await call().ConfigureAwait(false);
+        return RxVoid.Default;
+    }
 
     /// <summary>Turns Edit mode on or off.</summary>
     [ReactiveCommand]
@@ -409,7 +425,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     {
         if (!_pages.TryGetValue(page, out var objects))
         {
-            _ = LoadAsync(page);
+            Track(Load(page));
             return null;
         }
 
@@ -419,44 +435,94 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
 
     /// <summary>Reads what a page is made of, unless that was done already.</summary>
     /// <param name="page">The page.</param>
-    /// <returns>A task completing when the page is read.</returns>
-    private Task LoadAsync(int page)
+    /// <returns>A signal that ends when the page is read. A press right after the pointer moved onto the page waits for the read the move started.</returns>
+    private IObservable<RxVoid> Load(int page)
     {
         if (_pages.ContainsKey(page) || Editor is not { } editor)
         {
-            return Task.CompletedTask;
+            return Signal.Return(RxVoid.Default);
         }
 
-        // A press right after the pointer moved onto the page waits for the read the move started. A finished read is never waited for: with no
-        // UI thread to queue the read's continuation, it can finish before it is recorded here, and it would then stand in for every later read.
-        if (_loading.TryGetValue(page, out var running) && !running.IsCompleted)
+        if (_loading.TryGetValue(page, out var running))
         {
             return running;
         }
 
-        var read = ReadPageAsync(page, editor);
-        _loading[page] = read;
-        return read;
+        var finished = new Signal<RxVoid>();
+        _loading[page] = finished;
+        Track(ReadPage(page, editor).Finally(() => FinishLoad(page, finished)));
+
+        // A read that ended at once is already forgotten, and a finished read is never waited for.
+        return _loading.ContainsKey(page) ? finished : Signal.Return(RxVoid.Default);
     }
 
-    /// <summary>Reads a page's objects and keeps them until the document's pages change.</summary>
+    /// <summary>Tells those waiting for a page that it was read, and forgets the read.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="finished">What those waiting for the page listen to.</param>
+    private void FinishLoad(int page, Signal<RxVoid> finished)
+    {
+        _ = _loading.Remove(page);
+        finished.OnNext(RxVoid.Default);
+        finished.OnCompleted();
+    }
+
+    /// <summary>Reads a page's objects on the pool and keeps them until the document's pages change.</summary>
     /// <param name="page">The page.</param>
     /// <param name="editor">The page editor.</param>
-    /// <returns>A task completing when the page is read.</returns>
-    private async Task ReadPageAsync(int page, IPageContentEditor editor)
+    /// <returns>A cold signal that ends when the page is read.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ReadPage(int page, IPageContentEditor editor) =>
+        // The page editor is the PDF library's async API, so its call is the one task here.
+        Signal.FromAsync(token => editor.ReadObjectsAsync(page, token).AsTask(), _lifetime)
+            .SubscribeOn(TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(objects => PageRead(page, objects))
+            .Catch<RxVoid, Exception>(ReadFailed);
+
+    /// <summary>Keeps the objects read from a page.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="objects">What the page is made of.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid PageRead(int page, PageObjectInfo[] objects)
     {
-        try
+        _pages[page] = objects;
+        MarksVersion++;
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says why a page could not be read, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> ReadFailed(Exception error)
+    {
+        if (error is OperationCanceledException && _lifetime.IsCancellationRequested)
         {
-            _pages[page] = await Task.Run(() => editor.ReadObjectsAsync(page, _lifetime).AsTask(), _lifetime).ConfigureAwait(true);
-            MarksVersion++;
+            return Signal.Return(RxVoid.Default);
         }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+
+        if (!IsEditFailure(error))
         {
+            return Signal.Throw<RxVoid>(error);
         }
-        catch (Exception ex) when (ex is PdfException or InvalidDataException or IOException or InvalidOperationException or ArgumentOutOfRangeException)
+
+        Status = UiText.Format("Could not read the page for editing: {0}", error.Message);
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Makes the pick a press asked for once its page is read.</summary>
+    /// <param name="page">The page pressed.</param>
+    /// <param name="point">The point pressed in page space.</param>
+    /// <param name="doubleClick">Whether the press was a double-click.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Pressed(int page, PagePoint point, bool doubleClick)
+    {
+        Select(Pick(page, point));
+        if (doubleClick)
         {
-            Status = UiText.Format("Could not read the page for editing: {0}", ex.Message);
+            _ = BeginTextEdit();
         }
+
+        return RxVoid.Default;
     }
 
     /// <summary>Picks an object, or nothing, and says what it is.</summary>
@@ -465,7 +531,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     {
         Selected = pick;
         Group = [];
-        _ = LoadStyleAsync();
+        Track(LoadStyle());
         Status = pick is null ? UiText.Get("Nothing picked.") : UiText.Format("Picked {0}.", Describe(pick.Object));
         MarksVersion++;
     }
@@ -475,33 +541,70 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <param name="edit">The change, given where the object should end up.</param>
     /// <param name="expected">Where the object's box should be afterwards.</param>
     /// <param name="done">What to say once the edit is made.</param>
-    /// <returns>A task completing when the page is read again.</returns>
-    private async Task EditAsync(PageObjectPick picked, Func<PageRect, Task> edit, PageRect expected, string done)
-    {
-        if (Editor is null)
+    /// <returns>A cold signal that ends when the page is read again.</returns>
+    private IObservable<RxVoid> Edit(PageObjectPick picked, Func<PageRect, ValueTask> edit, PageRect expected, string done) =>
+        Editor is null
+            ? Signal.Return(RxVoid.Default)
+            : Call(() => edit(expected))
+                .SwitchMap(_ => ReadAgain(picked, expected))
+                .Select(again => Edited(picked, again, done))
+                .Catch<RxVoid, Exception>(EditFailed);
+
+    /// <summary>Calls the page editor on the pool and brings the answer back to the interface thread.</summary>
+    /// <param name="call">The library call.</param>
+    /// <returns>A cold signal that ends once the call is done.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Call(Func<ValueTask> call) =>
+        // The page editor is the PDF library's async API, so its call is the one task here.
+        Signal.FromAsync(_ => Wait(call), _lifetime)
+            .SubscribeOn(TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler);
+
+    /// <summary>Reads a page again from the library, forgetting what was read before.</summary>
+    /// <param name="page">The page.</param>
+    /// <returns>A cold signal that ends when the page is read.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Reread(int page) =>
+        Signal.Defer(() =>
         {
-            return;
+            _ = _pages.Remove(page);
+            return Load(page);
+        });
+
+    /// <summary>Picks the edited object where it should now be and says what was done.</summary>
+    /// <param name="picked">The object that was changed.</param>
+    /// <param name="again">The index of the object in the page's objects, or -1 when it is gone.</param>
+    /// <param name="done">What to say.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Edited(PageObjectPick picked, int again, string done)
+    {
+        Selected = again < 0 ? null : new(picked.Page, _pages[picked.Page][again]);
+        Group = [];
+        Track(LoadStyle());
+        Hovered = null;
+        _owner.ReportPageChange(picked.Page);
+        Status = done;
+        MarksVersion++;
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says why an edit failed, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> EditFailed(Exception error)
+    {
+        if (error is OperationCanceledException && _lifetime.IsCancellationRequested)
+        {
+            return Signal.Return(RxVoid.Default);
         }
 
-        try
+        if (!IsEditFailure(error))
         {
-            await Task.Run(() => edit(expected), _lifetime).ConfigureAwait(true);
-            var again = await ReadAgainAsync(picked, expected).ConfigureAwait(true);
-            Selected = again < 0 ? null : new(picked.Page, _pages[picked.Page][again]);
-            Group = [];
-            _ = LoadStyleAsync();
-            Hovered = null;
-            _owner.ReportPageChange(picked.Page);
-            Status = done;
-            MarksVersion++;
+            return Signal.Throw<RxVoid>(error);
         }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex) when (ex is PdfException or InvalidDataException or IOException or InvalidOperationException or ArgumentOutOfRangeException)
-        {
-            _owner.SetNotice(LocalizedMessage.Literal($"{UiText.Get("Could not edit the page.")} {ex.Message}"));
-        }
+
+        _owner.SetNotice(LocalizedMessage.Literal($"{UiText.Get("Could not edit the page.")} {error.Message}"));
+        return Signal.Return(RxVoid.Default);
     }
 
     /// <summary>
@@ -510,33 +613,72 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// </summary>
     /// <param name="picked">The object that was edited.</param>
     /// <param name="expected">Where the object's box should be now, or an empty box when it is meant to be gone.</param>
-    /// <returns>The index of the object in the page's objects, or -1 when it is gone or the page could not be read.</returns>
-    private async Task<int> ReadAgainAsync(PageObjectPick picked, PageRect expected)
+    /// <returns>A cold signal giving the index of the object in the page's objects, or -1 when it is gone or the page could not be read.</returns>
+    private IObservable<int> ReadAgain(PageObjectPick picked, PageRect expected)
     {
-        var again = -1;
-        for (var attempt = 0; attempt < ReadAttempts && again < 0; attempt++)
-        {
-            _ = _pages.Remove(picked.Page);
-            await LoadAsync(picked.Page).ConfigureAwait(true);
-            if (!_pages.TryGetValue(picked.Page, out var objects))
-            {
-                continue;
-            }
+        var state = new RereadState();
+        return Signal.Concat(Rereads(picked, expected, state))
+            .TakeWhile(_ => !state.Finished)
+            .Count()
+            .Select(_ => Resolved(picked.Page, state));
+    }
 
-            again = expected.Width > 0 ? PageObjectHits.FindAgain(objects, picked.Object, expected) : -1;
-            if (expected.Width <= 0)
-            {
-                return -1;
-            }
+    /// <summary>Makes each attempt to read a page again, one at a time as the caller moves along.</summary>
+    /// <param name="picked">The object that was edited.</param>
+    /// <param name="expected">Where the object's box should be now, or an empty box when it is meant to be gone.</param>
+    /// <param name="state">What the attempts found.</param>
+    /// <returns>A cold signal per attempt.</returns>
+    private IEnumerable<IObservable<RxVoid>> Rereads(PageObjectPick picked, PageRect expected, RereadState state)
+    {
+        for (var attempt = 0; attempt < ReadAttempts; attempt++)
+        {
+            yield return Reread(picked.Page).Select(_ => Attempted(picked, expected, state));
+        }
+    }
+
+    /// <summary>Looks for the edited object in the page that was read again.</summary>
+    /// <param name="picked">The object that was edited.</param>
+    /// <param name="expected">Where the object's box should be now, or an empty box when it is meant to be gone.</param>
+    /// <param name="state">What the attempts found.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Attempted(PageObjectPick picked, PageRect expected, RereadState state)
+    {
+        if (!_pages.TryGetValue(picked.Page, out var objects))
+        {
+            return RxVoid.Default;
         }
 
-        if (!_pages.ContainsKey(picked.Page))
+        if (expected.Width <= 0)
+        {
+            // An object meant to be gone is not looked for.
+            state.Gone = true;
+            state.Finished = true;
+            return RxVoid.Default;
+        }
+
+        state.Again = PageObjectHits.FindAgain(objects, picked.Object, expected);
+        state.Finished = state.Again >= 0;
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says when the page could not be read again, and gives what the attempts found.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="state">What the attempts found.</param>
+    /// <returns>The index of the object in the page's objects, or -1.</returns>
+    private int Resolved(int page, RereadState state)
+    {
+        if (state.Gone)
+        {
+            return -1;
+        }
+
+        if (!_pages.ContainsKey(page))
         {
             // The failed read said why in Status; the edit's own "done" text would replace it, so it is shown as a notice too.
             _owner.SetNotice(LocalizedMessage.Literal(Status));
         }
 
-        return again;
+        return state.Again;
     }
 
     /// <summary>Turns Edit mode off. The changes stay in the document; saving writes them as a PDF 2.0 file.</summary>
