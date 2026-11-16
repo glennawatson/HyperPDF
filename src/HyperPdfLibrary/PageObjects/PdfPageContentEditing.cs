@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.PageObjects;
 
@@ -12,6 +13,12 @@ namespace HyperPdfLibrary.PageObjects;
 /// <summary>Adds content bytes and resources and checks for edits.</summary>
 public static class PdfPageContentEditing
 {
+    /// <summary>The bytes of the stack buffer a resource name is built in.</summary>
+    private const int NameBufferLength = 64;
+
+    /// <summary>The most bytes of a name's start that fit in the buffer, which leaves room for the digits of a number.</summary>
+    private const int MaxPrefixBytes = 48;
+
     /// <summary>Gets a value indicating whether any object changed or content was added.</summary>
     /// <param name = "state">The owned parse or content state.</param>
     /// <returns>The current value.</returns>
@@ -53,13 +60,23 @@ public static class PdfPageContentEditing
         ArgumentNullException.ThrowIfNull(prefix);
         var names = state.Document.Objects.Names;
         var existing = state.Resources?.GetDictionary(category);
-        var number = 1;
-        var candidate = names.Intern(string.Create(CultureInfo.InvariantCulture, $"{prefix}{number}"));
-        while ((existing is not null && existing.ContainsKey(candidate)) || PdfPageContentEditing.IsPending(state, category, candidate))
+
+        // The candidates are built as bytes on the stack, so trying one number after another makes no strings.
+        Span<byte> buffer = stackalloc byte[NameBufferLength];
+        if (!Encoding.UTF8.TryGetBytes(prefix, buffer[..MaxPrefixBytes], out var length))
         {
-            number++;
-            candidate = names.Intern(string.Create(CultureInfo.InvariantCulture, $"{prefix}{number}"));
+            return AllocateLongName(state, category, prefix);
         }
+
+        var number = 1;
+        PdfName candidate;
+        do
+        {
+            _ = number.TryFormat(buffer[length..], out var digits, default, CultureInfo.InvariantCulture);
+            candidate = names.Intern(buffer[..(length + digits)]);
+            number++;
+        }
+        while ((existing is not null && existing.ContainsKey(candidate)) || PdfPageContentEditing.IsPending(state, category, candidate));
 
         return candidate;
     }
@@ -119,6 +136,35 @@ public static class PdfPageContentEditing
             }
         }
 
+        // Resources made while the content is written again are not pending yet, but their names are taken all the same.
+        foreach (var resource in state.Generated)
+        {
+            if (resource.Category == category && resource.Name == name)
+            {
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    /// <summary>Makes a resource name from a start too long for the stack buffer.</summary>
+    /// <param name = "state">The owned parse or content state.</param>
+    /// <param name = "category">The resource category.</param>
+    /// <param name = "prefix">The start of the name.</param>
+    /// <returns>The name.</returns>
+    private static PdfName AllocateLongName(PdfPageContent state, KnownName category, string prefix)
+    {
+        var names = state.Document.Objects.Names;
+        var existing = state.Resources?.GetDictionary(category);
+        var number = 1;
+        var candidate = names.Intern(string.Create(CultureInfo.InvariantCulture, $"{prefix}{number}"));
+        while ((existing is not null && existing.ContainsKey(candidate)) || PdfPageContentEditing.IsPending(state, category, candidate))
+        {
+            number++;
+            candidate = names.Intern(string.Create(CultureInfo.InvariantCulture, $"{prefix}{number}"));
+        }
+
+        return candidate;
     }
 }

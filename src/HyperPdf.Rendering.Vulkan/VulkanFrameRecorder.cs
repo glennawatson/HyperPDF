@@ -142,6 +142,20 @@ internal static unsafe class VulkanFrameRecorder
         }
     }
 
+    /// <summary>Records a clip, which narrows the dynamic scissor, or an unclip, which widens it to the whole frame again.</summary>
+    /// <param name="frame">The objects the frame uses.</param>
+    /// <param name="op">The clip or unclip.</param>
+    private static void RecordClip(VulkanFrameResources frame, in VulkanDrawOp op)
+    {
+        if (op.Kind == VulkanDrawKind.Clip)
+        {
+            VulkanCommands.SetScissor(frame.Commands.Buffer, (int)op.X, (int)op.Y, (int)op.Width, (int)op.Height);
+            return;
+        }
+
+        VulkanCommands.SetScissor(frame.Commands.Buffer, 0, 0, frame.Target.Width, frame.Target.Height);
+    }
+
     /// <summary>Records every operation inside the render pass.</summary>
     /// <param name="frame">The objects the frame uses.</param>
     /// <param name="ops">The operations.</param>
@@ -156,6 +170,12 @@ internal static unsafe class VulkanFrameRecorder
             if (op.Kind == VulkanDrawKind.Clear)
             {
                 VulkanCommands.ClearFrame(buffer, frame.Target.Width, frame.Target.Height, op.Color);
+                continue;
+            }
+
+            if (op.Kind is VulkanDrawKind.Clip or VulkanDrawKind.Unclip)
+            {
+                RecordClip(frame, op);
                 continue;
             }
 

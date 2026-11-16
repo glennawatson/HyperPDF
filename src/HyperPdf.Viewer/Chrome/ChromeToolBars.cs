@@ -5,6 +5,7 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using HyperPdf.Core.Text;
 using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Viewing;
 
@@ -107,7 +108,7 @@ internal static class ChromeToolBars
         {
             bars.Add(new(
                 UiText.Get("Focus mode: one column of plain text."),
-                [Item("Larger", focus.LargerCommand), Item("Smaller", focus.SmallerCommand), Item("Back to the pages", focus.ToggleCommand)]));
+                [Item("Larger", focus.LargerCommand), Item("Smaller", focus.SmallerCommand), Item("Text settings", focus.ShowSettingsCommand), Item("Back to the pages", focus.ToggleCommand)]));
         }
     }
 
@@ -150,6 +151,8 @@ internal static class ChromeToolBars
             bars.Add(new(Label(UiText.Get("Measure"), result), [Item("Keep as a mark", measure.KeepCommand), Item("Clear", measure.ClearCommand), Item("Done", measure.ToggleCommand)]));
         }
 
+        AddEditTools(bars, tab);
+        AddTextFormat(bars, tab);
         var sign = tab.FillAndSign;
         if (sign.IsActive)
         {
@@ -165,6 +168,56 @@ internal static class ChromeToolBars
                     Item("Done", sign.ToggleCommand),
                 ]));
         }
+    }
+
+    /// <summary>Adds the bar of the text being typed on the page: its weight, slant, underline, alignment and size, its properties window and the button that finishes it.</summary>
+    /// <param name="bars">Receives the bar.</param>
+    /// <param name="tab">The tab shown.</param>
+    private static void AddTextFormat(List<ToolBar> bars, DocumentTabViewModel tab)
+    {
+        if (!tab.IsTextFormatShown)
+        {
+            return;
+        }
+
+        var marks = tab.Annotations;
+        bars.Add(new(
+            UiText.Get("Text format"),
+            [
+                Item("Bold", marks.ToggleBoldCommand),
+                Item("Italic", marks.ToggleItalicCommand),
+                Item("Underline", marks.ToggleUnderlineCommand),
+                MenuEntry.Item(UiText.Get("Align left"), null, marks.SetAlignmentCommand, TextBoxAlignment.Left, true),
+                MenuEntry.Item(UiText.Get("Align centre"), null, marks.SetAlignmentCommand, TextBoxAlignment.Center, true),
+                MenuEntry.Item(UiText.Get("Align right"), null, marks.SetAlignmentCommand, TextBoxAlignment.Right, true),
+                Item("Larger text", marks.GrowTextCommand),
+                Item("Smaller text", marks.ShrinkTextCommand),
+                Item("Text properties…", marks.EditTextPropertiesCommand),
+                Item("Finish text", marks.FinishTextCommand),
+            ]));
+    }
+
+    /// <summary>Adds the bar of editing the page's own content: what is picked can be retyped or removed, the edits undone and done again, and a PDF 2.0 copy saved.</summary>
+    /// <param name="bars">Receives the bar.</param>
+    /// <param name="tab">The tab shown.</param>
+    private static void AddEditTools(List<ToolBar> bars, DocumentTabViewModel tab)
+    {
+        var edit = tab.ContentEdit;
+        if (!edit.IsEditing)
+        {
+            return;
+        }
+
+        bars.Add(new(
+            UiText.Get("Edit tools"),
+            [
+                Item("Retype text", edit.EditPickedTextCommand),
+                Item("Remove picked", edit.RemovePickedCommand),
+                Item("Undo", tab.Pages.UndoCommand),
+                Item("Redo", tab.Pages.RedoCommand),
+                Item("Save PDF 2.0 copy", tab.Copies.Pdf20.RunCommand),
+                Item("Done", edit.ToggleEditingCommand),
+            ]));
     }
 
     /// <summary>Adds a notice when it has text.</summary>

@@ -14,4 +14,8 @@ namespace HyperPdf.Core.Presentation;
 /// <param name="Direction">The direction in degrees counter-clockwise from left to right, or -1 for none.</param>
 /// <param name="AdvanceAfterSeconds">The seconds before the page advances by itself, or <see langword="null"/>.</param>
 [DebuggerDisplay("PageTransition: {Style} {DurationSeconds}s, advance {AdvanceAfterSeconds}")]
-public sealed record PageTransition(TransitionStyle Style, double DurationSeconds, bool Vertical, bool Inward, int Direction, double? AdvanceAfterSeconds);
+public sealed record PageTransition(TransitionStyle Style, double DurationSeconds, bool Vertical, bool Inward, int Direction, double? AdvanceAfterSeconds)
+{
+    /// <summary>Gets the scale a fly starts at when it flies in, or ends at when it flies out; one when the page does not say.</summary>
+    public double Scale { get; init; } = 1;
+}

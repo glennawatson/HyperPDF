@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Core.Layout;
 
 namespace HyperPdf.Windowing.Rendering;
 
@@ -16,4 +17,8 @@ namespace HyperPdf.Windowing.Rendering;
 /// <param name="Color">The colour of a clear as 0xAARRGGBB.</param>
 [DebuggerDisplay("QuadBatch clear {IsClear}, {Count} vertices from {First}")]
 public readonly record struct QuadBatch<TTile>(bool IsClear, TTile? Tile, bool Smooth, int First, int Count, uint Color)
-    where TTile : class;
+    where TTile : class
+{
+    /// <summary>Gets the rectangle in frame pixels that the run is limited to, or <see langword="null"/> for the whole frame.</summary>
+    public LayoutRect? Clip { get; init; }
+}

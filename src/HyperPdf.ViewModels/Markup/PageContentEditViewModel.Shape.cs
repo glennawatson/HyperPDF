@@ -260,6 +260,28 @@ public sealed partial class PageContentEditViewModel
         }
     }
 
+    /// <summary>Changes how the colours of the picked objects mix with what is under them, from a menu.</summary>
+    /// <param name="name">The blend mode's name, such as Multiply.</param>
+    [ReactiveCommand]
+    private void SetPickedBlend(string name)
+    {
+        if (Enum.TryParse<PageBlendMode>(name, false, out var blend) && Enum.IsDefined(blend))
+        {
+            _ = Look(PageObjectLook.OfBlend(blend), UiText.Get("Changed how its colours mix with the page."));
+        }
+    }
+
+    /// <summary>Fills the picked objects with a gradient from a menu.</summary>
+    /// <param name="how">The shape and colours as <c>linear:ANGLE:RRGGBB:RRGGBB</c> or <c>radial:RRGGBB:RRGGBB</c>.</param>
+    [ReactiveCommand]
+    private void SetPickedGradient(string how)
+    {
+        if (PageGradientText.TryParse(how, out var gradient))
+        {
+            _ = Look(PageObjectLook.OfGradient(gradient), UiText.Get("Filled it with a gradient."));
+        }
+    }
+
     /// <summary>Changes the dashes of the lines of the picked objects from a menu.</summary>
     /// <param name="name">The pattern: Solid, Dashed, Dotted or DashDot.</param>
     [ReactiveCommand]

@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Text;
 using BenchmarkDotNet.Attributes;
 using HyperPdf.TestAssets;
+using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.PageObjects;
 
@@ -31,6 +32,21 @@ public class HyperPdfPageObjectBenchmarks
 
     /// <summary>The words each line is made from.</summary>
     private const string LineText = "The quick brown fox jumps over the lazy dog while reading a long accessible document";
+
+    /// <summary>The lines the reflow benchmark treats as one paragraph.</summary>
+    private const int ParagraphLines = 6;
+
+    /// <summary>The lines the restyle benchmark changes.</summary>
+    private const int RestyledLines = 8;
+
+    /// <summary>How solid the restyled lines are.</summary>
+    private const float Half = 0.5F;
+
+    /// <summary>The gradient the restyled lines are filled with.</summary>
+    private static readonly PdfGradient Gradient = PdfGradient.Linear(PdfPaint.FromRgb(0, 0, 1), PdfPaint.FromRgb(1, 0, 0), 0F);
+
+    /// <summary>The lines of the paragraph the reflow benchmark rewraps, kept between runs so filling it makes no garbage.</summary>
+    private readonly List<PdfTextObject> _paragraph = [with(ParagraphLines)];
 
     /// <summary>The document.</summary>
     private PdfDocument? _document;
@@ -73,6 +89,39 @@ public class HyperPdfPageObjectBenchmarks
         var content = PdfDocumentPageContent.GetPageContent(_document!, 0);
         _ = ((PdfTextObject)content.Objects[0]).RemoveGlyph(1);
         content.Objects[1].Translate(0, 1);
+        return PdfPageContentWriter.Regenerate(content).Length;
+    }
+
+    /// <summary>Reads the page, makes eight lines half solid, multiplied and filled with a gradient, and writes the content.</summary>
+    /// <returns>The length written.</returns>
+    [Benchmark]
+    public int RestyleAndRegenerate()
+    {
+        var content = PdfDocumentPageContent.GetPageContent(_document!, 0);
+        for (var i = 0; i < RestyledLines; i++)
+        {
+            var line = content.Objects[i];
+            line.SetOpacity(Half);
+            line.SetBlendMode(PdfBlendMode.Multiply);
+            line.SetGradientFill(Gradient);
+        }
+
+        return PdfPageContentWriter.Regenerate(content).Length;
+    }
+
+    /// <summary>Reads the page, rewraps its first six lines as one paragraph with a longer text, and writes the content.</summary>
+    /// <returns>The length written.</returns>
+    [Benchmark]
+    public int ReflowParagraph()
+    {
+        var content = PdfDocumentPageContent.GetPageContent(_document!, 0);
+        _paragraph.Clear();
+        for (var i = 0; i < ParagraphLines; i++)
+        {
+            _paragraph.Add((PdfTextObject)content.Objects[i]);
+        }
+
+        PdfPageContentTextReplacement.ReplaceParagraph(content, _paragraph, $"{LineText} {LineText} {LineText}", AppearanceFont.Helvetica, 0F, null);
         return PdfPageContentWriter.Regenerate(content).Length;
     }
 

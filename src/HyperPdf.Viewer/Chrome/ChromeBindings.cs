@@ -47,7 +47,10 @@ internal static class ChromeBindings
         presses.InvokeCommandOn(ChromeCommand.NextTab, main.NextTabCommand),
         presses.InvokeCommandOn(ChromeCommand.PreviousTab, main.PreviousTabCommand));
 
-    /// <summary>Joins the controls that act on the tab shown: the toolbar, the marking bar and the side panel.</summary>
+    /// <summary>
+    /// Joins the controls that act on the tab shown: the toolbar, the marking bar and the side panel. The search bar opens whenever the
+    /// search is opened, by its button, Ctrl+F or the menu, and not only by its button.
+    /// </summary>
     /// <param name="presses">The presses of the window's controls.</param>
     /// <param name="tab">The tab shown.</param>
     /// <param name="chrome">The window's controls, which ask where to save an attached file and know what the side panel lists.</param>
@@ -60,10 +63,12 @@ internal static class ChromeBindings
         presses.InvokeCommandOn(ChromeCommand.ZoomOut, tab.ZoomOutCommand),
         presses.InvokeCommandOn(ChromeCommand.ZoomIn, tab.ZoomInCommand),
         presses.InvokeCommandOn(ChromeCommand.FitWidth, tab.FitWidthCommand),
+        presses.InvokeCommandOn(ChromeCommand.LeaveReadMode, tab.ReadModeCommand),
         presses.InvokeCommandOn(ChromeCommand.FitPage, tab.FitPageCommand),
         presses.InvokeCommandOn(ChromeCommand.Sidebar, tab.ToggleSidebarCommand),
         Marks(presses, tab.Annotations),
         presses.WhereCommand(ChromeCommand.GoToPage).SubscribeSafe(_ => AskForPage(tab, chrome), ErrorTrace.Write),
+        tab.Search.WhenChanged(static search => search.IsOpen).Where(static open => open).SubscribeSafe(_ => chrome.ShowFindBar(), ErrorTrace.Write),
         Media(presses, tab, chrome),
         Panel(presses, tab, chrome));
 

@@ -129,6 +129,9 @@
   <data name="A block of data was never closed, so it was read to the end of its part." xml:space="preserve">
     <value>Un bloque de datos no se cerró, por lo que se leyó hasta el final de su sección.</value>
   </data>
+  <data name="A certificate used before" xml:space="preserve">
+    <value>Un certificado usado antes</value>
+  </data>
   <data name="A drawing that stays sharp at any size. Text, shapes and images are kept as they are." xml:space="preserve">
     <value>Un dibujo que conserva la nitidez a cualquier tamaño. El texto, las formas y las imágenes se mantienen tal como están.</value>
   </data>
@@ -204,6 +207,9 @@
   <data name="A trusted timestamp is added from {0}. Only a hash of the signature is sent, never the document." xml:space="preserve">
     <value>Se añade un sello de tiempo de confianza de {0}. Solo se envía un hash de la firma, nunca el documento.</value>
   </data>
+  <data name="A web address such as https://example.com, or page: and a page number" xml:space="preserve">
+    <value>Una dirección web como https://example.com, o page: y un número de página</value>
+  </data>
   <data name="A whole signature container (CMS, DER) made over the document digest" xml:space="preserve">
     <value>Un contenedor de firma completo (CMS, DER) creado sobre el resumen del documento</value>
   </data>
@@ -234,8 +240,14 @@
   <data name="Actions" xml:space="preserve">
     <value>Acciones</value>
   </data>
+  <data name="Actual _Size" xml:space="preserve">
+    <value>_Tamaño real</value>
+  </data>
   <data name="Actual size" xml:space="preserve">
     <value>Tamaño real</value>
+  </data>
+  <data name="Add Bates numbers" xml:space="preserve">
+    <value>Añadir números Bates</value>
   </data>
   <data name="Add Bookmark" xml:space="preserve">
     <value>Añadir marcador</value>
@@ -249,6 +261,9 @@
   <data name="Add Note" xml:space="preserve">
     <value>Añadir nota</value>
   </data>
+  <data name="Add Some _Text" xml:space="preserve">
+    <value>Añadir algo de _texto</value>
+  </data>
   <data name="Add Text" xml:space="preserve">
     <value>Añadir texto</value>
   </data>
@@ -258,14 +273,53 @@
   <data name="Add Validation Data or Timestamp… (needs the HyperPDF engine)" xml:space="preserve">
     <value>Añadir datos de validación o sello de tiempo… (requiere el motor HyperPDF)</value>
   </data>
+  <data name="Add _Bates Numbers…" xml:space="preserve">
+    <value>Añadir números _Bates…</value>
+  </data>
   <data name="Add _Note" xml:space="preserve">
     <value>Añadir _nota</value>
   </data>
   <data name="Add _Note Here" xml:space="preserve">
     <value>Añadir _nota aquí</value>
   </data>
+  <data name="Add _Page Numbers…" xml:space="preserve">
+    <value>Añadir números de _página…</value>
+  </data>
   <data name="Add _Validation Data or Timestamp…" xml:space="preserve">
     <value>Añadir datos de _validación o sello de tiempo…</value>
+  </data>
+  <data name="Add _to Pages" xml:space="preserve">
+    <value>Añadir _a las páginas</value>
+  </data>
+  <data name="Add a Form Check _Box" xml:space="preserve">
+    <value>Añadir una _casilla de formulario</value>
+  </data>
+  <data name="Add a Form Drop-_Down List" xml:space="preserve">
+    <value>Añadir una lista _desplegable de formulario</value>
+  </data>
+  <data name="Add a Form _Button" xml:space="preserve">
+    <value>Añadir un _botón de formulario</value>
+  </data>
+  <data name="Add a Form _Text Field" xml:space="preserve">
+    <value>Añadir un campo de _texto de formulario</value>
+  </data>
+  <data name="Add a _Footer…" xml:space="preserve">
+    <value>Añadir un _pie de página…</value>
+  </data>
+  <data name="Add a _Header…" xml:space="preserve">
+    <value>Añadir un _encabezado…</value>
+  </data>
+  <data name="Add a _Line" xml:space="preserve">
+    <value>Añadir una _línea</value>
+  </data>
+  <data name="Add a _Picture…" xml:space="preserve">
+    <value>Añadir una _imagen…</value>
+  </data>
+  <data name="Add a _Rectangle" xml:space="preserve">
+    <value>Añadir un _rectángulo</value>
+  </data>
+  <data name="Add a _Watermark…" xml:space="preserve">
+    <value>Añadir una _marca de agua…</value>
   </data>
   <data name="Add a bookmark that goes to the page you are on. It goes below the chosen bookmark, or at the top when none is chosen." xml:space="preserve">
     <value>Añada un marcador que lleve a la página actual. Se coloca debajo del marcador seleccionado, o al principio si no hay ninguno seleccionado.</value>
@@ -273,11 +327,26 @@
   <data name="Add a document timestamp" xml:space="preserve">
     <value>Añadir un sello de tiempo al documento</value>
   </data>
+  <data name="Add a footer" xml:space="preserve">
+    <value>Añadir un pie de página</value>
+  </data>
+  <data name="Add a header" xml:space="preserve">
+    <value>Añadir un encabezado</value>
+  </data>
+  <data name="Add a link" xml:space="preserve">
+    <value>Añadir un enlace</value>
+  </data>
   <data name="Add a reading structure (tags) when missing" xml:space="preserve">
     <value>Añadir una estructura de lectura (etiquetas) si falta</value>
   </data>
   <data name="Add a record for each signature." xml:space="preserve">
     <value>Añadir un registro para cada firma.</value>
+  </data>
+  <data name="Add a watermark" xml:space="preserve">
+    <value>Añadir una marca de agua</value>
+  </data>
+  <data name="Add an _Ellipse" xml:space="preserve">
+    <value>Añadir una _elipse</value>
   </data>
   <data name="Add bookmark" xml:space="preserve">
     <value>Añadir marcador</value>
@@ -285,17 +354,35 @@
   <data name="Add copies of the selected pages after the selection." xml:space="preserve">
     <value>Añadir copias de las páginas seleccionadas después de la selección.</value>
   </data>
+  <data name="Add it" xml:space="preserve">
+    <value>Añadirlo</value>
+  </data>
+  <data name="Add page numbers" xml:space="preserve">
+    <value>Añadir números de página</value>
+  </data>
   <data name="Add pictures as pages" xml:space="preserve">
     <value>Añadir imágenes como páginas</value>
   </data>
   <data name="Add pictures as pages…" xml:space="preserve">
     <value>Añadir imágenes como páginas…</value>
   </data>
+  <data name="Add tags worked out from the layout" xml:space="preserve">
+    <value>Añadir etiquetas deducidas del diseño</value>
+  </data>
+  <data name="Add the Page I Am On to the Selection" xml:space="preserve">
+    <value>Añadir la página actual a la selección</value>
+  </data>
   <data name="Add the custom tag type" xml:space="preserve">
     <value>Añadir el tipo de etiqueta personalizado</value>
   </data>
+  <data name="Add the custom type" xml:space="preserve">
+    <value>Añadir el tipo personalizado</value>
+  </data>
   <data name="Add the document language, a window title and tag flags when they are missing, so screen readers read the file correctly." xml:space="preserve">
     <value>Añada el idioma del documento, un título de ventana y los indicadores de etiquetas que falten para que los lectores de pantalla lean el archivo correctamente.</value>
+  </data>
+  <data name="Add the link" xml:space="preserve">
+    <value>Añadir el enlace</value>
   </data>
   <data name="Add this reply to the comment. Shortcut: Ctrl+Enter" xml:space="preserve">
     <value>Añadir esta respuesta al comentario. Atajo: Ctrl+Enter</value>
@@ -308,6 +395,15 @@
   </data>
   <data name="Added bookmark {0}." xml:space="preserve">
     <value>Se ha añadido el marcador {0}.</value>
+  </data>
+  <data name="Added the field {0}. Drag it to where it belongs." xml:space="preserve">
+    <value>Campo {0} añadido. Arrástrelo adonde corresponda.</value>
+  </data>
+  <data name="Added the link." xml:space="preserve">
+    <value>Enlace añadido.</value>
+  </data>
+  <data name="Added. Drag its handles to size it, or drag it to move it." xml:space="preserve">
+    <value>Añadido. Arrastre sus tiradores para cambiar el tamaño, o arrástrelo para moverlo.</value>
   </data>
   <data name="Adding and changing comments and markings" xml:space="preserve">
     <value>Añadir y modificar comentarios y marcas</value>
@@ -324,11 +420,23 @@
   <data name="Adjust Mark" xml:space="preserve">
     <value>Ajustar marca</value>
   </data>
+  <data name="Adjust the Mark" xml:space="preserve">
+    <value>Ajustar la marca</value>
+  </data>
   <data name="Advanced sharpness choices" xml:space="preserve">
     <value>Opciones avanzadas de nitidez</value>
   </data>
   <data name="After you save it, the removed content cannot be brought back. Your open file is not changed, so keep it if you may need the original." xml:space="preserve">
     <value>Después de guardar, no podrá recuperar el contenido eliminado. El archivo abierto no se modifica; consérvelo si puede necesitar el original.</value>
+  </data>
+  <data name="Align _Centre" xml:space="preserve">
+    <value>Alinear al _centro</value>
+  </data>
+  <data name="Align _Left" xml:space="preserve">
+    <value>Alinear a la _izquierda</value>
+  </data>
+  <data name="Align _Right" xml:space="preserve">
+    <value>Alinear a la _derecha</value>
   </data>
   <data name="Align left" xml:space="preserve">
     <value>Alinear a la izquierda</value>
@@ -429,6 +537,9 @@
   <data name="Approve: allow any later change" xml:space="preserve">
     <value>Aprobar: permitir cualquier cambio posterior</value>
   </data>
+  <data name="Archive standard" xml:space="preserve">
+    <value>Norma de archivo</value>
+  </data>
   <data name="Area" xml:space="preserve">
     <value>Área</value>
   </data>
@@ -504,6 +615,9 @@
   <data name="Azure region" xml:space="preserve">
     <value>Región de Azure</value>
   </data>
+  <data name="Azure speech region" xml:space="preserve">
+    <value>Región de voz de Azure</value>
+  </data>
   <data name="A−" xml:space="preserve">
     <value>A−</value>
   </data>
@@ -519,8 +633,17 @@
   <data name="Back 10 s" xml:space="preserve">
     <value>Retroceder 10 s</value>
   </data>
+  <data name="Back ten seconds" xml:space="preserve">
+    <value>Retroceder diez segundos</value>
+  </data>
   <data name="Back to Pages" xml:space="preserve">
     <value>Volver a Páginas</value>
+  </data>
+  <data name="Back to the pages" xml:space="preserve">
+    <value>Volver a las páginas</value>
+  </data>
+  <data name="Background colour" xml:space="preserve">
+    <value>Color de fondo</value>
   </data>
   <data name="Balanced" xml:space="preserve">
     <value>Equilibrado</value>
@@ -552,8 +675,14 @@
   <data name="Blue" xml:space="preserve">
     <value>Azul</value>
   </data>
+  <data name="Bol_d" xml:space="preserve">
+    <value>_Negrita</value>
+  </data>
   <data name="Bold" xml:space="preserve">
     <value>Negrita</value>
+  </data>
+  <data name="Bold Text" xml:space="preserve">
+    <value>Texto en negrita</value>
   </data>
   <data name="Boldest" xml:space="preserve">
     <value>Máxima negrita</value>
@@ -561,8 +690,26 @@
   <data name="Booklet (fold in half)" xml:space="preserve">
     <value>Folleto (doblar por la mitad)</value>
   </data>
+  <data name="Box" xml:space="preserve">
+    <value>Rectángulo</value>
+  </data>
   <data name="Bring back the tool bars and sidebar. Shortcut: Esc or Ctrl+H" xml:space="preserve">
     <value>Restaurar las barras de herramientas y la barra lateral. Atajo: Esc o Ctrl+H</value>
+  </data>
+  <data name="Bring the Picked Object Forward One Step" xml:space="preserve">
+    <value>Traer el objeto elegido un nivel adelante</value>
+  </data>
+  <data name="Bring the Picked Object to the Front" xml:space="preserve">
+    <value>Traer el objeto elegido al frente</value>
+  </data>
+  <data name="Bring the result back and save the signed copy…" xml:space="preserve">
+    <value>Traer el resultado y guardar la copia firmada…</value>
+  </data>
+  <data name="Brought forward one step." xml:space="preserve">
+    <value>Traído un nivel adelante.</value>
+  </data>
+  <data name="Brought to the front." xml:space="preserve">
+    <value>Traído al frente.</value>
   </data>
   <data name="Browsing the parts of a document" xml:space="preserve">
     <value>Exploración de las partes de un documento</value>
@@ -572,6 +719,12 @@
   </data>
   <data name="Bytes to sign: {0} bytes (DER signed attributes). Your signer hashes them and signs the hash." xml:space="preserve">
     <value>Bytes que se deben firmar: {0} bytes (atributos firmados DER). Su firmante calcula su resumen y lo firma.</value>
+  </data>
+  <data name="CONFIDENTIAL" xml:space="preserve">
+    <value>CONFIDENCIAL</value>
+  </data>
+  <data name="C_loud" xml:space="preserve">
+    <value>_Nube</value>
   </data>
   <data name="C_olour" xml:space="preserve">
     <value>C_olor</value>
@@ -657,20 +810,38 @@
   <data name="Certify: allow no later change" xml:space="preserve">
     <value>Certificar: no permitir cambios posteriores</value>
   </data>
+  <data name="Change a tag" xml:space="preserve">
+    <value>Cambiar una etiqueta</value>
+  </data>
   <data name="Change how the app looks and works. Shortcut: Ctrl+Comma" xml:space="preserve">
     <value>Cambie el aspecto y el funcionamiento de la aplicación. Atajo: Ctrl+Coma</value>
   </data>
   <data name="Change how wide the column of text is." xml:space="preserve">
     <value>Cambiar la anchura de la columna de texto.</value>
   </data>
+  <data name="Change the Picked Paragraph…" xml:space="preserve">
+    <value>Cambiar el párrafo elegido…</value>
+  </data>
+  <data name="Change the Picked Picture in Another Program…" xml:space="preserve">
+    <value>Cambiar la imagen elegida en otro programa…</value>
+  </data>
+  <data name="Change the Picked Text…" xml:space="preserve">
+    <value>Cambiar el texto elegido…</value>
+  </data>
   <data name="Change the chosen tag" xml:space="preserve">
     <value>Cambiar la etiqueta elegida</value>
+  </data>
+  <data name="Change the document" xml:space="preserve">
+    <value>Cambiar el documento</value>
   </data>
   <data name="Change the page itself. Click text, a picture or a drawing to pick it, then retype, move or remove it. Shortcut: Ctrl+E" xml:space="preserve">
     <value>Cambie la propia página. Haga clic en un texto, una imagen o un dibujo para elegirlo y luego reescríbalo, muévalo o quítelo. Atajo: Ctrl+E</value>
   </data>
   <data name="Change the pages" xml:space="preserve">
     <value>Modificar las páginas</value>
+  </data>
+  <data name="Change the picture in the other program and save it there. It changes here when you do." xml:space="preserve">
+    <value>Cambie la imagen en el otro programa y guárdela allí. Aquí cambia cuando lo hace.</value>
   </data>
   <data name="Change the size of the text." xml:space="preserve">
     <value>Cambiar el tamaño del texto.</value>
@@ -687,8 +858,50 @@
   <data name="Change the title of the chosen bookmark." xml:space="preserve">
     <value>Cambiar el título del marcador seleccionado.</value>
   </data>
+  <data name="Changed how its colours mix with the page." xml:space="preserve">
+    <value>Cambiada la mezcla de sus colores con la página.</value>
+  </data>
+  <data name="Changed how solid it is." xml:space="preserve">
+    <value>Cambiada la opacidad.</value>
+  </data>
+  <data name="Changed the dashes." xml:space="preserve">
+    <value>Cambiadas las rayas.</value>
+  </data>
+  <data name="Changed the fill colour." xml:space="preserve">
+    <value>Cambiado el color de relleno.</value>
+  </data>
+  <data name="Changed the font." xml:space="preserve">
+    <value>Cambiada la fuente.</value>
+  </data>
+  <data name="Changed the line colour." xml:space="preserve">
+    <value>Cambiado el color de línea.</value>
+  </data>
+  <data name="Changed the line corners." xml:space="preserve">
+    <value>Cambiadas las esquinas de línea.</value>
+  </data>
+  <data name="Changed the line ends." xml:space="preserve">
+    <value>Cambiados los extremos de línea.</value>
+  </data>
+  <data name="Changed the page numbers. Undo is in the Pages menu." xml:space="preserve">
+    <value>Cambiados los números de página. Deshacer está en el menú Páginas.</value>
+  </data>
+  <data name="Changed the paragraph." xml:space="preserve">
+    <value>Párrafo cambiado.</value>
+  </data>
+  <data name="Changed the picture from the other program." xml:space="preserve">
+    <value>Imagen cambiada desde el otro programa.</value>
+  </data>
   <data name="Changed the text." xml:space="preserve">
     <value>Texto cambiado.</value>
+  </data>
+  <data name="Changed whether the field can be changed." xml:space="preserve">
+    <value>Cambiado si el campo se puede modificar.</value>
+  </data>
+  <data name="Changed whether the field must be filled in." xml:space="preserve">
+    <value>Cambiado si el campo es obligatorio.</value>
+  </data>
+  <data name="Changed {0} pages. Undo is in the Pages menu." xml:space="preserve">
+    <value>Cambiadas {0} páginas. Deshacer está en el menú Páginas.</value>
   </data>
   <data name="Changes apply straight away and are kept for next time." xml:space="preserve">
     <value>Los cambios se aplican de inmediato y se conservan para la próxima vez.</value>
@@ -708,8 +921,17 @@
   <data name="Check spelling in form fields" xml:space="preserve">
     <value>Revisar la ortografía en campos de formulario</value>
   </data>
+  <data name="Check spelling in forms and notes" xml:space="preserve">
+    <value>Revisar la ortografía en formularios y notas</value>
+  </data>
+  <data name="Check the _Accessibility Tags" xml:space="preserve">
+    <value>Revisar las etiquetas de _accesibilidad</value>
+  </data>
   <data name="Check the choices, choose where to save, then make the protected copy. The open file is never replaced." xml:space="preserve">
     <value>Revise las opciones, elija dónde guardar y cree la copia protegida. El archivo abierto nunca se reemplaza.</value>
+  </data>
+  <data name="Check the signatures again" xml:space="preserve">
+    <value>Revisar las firmas de nuevo</value>
   </data>
   <data name="Check who signed this document and whether it changed after signing. This may go online." xml:space="preserve">
     <value>Comprobar quién firmó este documento y si cambió después de la firma. Puede requerir conexión a Internet.</value>
@@ -722,6 +944,9 @@
   </data>
   <data name="Checking the file" xml:space="preserve">
     <value>Comprobando el archivo</value>
+  </data>
+  <data name="Checking the signatures…" xml:space="preserve">
+    <value>Revisando las firmas…</value>
   </data>
   <data name="Checking…" xml:space="preserve">
     <value>Comprobando…</value>
@@ -768,6 +993,12 @@
   <data name="Choose a different file so the open document is not replaced." xml:space="preserve">
     <value>Elija otro archivo para que no se reemplace el documento abierto.</value>
   </data>
+  <data name="Choose a file" xml:space="preserve">
+    <value>Elegir un archivo</value>
+  </data>
+  <data name="Choose a folder" xml:space="preserve">
+    <value>Elegir una carpeta</value>
+  </data>
   <data name="Choose a folder and the words to find." xml:space="preserve">
     <value>Elija una carpeta y las palabras que buscar.</value>
   </data>
@@ -776,6 +1007,9 @@
   </data>
   <data name="Choose a picture file to use as a stamp, then click on the page to place it." xml:space="preserve">
     <value>Seleccione una imagen para usarla como sello y haga clic en la página para colocarla.</value>
+  </data>
+  <data name="Choose a picture of it…" xml:space="preserve">
+    <value>Elegir una imagen de ello…</value>
   </data>
   <data name="Choose a picture of your signature from a folder." xml:space="preserve">
     <value>Elegir una imagen de su firma de una carpeta.</value>
@@ -870,6 +1104,9 @@
   <data name="Choose the Answers to Load ({0})" xml:space="preserve">
     <value>Elegir las respuestas que se cargarán ({0})</value>
   </data>
+  <data name="Choose the Language to Recognise…" xml:space="preserve">
+    <value>Elegir el idioma que reconocer…</value>
+  </data>
   <data name="Choose the PDF/A level the copy must meet. Use the arrow keys to move between the choices." xml:space="preserve">
     <value>Seleccione el nivel PDF/A que debe cumplir la copia. Utilice las teclas de flecha para cambiar de opción.</value>
   </data>
@@ -878,6 +1115,9 @@
   </data>
   <data name="Choose the Signer's Certificates" xml:space="preserve">
     <value>Seleccionar los certificados del firmante</value>
+  </data>
+  <data name="Choose the certificate file…" xml:space="preserve">
+    <value>Elegir el archivo del certificado…</value>
   </data>
   <data name="Choose the colour behind the text." xml:space="preserve">
     <value>Elija el color detrás del texto.</value>
@@ -897,6 +1137,9 @@
   <data name="Choose the colours of the app, such as Calm, Dark or High contrast." xml:space="preserve">
     <value>Seleccione los colores de la aplicación, como Sereno, Oscuro o Alto contraste.</value>
   </data>
+  <data name="Choose the document to show." xml:space="preserve">
+    <value>Elija el documento que mostrar.</value>
+  </data>
   <data name="Choose the file your signer gave back, then choose where to save the signed copy." xml:space="preserve">
     <value>Elegir el archivo devuelto por su firmante y, a continuación, dónde guardar la copia firmada.</value>
   </data>
@@ -905,6 +1148,9 @@
   </data>
   <data name="Choose the folder to search." xml:space="preserve">
     <value>Elija la carpeta en la que buscar.</value>
+  </data>
+  <data name="Choose the folder…" xml:space="preserve">
+    <value>Elegir la carpeta…</value>
   </data>
   <data name="Choose the font of the text you type, or of the text you picked. Each font is shown in its own letters." xml:space="preserve">
     <value>Elija la fuente del texto que escriba o del texto seleccionado. Cada fuente se muestra con sus propios caracteres.</value>
@@ -924,6 +1170,9 @@
   <data name="Choose the language a scanned document is written in, then find its words. Other languages download in one click." xml:space="preserve">
     <value>Seleccione el idioma del documento escaneado y después reconozca sus palabras. Puede descargar otros idiomas con un clic.</value>
   </data>
+  <data name="Choose the language of the viewer. You can change it later in the preferences." xml:space="preserve">
+    <value>Elija el idioma del visor. Puede cambiarlo después en las preferencias.</value>
+  </data>
   <data name="Choose the language of this document. Languages not on this computer download in the same click." xml:space="preserve">
     <value>Elegir el idioma de este documento. Los idiomas que no estén en este equipo se descargan con el mismo clic.</value>
   </data>
@@ -935,6 +1184,9 @@
   </data>
   <data name="Choose the pages and settings, then print. Shortcut: Ctrl+P" xml:space="preserve">
     <value>Elija las páginas y los ajustes y luego imprima. Atajo: Ctrl+P</value>
+  </data>
+  <data name="Choose the signer's certificate…" xml:space="preserve">
+    <value>Elegir el certificado del firmante…</value>
   </data>
   <data name="Choose the size of new text and callouts, and of the text you picked." xml:space="preserve">
     <value>Seleccione el tamaño del texto y las llamadas de texto nuevos, y del texto seleccionado.</value>
@@ -956,6 +1208,9 @@
   </data>
   <data name="Choose the zoom for new documents. Fit page shows the whole page. Fit width fills the width." xml:space="preserve">
     <value>Elija el nivel de zoom para los documentos nuevos. Ajustar página muestra la página completa. Ajustar ancho ocupa todo el ancho.</value>
+  </data>
+  <data name="Choose this folder" xml:space="preserve">
+    <value>Elegir esta carpeta</value>
   </data>
   <data name="Choose to add validation data or a document timestamp. Use the arrow keys to move between the choices." xml:space="preserve">
     <value>Seleccione si desea añadir datos de validación o un sello de tiempo del documento. Utilice las teclas de flecha para cambiar de opción.</value>
@@ -1056,8 +1311,17 @@
   <data name="Clear recent documents" xml:space="preserve">
     <value>Borrar documentos recientes</value>
   </data>
+  <data name="Clear the Measurement" xml:space="preserve">
+    <value>Borrar la medida</value>
+  </data>
   <data name="Clear the measurement you are making. Shortcut: Esc" xml:space="preserve">
     <value>Borre la medición que está realizando. Atajo: Esc</value>
+  </data>
+  <data name="Clear the title, author, subject, keywords and the program that made it" xml:space="preserve">
+    <value>Borrar el título, el autor, el asunto, las palabras clave y el programa que lo creó</value>
+  </data>
+  <data name="Click a field to pick it first." xml:space="preserve">
+    <value>Haga clic primero en un campo para elegirlo.</value>
   </data>
   <data name="Click a form field to fill it in, or click anywhere on the page and type. Tab moves between fields." xml:space="preserve">
     <value>Haga clic en un campo de formulario para rellenarlo, o en cualquier lugar de la página y escriba. Tabulador permite pasar entre campos.</value>
@@ -1079,6 +1343,9 @@
   </data>
   <data name="Click the corners of a shape to measure its area. Double-click to finish." xml:space="preserve">
     <value>Haga clic en las esquinas de una forma para medir su área. Haga doble clic para terminar.</value>
+  </data>
+  <data name="Click the points to measure between." xml:space="preserve">
+    <value>Haga clic en los puntos entre los que medir.</value>
   </data>
   <data name="Click two points on the page to measure the distance between them." xml:space="preserve">
     <value>Haga clic en dos puntos de la página para medir la distancia entre ellos.</value>
@@ -1164,6 +1431,12 @@
   <data name="Colour separations" xml:space="preserve">
     <value>Separaciones de color</value>
   </data>
+  <data name="Colour: {0}" xml:space="preserve">
+    <value>Color: {0}</value>
+  </data>
+  <data name="Columns the cell spans" xml:space="preserve">
+    <value>Columnas que abarca la celda</value>
+  </data>
   <data name="Columns this cell covers" xml:space="preserve">
     <value>Columnas que abarca esta celda</value>
   </data>
@@ -1178,6 +1451,9 @@
   </data>
   <data name="Comments, highlights, stamps and drawings become part of the page. Form fields and links stay as they are." xml:space="preserve">
     <value>Los comentarios, resaltados, sellos y dibujos pasan a formar parte de la página. Los campos de formulario y los enlaces se mantienen.</value>
+  </data>
+  <data name="Compare with Another Document" xml:space="preserve">
+    <value>Comparar con otro documento</value>
   </data>
   <data name="Compatible (AES-128)" xml:space="preserve">
     <value>Compatible (AES-128)</value>
@@ -1203,11 +1479,17 @@
   <data name="Convert _Pictures to PDF…" xml:space="preserve">
     <value>Convertir _imágenes a PDF…</value>
   </data>
+  <data name="Convert _Pictures to a PDF…" xml:space="preserve">
+    <value>Convertir _imágenes en un PDF…</value>
+  </data>
   <data name="Copied an image of the area. Paste it where you need it." xml:space="preserve">
     <value>Se ha copiado una imagen del área. Péguela donde la necesite.</value>
   </data>
   <data name="Copied the licence text." xml:space="preserve">
     <value>Se copió el texto de la licencia.</value>
+  </data>
+  <data name="Copied." xml:space="preserve">
+    <value>Copiado.</value>
   </data>
   <data name="Copies" xml:space="preserve">
     <value>Copias</value>
@@ -1215,14 +1497,26 @@
   <data name="Copy text and pictures" xml:space="preserve">
     <value>Copiar texto e imágenes</value>
   </data>
+  <data name="Copy the Picked Object" xml:space="preserve">
+    <value>Copiar el objeto elegido</value>
+  </data>
   <data name="Copy the full licence text of the chosen component to the clipboard." xml:space="preserve">
     <value>Copiar al portapapeles el texto completo de la licencia del componente elegido.</value>
+  </data>
+  <data name="Copy this licence" xml:space="preserve">
+    <value>Copiar esta licencia</value>
   </data>
   <data name="Copyright" xml:space="preserve">
     <value>Derechos de autor</value>
   </data>
   <data name="Could not add pictures as pages." xml:space="preserve">
     <value>No se pudieron añadir las imágenes como páginas.</value>
+  </data>
+  <data name="Could not change the page numbers." xml:space="preserve">
+    <value>No se pudieron cambiar los números de página.</value>
+  </data>
+  <data name="Could not change the pages." xml:space="preserve">
+    <value>No se pudieron cambiar las páginas.</value>
   </data>
   <data name="Could not delete pages." xml:space="preserve">
     <value>No se han podido eliminar las páginas.</value>
@@ -1284,6 +1578,9 @@
   <data name="Could not redo the page edit." xml:space="preserve">
     <value>No se pudo rehacer la edición de la página.</value>
   </data>
+  <data name="Could not remove the hidden information." xml:space="preserve">
+    <value>No se pudo quitar la información oculta.</value>
+  </data>
   <data name="Could not rotate pages." xml:space="preserve">
     <value>No se pudieron girar las páginas.</value>
   </data>
@@ -1304,6 +1601,9 @@
   </data>
   <data name="Could not save the image: {0}" xml:space="preserve">
     <value>No se ha podido guardar la imagen: {0}</value>
+  </data>
+  <data name="Could not save the picture." xml:space="preserve">
+    <value>No se pudo guardar la imagen.</value>
   </data>
   <data name="Could not save the redacted copy: {0}" xml:space="preserve">
     <value>No se pudo guardar la copia censurada: {0}</value>
@@ -1334,6 +1634,15 @@
   </data>
   <data name="Crisp gives text, lines and pictures hard edges and fits lines to whole pixels. Custom shows that the choices under Advanced match none of them." xml:space="preserve">
     <value>Nítido da bordes definidos al texto, las líneas y las imágenes, y ajusta las líneas a píxeles completos. Personalizado indica que las opciones avanzadas no coinciden con ningún ajuste predefinido.</value>
+  </data>
+  <data name="Crop the pages" xml:space="preserve">
+    <value>Recortar las páginas</value>
+  </data>
+  <data name="Cropped it." xml:space="preserve">
+    <value>Recortado.</value>
+  </data>
+  <data name="Cropped the picture." xml:space="preserve">
+    <value>Imagen recortada.</value>
   </data>
   <data name="Cryptographic filter" xml:space="preserve">
     <value>Filtro criptográfico</value>
@@ -1374,6 +1683,9 @@
   <data name="Custom tag {0} now stands for {1}. Undo takes it back." xml:space="preserve">
     <value>La etiqueta personalizada {0} ahora representa {1}. Deshacer revierte el cambio.</value>
   </data>
+  <data name="Cut the Picked Object" xml:space="preserve">
+    <value>Cortar el objeto elegido</value>
+  </data>
   <data name="Damaged colour separation details on {0} were removed." xml:space="preserve">
     <value>Se eliminaron los detalles de separación de color dañados de {0}.</value>
   </data>
@@ -1389,6 +1701,9 @@
   <data name="Darkest" xml:space="preserve">
     <value>El más oscuro</value>
   </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Eliminar</value>
+  </data>
   <data name="Delete pages" xml:space="preserve">
     <value>Eliminar páginas</value>
   </data>
@@ -1401,11 +1716,17 @@
   <data name="Delete selected pages" xml:space="preserve">
     <value>Eliminar páginas seleccionadas</value>
   </data>
+  <data name="Delete the Page" xml:space="preserve">
+    <value>Eliminar la página</value>
+  </data>
   <data name="Delete this comment from the page. Undo can bring it back." xml:space="preserve">
     <value>Eliminar este comentario de la página. Deshacer permite recuperarlo.</value>
   </data>
   <data name="Delete this language from this computer to free space. You can download it again later." xml:space="preserve">
     <value>Elimine este idioma del equipo para liberar espacio. Podrá descargarlo de nuevo más adelante.</value>
+  </data>
+  <data name="Describe pictures" xml:space="preserve">
+    <value>Describir las imágenes</value>
   </data>
   <data name="Describe pictures for screen readers" xml:space="preserve">
     <value>Describir imágenes para lectores de pantalla</value>
@@ -1422,6 +1743,9 @@
   <data name="Details of the chosen component" xml:space="preserve">
     <value>Detalles del componente elegido</value>
   </data>
+  <data name="Digits in the number, with zeros in front" xml:space="preserve">
+    <value>Dígitos del número, con ceros delante</value>
+  </data>
   <data name="Dim text away from what is read" xml:space="preserve">
     <value>Atenuar el texto alejado de lo que se lee</value>
   </data>
@@ -1437,14 +1761,23 @@
   <data name="Distance" xml:space="preserve">
     <value>Distancia</value>
   </data>
+  <data name="Distance from the edge in points" xml:space="preserve">
+    <value>Distancia al borde en puntos</value>
+  </data>
   <data name="Document" xml:space="preserve">
     <value>Documento</value>
+  </data>
+  <data name="Document Propert_ies…" xml:space="preserve">
+    <value>_Propiedades del documento…</value>
   </data>
   <data name="Document digest, if your signing service wants a hash: {0}" xml:space="preserve">
     <value>Resumen del documento, si su servicio de firma necesita un hash: {0}</value>
   </data>
   <data name="Document language" xml:space="preserve">
     <value>Idioma del documento</value>
+  </data>
+  <data name="Document language, such as en-AU" xml:space="preserve">
+    <value>Idioma del documento, como es-ES</value>
   </data>
   <data name="Document part" xml:space="preserve">
     <value>Parte del documento</value>
@@ -1481,6 +1814,9 @@
   </data>
   <data name="Done. The signed copy is saved." xml:space="preserve">
     <value>Listo. La copia firmada está guardada.</value>
+  </data>
+  <data name="Dots per inch" xml:space="preserve">
+    <value>Puntos por pulgada</value>
   </data>
   <data name="Download" xml:space="preserve">
     <value>Descargar</value>
@@ -1551,6 +1887,9 @@
   <data name="Draw" xml:space="preserve">
     <value>Dibujar</value>
   </data>
+  <data name="Draw Another Picture in Place of the Picked Picture…" xml:space="preserve">
+    <value>Dibujar otra imagen en lugar de la imagen elegida…</value>
+  </data>
   <data name="Draw a cloud around an area. Click each corner, then press Enter or double-click." xml:space="preserve">
     <value>Dibujar una nube alrededor de un área. Haga clic en cada esquina y pulse Enter o haga doble clic.</value>
   </data>
@@ -1565,6 +1904,9 @@
   </data>
   <data name="Draw here. Each line you draw is added until you clear it." xml:space="preserve">
     <value>Dibuje aquí. Cada línea que dibuje se añade hasta que las borre.</value>
+  </data>
+  <data name="Draw it behind the page's own content" xml:space="preserve">
+    <value>Dibujarlo detrás del contenido propio de la página</value>
   </data>
   <data name="Draw joined straight lines. Click each point, then press Enter or double-click." xml:space="preserve">
     <value>Dibuje líneas rectas unidas. Haga clic en cada punto y luego pulse Intro o haga doble clic.</value>
@@ -1581,11 +1923,17 @@
   <data name="Draw straight lines. Drag on the page to draw one." xml:space="preserve">
     <value>Dibuje líneas rectas. Arrastre sobre la página para dibujar una.</value>
   </data>
+  <data name="Draw the Picked Object's Line {0}" xml:space="preserve">
+    <value>Dibujar la línea del objeto elegido {0}</value>
+  </data>
   <data name="Draw with a mouse, pen or finger. Typing is the keyboard way." xml:space="preserve">
     <value>Dibuje con el ratón, un lápiz o el dedo. Para utilizar el teclado, escriba.</value>
   </data>
   <data name="Drawing" xml:space="preserve">
     <value>Dibujo</value>
+  </data>
+  <data name="Drawing (next start)" xml:space="preserve">
+    <value>Dibujo (próximo inicio)</value>
   </data>
   <data name="Drawing area" xml:space="preserve">
     <value>Área de dibujo</value>
@@ -1595,6 +1943,9 @@
   </data>
   <data name="Drawings under a mark" xml:space="preserve">
     <value>Dibujos bajo una marca</value>
+  </data>
+  <data name="Drawings under a marked area" xml:space="preserve">
+    <value>Dibujos bajo un área marcada</value>
   </data>
   <data name="Draws form fields, comments and other marks into the page so they can no longer be changed." xml:space="preserve">
     <value>Integra los campos de formulario, comentarios y otras marcas en la página para que ya no puedan modificarse.</value>
@@ -1611,8 +1962,17 @@
   <data name="Duplicate selected pages" xml:space="preserve">
     <value>Duplicar páginas seleccionadas</value>
   </data>
+  <data name="Duplicate the Picked Object" xml:space="preserve">
+    <value>Duplicar el objeto elegido</value>
+  </data>
+  <data name="Duplicated." xml:space="preserve">
+    <value>Duplicado.</value>
+  </data>
   <data name="E_xport Pages as Pictures or Drawings…" xml:space="preserve">
     <value>E_xportar páginas como imágenes o dibujos…</value>
+  </data>
+  <data name="E_xtract Pages…" xml:space="preserve">
+    <value>E_xtraer páginas…</value>
   </data>
   <data name="Each sentence read aloud is sent to your own Azure Speech resource, which bills your Azure account. The key is kept in your settings file, readable only by you." xml:space="preserve">
     <value>Cada frase leída en voz alta se envía a su propio recurso de Azure Speech, que factura a su cuenta de Azure. La clave se conserva en su archivo de ajustes, que solo usted puede leer.</value>
@@ -1668,6 +2028,9 @@
   <data name="End each line at the right of the text box." xml:space="preserve">
     <value>Terminar cada línea en el lado derecho del cuadro de texto.</value>
   </data>
+  <data name="End the Picked Object's Line with a {0} End" xml:space="preserve">
+    <value>Terminar la línea del objeto elegido con un extremo {0}</value>
+  </data>
   <data name="English is included. Other languages download from the Tesseract project on GitHub when you choose them, " xml:space="preserve">
     <value>El inglés está incluido. Los demás idiomas se descargan del proyecto Tesseract en GitHub al seleccionarlos, </value>
   </data>
@@ -1676,6 +2039,9 @@
   </data>
   <data name="Every page already has text, so there was nothing to recognise." xml:space="preserve">
     <value>Todas las páginas ya tienen texto, por lo que no había nada que reconocer.</value>
+  </data>
+  <data name="Every page is numbered 1, 2, 3 again." xml:space="preserve">
+    <value>Cada página se numera de nuevo 1, 2, 3.</value>
   </data>
   <data name="Everyone" xml:space="preserve">
     <value>Todos</value>
@@ -1731,6 +2097,9 @@
   <data name="FFmpeg could not start to play this file." xml:space="preserve">
     <value>FFmpeg no ha podido iniciarse para reproducir este archivo.</value>
   </data>
+  <data name="F_ind…" xml:space="preserve">
+    <value>_Buscar…</value>
+  </data>
   <data name="Faster" xml:space="preserve">
     <value>Más rápido</value>
   </data>
@@ -1752,11 +2121,23 @@
   <data name="Fill and Sign tools" xml:space="preserve">
     <value>Herramientas de rellenado y firma</value>
   </data>
+  <data name="Fill in forms" xml:space="preserve">
+    <value>Rellenar formularios</value>
+  </data>
   <data name="Fill in forms and add comments" xml:space="preserve">
     <value>Rellenar formularios y añadir comentarios</value>
   </data>
   <data name="Fill in missing language and title" xml:space="preserve">
     <value>Completar el idioma y el título que falten</value>
+  </data>
+  <data name="Fill the Page _Background…" xml:space="preserve">
+    <value>Rellenar el _fondo de la página…</value>
+  </data>
+  <data name="Fill the page background" xml:space="preserve">
+    <value>Rellenar el fondo de la página</value>
+  </data>
+  <data name="Filled it with a gradient." xml:space="preserve">
+    <value>Rellenado con un degradado.</value>
   </data>
   <data name="Filled-in fields, check boxes and buttons become part of the page. Comments, highlights and links stay as they are." xml:space="preserve">
     <value>Los campos rellenados, las casillas y los botones pasan a formar parte de la página. Los comentarios, resaltados y enlaces se mantienen.</value>
@@ -1775,6 +2156,9 @@
   </data>
   <data name="Find" xml:space="preserve">
     <value>Buscar</value>
+  </data>
+  <data name="Find a component" xml:space="preserve">
+    <value>Buscar un componente</value>
   </data>
   <data name="Find an open tab" xml:space="preserve">
     <value>Buscar una pestaña abierta</value>
@@ -1833,14 +2217,29 @@
   <data name="Fit width" xml:space="preserve">
     <value>Ajustar ancho</value>
   </data>
+  <data name="Fix accessibility problems" xml:space="preserve">
+    <value>Corregir problemas de accesibilidad</value>
+  </data>
   <data name="Flattened" xml:space="preserve">
     <value>Acoplado</value>
   </data>
   <data name="Flattening draws form fields, comments and other marks into the page, so they look the same everywhere and can no longer be changed. The copy is a new file. Your open file is never changed. A signed file cannot be flattened, because that would break its signature." xml:space="preserve">
     <value>El aplanado integra los campos de formulario, comentarios y otras marcas en la página para que tengan el mismo aspecto en todas partes y ya no puedan modificarse. La copia es un archivo nuevo. Su archivo abierto nunca se modifica. Un archivo firmado no se puede aplanar, porque se invalidaría su firma.</value>
   </data>
+  <data name="Flip the Picked Object Across" xml:space="preserve">
+    <value>Voltear el objeto elegido horizontalmente</value>
+  </data>
+  <data name="Flip the Picked Object Upside Down" xml:space="preserve">
+    <value>Voltear el objeto elegido verticalmente</value>
+  </data>
+  <data name="Flipped." xml:space="preserve">
+    <value>Volteado.</value>
+  </data>
   <data name="Focus" xml:space="preserve">
     <value>Concentración</value>
+  </data>
+  <data name="Focus mode: one column of plain text." xml:space="preserve">
+    <value>Modo de concentración: una columna de texto sin formato.</value>
   </data>
   <data name="Folder" xml:space="preserve">
     <value>Carpeta</value>
@@ -1850,6 +2249,18 @@
   </data>
   <data name="Follow the desktop" xml:space="preserve">
     <value>Seguir el escritorio</value>
+  </data>
+  <data name="Follow the document's opening action" xml:space="preserve">
+    <value>Seguir la acción de apertura del documento</value>
+  </data>
+  <data name="Follow the document's page layout" xml:space="preserve">
+    <value>Seguir el diseño de página del documento</value>
+  </data>
+  <data name="Follow the document's print settings" xml:space="preserve">
+    <value>Seguir la configuración de impresión del documento</value>
+  </data>
+  <data name="Follow the document's side panel choice" xml:space="preserve">
+    <value>Seguir la elección de panel lateral del documento</value>
   </data>
   <data name="Follow the page a document opens at" xml:space="preserve">
     <value>Respetar la página de apertura del documento</value>
@@ -1872,6 +2283,9 @@
   <data name="For example uksouth or eastus" xml:space="preserve">
     <value>Por ejemplo, uksouth o eastus</value>
   </data>
+  <data name="For_ward" xml:space="preserve">
+    <value>_Adelante</value>
+  </data>
   <data name="Forget" xml:space="preserve">
     <value>Olvidar</value>
   </data>
@@ -1881,11 +2295,20 @@
   <data name="Forget certificate" xml:space="preserve">
     <value>Olvidar certificado</value>
   </data>
+  <data name="Forget the Recent Documents" xml:space="preserve">
+    <value>Olvidar los documentos recientes</value>
+  </data>
+  <data name="Forget the one that was kept" xml:space="preserve">
+    <value>Olvidar el que se guardó</value>
+  </data>
   <data name="Forget the picked certificate. The certificate file itself is not changed." xml:space="preserve">
     <value>Olvide el certificado seleccionado. El archivo del certificado no se modifica.</value>
   </data>
   <data name="Forget the remembered one now. Signatures already placed are not changed." xml:space="preserve">
     <value>Olvidar ahora la guardada. Las firmas ya colocadas no cambian.</value>
+  </data>
+  <data name="Forget this certificate" xml:space="preserve">
+    <value>Olvidar este certificado</value>
   </data>
   <data name="Form data (.fdf, .xfdf)" xml:space="preserve">
     <value>Datos de formulario (.fdf, .xfdf)</value>
@@ -1898,6 +2321,12 @@
   </data>
   <data name="Form field colour strength" xml:space="preserve">
     <value>Intensidad del color de campos de formulario</value>
+  </data>
+  <data name="Form field highlight colour" xml:space="preserve">
+    <value>Color de resaltado de los campos de formulario</value>
+  </data>
+  <data name="Form field highlight strength" xml:space="preserve">
+    <value>Intensidad del resaltado de los campos de formulario</value>
   </data>
   <data name="Form fields and all markup (suggested)" xml:space="preserve">
     <value>Campos de formulario y todas las marcas (recomendado)</value>
@@ -1926,11 +2355,41 @@
   <data name="Forward 10 s" xml:space="preserve">
     <value>Avanzar 10 s</value>
   </data>
+  <data name="Forward ten seconds" xml:space="preserve">
+    <value>Avanzar diez segundos</value>
+  </data>
+  <data name="Freehand H_ighlighter" xml:space="preserve">
+    <value>_Resaltador a mano alzada</value>
+  </data>
   <data name="Freehand highlight" xml:space="preserve">
     <value>Resaltado a mano alzada</value>
   </data>
+  <data name="From page" xml:space="preserve">
+    <value>Desde la página</value>
+  </data>
   <data name="Full" xml:space="preserve">
     <value>Completo</value>
+  </data>
+  <data name="Get a Better _Voice…" xml:space="preserve">
+    <value>Obtener una mejor _voz…</value>
+  </data>
+  <data name="Get a better voice" xml:space="preserve">
+    <value>Obtener una mejor voz</value>
+  </data>
+  <data name="Get the document ready" xml:space="preserve">
+    <value>Preparar el documento</value>
+  </data>
+  <data name="Getting the pages ready…" xml:space="preserve">
+    <value>Preparando las páginas…</value>
+  </data>
+  <data name="Getting the voice" xml:space="preserve">
+    <value>Obteniendo la voz</value>
+  </data>
+  <data name="Give the Picked Object's Line {0} Corners" xml:space="preserve">
+    <value>Dar a la línea del objeto elegido esquinas {0}</value>
+  </data>
+  <data name="Go" xml:space="preserve">
+    <value>Ir</value>
   </data>
   <data name="Go ahead with what this window asks about." xml:space="preserve">
     <value>Continuar con lo que solicita esta ventana.</value>
@@ -1955,6 +2414,12 @@
   </data>
   <data name="Go on to print with these settings." xml:space="preserve">
     <value>Continuar con la impresión con estos ajustes.</value>
+  </data>
+  <data name="Go to a document" xml:space="preserve">
+    <value>Ir a un documento</value>
+  </data>
+  <data name="Go to a page" xml:space="preserve">
+    <value>Ir a una página</value>
   </data>
   <data name="Go to the first page. Home also works when the pages have the keyboard. Shortcut: Ctrl+Home" xml:space="preserve">
     <value>Ir a la primera página. Home también funciona cuando las páginas tienen el foco del teclado. Atajo: Ctrl+Home</value>
@@ -1995,6 +2460,9 @@
   <data name="Guess headings, paragraphs and pictures from the page layout when the document has no reading structure. The guess can be wrong, so check it." xml:space="preserve">
     <value>Deducir encabezados, párrafos e imágenes a partir de la disposición de la página cuando el documento carezca de estructura de lectura. La deducción puede ser incorrecta; compruébela.</value>
   </data>
+  <data name="H_ighlight" xml:space="preserve">
+    <value>_Resaltar</value>
+  </data>
   <data name="Heading" xml:space="preserve">
     <value>Encabezado</value>
   </data>
@@ -2003,6 +2471,9 @@
   </data>
   <data name="Heading {0}" xml:space="preserve">
     <value>Encabezado {0}</value>
+  </data>
+  <data name="Hidden" xml:space="preserve">
+    <value>Oculto</value>
   </data>
   <data name="Hide details" xml:space="preserve">
     <value>Ocultar detalles</value>
@@ -2046,11 +2517,20 @@
   <data name="How sharp a picture is, in dots to the inch. Higher is sharper and the file is larger. Drawings ignore it." xml:space="preserve">
     <value>Nitidez de una imagen, en puntos por pulgada. Un valor mayor ofrece más nitidez y un archivo más grande. No se aplica a dibujos.</value>
   </data>
+  <data name="How solid" xml:space="preserve">
+    <value>Opacidad</value>
+  </data>
+  <data name="How the number is written" xml:space="preserve">
+    <value>Cómo se escribe el número</value>
+  </data>
   <data name="How this list labels its items, such as bullets or numbers. Screen readers use it to say what kind of list it is." xml:space="preserve">
     <value>Cómo etiqueta esta lista sus elementos, por ejemplo, con viñetas o números. Los lectores de pantalla lo utilizan para indicar el tipo de lista.</value>
   </data>
   <data name="How this tag sits in the text" xml:space="preserve">
     <value>Posición de esta etiqueta en el texto</value>
+  </data>
+  <data name="How to make it" xml:space="preserve">
+    <value>Cómo crearlo</value>
   </data>
   <data name="Hyper PDF Viewer" xml:space="preserve">
     <value>Hyper PDF Viewer</value>
@@ -2069,6 +2549,9 @@
   </data>
   <data name="I understand that removed content cannot be brought back after I save" xml:space="preserve">
     <value>Entiendo que el contenido eliminado no podrá recuperarse después de guardar</value>
+  </data>
+  <data name="I understand this cannot be undone in the copy" xml:space="preserve">
+    <value>Entiendo que esto no se puede deshacer en la copia</value>
   </data>
   <data name="Icons only" xml:space="preserve">
     <value>Solo iconos</value>
@@ -2100,8 +2583,14 @@
   <data name="Include comments and form fields" xml:space="preserve">
     <value>Incluir comentarios y campos de formulario</value>
   </data>
+  <data name="Include notes and marks" xml:space="preserve">
+    <value>Incluir notas y marcas</value>
+  </data>
   <data name="Include sub_folders" xml:space="preserve">
     <value>Incluir sub_carpetas</value>
+  </data>
+  <data name="Include the data of each signature" xml:space="preserve">
+    <value>Incluir los datos de cada firma</value>
   </data>
   <data name="Included" xml:space="preserve">
     <value>Incluido</value>
@@ -2109,17 +2598,32 @@
   <data name="Index" xml:space="preserve">
     <value>Índice</value>
   </data>
+  <data name="Initials" xml:space="preserve">
+    <value>Iniciales</value>
+  </data>
   <data name="Initials…" xml:space="preserve">
     <value>Iniciales…</value>
   </data>
   <data name="Ink" xml:space="preserve">
     <value>Tinta</value>
   </data>
+  <data name="Ink, as six hex digits such as FFFF00" xml:space="preserve">
+    <value>Tinta, en seis dígitos hexadecimales como FFFF00</value>
+  </data>
+  <data name="Inks" xml:space="preserve">
+    <value>Tintas</value>
+  </data>
   <data name="Insert PDF before selection" xml:space="preserve">
     <value>Insertar PDF antes de la selección</value>
   </data>
   <data name="Insert PDF before selection…" xml:space="preserve">
     <value>Insertar PDF antes de la selección…</value>
+  </data>
+  <data name="Insert Te_xt Here" xml:space="preserve">
+    <value>Insertar te_xto aquí</value>
+  </data>
+  <data name="Insert _Pictures as Pages…" xml:space="preserve">
+    <value>Insertar _imágenes como páginas…</value>
   </data>
   <data name="Insert or Merge PDFs" xml:space="preserve">
     <value>Insertar o combinar PDF</value>
@@ -2154,6 +2658,9 @@
   <data name="Italic" xml:space="preserve">
     <value>Cursiva</value>
   </data>
+  <data name="Italic Text" xml:space="preserve">
+    <value>Texto en cursiva</value>
+  </data>
   <data name="Item {0} of {1}" xml:space="preserve">
     <value>Elemento {0} de {1}</value>
   </data>
@@ -2162,6 +2669,15 @@
   </data>
   <data name="Keep" xml:space="preserve">
     <value>Conservar</value>
+  </data>
+  <data name="Keep &quot;{0}&quot; as it is" xml:space="preserve">
+    <value>Mantener «{0}» como está</value>
+  </data>
+  <data name="Keep as a mark" xml:space="preserve">
+    <value>Mantener como marca</value>
+  </data>
+  <data name="Keep it for next time" xml:space="preserve">
+    <value>Guardarlo para la próxima vez</value>
   </data>
   <data name="Keep it on this computer to use again. Untick to forget it after this time." xml:space="preserve">
     <value>Conservarlo en este equipo para volver a usarlo. Desmarque la opción para olvidarlo después de esta vez.</value>
@@ -2172,17 +2688,32 @@
   <data name="Keep quality" xml:space="preserve">
     <value>Conservar calidad</value>
   </data>
+  <data name="Keep signatures checkable in a copy of {0}" xml:space="preserve">
+    <value>Mantener las firmas comprobables en una copia de {0}</value>
+  </data>
+  <data name="Keep the Measurement as a Mark" xml:space="preserve">
+    <value>Mantener la medida como marca</value>
+  </data>
   <data name="Keep the finished measurement on the page as an annotation." xml:space="preserve">
     <value>Conservar la medición terminada en la página como anotación.</value>
   </data>
   <data name="Keep the keyboard cursor on pages" xml:space="preserve">
     <value>Mantener el cursor del teclado en las páginas</value>
   </data>
+  <data name="Keep the keyboard cursor on the page" xml:space="preserve">
+    <value>Mantener el cursor del teclado en la página</value>
+  </data>
+  <data name="Keep the note" xml:space="preserve">
+    <value>Mantener la nota</value>
+  </data>
   <data name="Keep the text you are typing. Shortcut: Ctrl+Enter." xml:space="preserve">
     <value>Conservar el texto que está escribiendo. Atajo: Ctrl+Enter.</value>
   </data>
   <data name="Keep this language and start using the app." xml:space="preserve">
     <value>Mantener este idioma y empezar a usar la aplicación.</value>
+  </data>
+  <data name="Keep this version" xml:space="preserve">
+    <value>Mantener esta versión</value>
   </data>
   <data name="Keep what is on screen now and hide this message." xml:space="preserve">
     <value>Conservar lo que se muestra en pantalla y ocultar este mensaje.</value>
@@ -2204,6 +2735,12 @@
   </data>
   <data name="Keywords" xml:space="preserve">
     <value>Palabras clave</value>
+  </data>
+  <data name="Kind of copy" xml:space="preserve">
+    <value>Tipo de copia</value>
+  </data>
+  <data name="Kind of key" xml:space="preserve">
+    <value>Tipo de clave</value>
   </data>
   <data name="Kind of signing key" xml:space="preserve">
     <value>Tipo de clave de firma</value>
@@ -2231,6 +2768,9 @@
   </data>
   <data name="Larger" xml:space="preserve">
     <value>Más grande</value>
+  </data>
+  <data name="Larger Focus Text" xml:space="preserve">
+    <value>Texto de concentración más grande</value>
   </data>
   <data name="Larger text" xml:space="preserve">
     <value>Texto más grande</value>
@@ -2264,6 +2804,9 @@
   </data>
   <data name="Leave empty to use your user name" xml:space="preserve">
     <value>Dejar vacío para usar su nombre de usuario</value>
+  </data>
+  <data name="Leave every margin at 0 to show the whole page again." xml:space="preserve">
+    <value>Deje cada margen en 0 para mostrar de nuevo la página entera.</value>
   </data>
   <data name="Leave pictures alone" xml:space="preserve">
     <value>Dejar las imágenes intactas</value>
@@ -2313,6 +2856,9 @@
   <data name="Licence: " xml:space="preserve">
     <value>Licencia: </value>
   </data>
+  <data name="Licences" xml:space="preserve">
+    <value>Licencias</value>
+  </data>
   <data name="Licences and components" xml:space="preserve">
     <value>Licencias y componentes</value>
   </data>
@@ -2324,6 +2870,24 @@
   </data>
   <data name="Line" xml:space="preserve">
     <value>Línea</value>
+  </data>
+  <data name="Line Up the Picked Objects on Their Middles, Across" xml:space="preserve">
+    <value>Alinear los objetos elegidos por sus centros, horizontalmente</value>
+  </data>
+  <data name="Line Up the Picked Objects on Their Middles, Down" xml:space="preserve">
+    <value>Alinear los objetos elegidos por sus centros, verticalmente</value>
+  </data>
+  <data name="Line Up the Picked Objects on the Bottom" xml:space="preserve">
+    <value>Alinear los objetos elegidos abajo</value>
+  </data>
+  <data name="Line Up the Picked Objects on the Left" xml:space="preserve">
+    <value>Alinear los objetos elegidos a la izquierda</value>
+  </data>
+  <data name="Line Up the Picked Objects on the Right" xml:space="preserve">
+    <value>Alinear los objetos elegidos a la derecha</value>
+  </data>
+  <data name="Line Up the Picked Objects on the Top" xml:space="preserve">
+    <value>Alinear los objetos elegidos arriba</value>
   </data>
   <data name="Line spacing" xml:space="preserve">
     <value>Interlineado</value>
@@ -2337,8 +2901,17 @@
   <data name="Linearized" xml:space="preserve">
     <value>Linealizado</value>
   </data>
+  <data name="Lined up." xml:space="preserve">
+    <value>Alineado.</value>
+  </data>
   <data name="Lines and shapes are not changed, even under a mark." xml:space="preserve">
     <value>Las líneas y las formas no se modifican, ni siquiera bajo una marca.</value>
+  </data>
+  <data name="Lines start at" xml:space="preserve">
+    <value>Las líneas empiezan en</value>
+  </data>
+  <data name="Lines {0} to {1} of {2}" xml:space="preserve">
+    <value>Líneas {0} a {1} de {2}</value>
   </data>
   <data name="Link" xml:space="preserve">
     <value>Enlace</value>
@@ -2348,6 +2921,9 @@
   </data>
   <data name="List" xml:space="preserve">
     <value>Lista</value>
+  </data>
+  <data name="List fonts that are only for preview" xml:space="preserve">
+    <value>Mostrar las fuentes que solo sirven para la vista previa</value>
   </data>
   <data name="List item" xml:space="preserve">
     <value>Elemento de lista</value>
@@ -2367,6 +2943,9 @@
   <data name="Load Answers" xml:space="preserve">
     <value>Cargar respuestas</value>
   </data>
+  <data name="Load data into this form?" xml:space="preserve">
+    <value>¿Cargar datos en este formulario?</value>
+  </data>
   <data name="Load the changed file from the disk." xml:space="preserve">
     <value>Cargue el archivo modificado desde el disco.</value>
   </data>
@@ -2382,8 +2961,17 @@
   <data name="Long edge" xml:space="preserve">
     <value>Borde largo</value>
   </data>
+  <data name="Look" xml:space="preserve">
+    <value>Aspecto</value>
+  </data>
   <data name="Look for things a screen reader would struggle with, such as a picture with no description." xml:space="preserve">
     <value>Busque elementos que dificulten la lectura con un lector de pantalla, como una imagen sin descripción.</value>
+  </data>
+  <data name="Look in folders inside it too" xml:space="preserve">
+    <value>Buscar también en las carpetas que contiene</value>
+  </data>
+  <data name="Look of the letters" xml:space="preserve">
+    <value>Aspecto de las letras</value>
   </data>
   <data name="Look to keep" xml:space="preserve">
     <value>Aspecto que se conservará</value>
@@ -2414,6 +3002,36 @@
   </data>
   <data name="Make it from a picture, such as a photo or scan of your signature." xml:space="preserve">
     <value>Crearla a partir de una imagen, como una foto o un escaneo de su firma.</value>
+  </data>
+  <data name="Make the Mark Bigger" xml:space="preserve">
+    <value>Agrandar la marca</value>
+  </data>
+  <data name="Make the Mark Smaller" xml:space="preserve">
+    <value>Reducir la marca</value>
+  </data>
+  <data name="Make the Picked Field Read-Only or Not" xml:space="preserve">
+    <value>Hacer el campo elegido de solo lectura o no</value>
+  </data>
+  <data name="Make the Picked Field Required or Not" xml:space="preserve">
+    <value>Hacer el campo elegido obligatorio o no</value>
+  </data>
+  <data name="Make the Picked Object Larger" xml:space="preserve">
+    <value>Agrandar el objeto elegido</value>
+  </data>
+  <data name="Make the Picked Object Smaller" xml:space="preserve">
+    <value>Reducir el objeto elegido</value>
+  </data>
+  <data name="Make the Picked Object a Link…" xml:space="preserve">
+    <value>Convertir el objeto elegido en un enlace…</value>
+  </data>
+  <data name="Make the Picked Object {0}% Solid" xml:space="preserve">
+    <value>Hacer el objeto elegido {0} % opaco</value>
+  </data>
+  <data name="Make the Typed Text Larger" xml:space="preserve">
+    <value>Agrandar el texto escrito</value>
+  </data>
+  <data name="Make the Typed Text Smaller" xml:space="preserve">
+    <value>Reducir el texto escrito</value>
   </data>
   <data name="Make the annotation change you undid again. Shortcut: Ctrl+Y or Ctrl+Shift+Z" xml:space="preserve">
     <value>Rehacer el cambio de anotación que deshizo. Atajo: Ctrl+Y o Ctrl+Shift+Z</value>
@@ -2478,6 +3096,9 @@
   <data name="Making the copy" xml:space="preserve">
     <value>Creando la copia</value>
   </data>
+  <data name="Manage the Recognition Languages…" xml:space="preserve">
+    <value>Administrar los idiomas de reconocimiento…</value>
+  </data>
   <data name="Map positions in 3D models" xml:space="preserve">
     <value>Posiciones cartográficas en modelos 3D</value>
   </data>
@@ -2505,6 +3126,9 @@
   <data name="Match _case" xml:space="preserve">
     <value>Distinguir _mayúsculas y minúsculas</value>
   </data>
+  <data name="Match capital letters" xml:space="preserve">
+    <value>Distinguir mayúsculas</value>
+  </data>
   <data name="Match case" xml:space="preserve">
     <value>Distinguir mayúsculas y minúsculas</value>
   </data>
@@ -2519,6 +3143,9 @@
   </data>
   <data name="Matching tabs" xml:space="preserve">
     <value>Pestañas coincidentes</value>
+  </data>
+  <data name="Measure" xml:space="preserve">
+    <value>Medir</value>
   </data>
   <data name="Measure distances, lengths and areas on the page. Shortcut: Ctrl+Shift+M" xml:space="preserve">
     <value>Medir distancias, longitudes y áreas en la página. Atajo: Ctrl+Shift+M</value>
@@ -2535,14 +3162,23 @@
   <data name="Medium" xml:space="preserve">
     <value>Mediano</value>
   </data>
+  <data name="Menu" xml:space="preserve">
+    <value>Menú</value>
+  </data>
   <data name="Merge PDFs at end" xml:space="preserve">
     <value>Combinar PDF al final</value>
   </data>
   <data name="Merge PDFs at end…" xml:space="preserve">
     <value>Combinar PDF al final…</value>
   </data>
+  <data name="Mix the Picked Object's Colours with the Page as {0}" xml:space="preserve">
+    <value>Mezclar los colores del objeto elegido con la página como {0}</value>
+  </data>
   <data name="Modified" xml:space="preserve">
     <value>Modificado</value>
+  </data>
+  <data name="More…" xml:space="preserve">
+    <value>Más…</value>
   </data>
   <data name="Motion" xml:space="preserve">
     <value>Movimiento</value>
@@ -2556,6 +3192,18 @@
   <data name="Move Up" xml:space="preserve">
     <value>Subir</value>
   </data>
+  <data name="Move _Down" xml:space="preserve">
+    <value>Mover hacia a_bajo</value>
+  </data>
+  <data name="Move _In" xml:space="preserve">
+    <value>Mover hacia _dentro</value>
+  </data>
+  <data name="Move _Out" xml:space="preserve">
+    <value>Mover hacia _fuera</value>
+  </data>
+  <data name="Move _Up" xml:space="preserve">
+    <value>Mover hacia a_rriba</value>
+  </data>
   <data name="Move bookmark down" xml:space="preserve">
     <value>Bajar marcador</value>
   </data>
@@ -2567,6 +3215,9 @@
   </data>
   <data name="Move earlier (Ctrl+Alt+Up)" xml:space="preserve">
     <value>Mover antes (Ctrl+Alt+Up)</value>
+  </data>
+  <data name="Move it there" xml:space="preserve">
+    <value>Moverlo allí</value>
   </data>
   <data name="Move later (Ctrl+Alt+Down)" xml:space="preserve">
     <value>Mover hacia el final (Ctrl+Alt+Abajo)</value>
@@ -2582,6 +3233,12 @@
   </data>
   <data name="Move selected pages later" xml:space="preserve">
     <value>Mover las páginas seleccionadas más adelante</value>
+  </data>
+  <data name="Move the Page La_ter" xml:space="preserve">
+    <value>Mover la página más _tarde</value>
+  </data>
+  <data name="Move the Page _Earlier" xml:space="preserve">
+    <value>Mover la página _antes</value>
   </data>
   <data name="Move the chosen bookmark above the one before it." xml:space="preserve">
     <value>Mueva el marcador seleccionado por encima del anterior.</value>
@@ -2655,6 +3312,9 @@
   <data name="Name a custom tag type this document uses and choose the standard tag it stands for, so screen readers know what it means." xml:space="preserve">
     <value>Nombre un tipo de etiqueta personalizado que use este documento y elija la etiqueta estándar que representa para que los lectores de pantalla conozcan su significado.</value>
   </data>
+  <data name="Name on comments" xml:space="preserve">
+    <value>Nombre en los comentarios</value>
+  </data>
   <data name="Name, licence or where it comes from" xml:space="preserve">
     <value>Nombre, licencia o procedencia</value>
   </data>
@@ -2673,8 +3333,20 @@
   <data name="New custom tag type name" xml:space="preserve">
     <value>Nombre del nuevo tipo de etiqueta personalizado</value>
   </data>
+  <data name="New custom type name" xml:space="preserve">
+    <value>Nombre del nuevo tipo personalizado</value>
+  </data>
   <data name="Newest first" xml:space="preserve">
     <value>Más recientes primero</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>Siguiente</value>
+  </data>
+  <data name="Next Place in the Article" xml:space="preserve">
+    <value>Siguiente lugar del artículo</value>
+  </data>
+  <data name="Next match" xml:space="preserve">
+    <value>Siguiente coincidencia</value>
   </data>
   <data name="Next page" xml:space="preserve">
     <value>Página siguiente</value>
@@ -2703,6 +3375,9 @@
   <data name="No document" xml:space="preserve">
     <value>Sin documento</value>
   </data>
+  <data name="No document is open" xml:space="preserve">
+    <value>No hay ningún documento abierto</value>
+  </data>
   <data name="No file manager is available." xml:space="preserve">
     <value>No hay ningún administrador de archivos disponible.</value>
   </data>
@@ -2723,6 +3398,9 @@
   </data>
   <data name="No problems found. A person should still read the document with a screen reader." xml:space="preserve">
     <value>No se encontraron problemas. Aun así, una persona debería leer el documento con un lector de pantalla.</value>
+  </data>
+  <data name="No program could open the picture. It is saved here:" xml:space="preserve">
+    <value>Ningún programa pudo abrir la imagen. Está guardada aquí:</value>
   </data>
   <data name="No results" xml:space="preserve">
     <value>Sin resultados</value>
@@ -2808,6 +3486,21 @@
   <data name="Nothing was prepared." xml:space="preserve">
     <value>No se preparó nada.</value>
   </data>
+  <data name="Number every page 1, 2, 3 again" xml:space="preserve">
+    <value>Numerar cada página de nuevo 1, 2, 3</value>
+  </data>
+  <data name="Number of the first page" xml:space="preserve">
+    <value>Número de la primera página</value>
+  </data>
+  <data name="Number the Pages i, ii, iii or A-1…" xml:space="preserve">
+    <value>Numerar las páginas i, ii, iii o A-1…</value>
+  </data>
+  <data name="Number the first page starts at" xml:space="preserve">
+    <value>Número con el que empieza la primera página</value>
+  </data>
+  <data name="Number these pages" xml:space="preserve">
+    <value>Numerar estas páginas</value>
+  </data>
   <data name="Off" xml:space="preserve">
     <value>Desactivado</value>
   </data>
@@ -2822,6 +3515,9 @@
   </data>
   <data name="Older programs open it too. This is the only choice that can stop screen readers, so leave that permission on unless you are sure." xml:space="preserve">
     <value>También lo abren programas antiguos. Esta es la única opción que puede bloquear los lectores de pantalla; mantenga ese permiso activado salvo que esté seguro.</value>
+  </data>
+  <data name="On" xml:space="preserve">
+    <value>Activado</value>
   </data>
   <data name="On this computer" xml:space="preserve">
     <value>En este equipo</value>
@@ -2874,6 +3570,9 @@
   <data name="Open a document you had open recently. It opens at the page you left it on." xml:space="preserve">
     <value>Abrir un documento que abrió recientemente. Se abre en la página donde lo dejó.</value>
   </data>
+  <data name="Open a document…" xml:space="preserve">
+    <value>Abrir un documento…</value>
+  </data>
   <data name="Open another window showing this document at the same page, to read two places side by side. Shortcut: Ctrl+N" xml:space="preserve">
     <value>Abrir otra ventana con este documento en la misma página para leer dos posiciones en paralelo. Atajo: Ctrl+N</value>
   </data>
@@ -2910,6 +3609,9 @@
   <data name="Open the copy and check it before you share it." xml:space="preserve">
     <value>Abra la copia y revísela antes de compartirla.</value>
   </data>
+  <data name="Open the document" xml:space="preserve">
+    <value>Abrir el documento</value>
+  </data>
   <data name="Open the document with this password." xml:space="preserve">
     <value>Abrir el documento con esta contraseña.</value>
   </data>
@@ -2925,11 +3627,20 @@
   <data name="Open this document with the certificate and private key you chose." xml:space="preserve">
     <value>Abra este documento con el certificado y la clave privada seleccionados.</value>
   </data>
+  <data name="Open {0}" xml:space="preserve">
+    <value>Abrir {0}</value>
+  </data>
   <data name="Open {0} from {1}." xml:space="preserve">
     <value>Abrir {0} de {1}.</value>
   </data>
   <data name="Open {0} in another app? Only open files you trust." xml:space="preserve">
     <value>¿Abrir {0} en otra aplicación? Abra solo archivos de confianza.</value>
+  </data>
+  <data name="Opened lately" xml:space="preserve">
+    <value>Abiertos recientemente</value>
+  </data>
+  <data name="Opening documents" xml:space="preserve">
+    <value>Apertura de documentos</value>
   </data>
   <data name="Opening zoom" xml:space="preserve">
     <value>Zoom al abrir</value>
@@ -2972,6 +3683,9 @@
   </data>
   <data name="Outline" xml:space="preserve">
     <value>Contorno</value>
+  </data>
+  <data name="Oval" xml:space="preserve">
+    <value>Óvalo</value>
   </data>
   <data name="Owner password" xml:space="preserve">
     <value>Contraseña de propietario</value>
@@ -3033,6 +3747,15 @@
   <data name="Page" xml:space="preserve">
     <value>Página</value>
   </data>
+  <data name="Page Numbers" xml:space="preserve">
+    <value>Números de página</value>
+  </data>
+  <data name="Page _Layout and Zoom" xml:space="preserve">
+    <value>Diseño de _página y zoom</value>
+  </data>
+  <data name="Page _Tone" xml:space="preserve">
+    <value>_Tono de la página</value>
+  </data>
   <data name="Page _by Page" xml:space="preserve">
     <value>Página _a página</value>
   </data>
@@ -3047,6 +3770,9 @@
   </data>
   <data name="Page number" xml:space="preserve">
     <value>Número de página</value>
+  </data>
+  <data name="Page numbers, such as 1-3, 7" xml:space="preserve">
+    <value>Números de página, como 1-3, 7</value>
   </data>
   <data name="Page range" xml:space="preserve">
     <value>Intervalo de páginas</value>
@@ -3069,8 +3795,17 @@
   <data name="Page {0}, {1} of {2}" xml:space="preserve">
     <value>Página {0}, {1} de {2}</value>
   </data>
+  <data name="Page {0}: the words are the same, but {1}% of the page looks different. Press to go to it." xml:space="preserve">
+    <value>Página {0}: las palabras son iguales, pero el {1} % de la página se ve distinto. Pulse para ir a ella.</value>
+  </data>
   <data name="Page {0}: {1}" xml:space="preserve">
     <value>Página {0}: {1}</value>
+  </data>
+  <data name="Page {0}: {1} words added, {2} words removed. Press to go to it." xml:space="preserve">
+    <value>Página {0}: {1} palabras añadidas, {2} palabras quitadas. Pulse para ir a ella.</value>
+  </data>
+  <data name="Page {page} of {pages}" xml:space="preserve">
+    <value>Página {page} de {pages}</value>
   </data>
   <data name="Pages" xml:space="preserve">
     <value>Páginas</value>
@@ -3099,6 +3834,12 @@
   <data name="Pages to export, such as 1-3, 7" xml:space="preserve">
     <value>Páginas que exportar, como 1-3, 7</value>
   </data>
+  <data name="Pages to print, such as 1-3, 7" xml:space="preserve">
+    <value>Páginas que imprimir, como 1-3, 7</value>
+  </data>
+  <data name="Pages to write, such as 1-3, 7" xml:space="preserve">
+    <value>Páginas que escribir, como 1-3, 7</value>
+  </data>
   <data name="Pages {0} to {1}" xml:space="preserve">
     <value>Páginas {0} a {1}</value>
   </data>
@@ -3107,6 +3848,9 @@
   </data>
   <data name="Paper size" xml:space="preserve">
     <value>Tamaño del papel</value>
+  </data>
+  <data name="Paper, as six hex digits such as 000000" xml:space="preserve">
+    <value>Papel, en seis dígitos hexadecimales como 000000</value>
   </data>
   <data name="Paragraph" xml:space="preserve">
     <value>Párrafo</value>
@@ -3126,11 +3870,26 @@
   <data name="Password" xml:space="preserve">
     <value>Contraseña</value>
   </data>
+  <data name="Password of the certificate" xml:space="preserve">
+    <value>Contraseña del certificado</value>
+  </data>
   <data name="Password protected" xml:space="preserve">
     <value>Protegido con contraseña</value>
   </data>
+  <data name="Password to change the copy" xml:space="preserve">
+    <value>Contraseña para cambiar la copia</value>
+  </data>
+  <data name="Password to open the copy" xml:space="preserve">
+    <value>Contraseña para abrir la copia</value>
+  </data>
   <data name="Passwords" xml:space="preserve">
     <value>Contraseñas</value>
+  </data>
+  <data name="Paste the Copied Object" xml:space="preserve">
+    <value>Pegar el objeto copiado</value>
+  </data>
+  <data name="Pasted." xml:space="preserve">
+    <value>Pegado.</value>
   </data>
   <data name="Pause" xml:space="preserve">
     <value>Pausar</value>
@@ -3156,11 +3915,26 @@
   <data name="Photoshop (PSD) picture" xml:space="preserve">
     <value>Imagen de Photoshop (PSD)</value>
   </data>
+  <data name="Pick Every Object on the Page" xml:space="preserve">
+    <value>Elegir todos los objetos de la página</value>
+  </data>
   <data name="Pick a certificate you asked this computer to remember." xml:space="preserve">
     <value>Elija un certificado que haya pedido recordar a este equipo.</value>
   </data>
+  <data name="Pick a picture first." xml:space="preserve">
+    <value>Elija primero una imagen.</value>
+  </data>
+  <data name="Pick a picture to change in another program first." xml:space="preserve">
+    <value>Elija primero una imagen para cambiar en otro programa.</value>
+  </data>
+  <data name="Pick something first." xml:space="preserve">
+    <value>Elija primero algo.</value>
+  </data>
   <data name="Pick up the signature you just placed so you can move or resize it again." xml:space="preserve">
     <value>Recoger la firma que acaba de colocar para volver a moverla o cambiar su tamaño.</value>
+  </data>
+  <data name="Picked {0} objects." xml:space="preserve">
+    <value>{0} objetos elegidos.</value>
   </data>
   <data name="Picked {0}." xml:space="preserve">
     <value>Elegido: {0}.</value>
@@ -3186,8 +3960,17 @@
   <data name="Pictures under a mark" xml:space="preserve">
     <value>Imágenes bajo una marca</value>
   </data>
+  <data name="Pictures under a marked area" xml:space="preserve">
+    <value>Imágenes bajo un área marcada</value>
+  </data>
   <data name="Place" xml:space="preserve">
     <value>Lugar</value>
+  </data>
+  <data name="Place My _Initials…" xml:space="preserve">
+    <value>Colocar mis _iniciales…</value>
+  </data>
+  <data name="Place My _Signature…" xml:space="preserve">
+    <value>Colocar mi _firma…</value>
   </data>
   <data name="Place {0} of {1}, page {2}" xml:space="preserve">
     <value>Lugar {0} de {1}, página {2}</value>
@@ -3197,6 +3980,9 @@
   </data>
   <data name="Play Media" xml:space="preserve">
     <value>Reproducir contenido multimedia</value>
+  </data>
+  <data name="Play page transitions" xml:space="preserve">
+    <value>Reproducir las transiciones de página</value>
   </data>
   <data name="Play the chosen sound or video here. It starts only when you press this." xml:space="preserve">
     <value>Reproducir aquí el sonido o vídeo seleccionado. Solo comienza al pulsar este botón.</value>
@@ -3209,6 +3995,9 @@
   </data>
   <data name="Playing sound and video" xml:space="preserve">
     <value>Reproducción de audio y vídeo</value>
+  </data>
+  <data name="Poly-_line" xml:space="preserve">
+    <value>_Polilínea</value>
   </data>
   <data name="Polygon" xml:space="preserve">
     <value>Polígono</value>
@@ -3228,6 +4017,9 @@
   <data name="Poster, 4 × 4 sheets a page" xml:space="preserve">
     <value>Póster, 4 × 4 hojas por página</value>
   </data>
+  <data name="Pre_ferences…" xml:space="preserve">
+    <value>_Preferencias…</value>
+  </data>
   <data name="Preferences" xml:space="preserve">
     <value>Preferencias</value>
   </data>
@@ -3237,6 +4029,12 @@
   <data name="Preparing the file. This can take a while for long files." xml:space="preserve">
     <value>Preparando el archivo. Esto puede tardar en archivos largos.</value>
   </data>
+  <data name="Presen_tation" xml:space="preserve">
+    <value>Presen_tación</value>
+  </data>
+  <data name="Press a language to tick it or untick it. A ticked language that is not on this computer downloads at once." xml:space="preserve">
+    <value>Pulse un idioma para marcarlo o desmarcarlo. Un idioma marcado que no está en este equipo se descarga enseguida.</value>
+  </data>
   <data name="Preview" xml:space="preserve">
     <value>Vista previa</value>
   </data>
@@ -3245,6 +4043,15 @@
   </data>
   <data name="Previewing colour separations" xml:space="preserve">
     <value>Vista previa de separaciones de color</value>
+  </data>
+  <data name="Previous" xml:space="preserve">
+    <value>Anterior</value>
+  </data>
+  <data name="Previous Place in the Article" xml:space="preserve">
+    <value>Lugar anterior del artículo</value>
+  </data>
+  <data name="Previous match" xml:space="preserve">
+    <value>Coincidencia anterior</value>
   </data>
   <data name="Previous page" xml:space="preserve">
     <value>Página anterior</value>
@@ -3275,6 +4082,9 @@
   </data>
   <data name="Print using system dialog… (Ctrl+Shift+P)" xml:space="preserve">
     <value>Imprimir con el diálogo del sistema… (Ctrl+Mayús+P)</value>
+  </data>
+  <data name="Print with the System _Dialog…" xml:space="preserve">
+    <value>Imprimir con el _cuadro de diálogo del sistema…</value>
   </data>
   <data name="Print with your computer's own print window instead. Shortcut: Ctrl+Shift+P" xml:space="preserve">
     <value>Imprima con la ventana de impresión del equipo. Atajo: Ctrl+Mayús+P</value>
@@ -3318,6 +4128,9 @@
   <data name="Protect a copy of {0}" xml:space="preserve">
     <value>Proteger una copia de {0}</value>
   </data>
+  <data name="Protect the document's details too" xml:space="preserve">
+    <value>Proteger también los detalles del documento</value>
+  </data>
   <data name="Protect with Password" xml:space="preserve">
     <value>Proteger con contraseña</value>
   </data>
@@ -3330,14 +4143,26 @@
   <data name="Protecting the copy. This can take a while for long files." xml:space="preserve">
     <value>Protegiendo la copia. Puede tardar un poco con archivos largos.</value>
   </data>
+  <data name="Protection" xml:space="preserve">
+    <value>Protección</value>
+  </data>
   <data name="Put every layer back to how the file sets it. The file does not change." xml:space="preserve">
     <value>Restablecer cada capa según lo definido en el archivo. El archivo no cambia.</value>
+  </data>
+  <data name="Put it down" xml:space="preserve">
+    <value>Soltarlo</value>
+  </data>
+  <data name="Put it inside the tag above" xml:space="preserve">
+    <value>Ponerlo dentro de la etiqueta de arriba</value>
   </data>
   <data name="Put one letter in each of this many evenly spaced boxes, as on forms with a box per letter. 0 writes running text." xml:space="preserve">
     <value>Coloque una letra en cada una de estas casillas equidistantes, como en los formularios con una casilla por letra. 0 escribe texto continuo.</value>
   </data>
   <data name="Put the Fill &amp; Sign tools away." xml:space="preserve">
     <value>Oculte las herramientas de Rellenar y firmar.</value>
+  </data>
+  <data name="Put the Mark Down" xml:space="preserve">
+    <value>Soltar la marca</value>
   </data>
   <data name="Put the annotation tools away." xml:space="preserve">
     <value>Guardar las herramientas de anotación.</value>
@@ -3372,8 +4197,14 @@
   <data name="RSA with PSS padding" xml:space="preserve">
     <value>RSA con relleno PSS</value>
   </data>
+  <data name="Re_do" xml:space="preserve">
+    <value>_Rehacer</value>
+  </data>
   <data name="Re_load" xml:space="preserve">
     <value>Vo_lver a cargar</value>
+  </data>
+  <data name="Re_move the Bookmark" xml:space="preserve">
+    <value>_Quitar el marcador</value>
   </data>
   <data name="Rea_d Mode" xml:space="preserve">
     <value>Modo de _lectura</value>
@@ -3390,6 +4221,18 @@
   <data name="Read Later" xml:space="preserve">
     <value>Leer después</value>
   </data>
+  <data name="Read This _Page" xml:space="preserve">
+    <value>Leer esta _página</value>
+  </data>
+  <data name="Read _Aloud" xml:space="preserve">
+    <value>Leer en _voz alta</value>
+  </data>
+  <data name="Read aloud" xml:space="preserve">
+    <value>Leer en voz alta</value>
+  </data>
+  <data name="Read aloud voice" xml:space="preserve">
+    <value>Voz de lectura en voz alta</value>
+  </data>
   <data name="Read mode" xml:space="preserve">
     <value>Modo de lectura</value>
   </data>
@@ -3399,14 +4242,29 @@
   <data name="Read the licence for this app and for every component it includes or downloads." xml:space="preserve">
     <value>Leer la licencia de esta aplicación y de cada componente que incluye o descarga.</value>
   </data>
+  <data name="Read this page" xml:space="preserve">
+    <value>Leer esta página</value>
+  </data>
   <data name="Read this tag earlier" xml:space="preserve">
     <value>Leer esta etiqueta antes</value>
   </data>
   <data name="Read this tag later" xml:space="preserve">
     <value>Leer esta etiqueta después</value>
   </data>
+  <data name="Read to the _End" xml:space="preserve">
+    <value>Leer hasta el _final</value>
+  </data>
+  <data name="Read to the end" xml:space="preserve">
+    <value>Leer hasta el final</value>
+  </data>
+  <data name="Read with a screen reader" xml:space="preserve">
+    <value>Leer con un lector de pantalla</value>
+  </data>
   <data name="Reading aloud stopped: {0}" xml:space="preserve">
     <value>Se ha detenido la lectura en voz alta: {0}</value>
+  </data>
+  <data name="Reading and forms" xml:space="preserve">
+    <value>Lectura y formularios</value>
   </data>
   <data name="Reading order and nesting" xml:space="preserve">
     <value>Orden de lectura y anidamiento</value>
@@ -3422,6 +4280,9 @@
   </data>
   <data name="Reading the pages" xml:space="preserve">
     <value>Lectura de las páginas</value>
+  </data>
+  <data name="Reading this page…" xml:space="preserve">
+    <value>Leyendo esta página…</value>
   </data>
   <data name="Ready. Choose Save Copy to make a PDF 2.0 file." xml:space="preserve">
     <value>Listo. Elija Guardar copia para crear un archivo PDF 2.0.</value>
@@ -3462,6 +4323,9 @@
   <data name="Reason" xml:space="preserve">
     <value>Motivo</value>
   </data>
+  <data name="Reason for signing" xml:space="preserve">
+    <value>Motivo de la firma</value>
+  </data>
   <data name="Reason: {0}" xml:space="preserve">
     <value>Motivo: {0}</value>
   </data>
@@ -3474,8 +4338,14 @@
   <data name="Recognise _Text" xml:space="preserve">
     <value>Reconocer _texto</value>
   </data>
+  <data name="Recognise _Text in Scanned Pages" xml:space="preserve">
+    <value>Reconocer el _texto de las páginas escaneadas</value>
+  </data>
   <data name="Recognise in {0}" xml:space="preserve">
     <value>Reconocer en {0}</value>
+  </data>
+  <data name="Recognising text" xml:space="preserve">
+    <value>Reconociendo texto</value>
   </data>
   <data name="Recognising text: page {0} of {1}" xml:space="preserve">
     <value>Reconociendo texto: página {0} de {1}</value>
@@ -3485,6 +4355,15 @@
   </data>
   <data name="Red" xml:space="preserve">
     <value>Rojo</value>
+  </data>
+  <data name="Redact Selected Te_xt" xml:space="preserve">
+    <value>Censurar el te_xto seleccionado</value>
+  </data>
+  <data name="Redact a copy of {0}" xml:space="preserve">
+    <value>Censurar una copia de {0}</value>
+  </data>
+  <data name="Redact an _Area" xml:space="preserve">
+    <value>Censurar un _área</value>
   </data>
   <data name="Redaction" xml:space="preserve">
     <value>Censura</value>
@@ -3528,6 +4407,9 @@
   <data name="Remember this certificate on this computer. The password is never saved." xml:space="preserve">
     <value>Recordar este certificado en este equipo. La contraseña nunca se guarda.</value>
   </data>
+  <data name="Remember this certificate, without its password" xml:space="preserve">
+    <value>Recordar este certificado, sin su contraseña</value>
+  </data>
   <data name="Remembered" xml:space="preserve">
     <value>Recordado</value>
   </data>
@@ -3543,6 +4425,9 @@
   <data name="Remove Custom Type" xml:space="preserve">
     <value>Eliminar tipo personalizado</value>
   </data>
+  <data name="Remove Hidden Information" xml:space="preserve">
+    <value>Quitar la información oculta</value>
+  </data>
   <data name="Remove Mark" xml:space="preserve">
     <value>Eliminar marca</value>
   </data>
@@ -3555,8 +4440,17 @@
   <data name="Remove Protection… (needs a protected document and the HyperPDF engine)" xml:space="preserve">
     <value>Quitar protección… (requiere un documento protegido y el motor HyperPDF)</value>
   </data>
+  <data name="Remove _Hidden Information…" xml:space="preserve">
+    <value>Quitar la información _oculta…</value>
+  </data>
+  <data name="Remove attached files" xml:space="preserve">
+    <value>Quitar los archivos adjuntos</value>
+  </data>
   <data name="Remove bookmark" xml:space="preserve">
     <value>Eliminar marcador</value>
+  </data>
+  <data name="Remove comments and marks, but keep links and form fields" xml:space="preserve">
+    <value>Quitar comentarios y marcas, pero mantener enlaces y campos de formulario</value>
   </data>
   <data name="Remove drawings that are fully covered" xml:space="preserve">
     <value>Eliminar dibujos cubiertos por completo</value>
@@ -3570,11 +4464,20 @@
   <data name="Remove from recent documents" xml:space="preserve">
     <value>Quitar de documentos recientes</value>
   </data>
+  <data name="Remove hidden text" xml:space="preserve">
+    <value>Quitar el texto oculto</value>
+  </data>
   <data name="Remove hidden text, such as a scan's text layer" xml:space="preserve">
     <value>Eliminar texto oculto, como la capa de texto de un escaneo</value>
   </data>
+  <data name="Remove it" xml:space="preserve">
+    <value>Quitarlo</value>
+  </data>
   <data name="Remove language pack" xml:space="preserve">
     <value>Eliminar paquete de idioma</value>
+  </data>
+  <data name="Remove links and comments" xml:space="preserve">
+    <value>Quitar enlaces y comentarios</value>
   </data>
   <data name="Remove links, comments and form fields" xml:space="preserve">
     <value>Eliminar enlaces, comentarios y campos de formulario</value>
@@ -3585,11 +4488,26 @@
   <data name="Remove picked" xml:space="preserve">
     <value>Quitar lo elegido</value>
   </data>
+  <data name="Remove protection from a copy of {0}" xml:space="preserve">
+    <value>Quitar la protección de una copia de {0}</value>
+  </data>
   <data name="Remove recent PDFs without deleting files. On Linux, this also clears the desktop's shared recent PDF list." xml:space="preserve">
     <value>Quitar los PDF recientes sin eliminar archivos. En Linux, también se vacía la lista compartida de PDF recientes del escritorio.</value>
   </data>
+  <data name="Remove scripts" xml:space="preserve">
+    <value>Quitar los scripts</value>
+  </data>
   <data name="Remove tag" xml:space="preserve">
     <value>Eliminar etiqueta</value>
+  </data>
+  <data name="Remove the Mark" xml:space="preserve">
+    <value>Quitar la marca</value>
+  </data>
+  <data name="Remove the Picked Form Field" xml:space="preserve">
+    <value>Quitar el campo de formulario elegido</value>
+  </data>
+  <data name="Remove the Picked Object" xml:space="preserve">
+    <value>Quitar el objeto elegido</value>
   </data>
   <data name="Remove the chosen bookmark and the bookmarks below it. Undo puts them back." xml:space="preserve">
     <value>Eliminar el marcador seleccionado y los que dependen de él. Deshacer los restaura.</value>
@@ -3600,8 +4518,20 @@
   <data name="Remove the chosen tag when it holds no page content. The tags inside it stay. Undo puts it back." xml:space="preserve">
     <value>Elimine la etiqueta seleccionada si no contiene contenido de página. Las etiquetas que contiene se conservan. Deshacer la restaura.</value>
   </data>
+  <data name="Remove the custom type" xml:space="preserve">
+    <value>Quitar el tipo personalizado</value>
+  </data>
   <data name="Remove the document information and metadata" xml:space="preserve">
     <value>Eliminar la información y los metadatos del documento</value>
+  </data>
+  <data name="Remove the document's details" xml:space="preserve">
+    <value>Quitar los detalles del documento</value>
+  </data>
+  <data name="Remove the downloaded languages I have not ticked" xml:space="preserve">
+    <value>Quitar los idiomas descargados que no he marcado</value>
+  </data>
+  <data name="Remove the note" xml:space="preserve">
+    <value>Quitar la nota</value>
   </data>
   <data name="Remove the protection from a copy of {0}" xml:space="preserve">
     <value>Quitar la protección de una copia de {0}</value>
@@ -3612,17 +4542,26 @@
   <data name="Remove the whole picture" xml:space="preserve">
     <value>Eliminar toda la imagen</value>
   </data>
+  <data name="Remove them" xml:space="preserve">
+    <value>Quitarlos</value>
+  </data>
   <data name="Remove this PDF from recent files without deleting it. On Linux, this also updates the desktop's shared recent list." xml:space="preserve">
     <value>Quitar este PDF de los archivos recientes sin eliminarlo. En Linux, también se actualiza la lista compartida de archivos recientes del escritorio.</value>
   </data>
   <data name="Remove thumbnails and hidden extras" xml:space="preserve">
     <value>Eliminar miniaturas y elementos adicionales ocultos</value>
   </data>
+  <data name="Remove unused parts" xml:space="preserve">
+    <value>Quitar las partes no usadas</value>
+  </data>
   <data name="Remove white paper" xml:space="preserve">
     <value>Eliminar el papel blanco</value>
   </data>
   <data name="Removed bookmark {0}. Undo puts it back." xml:space="preserve">
     <value>Se ha eliminado el marcador {0}. Deshacer permite restaurarlo.</value>
+  </data>
+  <data name="Removed the field." xml:space="preserve">
+    <value>Campo quitado.</value>
   </data>
   <data name="Removed the mapping for custom tag {0}. Undo puts it back." xml:space="preserve">
     <value>Se eliminó la asignación de la etiqueta personalizada {0}. Deshacer permite recuperarla.</value>
@@ -3657,8 +4596,17 @@
   <data name="Rename…" xml:space="preserve">
     <value>Cambiar nombre…</value>
   </data>
+  <data name="Reopen _Closed Tab" xml:space="preserve">
+    <value>Reabrir la pestaña _cerrada</value>
+  </data>
+  <data name="Reopen at the last page read" xml:space="preserve">
+    <value>Reabrir en la última página leída</value>
+  </data>
   <data name="Repeated content" xml:space="preserve">
     <value>Contenido repetido</value>
+  </data>
+  <data name="Replaced the picture." xml:space="preserve">
+    <value>Imagen reemplazada.</value>
   </data>
   <data name="Replacement text" xml:space="preserve">
     <value>Texto de sustitución</value>
@@ -3668,6 +4616,9 @@
   </data>
   <data name="Reply text" xml:space="preserve">
     <value>Texto de la respuesta</value>
+  </data>
+  <data name="Reply to the note" xml:space="preserve">
+    <value>Responder a la nota</value>
   </data>
   <data name="Reset Layers" xml:space="preserve">
     <value>Restablecer capas</value>
@@ -3717,6 +4668,9 @@
   <data name="Rotate selected pages clockwise" xml:space="preserve">
     <value>Girar las páginas seleccionadas a la derecha</value>
   </data>
+  <data name="Rows the cell spans" xml:space="preserve">
+    <value>Filas que abarca la celda</value>
+  </data>
   <data name="Rows this cell covers" xml:space="preserve">
     <value>Filas que abarca esta celda</value>
   </data>
@@ -3734,6 +4688,9 @@
   </data>
   <data name="SVG drawing" xml:space="preserve">
     <value>Dibujo SVG</value>
+  </data>
+  <data name="S_plit the View" xml:space="preserve">
+    <value>_Dividir la vista</value>
   </data>
   <data name="S_quiggly Underline" xml:space="preserve">
     <value>Subrayado _ondulado</value>
@@ -3825,6 +4782,9 @@
   <data name="Save _Optimised Copy…" xml:space="preserve">
     <value>Guardar copia _optimizada…</value>
   </data>
+  <data name="Save a Cop_y" xml:space="preserve">
+    <value>Guardar una _copia</value>
+  </data>
   <data name="Save a Copy" xml:space="preserve">
     <value>Guardar una copia</value>
   </data>
@@ -3842,6 +4802,9 @@
   </data>
   <data name="Save a _Copy…" xml:space="preserve">
     <value>Guardar una _copia…</value>
+  </data>
+  <data name="Save a copy as" xml:space="preserve">
+    <value>Guardar una copia como</value>
   </data>
   <data name="Save a copy in which form fields, comments and other marks become part of the page and can no longer be changed. " xml:space="preserve">
     <value>Guardar una copia en la que los campos de formulario, comentarios y otras marcas pasan a formar parte de la página y ya no pueden cambiarse. </value>
@@ -3870,8 +4833,14 @@
   <data name="Save a flattened copy of {0}" xml:space="preserve">
     <value>Guardar una copia aplanada de {0}</value>
   </data>
+  <data name="Save a smaller copy of {0}" xml:space="preserve">
+    <value>Guardar una copia más pequeña de {0}</value>
+  </data>
   <data name="Save a smaller or more accessible copy of this document. Your open file is never changed." xml:space="preserve">
     <value>Guarde una copia más pequeña o más accesible de este documento. El archivo abierto nunca se modifica.</value>
+  </data>
+  <data name="Save an archive copy of {0}" xml:space="preserve">
+    <value>Guardar una copia de archivo de {0}</value>
   </data>
   <data name="Save an edited copy as a PDF 2.0 file, the current PDF standard. Details in features PDF 2.0 retired are moved when they can be." xml:space="preserve">
     <value>Guarda una copia editada como archivo PDF 2.0, el estándar PDF actual. Los datos de funciones que PDF 2.0 retiró se trasladan cuando es posible.</value>
@@ -3903,6 +4872,9 @@
   <data name="Save pages as picture files, or as SVG, PostScript or EPS drawings. Your open file is never changed." xml:space="preserve">
     <value>Guardar páginas como archivos de imagen o como dibujos SVG, PostScript o EPS. Su archivo abierto nunca se modifica.</value>
   </data>
+  <data name="Save pages of {0}" xml:space="preserve">
+    <value>Guardar páginas de {0}</value>
+  </data>
   <data name="Save pages that are shown turned the right way up, with the turn built into the page. Links and bookmarks on turned pages may land in a different place." xml:space="preserve">
     <value>Guarda las páginas con la orientación correcta, incorporando el giro a la página. Los enlaces y marcadores de las páginas giradas pueden apuntar a otra posición.</value>
   </data>
@@ -3912,14 +4884,29 @@
   <data name="Save the Bytes to Sign" xml:space="preserve">
     <value>Guardar los bytes que firmar</value>
   </data>
+  <data name="Save the Picked Picture as a File…" xml:space="preserve">
+    <value>Guardar la imagen elegida como archivo…</value>
+  </data>
   <data name="Save the bytes your signer must sign to a file you can give to the signer." xml:space="preserve">
     <value>Guardar en un archivo los bytes que debe firmar su firmante para entregárselos.</value>
+  </data>
+  <data name="Save the changes to this tag" xml:space="preserve">
+    <value>Guardar los cambios de esta etiqueta</value>
   </data>
   <data name="Save the chosen attachment as a file." xml:space="preserve">
     <value>Guarde el archivo adjunto seleccionado como un archivo.</value>
   </data>
   <data name="Save the chosen sound or video as a file." xml:space="preserve">
     <value>Guarda el sonido o vídeo seleccionado en un archivo.</value>
+  </data>
+  <data name="Save the copy…" xml:space="preserve">
+    <value>Guardar la copia…</value>
+  </data>
+  <data name="Save the pages…" xml:space="preserve">
+    <value>Guardar las páginas…</value>
+  </data>
+  <data name="Save the redacted copy…" xml:space="preserve">
+    <value>Guardar la copia censurada…</value>
   </data>
   <data name="Save the selected pages in a new PDF file." xml:space="preserve">
     <value>Guardar las páginas seleccionadas en un archivo PDF nuevo.</value>
@@ -3929,6 +4916,9 @@
   </data>
   <data name="Save turned pages upright" xml:space="preserve">
     <value>Guardar las páginas giradas en posición vertical</value>
+  </data>
+  <data name="Save what must be signed…" xml:space="preserve">
+    <value>Guardar lo que debe firmarse…</value>
   </data>
   <data name="Save your annotations and form entries to the file. Shortcut: Ctrl+S" xml:space="preserve">
     <value>Guarde sus anotaciones y los datos de formulario en el archivo. Atajo: Ctrl+S</value>
@@ -3962,6 +4952,9 @@
   </data>
   <data name="Saved the changes to {0}. Undo takes them back." xml:space="preserve">
     <value>Se guardaron los cambios en {0}. Deshacer los revierte.</value>
+  </data>
+  <data name="Saved the picture." xml:space="preserve">
+    <value>Imagen guardada.</value>
   </data>
   <data name="Saved {0} files, numbered by page, next to {1}." xml:space="preserve">
     <value>Se han guardado {0} archivos, numerados por página, junto a {1}.</value>
@@ -4017,17 +5010,41 @@
   <data name="Screen reader warning" xml:space="preserve">
     <value>Advertencia del lector de pantalla</value>
   </data>
+  <data name="Scroll Faster" xml:space="preserve">
+    <value>Desplazar más rápido</value>
+  </data>
   <data name="Scroll Si_deways" xml:space="preserve">
     <value>Desplazamiento la_teral</value>
   </data>
+  <data name="Scroll Slower" xml:space="preserve">
+    <value>Desplazar más despacio</value>
+  </data>
+  <data name="Scroll _Across the Pages" xml:space="preserve">
+    <value>Desplazar en _horizontal por las páginas</value>
+  </data>
   <data name="Scroll _Down" xml:space="preserve">
     <value>Desplazar hacia _abajo</value>
+  </data>
+  <data name="Scroll _Down the Pages" xml:space="preserve">
+    <value>Desplazar hacia a_bajo por las páginas</value>
   </data>
   <data name="Scroll down by itself at a calm speed. Up and Down change the speed. Press Esc or click to stop. Shortcut: Ctrl+Shift+H" xml:space="preserve">
     <value>Desplaza la página automáticamente a una velocidad suave. Arriba y Abajo cambian la velocidad. Pulse Esc o haga clic para detenerlo. Atajo: Ctrl+Shift+H</value>
   </data>
   <data name="Scrolling by itself at speed {0} of {1}. Up and Down change the speed. Escape or a click stops." xml:space="preserve">
     <value>Desplazamiento automático a velocidad {0} de {1}. Arriba y Abajo cambian la velocidad. Escape o un clic lo detienen.</value>
+  </data>
+  <data name="Scrolling by itself at speed {0}." xml:space="preserve">
+    <value>Desplazamiento automático a velocidad {0}.</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>Buscar</value>
+  </data>
+  <data name="Search a _Folder of Documents…" xml:space="preserve">
+    <value>Buscar en una _carpeta de documentos…</value>
+  </data>
+  <data name="Search a folder of documents" xml:space="preserve">
+    <value>Buscar en una carpeta de documentos</value>
   </data>
   <data name="Search components" xml:space="preserve">
     <value>Buscar componentes</value>
@@ -4071,6 +5088,9 @@
   <data name="Select Te_xt" xml:space="preserve">
     <value>Seleccionar te_xto</value>
   </data>
+  <data name="Select _Every Page" xml:space="preserve">
+    <value>Seleccionar _todas las páginas</value>
+  </data>
   <data name="Select all the text on the current page, ready to copy. Shortcut: Ctrl+A" xml:space="preserve">
     <value>Selecciona todo el texto de la página actual para copiarlo. Atajo: Ctrl+A</value>
   </data>
@@ -4095,8 +5115,32 @@
   <data name="Selected: {0}, {1}, on page {2} ({3})" xml:space="preserve">
     <value>Seleccionado: {0}, {1}, en la página {2} ({3})</value>
   </data>
+  <data name="Send the Picked Object Back One Step" xml:space="preserve">
+    <value>Enviar el objeto elegido un nivel atrás</value>
+  </data>
+  <data name="Send the Picked Object to the Back" xml:space="preserve">
+    <value>Enviar el objeto elegido al fondo</value>
+  </data>
+  <data name="Send the reply" xml:space="preserve">
+    <value>Enviar la respuesta</value>
+  </data>
+  <data name="Send to" xml:space="preserve">
+    <value>Enviar a</value>
+  </data>
+  <data name="Sent back one step." xml:space="preserve">
+    <value>Enviado un nivel atrás.</value>
+  </data>
+  <data name="Sent to the back." xml:space="preserve">
+    <value>Enviado al fondo.</value>
+  </data>
   <data name="Sent to {0}." xml:space="preserve">
     <value>Se ha enviado a {0}.</value>
+  </data>
+  <data name="Sentence _Before" xml:space="preserve">
+    <value>Frase _anterior</value>
+  </data>
+  <data name="Sentence before" xml:space="preserve">
+    <value>Frase anterior</value>
   </data>
   <data name="Separation: {0}, part of printed page {1} ({2} {3})" xml:space="preserve">
     <value>Separación: {0}, parte de la página impresa {1} ({2} {3})</value>
@@ -4104,8 +5148,17 @@
   <data name="Serif" xml:space="preserve">
     <value>Con remates</value>
   </data>
+  <data name="Services" xml:space="preserve">
+    <value>Servicios</value>
+  </data>
   <data name="Set every text setting with exact numbers, including comb boxes and the wrap width." xml:space="preserve">
     <value>Define todos los ajustes de texto con valores exactos, incluidas las casillas para caracteres y el ancho de ajuste de línea.</value>
+  </data>
+  <data name="Set the Picked Text in This Font" xml:space="preserve">
+    <value>Poner el texto elegido en esta fuente</value>
+  </data>
+  <data name="Set the Picked Text to {0} Points" xml:space="preserve">
+    <value>Poner el texto elegido a {0} puntos</value>
   </data>
   <data name="Set the scale as a percentage of the page's true size, from 10 to 400." xml:space="preserve">
     <value>Establezca la escala como porcentaje del tamaño real de la página, de 10 a 400.</value>
@@ -4116,6 +5169,12 @@
   <data name="Sharp" xml:space="preserve">
     <value>Nítido</value>
   </data>
+  <data name="Sharpness of text and pictures" xml:space="preserve">
+    <value>Nitidez del texto y las imágenes</value>
+  </data>
+  <data name="Sheet shown: {0}" xml:space="preserve">
+    <value>Hoja mostrada: {0}</value>
+  </data>
   <data name="Sheet {0}" xml:space="preserve">
     <value>Hoja {0}</value>
   </data>
@@ -4124,6 +5183,12 @@
   </data>
   <data name="Show All Comments" xml:space="preserve">
     <value>Mostrar todos los comentarios</value>
+  </data>
+  <data name="Show Every Note Again" xml:space="preserve">
+    <value>Mostrar todas las notas de nuevo</value>
+  </data>
+  <data name="Show Every _Layer as the Document Sets It" xml:space="preserve">
+    <value>Mostrar cada _capa como la define el documento</value>
   </data>
   <data name="Show a document's own title when it asks" xml:space="preserve">
     <value>Mostrar el título propio de un documento cuando lo solicite</value>
@@ -4194,6 +5259,9 @@
   <data name="Show separation" xml:space="preserve">
     <value>Mostrar separación</value>
   </data>
+  <data name="Show the Document in Its F_older" xml:space="preserve">
+    <value>Mostrar el documento en su _carpeta</value>
+  </data>
   <data name="Show the document's headings. Choose one to go to it." xml:space="preserve">
     <value>Muestre los encabezados del documento. Elija uno para ir a él.</value>
   </data>
@@ -4203,6 +5271,9 @@
   <data name="Show the document's parts and article threads, if it has any." xml:space="preserve">
     <value>Mostrar las partes y los hilos de artículos del documento, si los tiene.</value>
   </data>
+  <data name="Show the document's title instead of its file name" xml:space="preserve">
+    <value>Mostrar el título del documento en lugar del nombre de archivo</value>
+  </data>
   <data name="Show the files attached to this document." xml:space="preserve">
     <value>Mostrar los archivos adjuntos a este documento.</value>
   </data>
@@ -4211,6 +5282,9 @@
   </data>
   <data name="Show the highlights, notes and other annotations in this document." xml:space="preserve">
     <value>Muestre los resaltados, las notas y las demás anotaciones de este documento.</value>
+  </data>
+  <data name="Show the next sheet" xml:space="preserve">
+    <value>Mostrar la hoja siguiente</value>
   </data>
   <data name="Show the pages a quarter bigger than their real size." xml:space="preserve">
     <value>Muestra las páginas un cuarto más grandes que su tamaño real.</value>
@@ -4239,6 +5313,15 @@
   <data name="Show the panel a document asks for" xml:space="preserve">
     <value>Mostrar el panel solicitado por el documento</value>
   </data>
+  <data name="Show the picture" xml:space="preserve">
+    <value>Mostrar la imagen</value>
+  </data>
+  <data name="Show the sheet before" xml:space="preserve">
+    <value>Mostrar la hoja anterior</value>
+  </data>
+  <data name="Show the signature on the page" xml:space="preserve">
+    <value>Mostrar la firma en la página</value>
+  </data>
   <data name="Show the signature on the page, in the bottom left corner." xml:space="preserve">
     <value>Muestre la firma en la página, en la esquina inferior izquierda.</value>
   </data>
@@ -4257,11 +5340,17 @@
   <data name="Show two pages side by side: pages 1 and 2, then 3 and 4. Next page moves to the next pair." xml:space="preserve">
     <value>Muestra dos páginas en paralelo: 1 y 2, luego 3 y 4. Página siguiente avanza al siguiente par.</value>
   </data>
+  <data name="Show {0}" xml:space="preserve">
+    <value>Mostrar {0}</value>
+  </data>
   <data name="Showing a portfolio of files" xml:space="preserve">
     <value>Mostrando una cartera de archivos</value>
   </data>
   <data name="Showing and switching layers" xml:space="preserve">
     <value>Mostrar y cambiar capas</value>
+  </data>
+  <data name="Shown" xml:space="preserve">
+    <value>Visible</value>
   </data>
   <data name="Shown below {0} zoom" xml:space="preserve">
     <value>Se muestra con un zoom inferior a {0}</value>
@@ -4283,6 +5372,9 @@
   </data>
   <data name="Side note" xml:space="preserve">
     <value>Nota al margen</value>
+  </data>
+  <data name="Side panel" xml:space="preserve">
+    <value>Panel lateral</value>
   </data>
   <data name="Sidebar" xml:space="preserve">
     <value>Barra lateral</value>
@@ -4314,6 +5406,15 @@
   <data name="Sign with External Signer… (needs the HyperPDF engine)" xml:space="preserve">
     <value>Firmar con firmante externo… (requiere el motor HyperPDF)</value>
   </data>
+  <data name="Sign with a certificate" xml:space="preserve">
+    <value>Firmar con un certificado</value>
+  </data>
+  <data name="Sign with a certificate…" xml:space="preserve">
+    <value>Firmar con un certificado…</value>
+  </data>
+  <data name="Sign {0} with your own tool" xml:space="preserve">
+    <value>Firmar {0} con su propia herramienta</value>
+  </data>
   <data name="Signature" xml:space="preserve">
     <value>Firma</value>
   </data>
@@ -4326,8 +5427,17 @@
   <data name="Signature type: {0}, digest {1}." xml:space="preserve">
     <value>Tipo de firma: {0}, resumen {1}.</value>
   </data>
+  <data name="Signatures and Ta_gs" xml:space="preserve">
+    <value>Firmas y e_tiquetas</value>
+  </data>
   <data name="Signatures are checked, but the rules for allowed changes are not reported." xml:space="preserve">
     <value>Se comprueban las firmas, pero no se informa de las reglas sobre cambios permitidos.</value>
+  </data>
+  <data name="Signatures in this document: {0}" xml:space="preserve">
+    <value>Firmas en este documento: {0}</value>
+  </data>
+  <data name="Signatures of {0}" xml:space="preserve">
+    <value>Firmas de {0}</value>
   </data>
   <data name="Signatures — {0}" xml:space="preserve">
     <value>Firmas — {0}</value>
@@ -4353,6 +5463,9 @@
   <data name="Signs the empty field" xml:space="preserve">
     <value>Firma el campo vacío</value>
   </data>
+  <data name="Signs with a key this app never sees. Save what must be signed, sign it with your own tool, then bring the result back." xml:space="preserve">
+    <value>Firma con una clave que esta aplicación nunca ve. Guarde lo que debe firmarse, fírmelo con su propia herramienta y traiga de vuelta el resultado.</value>
+  </data>
   <data name="Sign…" xml:space="preserve">
     <value>Firmar…</value>
   </data>
@@ -4364,6 +5477,9 @@
   </data>
   <data name="Size (points)" xml:space="preserve">
     <value>Tamaño (puntos)</value>
+  </data>
+  <data name="Size in points" xml:space="preserve">
+    <value>Tamaño en puntos</value>
   </data>
   <data name="Size of the copy" xml:space="preserve">
     <value>Tamaño de la copia</value>
@@ -4385,6 +5501,9 @@
   </data>
   <data name="Smaller" xml:space="preserve">
     <value>Más pequeño</value>
+  </data>
+  <data name="Smaller Focus Text" xml:space="preserve">
+    <value>Texto de concentración más pequeño</value>
   </data>
   <data name="Smaller file" xml:space="preserve">
     <value>Archivo más pequeño</value>
@@ -4437,6 +5556,9 @@
   <data name="Sort by" xml:space="preserve">
     <value>Ordenar por</value>
   </data>
+  <data name="Sound and film" xml:space="preserve">
+    <value>Sonido y vídeo</value>
+  </data>
   <data name="Sound and video are not played." xml:space="preserve">
     <value>No se reproduce el audio ni el vídeo.</value>
   </data>
@@ -4448,6 +5570,12 @@
   </data>
   <data name="Sound and video in this document. Nothing plays by itself: choose an item, then press Play, save it, or open it with your system's player." xml:space="preserve">
     <value>Sonido y vídeo de este documento. Nada se reproduce por sí solo: elija un elemento y pulse Reproducir, guárdelo o ábralo con el reproductor del sistema.</value>
+  </data>
+  <data name="Space between letters" xml:space="preserve">
+    <value>Espacio entre letras</value>
+  </data>
+  <data name="Space between lines" xml:space="preserve">
+    <value>Espacio entre líneas</value>
   </data>
   <data name="Spacing" xml:space="preserve">
     <value>Espaciado</value>
@@ -4464,11 +5592,29 @@
   <data name="Split view divider" xml:space="preserve">
     <value>Separador de vista dividida</value>
   </data>
+  <data name="Spread evenly." xml:space="preserve">
+    <value>Distribuido uniformemente.</value>
+  </data>
+  <data name="Spread the Picked Objects Evenly Across" xml:space="preserve">
+    <value>Distribuir uniformemente los objetos elegidos en horizontal</value>
+  </data>
+  <data name="Spread the Picked Objects Evenly Down" xml:space="preserve">
+    <value>Distribuir uniformemente los objetos elegidos en vertical</value>
+  </data>
   <data name="Squiggly underline" xml:space="preserve">
     <value>Subrayado ondulado</value>
   </data>
   <data name="Stamp" xml:space="preserve">
     <value>Sello</value>
+  </data>
+  <data name="Stamp from a _Picture…" xml:space="preserve">
+    <value>Sello a partir de una _imagen…</value>
+  </data>
+  <data name="Stamp with My Own _Words…" xml:space="preserve">
+    <value>Sello con mis propias _palabras…</value>
+  </data>
+  <data name="Stamp {0}" xml:space="preserve">
+    <value>Sello {0}</value>
   </data>
   <data name="Stamp: {0}" xml:space="preserve">
     <value>Sello: {0}</value>
@@ -4491,6 +5637,9 @@
   <data name="Start each line at the left of the text box." xml:space="preserve">
     <value>Comenzar cada línea en el lado izquierdo del cuadro de texto.</value>
   </data>
+  <data name="Start the drawing again" xml:space="preserve">
+    <value>Empezar el dibujo de nuevo</value>
+  </data>
   <data name="Starting text recognition…" xml:space="preserve">
     <value>Iniciando reconocimiento de texto…</value>
   </data>
@@ -4508,6 +5657,12 @@
   </data>
   <data name="Stop Media" xml:space="preserve">
     <value>Detener contenido multimedia</value>
+  </data>
+  <data name="Stop Placing" xml:space="preserve">
+    <value>Dejar de colocar</value>
+  </data>
+  <data name="Stop Recognising" xml:space="preserve">
+    <value>Dejar de reconocer</value>
   </data>
   <data name="Stop applying the redactions. No file is saved." xml:space="preserve">
     <value>Detener la aplicación de censuras. No se guarda ningún archivo.</value>
@@ -4542,6 +5697,9 @@
   <data name="Stop searching the folder." xml:space="preserve">
     <value>Detener la búsqueda en la carpeta.</value>
   </data>
+  <data name="Stop the download" xml:space="preserve">
+    <value>Detener la descarga</value>
+  </data>
   <data name="Stop the language download. Languages that already finished are kept." xml:space="preserve">
     <value>Detener la descarga del idioma. Se conservan los idiomas cuya descarga ya haya terminado.</value>
   </data>
@@ -4560,8 +5718,14 @@
   <data name="Stores the certificates and the revocation answers (OCSP and CRL) each signature needs, so it can still be checked after the certificates expire. This looks them up on the internet." xml:space="preserve">
     <value>Almacena los certificados y las respuestas de revocación (OCSP y CRL) que necesita cada firma para que se pueda seguir comprobando después de que caduquen los certificados. Los consulta en Internet.</value>
   </data>
+  <data name="Stri_ke Out" xml:space="preserve">
+    <value>_Tachar</value>
+  </data>
   <data name="Strike" xml:space="preserve">
     <value>Tachado</value>
+  </data>
+  <data name="Strike out" xml:space="preserve">
+    <value>Tachar</value>
   </data>
   <data name="Strike-out" xml:space="preserve">
     <value>Tachado</value>
@@ -4604,6 +5768,9 @@
   </data>
   <data name="T_hick" xml:space="preserve">
     <value>G_rueso</value>
+  </data>
+  <data name="T_ools" xml:space="preserve">
+    <value>_Herramientas</value>
   </data>
   <data name="Table" xml:space="preserve">
     <value>Tabla</value>
@@ -4662,11 +5829,23 @@
   <data name="Tags tell a screen reader how this document reads. Choose a tag to change it." xml:space="preserve">
     <value>Las etiquetas indican a un lector de pantalla cómo leer este documento. Elija una etiqueta para cambiarla.</value>
   </data>
+  <data name="Take a Picture of an _Area" xml:space="preserve">
+    <value>Tomar una imagen de un _área</value>
+  </data>
   <data name="Take away the chosen custom tag type's meaning. It is refused while any tag still uses the type." xml:space="preserve">
     <value>Elimina el significado del tipo de etiqueta personalizado seleccionado. No se permite mientras alguna etiqueta siga utilizando ese tipo.</value>
   </data>
   <data name="Take back the latest change to the document, including a tag change." xml:space="preserve">
     <value>Revertir el último cambio del documento, incluido un cambio de etiqueta.</value>
+  </data>
+  <data name="Take it out of its parent" xml:space="preserve">
+    <value>Sacarlo de su elemento padre</value>
+  </data>
+  <data name="Take out what you do not want to share. Your open file stays as it is until you save; Undo is in the Pages menu." xml:space="preserve">
+    <value>Quite lo que no quiera compartir. Su archivo abierto no cambia hasta que guarde; Deshacer está en el menú Páginas.</value>
+  </data>
+  <data name="Take the paper out of the picture" xml:space="preserve">
+    <value>Quitar el papel de la imagen</value>
   </data>
   <data name="Take the picked text, picture or drawing off the page. Undo brings it back. Shortcut: Delete" xml:space="preserve">
     <value>Quita de la página el texto, la imagen o el dibujo elegido. Deshacer lo recupera. Atajo: Supr</value>
@@ -4674,14 +5853,32 @@
   <data name="Take the signature you just placed off the page." xml:space="preserve">
     <value>Quite de la página la firma que acaba de colocar.</value>
   </data>
+  <data name="Take this much off the bottom, in points" xml:space="preserve">
+    <value>Quitar esto por abajo, en puntos</value>
+  </data>
+  <data name="Take this much off the left, in points" xml:space="preserve">
+    <value>Quitar esto por la izquierda, en puntos</value>
+  </data>
+  <data name="Take this much off the right, in points" xml:space="preserve">
+    <value>Quitar esto por la derecha, en puntos</value>
+  </data>
+  <data name="Take this much off the top, in points" xml:space="preserve">
+    <value>Quitar esto por arriba, en puntos</value>
+  </data>
   <data name="Text" xml:space="preserve">
     <value>Texto</value>
+  </data>
+  <data name="Text Colour: {0}" xml:space="preserve">
+    <value>Color del texto: {0}</value>
   </data>
   <data name="Text Properties" xml:space="preserve">
     <value>Propiedades del texto</value>
   </data>
   <data name="Text Properties…" xml:space="preserve">
     <value>Propiedades del texto…</value>
+  </data>
+  <data name="Text Recognition Languages" xml:space="preserve">
+    <value>Idiomas de reconocimiento de texto</value>
   </data>
   <data name="Text Settings" xml:space="preserve">
     <value>Ajustes de texto</value>
@@ -4709,6 +5906,15 @@
   </data>
   <data name="Text format" xml:space="preserve">
     <value>Formato de texto</value>
+  </data>
+  <data name="Text in a Fixed Width Font" xml:space="preserve">
+    <value>Texto en una fuente de ancho fijo</value>
+  </data>
+  <data name="Text in a Sans Serif Font" xml:space="preserve">
+    <value>Texto en una fuente sin serifa</value>
+  </data>
+  <data name="Text in a Serif Font" xml:space="preserve">
+    <value>Texto en una fuente con serifa</value>
   </data>
   <data name="Text is drawn with hard edges, where each pixel is fully dark or fully clear. Lines and pictures keep soft edges." xml:space="preserve">
     <value>El texto se dibuja con bordes duros, donde cada píxel es completamente oscuro o completamente claro. Las líneas y las imágenes conservan los bordes suavizados.</value>
@@ -4763,6 +5969,15 @@
   </data>
   <data name="That action stopped because the document was closed or reloaded." xml:space="preserve">
     <value>La acción se detuvo porque se cerró o volvió a cargar el documento.</value>
+  </data>
+  <data name="That file could not be compared." xml:space="preserve">
+    <value>No se pudo comparar ese archivo.</value>
+  </data>
+  <data name="That is not a web address or a page of this document. Type an address such as https://example.com, or page: and a page number." xml:space="preserve">
+    <value>Eso no es una dirección web ni una página de este documento. Escriba una dirección como https://example.com, o page: y un número de página.</value>
+  </data>
+  <data name="That picture could not be read." xml:space="preserve">
+    <value>No se pudo leer esa imagen.</value>
   </data>
   <data name="That picture could not be read. Choose a PNG, JPEG, BMP or WebP file." xml:space="preserve">
     <value>No se pudo leer esa imagen. Elija un archivo PNG, JPEG, BMP o WebP.</value>
@@ -4896,6 +6111,9 @@
   <data name="The first scanned page does not read well as {0}, " xml:space="preserve">
     <value>La primera página escaneada no se reconoce bien como {0}, </value>
   </data>
+  <data name="The form could not be changed." xml:space="preserve">
+    <value>No se pudo cambiar el formulario.</value>
+  </data>
   <data name="The form does not accept that value." xml:space="preserve">
     <value>El formulario no acepta ese valor.</value>
   </data>
@@ -4950,14 +6168,23 @@
   <data name="The newest level, based on PDF 2.0. Attached files must also be PDF/A." xml:space="preserve">
     <value>El nivel más reciente, basado en PDF 2.0. Los archivos adjuntos también deben ser PDF/A.</value>
   </data>
+  <data name="The note" xml:space="preserve">
+    <value>La nota</value>
+  </data>
   <data name="The note text for this comment. Type to change it. Shortcut: Ctrl+Enter" xml:space="preserve">
     <value>El texto de la nota de este comentario. Escriba para cambiarlo. Atajo: Ctrl+Enter</value>
   </data>
   <data name="The oldest level. Use it only when a system asks for PDF/A-1. It does not allow see-through effects or attached files." xml:space="preserve">
     <value>El nivel más antiguo. Úselo solo cuando un sistema requiera PDF/A-1. No permite transparencias ni archivos adjuntos.</value>
   </data>
+  <data name="The owner password" xml:space="preserve">
+    <value>La contraseña de propietario</value>
+  </data>
   <data name="The owner password of the protection this document has now. It is needed because you opened the document with its reading password. It is never saved." xml:space="preserve">
     <value>La contraseña de propietario de la protección actual de este documento. Es necesaria porque abrió el documento con su contraseña de lectura. Nunca se guarda.</value>
+  </data>
+  <data name="The owner password this document has now" xml:space="preserve">
+    <value>La contraseña de propietario actual de este documento</value>
   </data>
   <data name="The page on screen" xml:space="preserve">
     <value>La página en pantalla</value>
@@ -4979,6 +6206,9 @@
   </data>
   <data name="The redacted copy was not saved." xml:space="preserve">
     <value>No se guardó la copia censurada.</value>
+  </data>
+  <data name="The same password again" xml:space="preserve">
+    <value>La misma contraseña otra vez</value>
   </data>
   <data name="The signature does not match: the signed content was altered or the signature is damaged." xml:space="preserve">
     <value>La firma no coincide: se alteró el contenido firmado o la firma está dañada.</value>
@@ -5028,6 +6258,9 @@
   <data name="The tags could not be changed." xml:space="preserve">
     <value>No se pudieron cambiar las etiquetas.</value>
   </data>
+  <data name="The text it stands for" xml:space="preserve">
+    <value>El texto que representa</value>
+  </data>
   <data name="The text. Enter starts a new line." xml:space="preserve">
     <value>El texto. Intro inicia una línea nueva.</value>
   </data>
@@ -5064,6 +6297,9 @@
   <data name="The width lines wrap at, in points. 0 lets the box grow as you type." xml:space="preserve">
     <value>El ancho, en puntos, al que se ajustan las líneas. 0 permite que el cuadro crezca mientras escribe.</value>
   </data>
+  <data name="The words and the look of the two documents are the same." xml:space="preserve">
+    <value>Las palabras y el aspecto de los dos documentos son iguales.</value>
+  </data>
   <data name="There are no PDF files in this folder." xml:space="preserve">
     <value>No hay archivos PDF en esta carpeta.</value>
   </data>
@@ -5097,6 +6333,9 @@
   <data name="This desktop's clipboard cannot hold images, so the image of the area was saved as {0}." xml:space="preserve">
     <value>El portapapeles de este escritorio no admite imágenes, por lo que la imagen del área se ha guardado como {0}.</value>
   </data>
+  <data name="This document cannot be changed in this way." xml:space="preserve">
+    <value>Este documento no se puede cambiar de esta manera.</value>
+  </data>
   <data name="This document cannot be edited on the page." xml:space="preserve">
     <value>Este documento no se puede editar en la página.</value>
   </data>
@@ -5114,6 +6353,12 @@
   </data>
   <data name="This document is digitally signed." xml:space="preserve">
     <value>Este documento está firmado digitalmente.</value>
+  </data>
+  <data name="This document is locked" xml:space="preserve">
+    <value>Este documento está bloqueado</value>
+  </data>
+  <data name="This document is locked for the holders of a certificate. Choose your certificate file and type its password." xml:space="preserve">
+    <value>Este documento está bloqueado para los titulares de un certificado. Elija su archivo de certificado y escriba su contraseña.</value>
   </data>
   <data name="This document is password protected" xml:space="preserve">
     <value>Este documento está protegido con contraseña</value>
@@ -5226,6 +6471,9 @@
   <data name="This file could not be read as a picture. Choose a PNG, JPEG, BMP or WebP file." xml:space="preserve">
     <value>No se ha podido leer este archivo como imagen. Seleccione un archivo PNG, JPEG, BMP o WebP.</value>
   </data>
+  <data name="This file has changed on disk." xml:space="preserve">
+    <value>Este archivo ha cambiado en el disco.</value>
+  </data>
   <data name="This file has no sound or picture that can be decoded." xml:space="preserve">
     <value>Este archivo no contiene sonido ni imágenes que puedan decodificarse.</value>
   </data>
@@ -5253,6 +6501,9 @@
   <data name="This form asked to send your answers. HyperPDF does not send form data." xml:space="preserve">
     <value>Este formulario ha solicitado enviar sus respuestas. HyperPDF no envía datos de formularios.</value>
   </data>
+  <data name="This form asks to fill itself in from the file {0}. You choose the file next." xml:space="preserve">
+    <value>Este formulario pide rellenarse desde el archivo {0}. Elegirá el archivo a continuación.</value>
+  </data>
   <data name="This form asks to load answers from {0}. You choose the file next, and Undo takes the change back. Only load files you trust." xml:space="preserve">
     <value>Este formulario solicita cargar respuestas de {0}. A continuación elegirá el archivo y podrá revertir el cambio con Deshacer. Cargue solo archivos de confianza.</value>
   </data>
@@ -5268,6 +6519,9 @@
   <data name="This media could not be read from the document." xml:space="preserve">
     <value>No se ha podido leer este contenido multimedia del documento.</value>
   </data>
+  <data name="This page has no text." xml:space="preserve">
+    <value>Esta página no tiene texto.</value>
+  </data>
   <data name="This password gives every permission and can change or remove the protection. " xml:space="preserve">
     <value>Esta contraseña concede todos los permisos y permite cambiar o eliminar la protección. </value>
   </data>
@@ -5276,6 +6530,9 @@
   </data>
   <data name="This signature could not be checked." xml:space="preserve">
     <value>No se pudo comprobar esta firma.</value>
+  </data>
+  <data name="Those pages or that first number are not right. Pages are counted from 1, and the first number must be 1 or more." xml:space="preserve">
+    <value>Esas páginas o ese primer número no son correctos. Las páginas se cuentan desde 1, y el primer número debe ser 1 o más.</value>
   </data>
   <data name="Thumbnails" xml:space="preserve">
     <value>Miniaturas</value>
@@ -5295,6 +6552,9 @@
   <data name="Timestamp server" xml:space="preserve">
     <value>Servidor de sellos de tiempo</value>
   </data>
+  <data name="Timestamp server for signing" xml:space="preserve">
+    <value>Servidor de sello de tiempo para firmar</value>
+  </data>
   <data name="Timestamped {0:g} by {1}, whose certificate is not trusted on this computer.{2}" xml:space="preserve">
     <value>Sello de tiempo del {0:g} emitido por {1}, cuyo certificado no es de confianza en este equipo.{2}</value>
   </data>
@@ -5313,6 +6573,9 @@
   <data name="To meet the standard, the copy:" xml:space="preserve">
     <value>Para cumplir la norma, la copia:</value>
   </data>
+  <data name="To page, or leave empty for the end of the document" xml:space="preserve">
+    <value>Hasta la página, o déjelo vacío para el final del documento</value>
+  </data>
   <data name="Tool bar" xml:space="preserve">
     <value>Barra de herramientas</value>
   </data>
@@ -5322,11 +6585,38 @@
   <data name="Tools ▾" xml:space="preserve">
     <value>Herramientas ▾</value>
   </data>
+  <data name="Treat accented letters as plain" xml:space="preserve">
+    <value>Tratar las letras con tilde como letras simples</value>
+  </data>
+  <data name="Treat look-alike characters as the same" xml:space="preserve">
+    <value>Tratar los caracteres de aspecto similar como iguales</value>
+  </data>
   <data name="Treat look-alike characters as the same: curly and straight quotes, dashes, and full-width letters." xml:space="preserve">
     <value>Trate como iguales los caracteres de aspecto similar: comillas curvas y rectas, guiones y letras de ancho completo.</value>
   </data>
+  <data name="Turn anticlockwise by degrees" xml:space="preserve">
+    <value>Girar en sentido antihorario por grados</value>
+  </data>
   <data name="Turn pages" xml:space="preserve">
     <value>Pasar páginas</value>
+  </data>
+  <data name="Turn pages on the document's timings" xml:space="preserve">
+    <value>Pasar las páginas según los tiempos del documento</value>
+  </data>
+  <data name="Turn pages upright" xml:space="preserve">
+    <value>Poner las páginas derechas</value>
+  </data>
+  <data name="Turn the Page _Left" xml:space="preserve">
+    <value>Girar la página a la _izquierda</value>
+  </data>
+  <data name="Turn the Page _Right" xml:space="preserve">
+    <value>Girar la página a la _derecha</value>
+  </data>
+  <data name="Turn the Picked Object to the Left" xml:space="preserve">
+    <value>Girar el objeto elegido a la izquierda</value>
+  </data>
+  <data name="Turn the Picked Object to the Right" xml:space="preserve">
+    <value>Girar el objeto elegido a la derecha</value>
   </data>
   <data name="Turn the pages a quarter turn to the left. Shortcut: Ctrl+Left" xml:space="preserve">
     <value>Girar las páginas un cuarto de vuelta a la izquierda. Atajo: Ctrl+Left</value>
@@ -5339,6 +6629,12 @@
   </data>
   <data name="Turn the selected pages clockwise by a quarter turn." xml:space="preserve">
     <value>Girar las páginas seleccionadas un cuarto de vuelta en sentido horario.</value>
+  </data>
+  <data name="Turned." xml:space="preserve">
+    <value>Girado.</value>
+  </data>
+  <data name="Two Pages Wide with a _Cover" xml:space="preserve">
+    <value>Dos páginas de ancho con _portada</value>
   </data>
   <data name="Two Pages with _Cover" xml:space="preserve">
     <value>Dos páginas con _portada</value>
@@ -5424,6 +6720,9 @@
   <data name="Type the password for your certificate. It is never saved." xml:space="preserve">
     <value>Escriba la contraseña de su certificado. Nunca se guarda.</value>
   </data>
+  <data name="Type the password for {0}." xml:space="preserve">
+    <value>Escriba la contraseña de {0}.</value>
+  </data>
   <data name="Type the reading password again, so a typing mistake does not lock you out." xml:space="preserve">
     <value>Vuelva a introducir la contraseña de lectura para evitar que un error de escritura le impida acceder.</value>
   </data>
@@ -5435,6 +6734,9 @@
   </data>
   <data name="Type the words to find. Press Enter for the next result or Shift+Enter for the one before." xml:space="preserve">
     <value>Escriba las palabras que buscar. Pulse Intro para el siguiente resultado o Mayús+Intro para el anterior.</value>
+  </data>
+  <data name="Type to find" xml:space="preserve">
+    <value>Escriba para buscar</value>
   </data>
   <data name="Type where your certificate file is, a .p12 or .pfx file." xml:space="preserve">
     <value>Introduzca la ubicación de su archivo de certificado, un archivo .p12 o .pfx.</value>
@@ -5460,6 +6762,9 @@
   <data name="Typeface" xml:space="preserve">
     <value>Tipo de letra</value>
   </data>
+  <data name="U_ndo" xml:space="preserve">
+    <value>_Deshacer</value>
+  </data>
   <data name="Un-nest" xml:space="preserve">
     <value>Sacar del nivel anidado</value>
   </data>
@@ -5472,6 +6777,9 @@
   <data name="Underline the text, or not. Shortcut: Ctrl+U while typing." xml:space="preserve">
     <value>Activar o desactivar el subrayado del texto. Atajo: Ctrl+U al escribir.</value>
   </data>
+  <data name="Underlined" xml:space="preserve">
+    <value>Subrayado</value>
+  </data>
   <data name="Undo" xml:space="preserve">
     <value>Deshacer</value>
   </data>
@@ -5480,6 +6788,9 @@
   </data>
   <data name="Undo page edit" xml:space="preserve">
     <value>Deshacer edición de página</value>
+  </data>
+  <data name="Undo the last change to the document" xml:space="preserve">
+    <value>Deshacer el último cambio del documento</value>
   </data>
   <data name="Undo the latest edit of the document, such as a bookmark change." xml:space="preserve">
     <value>Deshace la última edición del documento, como un cambio en los marcadores.</value>
@@ -5535,6 +6846,9 @@
   <data name="Use grey for new annotations and the one you picked." xml:space="preserve">
     <value>Use gris para las anotaciones nuevas y la seleccionada.</value>
   </data>
+  <data name="Use it" xml:space="preserve">
+    <value>Usarlo</value>
+  </data>
   <data name="Use large text for new text and callouts and the one you picked." xml:space="preserve">
     <value>Usar texto grande para los textos y las llamadas nuevos y el elemento seleccionado.</value>
   </data>
@@ -5579,6 +6893,9 @@
   </data>
   <data name="Use the print choices a document asks for" xml:space="preserve">
     <value>Usar las opciones de impresión que solicite un documento</value>
+  </data>
+  <data name="Use these" xml:space="preserve">
+    <value>Usar estos</value>
   </data>
   <data name="Use these settings for the text." xml:space="preserve">
     <value>Use estos ajustes para el texto.</value>
@@ -5637,8 +6954,17 @@
   <data name="What became part of the page, what was left alone and why, or why the copy could not be made." xml:space="preserve">
     <value>Qué se ha integrado en la página, qué se ha mantenido y por qué, o por qué no se ha podido crear la copia.</value>
   </data>
+  <data name="What it is, for those who cannot see it" xml:space="preserve">
+    <value>Qué es, para quienes no pueden verlo</value>
+  </data>
   <data name="What people with the reading password may do" xml:space="preserve">
     <value>Qué pueden hacer las personas con la contraseña de lectura</value>
+  </data>
+  <data name="What readers may do" xml:space="preserve">
+    <value>Qué pueden hacer los lectores</value>
+  </data>
+  <data name="What the check found" xml:space="preserve">
+    <value>Qué encontró la comprobación</value>
   </data>
   <data name="What the chosen tag is, such as a heading or a paragraph. Only types the file may use are listed." xml:space="preserve">
     <value>El tipo de etiqueta seleccionada, como encabezado o párrafo. Solo se muestran los tipos que el archivo puede utilizar.</value>
@@ -5657,6 +6983,9 @@
   </data>
   <data name="What the saved copy changed, what was left alone, or why it could not be made." xml:space="preserve">
     <value>Qué ha cambiado en la copia guardada, qué se ha mantenido o por qué no se ha podido crear.</value>
+  </data>
+  <data name="What the signature allows afterwards" xml:space="preserve">
+    <value>Qué permite la firma después</value>
   </data>
   <data name="What the signer gave back" xml:space="preserve">
     <value>Lo que devolvió el firmante</value>
@@ -5684,6 +7013,9 @@
   </data>
   <data name="What you read is never sent anywhere." xml:space="preserve">
     <value>Lo que lee nunca se envía a ningún sitio.</value>
+  </data>
+  <data name="What your tool gave back" xml:space="preserve">
+    <value>Qué devolvió su herramienta</value>
   </data>
   <data name="When a big picture is shown much smaller, average the pixels it covers instead of picking some of them. This applies to pictures inside the page content as well as stored ones." xml:space="preserve">
     <value>Cuando una imagen grande se muestra mucho más pequeña, promediar los píxeles que abarca en lugar de elegir algunos. Esto se aplica tanto a las imágenes del contenido de la página como a las almacenadas.</value>
@@ -5730,6 +7062,12 @@
   <data name="When ticked, the print window starts with the copies, two-sided choice and scaling the document asks for. You can change them." xml:space="preserve">
     <value>Cuando está marcado, la ventana de impresión comienza con las copias, la opción de doble cara y la escala que solicita el documento. Puede cambiarlas.</value>
   </data>
+  <data name="Where it is signed" xml:space="preserve">
+    <value>Dónde se firma</value>
+  </data>
+  <data name="Where on the page" xml:space="preserve">
+    <value>Dónde en la página</value>
+  </data>
   <data name="Where the copy is saved and everything you should know about how it was made." xml:space="preserve">
     <value>Dónde se guarda la copia y todo lo que debe saber sobre cómo se creó.</value>
   </data>
@@ -5742,6 +7080,9 @@
   <data name="Which cells this table header labels: the cells in its row, in its column, or both. Screen readers use it to say which header goes with a cell." xml:space="preserve">
     <value>Las celdas a las que se aplica este encabezado de tabla: las de su fila, las de su columna o ambas. Los lectores de pantalla lo utilizan para indicar qué encabezado corresponde a cada celda.</value>
   </data>
+  <data name="Which look to keep" xml:space="preserve">
+    <value>Qué aspecto mantener</value>
+  </data>
   <data name="White" xml:space="preserve">
     <value>Blanco</value>
   </data>
@@ -5750,6 +7091,9 @@
   </data>
   <data name="Whole words" xml:space="preserve">
     <value>Palabras completas</value>
+  </data>
+  <data name="Whole words only" xml:space="preserve">
+    <value>Solo palabras completas</value>
   </data>
   <data name="Wi_der" xml:space="preserve">
     <value>Más _ancho</value>
@@ -5760,11 +7104,20 @@
   <data name="Wider" xml:space="preserve">
     <value>Más ancho</value>
   </data>
+  <data name="Width the lines wrap at, 0 for none" xml:space="preserve">
+    <value>Ancho al que se ajustan las líneas, 0 para ninguno</value>
+  </data>
+  <data name="Words before the number, such as A-" xml:space="preserve">
+    <value>Palabras antes del número, como A-</value>
+  </data>
   <data name="Words on the stamp" xml:space="preserve">
     <value>Texto del sello</value>
   </data>
   <data name="Words to find" xml:space="preserve">
     <value>Palabras que buscar</value>
+  </data>
+  <data name="Words, with {page}, {pages}, {number} and {date}" xml:space="preserve">
+    <value>Palabras, con {page}, {pages}, {number} y {date}</value>
   </data>
   <data name="Wrap width (0 grows)" xml:space="preserve">
     <value>Ancho de ajuste (0 se amplía)</value>
@@ -5789,6 +7142,15 @@
   </data>
   <data name="Write text with an arrow pointing at something. Drag from the thing to where the text goes." xml:space="preserve">
     <value>Escriba texto con una flecha que señale un elemento. Arrastre desde el elemento hasta el lugar donde irá el texto.</value>
+  </data>
+  <data name="Write the Tag Changes to the Document" xml:space="preserve">
+    <value>Escribir los cambios de etiquetas en el documento</value>
+  </data>
+  <data name="Writes a copy anyone can open and change. The document shown is not changed." xml:space="preserve">
+    <value>Escribe una copia que cualquiera puede abrir y cambiar. El documento mostrado no se cambia.</value>
+  </data>
+  <data name="Writes a copy in the PDF 2.0 format. The document shown is not changed." xml:space="preserve">
+    <value>Escribe una copia en formato PDF 2.0. El documento mostrado no se cambia.</value>
   </data>
   <data name="Writes a standard PDF copy of this document with your annotations, form entries and page changes. Your open file is never changed." xml:space="preserve">
     <value>Guarda una copia PDF estándar de este documento con sus anotaciones, datos de formulario y cambios de páginas. El archivo abierto nunca se modifica.</value>
@@ -5817,11 +7179,23 @@
   <data name="Your initials" xml:space="preserve">
     <value>Sus iniciales</value>
   </data>
+  <data name="Your name or initials, as you sign" xml:space="preserve">
+    <value>Su nombre o iniciales, como firma</value>
+  </data>
   <data name="Your name, as you sign it" xml:space="preserve">
     <value>Su nombre, tal como lo firma</value>
   </data>
   <data name="Your open file is never changed. A signed or PDF/A document is refused with the reason." xml:space="preserve">
     <value>El archivo abierto nunca se modifica. Se rechazan los documentos firmados o PDF/A indicando el motivo.</value>
+  </data>
+  <data name="Your reply" xml:space="preserve">
+    <value>Su respuesta</value>
+  </data>
+  <data name="Zoom _In" xml:space="preserve">
+    <value>_Acercar</value>
+  </data>
+  <data name="Zoom _Out" xml:space="preserve">
+    <value>_Alejar</value>
   </data>
   <data name="Zoom in" xml:space="preserve">
     <value>Acercar</value>
@@ -5829,11 +7203,17 @@
   <data name="Zoom out" xml:space="preserve">
     <value>Alejar</value>
   </data>
+  <data name="Zoom to {0}%" xml:space="preserve">
+    <value>Zoom al {0} %</value>
+  </data>
   <data name="_Accepted" xml:space="preserve">
     <value>_Aceptado</value>
   </data>
   <data name="_Add Reply" xml:space="preserve">
     <value>_Añadir respuesta</value>
+  </data>
+  <data name="_Add a Bookmark Here…" xml:space="preserve">
+    <value>_Añadir un marcador aquí…</value>
   </data>
   <data name="_Annotate…" xml:space="preserve">
     <value>_Anotar…</value>
@@ -5850,11 +7230,17 @@
   <data name="_Auto-scroll" xml:space="preserve">
     <value>_Desplazamiento automático</value>
   </data>
+  <data name="_Back" xml:space="preserve">
+    <value>_Atrás</value>
+  </data>
   <data name="_Black" xml:space="preserve">
     <value>_Negro</value>
   </data>
   <data name="_Blue" xml:space="preserve">
     <value>_Azul</value>
+  </data>
+  <data name="_Bookmarks" xml:space="preserve">
+    <value>_Marcadores</value>
   </data>
   <data name="_Callout" xml:space="preserve">
     <value>_Llamada</value>
@@ -5865,8 +7251,14 @@
   <data name="_Cancelled" xml:space="preserve">
     <value>_Cancelado</value>
   </data>
+  <data name="_Caret Mode" xml:space="preserve">
+    <value>Modo de _cursor</value>
+  </data>
   <data name="_Caret Navigation" xml:space="preserve">
     <value>Navegación con _cursor</value>
+  </data>
+  <data name="_Check the Signatures" xml:space="preserve">
+    <value>_Revisar las firmas</value>
   </data>
   <data name="_Choose…" xml:space="preserve">
     <value>_Elegir…</value>
@@ -5874,8 +7266,14 @@
   <data name="_Close" xml:space="preserve">
     <value>_Cerrar</value>
   </data>
+  <data name="_Close Tab" xml:space="preserve">
+    <value>_Cerrar pestaña</value>
+  </data>
   <data name="_Comfort Page Colour" xml:space="preserve">
     <value>_Color de página cómodo</value>
+  </data>
+  <data name="_Compare with Another Document…" xml:space="preserve">
+    <value>_Comparar con otro documento…</value>
   </data>
   <data name="_Confidential" xml:space="preserve">
     <value>_Confidencial</value>
@@ -5885,6 +7283,9 @@
   </data>
   <data name="_Copy licence text" xml:space="preserve">
     <value>_Copiar texto de licencia</value>
+  </data>
+  <data name="_Crop the Pages…" xml:space="preserve">
+    <value>_Recortar las páginas…</value>
   </data>
   <data name="_Dark Blue" xml:space="preserve">
     <value>_Azul oscuro</value>
@@ -5901,6 +7302,12 @@
   <data name="_Draft" xml:space="preserve">
     <value>_Borrador</value>
   </data>
+  <data name="_Draw" xml:space="preserve">
+    <value>_Dibujar</value>
+  </data>
+  <data name="_Duplicate the Page" xml:space="preserve">
+    <value>_Duplicar la página</value>
+  </data>
   <data name="_Edit Note" xml:space="preserve">
     <value>_Editar nota</value>
   </data>
@@ -5910,14 +7317,29 @@
   <data name="_Edit Text" xml:space="preserve">
     <value>_Editar texto</value>
   </data>
+  <data name="_Edit the Page's Own Content" xml:space="preserve">
+    <value>_Editar el contenido propio de la página</value>
+  </data>
+  <data name="_Edit the Picked Note…" xml:space="preserve">
+    <value>_Editar la nota elegida…</value>
+  </data>
+  <data name="_Edit the Selected Tag…" xml:space="preserve">
+    <value>_Editar la etiqueta seleccionada…</value>
+  </data>
   <data name="_Ellipse" xml:space="preserve">
     <value>_Elipse</value>
   </data>
   <data name="_Export…" xml:space="preserve">
     <value>_Exportar…</value>
   </data>
+  <data name="_Fill and Sign" xml:space="preserve">
+    <value>_Rellenar y firmar</value>
+  </data>
   <data name="_Final" xml:space="preserve">
     <value>_Final</value>
+  </data>
+  <data name="_Finish Typing the Text" xml:space="preserve">
+    <value>_Terminar de escribir el texto</value>
   </data>
   <data name="_Finish…" xml:space="preserve">
     <value>_Finalizar…</value>
@@ -5925,8 +7347,20 @@
   <data name="_First Page" xml:space="preserve">
     <value>_Primera página</value>
   </data>
+  <data name="_Focus Mode" xml:space="preserve">
+    <value>Modo de _concentración</value>
+  </data>
+  <data name="_Go" xml:space="preserve">
+    <value>_Ir</value>
+  </data>
+  <data name="_Go to a Document…" xml:space="preserve">
+    <value>_Ir a un documento…</value>
+  </data>
   <data name="_Green" xml:space="preserve">
     <value>_Verde</value>
+  </data>
+  <data name="_Hand" xml:space="preserve">
+    <value>_Mano</value>
   </data>
   <data name="_Hand Tool" xml:space="preserve">
     <value>_Herramienta mano</value>
@@ -5934,8 +7368,20 @@
   <data name="_Highlight" xml:space="preserve">
     <value>_Resaltar</value>
   </data>
+  <data name="_Insert Pages from Files…" xml:space="preserve">
+    <value>_Insertar páginas desde archivos…</value>
+  </data>
+  <data name="_Italic" xml:space="preserve">
+    <value>_Cursiva</value>
+  </data>
   <data name="_Keep This Spelling" xml:space="preserve">
     <value>_Conservar esta grafía</value>
+  </data>
+  <data name="_Last Page" xml:space="preserve">
+    <value>_Última página</value>
+  </data>
+  <data name="_Licences…" xml:space="preserve">
+    <value>_Licencias…</value>
   </data>
   <data name="_Line" xml:space="preserve">
     <value>_Línea</value>
@@ -5943,11 +7389,26 @@
   <data name="_Measure" xml:space="preserve">
     <value>_Medir</value>
   </data>
+  <data name="_Measure, Sign and Edit" xml:space="preserve">
+    <value>_Medir, firmar y editar</value>
+  </data>
   <data name="_Medium" xml:space="preserve">
     <value>_Mediano</value>
   </data>
+  <data name="_Merge Files…" xml:space="preserve">
+    <value>_Combinar archivos…</value>
+  </data>
   <data name="_New Window" xml:space="preserve">
     <value>_Nueva ventana</value>
+  </data>
+  <data name="_Next Page" xml:space="preserve">
+    <value>Página _siguiente</value>
+  </data>
+  <data name="_Next Sentence" xml:space="preserve">
+    <value>Frase _siguiente</value>
+  </data>
+  <data name="_Next Tab" xml:space="preserve">
+    <value>Pestaña _siguiente</value>
   </data>
   <data name="_Normal" xml:space="preserve">
     <value>_Normal</value>
@@ -5955,14 +7416,26 @@
   <data name="_Not Approved" xml:space="preserve">
     <value>_No aprobado</value>
   </data>
+  <data name="_Note" xml:space="preserve">
+    <value>_Nota</value>
+  </data>
+  <data name="_One Page Wide" xml:space="preserve">
+    <value>_Una página de ancho</value>
+  </data>
   <data name="_Open…" xml:space="preserve">
     <value>_Abrir…</value>
   </data>
   <data name="_Orange" xml:space="preserve">
     <value>_Naranja</value>
   </data>
+  <data name="_Pages" xml:space="preserve">
+    <value>_Páginas</value>
+  </data>
   <data name="_Picture…" xml:space="preserve">
     <value>_Imagen…</value>
+  </data>
+  <data name="_Play or Pause" xml:space="preserve">
+    <value>_Reproducir o pausar</value>
   </data>
   <data name="_Polygon" xml:space="preserve">
     <value>_Polígono</value>
@@ -5972,6 +7445,15 @@
   </data>
   <data name="_Prepare" xml:space="preserve">
     <value>_Preparar</value>
+  </data>
+  <data name="_Previous Page" xml:space="preserve">
+    <value>Página _anterior</value>
+  </data>
+  <data name="_Previous Tab" xml:space="preserve">
+    <value>Pestaña _anterior</value>
+  </data>
+  <data name="_Print…" xml:space="preserve">
+    <value>_Imprimir…</value>
   </data>
   <data name="_Properties" xml:space="preserve">
     <value>_Propiedades</value>
@@ -5985,6 +7467,12 @@
   <data name="_Read Aloud from Here" xml:space="preserve">
     <value>_Leer en voz alta desde aquí</value>
   </data>
+  <data name="_Reading Aids" xml:space="preserve">
+    <value>Ayudas de _lectura</value>
+  </data>
+  <data name="_Reading Mode" xml:space="preserve">
+    <value>Modo de _lectura</value>
+  </data>
   <data name="_Rectangle" xml:space="preserve">
     <value>_Rectángulo</value>
   </data>
@@ -5993,6 +7481,9 @@
   </data>
   <data name="_Rejected" xml:space="preserve">
     <value>_Rechazado</value>
+  </data>
+  <data name="_Rename the Bookmark…" xml:space="preserve">
+    <value>_Renombrar el marcador…</value>
   </data>
   <data name="_Reopen Closed Tabs" xml:space="preserve">
     <value>_Reabrir pestañas cerradas</value>
@@ -6021,11 +7512,23 @@
   <data name="_Save Unprotected Copy…" xml:space="preserve">
     <value>_Guardar copia sin protección…</value>
   </data>
+  <data name="_Scroll Slowly by Itself" xml:space="preserve">
+    <value>Desplazar _despacio automáticamente</value>
+  </data>
   <data name="_Search" xml:space="preserve">
     <value>_Buscar</value>
   </data>
   <data name="_Search in Folder…" xml:space="preserve">
     <value>_Buscar en carpeta…</value>
+  </data>
+  <data name="_Select Text" xml:space="preserve">
+    <value>_Seleccionar texto</value>
+  </data>
+  <data name="_Side Panel" xml:space="preserve">
+    <value>_Panel lateral</value>
+  </data>
+  <data name="_Sign with a Certificate…" xml:space="preserve">
+    <value>_Firmar con un certificado…</value>
   </data>
   <data name="_Single" xml:space="preserve">
     <value>_Única</value>
@@ -6036,11 +7539,17 @@
   <data name="_Snapshot" xml:space="preserve">
     <value>_Captura</value>
   </data>
+  <data name="_Stamp" xml:space="preserve">
+    <value>_Sello</value>
+  </data>
   <data name="_Status" xml:space="preserve">
     <value>_Estado</value>
   </data>
   <data name="_Strike Out" xml:space="preserve">
     <value>_Tachar</value>
+  </data>
+  <data name="_Tabs" xml:space="preserve">
+    <value>_Pestañas</value>
   </data>
   <data name="_Thin" xml:space="preserve">
     <value>_Fino</value>
@@ -6051,11 +7560,20 @@
   <data name="_Two Pages" xml:space="preserve">
     <value>_Dos páginas</value>
   </data>
+  <data name="_Two Pages Wide" xml:space="preserve">
+    <value>_Dos páginas de ancho</value>
+  </data>
   <data name="_Type Text Here" xml:space="preserve">
     <value>_Escribir texto aquí</value>
   </data>
   <data name="_Underline" xml:space="preserve">
     <value>_Subrayar</value>
+  </data>
+  <data name="_Underlined" xml:space="preserve">
+    <value>_Subrayado</value>
+  </data>
+  <data name="_View" xml:space="preserve">
+    <value>_Ver</value>
   </data>
   <data name="_Whole words" xml:space="preserve">
     <value>_Palabras completas</value>
@@ -6063,8 +7581,14 @@
   <data name="_Wide" xml:space="preserve">
     <value>_Ancho</value>
   </data>
+  <data name="_Window" xml:space="preserve">
+    <value>_Ventana</value>
+  </data>
   <data name="_Wrap Pages" xml:space="preserve">
     <value>_Ajustar filas de páginas</value>
+  </data>
+  <data name="_Wrap the Pages" xml:space="preserve">
+    <value>_Ajustar las páginas</value>
   </data>
   <data name="_Yellow" xml:space="preserve">
     <value>_Amarillo</value>
@@ -6168,6 +7692,9 @@
   <data name="matches" xml:space="preserve">
     <value>coincidencias</value>
   </data>
+  <data name="no" xml:space="preserve">
+    <value>no</value>
+  </data>
   <data name="not drawn on the page" xml:space="preserve">
     <value>no dibujado en la página</value>
   </data>
@@ -6231,6 +7758,9 @@
   <data name="value {0}" xml:space="preserve">
     <value>valor {0}</value>
   </data>
+  <data name="yes" xml:space="preserve">
+    <value>sí</value>
+  </data>
   <data name="{0:0.##}× speed" xml:space="preserve">
     <value>Velocidad {0:0.##}×</value>
   </data>
@@ -6248,6 +7778,9 @@
   </data>
   <data name="{0:0} × {1:0} mm" xml:space="preserve">
     <value>{0:0} × {1:0} mm</value>
+  </data>
+  <data name="{0} (not saved)" xml:space="preserve">
+    <value>{0} (sin guardar)</value>
   </data>
   <data name="{0} (saved as {1})" xml:space="preserve">
     <value>{0} (guardado como {1})</value>
@@ -6323,6 +7856,9 @@
   </data>
   <data name="{0} pages" xml:space="preserve">
     <value>{0} páginas</value>
+  </data>
+  <data name="{0} pages differ in their words or in how they look. Text in pictures is not compared." xml:space="preserve">
+    <value>{0} páginas difieren en sus palabras o en su aspecto. El texto de las imágenes no se compara.</value>
   </data>
   <data name="{0} pictures need" xml:space="preserve">
     <value>{0} imágenes necesitan</value>
@@ -6410,5 +7946,11 @@
   </data>
   <data name="{0}Text recognised on {1}. You can now search, select and copy it. Save to keep it." xml:space="preserve">
     <value>{0}Se reconoció texto en {1}. Ahora puede buscarlo, seleccionarlo y copiarlo. Guarde para conservarlo.</value>
+  </data>
+  <data name="‹ Back" xml:space="preserve">
+    <value>‹ Atrás</value>
+  </data>
+  <data name="↑ Up one folder" xml:space="preserve">
+    <value>↑ Subir una carpeta</value>
   </data>
 </root>

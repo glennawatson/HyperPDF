@@ -18,18 +18,6 @@ public sealed class X11FileDropTests
     /// <summary>The longest the test waits for the server, in seconds.</summary>
     private const double TimeoutSeconds = 20;
 
-    /// <summary>The wait between looks for the server's socket, in milliseconds.</summary>
-    private const int LookMilliseconds = 20;
-
-    /// <summary>The first display number tried for the private X server.</summary>
-    private const int FirstDisplay = 90;
-
-    /// <summary>The number of display numbers tried.</summary>
-    private const int DisplayChoices = 10;
-
-    /// <summary>The place where the X server makes its socket.</summary>
-    private const string SocketFolder = "/tmp/.X11-unix";
-
     /// <summary>The first file dropped.</summary>
     private const string FirstPath = "/tmp/hyperpdf drop/first.pdf";
 
@@ -60,18 +48,15 @@ public sealed class X11FileDropTests
             return;
         }
 
-        var display = Enumerable.Range(FirstDisplay, DisplayChoices).First(static number => !File.Exists($"{SocketFolder}/X{number}"));
-        var name = $":{display}";
-        using var server = Process.Start(new ProcessStartInfo(program, [name, "-screen", "0", "640x480x24", "-nolisten", "tcp"]) { UseShellExecute = false });
+        // The server picks a free display itself and says which when it is ready, so two test runs at once cannot choose the same one.
+        var start = new ProcessStartInfo(program, ["-displayfd", "1", "-screen", "0", "640x480x24", "-nolisten", "tcp"]) { UseShellExecute = false, RedirectStandardOutput = true };
+        using var server = Process.Start(start);
         string[] received = [];
         try
         {
-            var started = Stopwatch.GetTimestamp();
-            while (!File.Exists($"{SocketFolder}/X{display}") && Stopwatch.GetElapsedTime(started).TotalSeconds < TimeoutSeconds)
-            {
-                await Task.Delay(LookMilliseconds);
-            }
-
+            using var limit = new CancellationTokenSource(TimeSpan.FromSeconds(TimeoutSeconds));
+            var line = await server!.StandardOutput.ReadLineAsync(limit.Token);
+            var name = $":{line?.Trim()}";
             using var window = new X11Window(RenderBackendPreference.Cpu, new RecordingAccessibilityBridge(), null, name);
             using var following = window.FileDrops.SubscribeSafe(files => received = [.. files], ErrorTrace.Write);
             window.Show();

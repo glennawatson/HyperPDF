@@ -111,6 +111,9 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
     /// <summary>Whether the first xdg_surface configure arrived.</summary>
     private bool _configured;
 
+    /// <summary>Whether the compositor last said the window is maximised.</summary>
+    private bool _maximized;
+
     /// <summary>Whether the sync callback arrived.</summary>
     private bool _synced;
 
@@ -145,6 +148,9 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
 
     /// <inheritdoc/>
     public double Scale => _fraction > 0 ? _fraction : _bufferScale;
+
+    /// <inheritdoc/>
+    public bool IsMaximized => _maximized;
 
     /// <inheritdoc/>
     public long NativeHandle => 0;
@@ -186,6 +192,27 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
         _connection.Writer.WriteString(title);
         _connection.Writer.End();
         _connection.Flush();
+    }
+
+    /// <inheritdoc/>
+    public void SetMaximized(bool on)
+    {
+        _connection.Writer.Begin(_objects.Toplevel, on ? WaylandProtocol.ToplevelSetMaximized : WaylandProtocol.ToplevelUnsetMaximized);
+        _connection.Writer.End();
+        _connection.Flush();
+    }
+
+    /// <inheritdoc/>
+    public void SetSize(int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        // A Wayland client chooses its own size until the compositor says otherwise, so the size is taken as a compositor would give it.
+        _logical = new(width, height);
+        ApplySize();
     }
 
     /// <inheritdoc/>
@@ -627,6 +654,15 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
 
         var width = reader.ReadInt();
         var height = reader.ReadInt();
+
+        // The states come as an array of 32 bit values: its length in bytes, then the values.
+        var maximized = false;
+        for (var left = reader.ReadUInt() / sizeof(uint); left != 0; left--)
+        {
+            maximized |= reader.ReadUInt() == WaylandProtocol.ToplevelStateMaximized;
+        }
+
+        _maximized = maximized;
         if (width <= 0 || height <= 0)
         {
             return;

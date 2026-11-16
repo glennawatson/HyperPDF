@@ -29,6 +29,24 @@ public sealed class TransitionCurtainTests
     /// <summary>The rectangles a split opening out from the middle leaves.</summary>
     private const int TwoSides = 2;
 
+    /// <summary>The rectangles of the frame a box growing out leaves.</summary>
+    private const int FrameRectangles = 4;
+
+    /// <summary>A few cells, which may already be open a moment after a dissolve starts.</summary>
+    private const int FewCells = 6;
+
+    /// <summary>The cells a dissolve is made of.</summary>
+    private const int Cells = 192;
+
+    /// <summary>Seconds a run has been playing, for a run whose length is twice this.</summary>
+    private const long HalfwayAgoSeconds = 50;
+
+    /// <summary>The length of that run in seconds.</summary>
+    private const double WholeSeconds = 100;
+
+    /// <summary>The strips blinds are made of.</summary>
+    private const int Strips = 8;
+
     /// <summary>A run that has not started playing yet.</summary>
     private const double NotStarted = 0;
 
@@ -80,18 +98,64 @@ public sealed class TransitionCurtainTests
         var outward = Get(Run(TransitionEffect.Box, 0, false, false, 0));
         var inward = Get(Run(TransitionEffect.Box, 0, false, true, 0));
 
-        await Assert.That(outward.Rectangles.Length).IsEqualTo(TransitionCurtain.MaxRectangles);
+        await Assert.That(outward.Rectangles.Length).IsEqualTo(FrameRectangles);
         await Assert.That(inward.Rectangles.Length).IsEqualTo(1);
     }
 
-    /// <summary>A slide, no effect, or a run that is not playing has no curtain.</summary>
+    /// <summary>Blinds cover a strip each, and every strip is more open as the effect plays.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task BlindsLeaveEveryStripPartlyCovered()
+    {
+        var slow = Run(TransitionEffect.Blinds, 0, false, false, 0);
+        var started = Get(slow with { Step = slow.Step with { DurationSeconds = LongAgoSeconds } });
+        var over = Get(Run(TransitionEffect.Blinds, 0, false, false, -LongAgoSeconds));
+        var columns = Get(Run(TransitionEffect.Blinds, 0, true, false, 0));
+
+        await Assert.That(started.Rectangles.Length).IsEqualTo(Strips);
+        await Assert.That(started.Rectangles[0].Height).IsGreaterThan(Height / Strips * NearlyAll);
+        await Assert.That(over.Rectangles[0].Height).IsLessThan(1);
+        await Assert.That(columns.Rectangles[0].Height).IsEqualTo(Height);
+    }
+
+    /// <summary>A dissolve and a glitter start with the whole page covered in cells and end with none, and a glitter opens the top left first.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DissolveAndGlitterOpenCellByCell()
+    {
+        var dissolve = Run(TransitionEffect.Dissolve, 0, false, false, 0);
+        var started = Get(dissolve with { Step = dissolve.Step with { DurationSeconds = LongAgoSeconds } });
+        var over = Get(Run(TransitionEffect.Dissolve, 0, false, false, -LongAgoSeconds));
+        var glitter = Run(TransitionEffect.Glitter, 0, false, false, -HalfwayAgoSeconds);
+        var midway = Get(glitter with { Step = glitter.Step with { DurationSeconds = WholeSeconds } });
+
+        await Assert.That(started.Rectangles.Length).IsGreaterThan(Cells - FewCells);
+        await Assert.That(over.Rectangles.Length).IsEqualTo(0);
+        await Assert.That(midway.Rectangles.Length).IsBetween(1, Cells - 1);
+        await Assert.That(Array.Exists(midway.Rectangles, static cell => cell.X < 1 && cell.Y < 1)).IsFalse();
+    }
+
+    /// <summary>A slide covers nothing, as it moves the page itself, and the page is far from its place when it starts and in it when it ends.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SlideMovesThePageAndCoversNothing()
+    {
+        var started = TransitionTiming.GetSlideOffset(0, 0, Width, Height);
+        var finished = TransitionTiming.GetSlideOffset(0, 1, Width, Height);
+
+        await Assert.That(Get(Run(TransitionEffect.Slide, 0, false, false, 0)).Rectangles.Length).IsEqualTo(0);
+        await Assert.That(Math.Abs(started.X)).IsEqualTo(Width);
+        await Assert.That(finished.X).IsEqualTo(0);
+        await Assert.That(finished.Y).IsEqualTo(0);
+    }
+
+    /// <summary>No effect, or a run that is not playing, has no curtain.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task SomeRunsHaveNoCurtain()
     {
         var stopped = Run(TransitionEffect.Wipe, 0, false, false, 0) with { IsRunning = false };
 
-        await Assert.That(Get(Run(TransitionEffect.Slide, 0, false, false, 0)).Rectangles.Length).IsEqualTo(0);
         await Assert.That(Get(Run(TransitionEffect.None, 0, false, false, 0)).Rectangles.Length).IsEqualTo(0);
         await Assert.That(Get(stopped).Rectangles.Length).IsEqualTo(0);
     }

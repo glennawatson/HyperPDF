@@ -201,6 +201,15 @@ internal sealed class HyperPdfPageContentEditorService : IPageContentEditor
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<RxVoid> ReflowParagraph(int pageIndex, int[] objectIndexes, string text) =>
+        Signal.FromAsync(async token =>
+        {
+            await HyperPdfDocumentPageContentEditing.ReflowParagraphAsync(_owner, pageIndex, objectIndexes, text, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<RxVoid> RestyleText(int pageIndex, int objectIndex, PageTextStyle style) =>
         Signal.FromAsync(async token =>
         {

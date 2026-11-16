@@ -123,6 +123,15 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable, IL
     /// <summary>Gets the typeface choices.</summary>
     public static IReadOnlyList<string> FontOptions { get; } = UiText.CreateChoices(["Sans serif", "Serif"]);
 
+    /// <summary>Gets a signal for each change to what is marked as read aloud: the sentence, the word and whether the text away from them is dimmed.</summary>
+    public IObservable<RxVoid> MarksChanged => Signal.Merge(
+        _owner.ReadAloud.WhenChanged(static reader => reader.MarksVersion).AsSignal(),
+        this.WhenChanged(static x => x.FocusBand).AsSignal(),
+        this.WhenChanged(static x => x.WordHighlight).AsSignal());
+
+    /// <summary>Gets the question that shows the window of the text settings, which the window answers when it is closed.</summary>
+    public Interaction<FocusModeViewModel, RxVoid> ShowSettingsInteraction { get; } = new();
+
     /// <summary>Gets or sets a value indicating whether Focus Mode is shown instead of the pages.</summary>
     [Reactive]
     public partial bool IsOn { get; set; }
@@ -297,4 +306,10 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable, IL
     /// <returns>The new size.</returns>
     [ReactiveCommand]
     private double Smaller() => FontSize = Math.Max(MinFontSize, FontSize - FontStep);
+
+    /// <summary>Shows the text settings: the size, spacing, width, colour and typeface of the text, and what is marked while reading aloud. They apply as they are changed.</summary>
+    /// <returns>A signal that ends when the window is closed.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ShowSettings() => ShowSettingsInteraction.Handle(this).ToSignal();
 }

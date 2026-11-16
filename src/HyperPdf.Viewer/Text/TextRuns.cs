@@ -22,6 +22,9 @@ public sealed class TextRuns : IDisposable
     /// <summary>The pieces of text kept before all are dropped. Window text is a small, steady set, so this is rarely reached.</summary>
     private const int Capacity = 768;
 
+    /// <summary>The bundled family the serif text is set in.</summary>
+    private const string SerifFamily = "Tinos";
+
     /// <summary>The empty pixels kept around the text, so smoothed edges are not cut off.</summary>
     private const int Padding = 1;
 
@@ -57,6 +60,15 @@ public sealed class TextRuns : IDisposable
 
     /// <summary>The bold face.</summary>
     private readonly UiFont? _bold = UiFont.Load(true);
+
+    /// <summary>The regular serif face, read when serif text is first asked for.</summary>
+    private UiFont? _serifRegular;
+
+    /// <summary>The bold serif face, read when serif text is first asked for.</summary>
+    private UiFont? _serifBold;
+
+    /// <summary>Whether the serif faces have been read, whether or not they could be.</summary>
+    private bool _serifLoaded;
 
     /// <summary>Initializes a new instance of the <see cref="TextRuns"/> class.</summary>
     /// <param name="surfaces">The surfaces of the render backend that draws the window.</param>
@@ -195,7 +207,24 @@ public sealed class TextRuns : IDisposable
     /// <summary>Picks the face of a style.</summary>
     /// <param name="style">The style.</param>
     /// <returns>The face, or <see langword="null"/> when the bundled font could not be read.</returns>
-    private UiFont? FaceOf(TextStyle style) => style.Bold ? _bold ?? _regular : _regular;
+    private UiFont? FaceOf(TextStyle style)
+    {
+        if (!style.Serif)
+        {
+            return style.Bold ? _bold ?? _regular : _regular;
+        }
+
+        // The serif faces are read the first time text asks for them, which only focus mode does.
+        if (!_serifLoaded)
+        {
+            _serifRegular = UiFont.Load(SerifFamily, false);
+            _serifBold = UiFont.Load(SerifFamily, true);
+            _serifLoaded = true;
+        }
+
+        var serif = style.Bold ? _serifBold ?? _serifRegular : _serifRegular;
+        return serif ?? (style.Bold ? _bold ?? _regular : _regular);
+    }
 
     /// <summary>Frees every surface kept.</summary>
     private void Clear()

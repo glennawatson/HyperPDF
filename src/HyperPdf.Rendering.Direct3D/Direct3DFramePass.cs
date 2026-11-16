@@ -37,5 +37,17 @@ internal sealed class Direct3DFramePass(Direct3DRenderBackend owner) : IFramePas
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void SetClip(in LayoutRect area) => owner.Quads.SetClip(area);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void ClearClip() => owner.Quads.ClearClip();
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void SetOpacity(double opacity) => owner.Quads.SetOpacity(opacity);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => owner.Present();
 }

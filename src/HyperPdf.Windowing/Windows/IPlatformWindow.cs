@@ -42,6 +42,9 @@ public interface IPlatformWindow : IDisposable
     /// </summary>
     IObservable<IReadOnlyList<string>> FileDrops => Signal.Never<IReadOnlyList<string>>();
 
+    /// <summary>Gets a value indicating whether the window is maximised: made as big as the screen allows while keeping its frame.</summary>
+    bool IsMaximized => false;
+
     /// <summary>Sets the window title.</summary>
     /// <param name="title">The title.</param>
     void SetTitle(string title);
@@ -57,6 +60,24 @@ public interface IPlatformWindow : IDisposable
     void Raise()
     {
         // A window that cannot take the front leaves it to the user.
+    }
+
+    /// <summary>
+    /// Asks for the drawing area to be a size, in logical units before the display scale, as when the window opens at the size it had when
+    /// it was last closed. A system that sizes the window itself may keep its own size.
+    /// </summary>
+    /// <param name="width">The width.</param>
+    /// <param name="height">The height.</param>
+    void SetSize(int width, int height)
+    {
+        // A window the system sizes keeps the size it was given.
+    }
+
+    /// <summary>Maximises the window, or puts it back to the size it had. A system that keeps its own windows' sizes may ignore it.</summary>
+    /// <param name="on"><see langword="true"/> to maximise.</param>
+    void SetMaximized(bool on)
+    {
+        // A window the system sizes keeps the size it was given.
     }
 
     /// <summary>Sets the pointer shape over the canvas.</summary>

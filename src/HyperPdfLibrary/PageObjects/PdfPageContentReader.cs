@@ -104,7 +104,7 @@ public static class PdfPageContentReader
         PdfPathSegment[] outline = [new(PdfPathSegmentKind.Rectangle, box.Left, box.Bottom, box.Width, box.Height, 0, 0)];
         var bounds = PathBounds.Measure(outline, start, 0);
         var clipped = parent is null ? bounds : parent.Bounds.Intersect(bounds);
-        return new(parent, new(outline, start, false, bounds), clipped);
+        return new(parent, new(outline, start, false, bounds), clipped, default);
     }
 
     /// <summary>Parses the content into objects.</summary>

@@ -88,28 +88,68 @@ public sealed class PresentationPlannerTests
         await Assert.That(step.AdvanceAfterSeconds).IsNull();
     }
 
-    /// <summary>Styles drawn as something close are marked, so the reader can be told.</summary>
+    /// <summary>Every style is drawn as asked, so none is marked as an approximation.</summary>
     /// <param name="style">The style.</param>
-    /// <param name="approximate">Whether it is only approximated.</param>
     /// <returns>A task.</returns>
     [Test]
-    [Arguments(TransitionStyle.Wipe, false)]
-    [Arguments(TransitionStyle.Split, false)]
-    [Arguments(TransitionStyle.Box, false)]
-    [Arguments(TransitionStyle.Fade, false)]
-    [Arguments(TransitionStyle.Push, false)]
-    [Arguments(TransitionStyle.Cover, false)]
-    [Arguments(TransitionStyle.Blinds, true)]
-    [Arguments(TransitionStyle.Dissolve, true)]
-    [Arguments(TransitionStyle.Glitter, true)]
-    [Arguments(TransitionStyle.Fly, true)]
-    [Arguments(TransitionStyle.Uncover, true)]
-    public async Task MarksApproximatedStyles(TransitionStyle style, bool approximate)
+    [Arguments(TransitionStyle.Wipe)]
+    [Arguments(TransitionStyle.Split)]
+    [Arguments(TransitionStyle.Box)]
+    [Arguments(TransitionStyle.Fade)]
+    [Arguments(TransitionStyle.Push)]
+    [Arguments(TransitionStyle.Cover)]
+    [Arguments(TransitionStyle.Blinds)]
+    [Arguments(TransitionStyle.Dissolve)]
+    [Arguments(TransitionStyle.Glitter)]
+    [Arguments(TransitionStyle.Fly)]
+    [Arguments(TransitionStyle.Uncover)]
+    public async Task DrawsEveryStyleAsAsked(TransitionStyle style)
     {
         var step = PresentationPlanner.Plan(Sequence, Page(style), Everything);
 
-        await Assert.That(step.IsApproximate).IsEqualTo(approximate);
+        await Assert.That(step.IsApproximate).IsFalse();
         await Assert.That(step.Effect).IsNotEqualTo(TransitionEffect.None);
+    }
+
+    /// <summary>A fly that flies in is drawn as a cover, and one that flies out as an uncover.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task FlyInCoversAndFlyOutUncovers()
+    {
+        var flyIn = PresentationPlanner.Plan(Sequence, Page(TransitionStyle.Fly) with { Inward = true }, Everything);
+        var flyOut = PresentationPlanner.Plan(Sequence, Page(TransitionStyle.Fly) with { Inward = false }, Everything);
+
+        await Assert.That(flyIn.Effect).IsEqualTo(TransitionEffect.Cover);
+        await Assert.That(flyOut.Effect).IsEqualTo(TransitionEffect.Uncover);
+    }
+
+    /// <summary>Push, cover and uncover each have their own effect, as they draw the page before too.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task PushCoverAndUncoverAreDrawnAsThemselves()
+    {
+        await Assert.That(PresentationPlanner.EffectOf(TransitionStyle.Push)).IsEqualTo(TransitionEffect.Push);
+        await Assert.That(PresentationPlanner.EffectOf(TransitionStyle.Cover)).IsEqualTo(TransitionEffect.Cover);
+        await Assert.That(PresentationPlanner.EffectOf(TransitionStyle.Uncover)).IsEqualTo(TransitionEffect.Uncover);
+    }
+
+    /// <summary>A fly keeps the start scale its page asks for, within sensible limits, and no other style has one.</summary>
+    /// <param name="style">The style.</param>
+    /// <param name="asked">The scale the page asks for.</param>
+    /// <param name="expected">The scale the step has.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(TransitionStyle.Fly, 0.5, 0.5)]
+    [Arguments(TransitionStyle.Fly, 1.0, 1.0)]
+    [Arguments(TransitionStyle.Fly, 0.0, 0.1)]
+    [Arguments(TransitionStyle.Fly, 100.0, 4.0)]
+    [Arguments(TransitionStyle.Fly, double.NaN, 1.0)]
+    [Arguments(TransitionStyle.Cover, 0.5, 1.0)]
+    public async Task FlyKeepsItsStartScale(TransitionStyle style, double asked, double expected)
+    {
+        var step = PresentationPlanner.Plan(Sequence, Page(style) with { Scale = asked }, Everything);
+
+        await Assert.That(step.Scale).IsEqualTo(expected);
     }
 
     /// <summary>A plain replacement draws nothing and is not an approximation.</summary>

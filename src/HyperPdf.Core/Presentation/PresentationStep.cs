@@ -26,4 +26,8 @@ public readonly record struct PresentationStep(
     bool Inward,
     int Direction,
     bool IsApproximate,
-    double? AdvanceAfterSeconds);
+    double? AdvanceAfterSeconds)
+{
+    /// <summary>Gets the scale at the far end of a fly: a page flying in starts at it and settles at one, and one flying out ends at it. One for other styles.</summary>
+    public double Scale { get; init; } = 1;
+}

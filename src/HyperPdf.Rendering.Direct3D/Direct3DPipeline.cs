@@ -205,6 +205,10 @@ internal sealed unsafe class Direct3DPipeline : IDisposable
         var viewport = new Viewport(0, 0, _device.Width, _device.Height, 0, 1);
         Direct3DCalls.SetRenderTarget(context, _device.Target);
         Direct3DCalls.SetViewport(context, &viewport);
+
+        // The scissor test is on, so a frame starts with the scissor over the whole frame; a run with a clip narrows it and the next run widens it.
+        var scissor = new ScissorRect(0, 0, _device.Width, _device.Height);
+        Direct3DCalls.SetScissor(context, &scissor);
         Direct3DCalls.SetInputLayout(context, (void*)_layout);
         Direct3DCalls.SetPrimitiveTopology(context, TriangleList);
         Direct3DCalls.SetVertexBuffer(context, (void*)_vertices, (uint)sizeof(QuadVertex));
@@ -286,7 +290,7 @@ internal sealed unsafe class Direct3DPipeline : IDisposable
         HResult.Check(Direct3DCalls.CreateBlendState(device, blend, &state), "make the blend state");
         _blend = (ulong)state;
 
-        var rasterizer = new RasterizerDescription(FillSolid, CullNone, 0, 0, 0, 0, 1, 0, 0, 0);
+        var rasterizer = new RasterizerDescription(FillSolid, CullNone, 0, 0, 0, 0, 1, 1, 0, 0);
         HResult.Check(Direct3DCalls.CreateRasterizerState(device, &rasterizer, &state), "make the rasteriser state");
         _rasterizer = (ulong)state;
         _nearest = (ulong)CreateSampler(FilterPoint);

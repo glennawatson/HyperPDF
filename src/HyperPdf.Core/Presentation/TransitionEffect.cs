@@ -24,4 +24,22 @@ public enum TransitionEffect
 
     /// <summary>The page slides in from one side.</summary>
     Slide = 5,
+
+    /// <summary>The page is revealed through several strips that open together, like blinds.</summary>
+    Blinds = 6,
+
+    /// <summary>The page is revealed cell by cell in no pattern.</summary>
+    Dissolve = 7,
+
+    /// <summary>The page is revealed cell by cell, sparkling in a sweep across it.</summary>
+    Glitter = 8,
+
+    /// <summary>The page slides in and pushes the one before it out.</summary>
+    Push = 9,
+
+    /// <summary>The page slides in over the one before it, which stays.</summary>
+    Cover = 10,
+
+    /// <summary>The page before slides away and shows the page under it, which stays.</summary>
+    Uncover = 11,
 }

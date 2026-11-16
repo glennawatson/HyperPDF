@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Layout;
+using HyperPdf.Core.Presentation;
 using HyperPdf.Presentation.Canvas;
 using HyperPdf.Presentation.Input;
 using HyperPdf.ViewModels.Dialogs;
@@ -31,6 +32,18 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
 {
     /// <summary>The number of views a split window shows, which share the page area.</summary>
     private const double Halves = 2;
+
+    /// <summary>How near to one a zoom is before the pages are drawn at their own size.</summary>
+    private const double ZoomTolerance = 1e-6;
+
+    /// <summary>The mask of the red, green and blue bits of a colour.</summary>
+    private const uint ColorBits = 0x00FFFFFF;
+
+    /// <summary>The alpha of a fully opaque colour.</summary>
+    private const double OpaqueAlpha = 255;
+
+    /// <summary>The shift that moves alpha to the top byte of a colour.</summary>
+    private const int AlphaShift = 24;
 
     /// <summary>The half width of the line between the two views of a split document, in device pixels.</summary>
     private const double DividerWidth = 1;
@@ -61,6 +74,39 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
 
     /// <summary>The part of the window the pages are shown in, in device pixels.</summary>
     private LayoutRect _bounds;
+
+    /// <summary>The page transition playing, or one that is not running.</summary>
+    private TransitionRun _transition;
+
+    /// <summary>How far from its place the page is drawn while a slide plays, in canvas units.</summary>
+    private CanvasPoint _slide;
+
+    /// <summary>The scroll offset the pages were last drawn at, which is where the page that is leaving was.</summary>
+    private CanvasPoint _lastDrawn;
+
+    /// <summary>The scroll offset of the page leaving while a push, cover or uncover plays.</summary>
+    private CanvasPoint _leavingOffset;
+
+    /// <summary>How far from its place the leaving page is drawn, in canvas units.</summary>
+    private CanvasPoint _leavingShift;
+
+    /// <summary>How large the new page is drawn while a fly plays, one when it is not scaled.</summary>
+    private double _newZoom = 1;
+
+    /// <summary>How large the leaving page is drawn while a fly plays, one when it is not scaled.</summary>
+    private double _leavingZoom = 1;
+
+    /// <summary>Whether the page that was shown before is drawn again this frame.</summary>
+    private bool _showLeaving;
+
+    /// <summary>Whether the page that was shown before shows through the curtain of a reveal effect.</summary>
+    private bool _revealLeaving;
+
+    /// <summary>Whether a fade is playing over the page that was shown before, which stays under the new page while it fades in.</summary>
+    private bool _crossFade;
+
+    /// <summary>The number of the presentation step the transition was started for.</summary>
+    private int _transitionSequence = -1;
 
     /// <summary>The command the right-click menu copies selected text with, made on first use.</summary>
     private ReactiveCommand<string, RxVoid>? _copy;
@@ -247,10 +293,27 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
     public void DrawFrame()
     {
         var moving = Prepare();
+        moving |= StepTransition();
         using (var pass = _window.Backend.BeginFrame())
         {
             pass.Clear(Colors.Canvas);
+            var leavingOnTop = _transition.Step.Effect == TransitionEffect.Uncover;
+            if (_showLeaving && !leavingOnTop)
+            {
+                DrawLeaving(pass);
+            }
+
+            // A fade shows the new page more and more over the page that was shown before.
+            SetFadeOpacity(pass, _transition.Progress);
             DrawPages(pass);
+            SetFadeOpacity(pass, 1);
+
+            if (_showLeaving && leavingOnTop)
+            {
+                DrawLeaving(pass);
+            }
+
+            DrawCurtain(pass);
             if (Neighbour is { } second)
             {
                 moving |= second.Prepare();
@@ -422,6 +485,193 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
         return StepMotion();
     }
 
+    /// <summary>
+    /// Starts the page transition when a new page is shown in a presentation, and works out how far a slide still has to go before the
+    /// pages are drawn, so the page can be drawn that far from its place.
+    /// </summary>
+    /// <returns><see langword="true"/> while the effect plays, so the next frame is asked for.</returns>
+    private bool StepTransition()
+    {
+        _slide = default;
+        _showLeaving = false;
+        _revealLeaving = false;
+        _crossFade = false;
+        _newZoom = 1;
+        _leavingZoom = 1;
+        if (_tab is not { IsPresenting: true } tab || tab.PagePresentation.Current is not { } step)
+        {
+            _transition = default;
+            _transitionSequence = -1;
+            return false;
+        }
+
+        if (step.Sequence != _transitionSequence)
+        {
+            _transitionSequence = step.Sequence;
+            _leavingOffset = _lastDrawn;
+            _transition = TransitionRun.Start(step, Stopwatch.GetTimestamp());
+        }
+
+        if (!_transition.IsRunning || _transition.Progress >= 1)
+        {
+            _transition = default;
+            return false;
+        }
+
+        StepSlide(_transition.Step.Effect);
+        StepReveal(_transition.Step.Effect);
+        return true;
+    }
+
+    /// <summary>Works out whether the page that was shown before shows through what a reveal effect has not uncovered yet.</summary>
+    /// <param name="effect">The effect playing.</param>
+    private void StepReveal(TransitionEffect effect)
+    {
+        _revealLeaving = effect is TransitionEffect.Wipe or TransitionEffect.Split or TransitionEffect.Box or TransitionEffect.Blinds
+            or TransitionEffect.Dissolve or TransitionEffect.Glitter && _leavingOffset != _offset;
+
+        // A fade lays the new page over the page that was shown before, which stays where it was.
+        _crossFade = effect == TransitionEffect.Fade && _leavingOffset != _offset;
+        _showLeaving |= _crossFade;
+
+        // The page that was shown before stays where it was while the new page is uncovered, or faded in.
+        if (!_revealLeaving && !_crossFade)
+        {
+            return;
+        }
+
+        _leavingShift = default;
+        _leavingZoom = 1;
+    }
+
+    /// <summary>Works out where the new page, and the page leaving, are drawn for the effects that move pages.</summary>
+    /// <param name="effect">The effect playing.</param>
+    private void StepSlide(TransitionEffect effect)
+    {
+        if (effect is not (TransitionEffect.Slide or TransitionEffect.Push or TransitionEffect.Cover or TransitionEffect.Uncover))
+        {
+            return;
+        }
+
+        var scale = _window.Scale;
+        var progress = _transition.Progress;
+        var direction = _transition.Step.Direction;
+        var distance = TransitionTiming.GetSlideOffset(direction, progress, Bounds.Width / scale, Bounds.Height / scale);
+        StepFlyZoom(effect, progress);
+
+        // A page drawn smaller covers less of the window for the same canvas distance, so its distance is divided by the zoom to keep the
+        // distance it travels on the screen: a page flying in then starts wholly outside the window, and one flying out ends wholly outside.
+        // An uncover leaves the new page where it is and moves the old one away; the others bring the new page in.
+        _slide = effect == TransitionEffect.Uncover ? default : new(distance.X / _newZoom, distance.Y / _newZoom);
+
+        // The old page leaves the way the new page came, so it travels the distance the new page has already covered, the other way.
+        var start = TransitionTiming.GetSlideOffset(direction, 0, Bounds.Width / scale, Bounds.Height / scale);
+        _leavingShift = effect == TransitionEffect.Cover ? default : new(-start.X * progress / _leavingZoom, -start.Y * progress / _leavingZoom);
+        _showLeaving = effect != TransitionEffect.Slide && _leavingOffset != _offset;
+    }
+
+    /// <summary>
+    /// Works out how large the pages are drawn while a fly plays: a page flying in settles at its own size from the scale the page asked
+    /// for, and one flying out ends at that scale.
+    /// </summary>
+    /// <param name="effect">The effect playing.</param>
+    /// <param name="progress">How far it has played.</param>
+    private void StepFlyZoom(TransitionEffect effect, double progress)
+    {
+        var flyScale = _transition.Step.Style == TransitionStyle.Fly ? _transition.Step.Scale : 1;
+        _newZoom = effect == TransitionEffect.Cover ? flyScale + ((1 - flyScale) * progress) : 1;
+        _leavingZoom = effect == TransitionEffect.Uncover ? 1 + ((flyScale - 1) * progress) : 1;
+    }
+
+    /// <summary>Starts drawing pages from a corner, and larger or smaller than they are about the middle of the page area, as a fly makes them.</summary>
+    /// <param name="painter">The painter.</param>
+    /// <param name="pass">The frame.</param>
+    /// <param name="corner">The canvas point at the corner of the window.</param>
+    /// <param name="zoom">How much larger the pages are drawn; one for their own size.</param>
+    /// <param name="scale">The display scale.</param>
+    private void StartPainter(ViewerFramePainter painter, IFramePass pass, CanvasPoint corner, double zoom, double scale)
+    {
+        if (Math.Abs(zoom - 1) < ZoomTolerance)
+        {
+            painter.Start(pass, Colors, corner, scale, Chrome?.Text);
+            return;
+        }
+
+        // A point's place in the window is its canvas distance from the corner times the scale. To hold the middle still while everything
+        // grows by the zoom, the corner moves by the middle's distance divided by the new scale.
+        var shift = (1 - zoom) / (scale * zoom);
+        var middle = new CanvasPoint(_bounds.X + (_bounds.Width / Halves), _bounds.Y + (_bounds.Height / Halves));
+        painter.Start(pass, Colors, new(corner.X - (middle.X * shift), corner.Y - (middle.Y * shift)), scale * zoom, Chrome?.Text);
+    }
+
+    /// <summary>Sets the opacity the pages are drawn at while a fade lays the new page over the one before. Without a fade, the pages are drawn as they are.</summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="opacity">The opacity, from 0 to 1.</param>
+    private void SetFadeOpacity(IFramePass pass, double opacity)
+    {
+        if (_crossFade)
+        {
+            pass.SetOpacity(opacity);
+        }
+    }
+
+    /// <summary>Draws the page that was shown before again, where it was, for a push, cover or uncover. Its tiles are already drawn, so this costs only the placing.</summary>
+    /// <param name="pass">The frame.</param>
+    private void DrawLeaving(IFramePass pass)
+    {
+        if (_tab is not { } tab || tab.TryGetDocument() is not { } document || State.Layout.PageCount == 0)
+        {
+            return;
+        }
+
+        var view = ViewportSize;
+        var area = new LayoutRect(_leavingOffset.X, _leavingOffset.Y, view.Width, view.Height);
+        var scale = _window.Scale;
+
+        // The page leaving is drawn from the generation of the pages that are staying. Asking for one for its own view would advance it every
+        // frame, since the view differs from the new page's, and the tiles requested for the new page would be dropped as out of date.
+        var frame = new FrameContext(tab, document, tab.RenderHub, area, scale, tab.CanvasClient.Generation);
+        var painter = _painter ??= new(State);
+        var origin = Origin;
+        StartPainter(painter, pass, new(_leavingOffset.X - origin.X - _leavingShift.X, _leavingOffset.Y - origin.Y - _leavingShift.Y), _leavingZoom, scale);
+        State.DrawPages(painter, frame);
+        painter.Finish();
+    }
+
+    /// <summary>Covers the part of the page a reveal effect has not uncovered yet, in the colour behind the pages.</summary>
+    /// <param name="pass">The frame.</param>
+    private void DrawCurtain(IFramePass pass)
+    {
+        // A fade with a page to fade over is drawn at its opacity, so nothing covers it.
+        if (!_transition.IsRunning || _crossFade)
+        {
+            return;
+        }
+
+        Span<LayoutRect> covered = stackalloc LayoutRect[TransitionCurtain.MaxRectangles];
+        var count = TransitionCurtain.GetRectangles(_transition, Bounds, covered, out var opacity);
+
+        // Where the curtain still covers the page, the page that was shown before shows through: it is drawn again, limited to each covered
+        // rectangle. A fade is not a curtain that moves, and covers the whole area with less and less colour, so it keeps the colour.
+        if (_revealLeaving && opacity >= 1)
+        {
+            for (var i = 0; i < count; i++)
+            {
+                pass.SetClip(covered[i]);
+                DrawLeaving(pass);
+            }
+
+            pass.ClearClip();
+            return;
+        }
+
+        var color = (Colors.Canvas & ColorBits) | ((uint)Math.Round(Math.Clamp(opacity, 0, 1) * OpaqueAlpha) << AlphaShift);
+        for (var i = 0; i < count; i++)
+        {
+            pass.FillRect(covered[i], color);
+        }
+    }
+
     /// <summary>Draws the pages of the tab shown, and what lies over them, into a frame.</summary>
     /// <param name="pass">The frame.</param>
     private void DrawPages(IFramePass pass)
@@ -436,7 +686,10 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
         var scale = _window.Scale;
         var frame = new FrameContext(tab, document, tab.RenderHub, area, scale, State.GetRenderGeneration(tab, document, area, scale));
         var painter = _painter ??= new(State);
-        painter.Start(pass, Colors, DrawOffset, scale, Chrome?.Text);
+
+        // A sliding page is drawn that far from its place, so the canvas point at the corner is that far the other way.
+        var corner = DrawOffset;
+        StartPainter(painter, pass, new(corner.X - _slide.X, corner.Y - _slide.Y), _newZoom, scale);
         State.DrawPages(painter, frame);
         State.DrawMarks(painter, tab, area);
         State.DrawAnnotationOverlay(painter, tab, area);
@@ -445,6 +698,7 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
         State.DrawArea(painter);
         State.DrawCaret(painter, tab);
         painter.Finish();
+        _lastDrawn = _offset;
     }
 
     /// <summary>Takes the share of the page area this canvas has when the view is split.</summary>

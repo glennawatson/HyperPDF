@@ -19,6 +19,12 @@ public static class PresentationPlanner
     /// <summary>The longest an effect may last.</summary>
     private const double MaxDurationSeconds = 10;
 
+    /// <summary>The smallest start scale of a fly, so a page cannot shrink to a speck and be lost.</summary>
+    private const double MinFlyScale = 0.1;
+
+    /// <summary>The largest start scale of a fly, so a page cannot fill the screen with one corner of itself.</summary>
+    private const double MaxFlyScale = 4;
+
     /// <summary>Plans how a page appears.</summary>
     /// <param name="sequence">A number that changes with every page shown.</param>
     /// <param name="transition">What the page asks for, or <see langword="null"/> when it asks for nothing.</param>
@@ -32,7 +38,7 @@ public static class PresentationPlanner
         }
 
         var advance = options.FollowTimings && !options.ReduceMotion ? ClampAdvance(transition.AdvanceAfterSeconds) : null;
-        var effect = options.FollowTransitions && !options.ReduceMotion && transition.DurationSeconds > 0 ? EffectOf(transition.Style) : TransitionEffect.None;
+        var effect = options.FollowTransitions && !options.ReduceMotion && transition.DurationSeconds > 0 ? EffectOf(transition) : TransitionEffect.None;
         return new(
             sequence,
             transition.Style,
@@ -41,8 +47,25 @@ public static class PresentationPlanner
             transition.Vertical,
             transition.Inward,
             Math.Max(transition.Direction, 0),
-            effect != TransitionEffect.None && IsApproximate(transition.Style),
-            advance);
+            false,
+            advance)
+        { Scale = transition.Style == TransitionStyle.Fly && double.IsFinite(transition.Scale) ? Math.Clamp(transition.Scale, MinFlyScale, MaxFlyScale) : 1 };
+    }
+
+    /// <summary>
+    /// Gets how a page's transition is drawn. A fly with the default start scale of one is a cover when it flies in and an uncover when it
+    /// flies out; any other start scale is not drawn.
+    /// </summary>
+    /// <param name="transition">What the page asks for.</param>
+    /// <returns>The effect.</returns>
+    public static TransitionEffect EffectOf(PageTransition transition)
+    {
+        if (transition.Style != TransitionStyle.Fly)
+        {
+            return EffectOf(transition.Style);
+        }
+
+        return transition.Inward ? TransitionEffect.Cover : TransitionEffect.Uncover;
     }
 
     /// <summary>Gets how a style is drawn.</summary>
@@ -50,19 +73,18 @@ public static class PresentationPlanner
     /// <returns>The effect.</returns>
     public static TransitionEffect EffectOf(TransitionStyle style) => style switch
     {
-        TransitionStyle.Fade or TransitionStyle.Dissolve or TransitionStyle.Glitter or TransitionStyle.Fly or TransitionStyle.Blinds => TransitionEffect.Fade,
-        TransitionStyle.Wipe or TransitionStyle.Uncover => TransitionEffect.Wipe,
+        TransitionStyle.Fade => TransitionEffect.Fade,
+        TransitionStyle.Dissolve => TransitionEffect.Dissolve,
+        TransitionStyle.Glitter => TransitionEffect.Glitter,
+        TransitionStyle.Blinds => TransitionEffect.Blinds,
+        TransitionStyle.Wipe => TransitionEffect.Wipe,
         TransitionStyle.Split => TransitionEffect.Split,
         TransitionStyle.Box => TransitionEffect.Box,
-        TransitionStyle.Push or TransitionStyle.Cover => TransitionEffect.Slide,
+        TransitionStyle.Push => TransitionEffect.Push,
+        TransitionStyle.Cover => TransitionEffect.Cover,
+        TransitionStyle.Uncover => TransitionEffect.Uncover,
         _ => TransitionEffect.None,
     };
-
-    /// <summary>Determines whether a style is drawn as something close to it rather than as asked.</summary>
-    /// <param name="style">The style.</param>
-    /// <returns><see langword="true"/> when it is only approximated.</returns>
-    public static bool IsApproximate(TransitionStyle style) =>
-        style is TransitionStyle.Blinds or TransitionStyle.Dissolve or TransitionStyle.Glitter or TransitionStyle.Fly or TransitionStyle.Uncover;
 
     /// <summary>Keeps an advance time within what is sensible, and drops one that is not a positive number.</summary>
     /// <param name="seconds">The time the page asks for.</param>

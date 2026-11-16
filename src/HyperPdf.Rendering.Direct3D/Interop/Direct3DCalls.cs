@@ -90,6 +90,9 @@ internal static unsafe class Direct3DCalls
     /// <summary>The slot of ID3D11DeviceContext::RSSetViewports.</summary>
     private const int SetViewportsSlot = 44;
 
+    /// <summary>The slot of RSSetScissorRects, which follows RSSetViewports.</summary>
+    private const int SetScissorRectsSlot = 45;
+
     /// <summary>The slot of ID3D11DeviceContext::CopyResource.</summary>
     private const int CopyResourceSlot = 47;
 
@@ -330,6 +333,13 @@ internal static unsafe class Direct3DCalls
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void SetViewport(void* context, Viewport* viewport) =>
         ((delegate* unmanaged[Stdcall]<void*, uint, Viewport*, void>)Slot(context, SetViewportsSlot))(context, 1, viewport);
+
+    /// <summary>Calls ID3D11DeviceContext::RSSetScissorRects with one rectangle.</summary>
+    /// <param name="context">The context.</param>
+    /// <param name="rectangle">The rectangle drawing may reach.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void SetScissor(void* context, ScissorRect* rectangle) =>
+        ((delegate* unmanaged[Stdcall]<void*, uint, ScissorRect*, void>)Slot(context, SetScissorRectsSlot))(context, 1, rectangle);
 
     /// <summary>Calls ID3D11DeviceContext::CopyResource.</summary>
     /// <param name="context">The context.</param>

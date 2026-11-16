@@ -233,6 +233,14 @@ public sealed unsafe class X11Window : IPlatformWindow
     public double Scale => _scale;
 
     /// <inheritdoc/>
+    public bool IsMaximized => X11WindowState.HasBoth(
+        _display,
+        (nint)_ids.Window,
+        Intern(StateName),
+        Intern("_NET_WM_STATE_MAXIMIZED_HORZ"u8),
+        Intern("_NET_WM_STATE_MAXIMIZED_VERT"u8));
+
+    /// <inheritdoc/>
     public long NativeHandle => _ids.Window;
 
     /// <inheritdoc/>
@@ -253,6 +261,9 @@ public sealed unsafe class X11Window : IPlatformWindow
     /// <summary>Gets the shape numbers in the standard X cursor font, by <see cref="ViewerCursor"/> value: none, left pointer, hand, crosshair, text beam and four arrows.</summary>
     private static ReadOnlySpan<uint> CursorShapes => [0x00, 0x44, 0x3C, 0x22, 0x98, 0x34];
 
+    /// <summary>Gets the name of the property that holds the states the window manager has put on a window.</summary>
+    private static ReadOnlySpan<byte> StateName => "_NET_WM_STATE"u8;
+
     /// <inheritdoc/>
     public void SetTitle(string title)
     {
@@ -270,7 +281,29 @@ public sealed unsafe class X11Window : IPlatformWindow
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void SetFullScreen(bool on) => X11WindowState.Change(_display, _root, (nint)_ids.Window, Intern("_NET_WM_STATE"u8), Intern("_NET_WM_STATE_FULLSCREEN"u8), on);
+    public void SetFullScreen(bool on) => X11WindowState.Change(_display, _root, (nint)_ids.Window, Intern(StateName), Intern("_NET_WM_STATE_FULLSCREEN"u8), on);
+
+    /// <inheritdoc/>
+    public void SetMaximized(bool on)
+    {
+        // The window manager takes the two directions as two states.
+        var property = Intern(StateName);
+        X11WindowState.Change(_display, _root, (nint)_ids.Window, property, Intern("_NET_WM_STATE_MAXIMIZED_HORZ"u8), on);
+        X11WindowState.Change(_display, _root, (nint)_ids.Window, property, Intern("_NET_WM_STATE_MAXIMIZED_VERT"u8), on);
+    }
+
+    /// <inheritdoc/>
+    public void SetSize(int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        // The server reports the new size back as a configure event, which resizes the drawing area the way a drag of the edge does.
+        _ = NativeMethods.XResizeWindow(_display, (nint)_ids.Window, (uint)Math.Round(width * _scale), (uint)Math.Round(height * _scale));
+        _ = NativeMethods.XFlush(_display);
+    }
 
     /// <inheritdoc/>
     public void SetCursor(ViewerCursor cursor)

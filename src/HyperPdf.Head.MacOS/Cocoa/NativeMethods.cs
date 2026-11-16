@@ -108,6 +108,13 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(ObjectiveC, EntryPoint = "objc_msgSend")]
     internal static partial CocoaPoint SendPoint(nint receiver, nint selector);
 
+    /// <summary>Sends a message that takes a size, which both processor families pass in registers, and returns nothing.</summary>
+    /// <param name="receiver">The receiver.</param>
+    /// <param name="selector">The selector.</param>
+    /// <param name="size">The width and height.</param>
+    [LibraryImport(ObjectiveC, EntryPoint = "objc_msgSend")]
+    internal static partial void SendSize(nint receiver, nint selector, CocoaPoint size);
+
     /// <summary>Sends a message with no arguments that returns a rectangle, on Apple silicon, where it comes back in registers.</summary>
     /// <param name="receiver">The receiver.</param>
     /// <param name="selector">The selector.</param>

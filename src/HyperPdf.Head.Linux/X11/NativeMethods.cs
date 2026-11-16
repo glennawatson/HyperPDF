@@ -80,6 +80,15 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(Library, EntryPoint = "XDestroyWindow")]
     internal static partial int XDestroyWindow(nint display, nint window);
 
+    /// <summary>Native <c>XResizeWindow</c>.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="window">The window.</param>
+    /// <param name="width">The new width in pixels.</param>
+    /// <param name="height">The new height in pixels.</param>
+    /// <returns>The status.</returns>
+    [LibraryImport(Library, EntryPoint = "XResizeWindow")]
+    internal static partial int XResizeWindow(nint display, nint window, uint width, uint height);
+
     /// <summary>Native <c>XMapWindow</c>.</summary>
     /// <param name="display">The display.</param>
     /// <param name="window">The window.</param>

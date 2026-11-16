@@ -4,6 +4,7 @@
 
 using System.Collections;
 using System.Globalization;
+using HyperPdf.Core.Printing;
 using HyperPdf.Core.Rendering;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Output;
@@ -59,8 +60,32 @@ internal static class DocumentForms
     /// <summary>The row of the print window that shows the sheet after the one shown.</summary>
     private const int NextSheetRow = 9;
 
+    /// <summary>The row of the print window that chooses how many pages go on each sheet.</summary>
+    private const int PagesPerSheetRow = 10;
+
+    /// <summary>The row of the print window that chooses the paper size.</summary>
+    private const int PaperRow = 11;
+
+    /// <summary>The row of the print window that chooses how the pages fit the paper.</summary>
+    private const int ScalingRow = 12;
+
+    /// <summary>The row of the print window that sets the custom scale.</summary>
+    private const int ScalePercentRow = 13;
+
+    /// <summary>The row of the print window that chooses the edge sheets turn on when both sides print.</summary>
+    private const int BindingRow = 14;
+
     /// <summary>The names of the pages a print can cover, in the order of <see cref="PrintPageChoice"/>.</summary>
     private static readonly string[] PageChoices = ["All pages", "The page shown", "Pages I list"];
+
+    /// <summary>The names of the paper sizes, in the order of <see cref="PaperSize"/>.</summary>
+    private static readonly string[] PaperChoices = ["A4", "Letter", "A3", "A5", "Legal", "Tabloid"];
+
+    /// <summary>The names of the ways the pages fit the paper, in the order of <see cref="PrintScaling"/>.</summary>
+    private static readonly string[] ScalingChoices = ["Fit to paper", "Actual size", "Shrink oversized pages", "Custom scale"];
+
+    /// <summary>The names of the edges sheets turn on, in the order of <see cref="DuplexBinding"/>.</summary>
+    private static readonly string[] BindingChoices = ["Long edge", "Short edge"];
 
     /// <summary>Makes the document properties window.</summary>
     /// <param name="properties">The properties.</param>
@@ -114,6 +139,10 @@ internal static class DocumentForms
             print.WhenChanged(static p => p.PageChoice).AsSignal(),
             ((IList)print.Targets).CollectionChanges.AsSignal(),
             print.WhenChanged(static p => p.SelectedSheetIndex).AsSignal(),
+            print.WhenChanged(static p => p.LayoutIndex).AsSignal(),
+            print.WhenChanged(static p => p.PagesPerSheetIndex).AsSignal(),
+            print.WhenChanged(static p => p.Scaling).AsSignal(),
+            print.WhenChanged(static p => p.TwoSided).AsSignal(),
             ((IList)print.Sheets).CollectionChanges.AsSignal()),
         room => ShownSheet(print) is { } sheet ? pictures(sheet, room) : null,
         edits => new MultipleDisposable(
@@ -122,6 +151,11 @@ internal static class DocumentForms
             edits.WriteRow(CustomPagesRow, print, static (p, edit) => p.CustomPages = edit.Text),
             edits.WriteRow(CopiesRow, print, static (p, edit) => p.Copies = ReadCopies(edit.Text)),
             edits.WriteRow(LayoutRow, print, static (p, edit) => p.LayoutIndex = edit.Index),
+            edits.WriteRow(PagesPerSheetRow, print, static (p, edit) => p.PagesPerSheetIndex = edit.Index),
+            edits.WriteRow(PaperRow, print, static (p, edit) => p.Paper = (PaperSize)edit.Index),
+            edits.WriteRow(ScalingRow, print, static (p, edit) => p.Scaling = (PrintScaling)edit.Index),
+            edits.WriteRow(ScalePercentRow, print, static (p, edit) => p.ScalePercent = ReadPercent(edit.Text, p.ScalePercent)),
+            edits.WriteRow(BindingRow, print, static (p, edit) => p.Binding = (DuplexBinding)edit.Index),
             edits.WriteRow(ColourRow, print, static (p, edit) => p.Colour = edit.On),
             edits.WriteRow(TwoSidedRow, print, static (p, edit) => p.TwoSided = edit.On),
             edits.WriteRow(MarksRow, print, static (p, edit) => p.IncludeAnnotations = edit.On),
@@ -133,6 +167,12 @@ internal static class DocumentForms
     /// <returns>The chosen sheet, the first sheet when none is chosen, or <see langword="null"/> while the sheets are being made.</returns>
     private static PrintPreviewPage? ShownSheet(PrintPreviewViewModel print) =>
         print.Sheets.Count == 0 ? null : print.Sheets[Math.Clamp(print.SelectedSheetIndex, 0, print.Sheets.Count - 1)];
+
+    /// <summary>Reads a scale in percent as it is typed.</summary>
+    /// <param name="text">The typed text.</param>
+    /// <param name="current">The scale kept when the text is not a whole number.</param>
+    /// <returns>The scale.</returns>
+    private static int ReadPercent(string text, int current) => int.TryParse(text, NumberStyles.None, CultureInfo.CurrentCulture, out var percent) ? percent : current;
 
     /// <summary>Reads a number of copies as it is typed. Anything that is not a whole number above zero counts as one copy.</summary>
     /// <param name="text">The typed text.</param>
@@ -179,6 +219,38 @@ internal static class DocumentForms
         }
     }
 
+    /// <summary>Adds the rows that say how pages go on the paper: how many to a sheet, the paper size, how pages fit it and the custom scale. Each shows only when it applies.</summary>
+    /// <param name="form">Receives the rows.</param>
+    /// <param name="print">The print settings.</param>
+    private static void DescribeSheetSettings(FormBuilder form, PrintPreviewViewModel print)
+    {
+        if (print.LayoutIndex == 0)
+        {
+            var counts = new string[print.PagesPerSheetChoices.Count];
+            for (var i = 0; i < counts.Length; i++)
+            {
+                counts[i] = print.PagesPerSheetChoices[i].ToString(CultureInfo.CurrentCulture);
+            }
+
+            form.Choice(UiText.Get("Pages per sheet"), counts, print.PagesPerSheetIndex, PagesPerSheetRow);
+        }
+
+        if (print.ShowsPaper)
+        {
+            form.Choice(UiText.Get("Paper size"), UiText.CreateChoices(PaperChoices), (int)print.Paper, PaperRow);
+        }
+
+        if (print.ShowsScaling)
+        {
+            form.Choice(UiText.Get("Page size"), UiText.CreateChoices(ScalingChoices), (int)print.Scaling, ScalingRow);
+        }
+
+        if (print.ShowsScalePercent)
+        {
+            form.Field(UiText.Get("Scale (%)"), print.ScalePercent.ToString(CultureInfo.CurrentCulture), ScalePercentRow);
+        }
+    }
+
     /// <summary>Adds the rows of the print window.</summary>
     /// <param name="form">Receives the rows.</param>
     /// <param name="print">The print settings.</param>
@@ -199,8 +271,14 @@ internal static class DocumentForms
 
         form.Field(UiText.Get("Copies"), print.Copies.ToString(CultureInfo.CurrentCulture), CopiesRow);
         form.Choice(UiText.Get("Layout"), PrintPreviewViewModel.LayoutChoices, print.LayoutIndex, LayoutRow);
+        DescribeSheetSettings(form, print);
         form.Toggle(UiText.Get("Colour"), print.Colour, ColourRow);
         form.Toggle(UiText.Get("Print on both sides"), print.TwoSided, TwoSidedRow);
+        if (print.TwoSided)
+        {
+            form.Choice(UiText.Get("Turn pages"), UiText.CreateChoices(BindingChoices), (int)print.Binding, BindingRow);
+        }
+
         form.Toggle(UiText.Get("Include notes and marks"), print.IncludeAnnotations, MarksRow);
         form.Text(print.IsBuilding ? UiText.Get("Getting the pages ready…") : print.Summary);
         if (ShownSheet(print) is not { } sheet)

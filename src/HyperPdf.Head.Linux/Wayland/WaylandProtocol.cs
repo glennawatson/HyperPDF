@@ -88,6 +88,15 @@ internal static class WaylandProtocol
     /// <summary>The xdg_toplevel.set_fullscreen request.</summary>
     internal const int ToplevelSetFullscreen = 11;
 
+    /// <summary>The xdg_toplevel.set_maximized request.</summary>
+    internal const int ToplevelSetMaximized = 9;
+
+    /// <summary>The xdg_toplevel.unset_maximized request.</summary>
+    internal const int ToplevelUnsetMaximized = 10;
+
+    /// <summary>The xdg_toplevel state that says the window is maximised.</summary>
+    internal const uint ToplevelStateMaximized = 1;
+
     /// <summary>The xdg_toplevel.unset_fullscreen request.</summary>
     internal const int ToplevelUnsetFullscreen = 12;
 

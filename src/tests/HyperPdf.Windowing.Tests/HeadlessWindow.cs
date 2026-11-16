@@ -52,6 +52,9 @@ internal sealed class HeadlessWindow : IPlatformWindow
     public double Scale => 1;
 
     /// <inheritdoc/>
+    public bool IsMaximized { get; private set; }
+
+    /// <inheritdoc/>
     public long NativeHandle => 0;
 
     /// <inheritdoc/>
@@ -87,11 +90,20 @@ internal sealed class HeadlessWindow : IPlatformWindow
     /// <summary>Gets a value indicating whether the window was asked to fill the screen.</summary>
     internal bool IsFullScreen { get; private set; }
 
+    /// <summary>Gets the size the viewer last asked for, or <see langword="null"/> when it asked for none.</summary>
+    internal SurfaceSize? RequestedSize { get; private set; }
+
     /// <inheritdoc/>
     public void SetTitle(string title) => Title = title;
 
     /// <inheritdoc/>
     public void SetFullScreen(bool on) => IsFullScreen = on;
+
+    /// <inheritdoc/>
+    public void SetMaximized(bool on) => IsMaximized = on;
+
+    /// <inheritdoc/>
+    public void SetSize(int width, int height) => RequestedSize = new(width, height);
 
     /// <inheritdoc/>
     public void SetCursor(ViewerCursor cursor)

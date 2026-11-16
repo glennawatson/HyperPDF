@@ -55,7 +55,7 @@ public static class WindowControlMixins
 
         /// <summary>
         /// Gets a signal for each change to what the notice and tool bars show: the notices about the document and the state of read
-        /// aloud, text recognition, focus mode, slow scrolling, measuring and filling and signing.
+        /// aloud, text recognition, focus mode, slow scrolling, measuring, filling and signing, and editing the page's own content.
         /// </summary>
         private IObservable<RxVoid> ToolChanges => Signal.Merge(
             tab.WhenChanged(static t => t.Notice).AsSignal(),
@@ -71,7 +71,13 @@ public static class WindowControlMixins
             tab.PageTools.WhenChanged(static p => p.IsAutoScrolling).AsSignal(),
             tab.PageTools.WhenChanged(static p => p.AutoScrollSpeed).AsSignal(),
             tab.Measure.GetChangedObservable().AsSignal(),
-            tab.FillAndSign.GetChangedObservable().AsSignal());
+            tab.FillAndSign.GetChangedObservable().AsSignal(),
+            tab.WhenChanged(static t => t.IsTextFormatShown).AsSignal(),
+            tab.ContentEdit.WhenChanged(static e => e.IsEditing).AsSignal(),
+            tab.ContentEdit.WhenChanged(static e => e.Selected).AsSignal(),
+            tab.ContentEdit.WhenChanged(static e => e.TextEdit).AsSignal(),
+            tab.Pages.WhenChanged(static p => p.CanUndo).AsSignal(),
+            tab.Pages.WhenChanged(static p => p.CanRedo).AsSignal());
 
         /// <summary>Gets a signal for each change to the list the side panel shows. The view model of a list is only made once the panel shows it.</summary>
         private IObservable<RxVoid> PanelListChanges =>

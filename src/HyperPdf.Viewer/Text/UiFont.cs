@@ -34,7 +34,14 @@ internal sealed class UiFont
     /// <summary>Loads a face of the bundled screen font.</summary>
     /// <param name="bold">Whether the face is bold.</param>
     /// <returns>The face, or <see langword="null"/> when the bundled font is missing or damaged.</returns>
-    internal static UiFont? Load(bool bold) => ScreenFontFace.OpenBundled(Family, bold) is { } face ? new UiFont(face) : null;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static UiFont? Load(bool bold) => Load(Family, bold);
+
+    /// <summary>Loads a face of a family of the bundled screen fonts.</summary>
+    /// <param name="family">The family: Arimo, Tinos or Cousine.</param>
+    /// <param name="bold">Whether the face is bold.</param>
+    /// <returns>The face, or <see langword="null"/> when the bundled font is missing or damaged.</returns>
+    internal static UiFont? Load(string family, bool bold) => ScreenFontFace.OpenBundled(family, bold) is { } face ? new UiFont(face) : null;
 
     /// <summary>Gets how far the tallest letters rise above the baseline.</summary>
     /// <param name="size">The text size in pixels.</param>

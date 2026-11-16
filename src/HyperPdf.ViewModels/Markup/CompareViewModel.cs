@@ -18,6 +18,9 @@ namespace HyperPdf.ViewModels.Markup;
 [DebuggerDisplay("CompareViewModel: {Differences.Count} pages differ")]
 public sealed partial class CompareViewModel : ReactiveObject
 {
+    /// <summary>The percent that means the whole page.</summary>
+    private const double WholePercent = 100;
+
     /// <summary>The tab whose document is compared.</summary>
     private readonly DocumentTabViewModel _owner;
 
@@ -58,7 +61,9 @@ public sealed partial class CompareViewModel : ReactiveObject
     public static string Describe(ComparedPage page)
     {
         ArgumentNullException.ThrowIfNull(page);
-        return UiText.Format("Page {0}: {1} words added, {2} words removed. Press to go to it.", page.Page + 1, page.Added, page.Removed);
+        return page.Added + page.Removed == 0
+            ? UiText.Format("Page {0}: the words are the same, but {1}% of the page looks different. Press to go to it.", page.Page + 1, Math.Round(page.LookChange * WholePercent))
+            : UiText.Format("Page {0}: {1} words added, {2} words removed. Press to go to it.", page.Page + 1, page.Added, page.Removed);
     }
 
     /// <summary>Goes to a page that differs.</summary>
@@ -132,8 +137,8 @@ public sealed partial class CompareViewModel : ReactiveObject
 
         Differences = found;
         Result = found.Count == 0
-            ? UiText.Get("The words of the two documents are the same.")
-            : UiText.Format("{0} pages have different words. Text in pictures and the look of the pages are not compared.", found.Count);
+            ? UiText.Get("The words and the look of the two documents are the same.")
+            : UiText.Format("{0} pages differ in their words or in how they look. Text in pictures is not compared.", found.Count);
         return ShowInteraction.Handle(this).ToSignal();
     }
 }

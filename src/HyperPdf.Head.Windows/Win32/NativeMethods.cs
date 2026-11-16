@@ -263,6 +263,12 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(User32, EntryPoint = "IsIconic")]
     internal static partial int IsIconic(nint window);
 
+    /// <summary>Native <c>IsZoomed</c>.</summary>
+    /// <param name="window">The window.</param>
+    /// <returns>Nonzero when the window is maximised.</returns>
+    [LibraryImport(User32, EntryPoint = "IsZoomed")]
+    internal static partial int IsZoomed(nint window);
+
     /// <summary>Native <c>GetWindowRect</c>.</summary>
     /// <param name="window">The window.</param>
     /// <param name="rect">Receives left, top, right and bottom, as four ints.</param>

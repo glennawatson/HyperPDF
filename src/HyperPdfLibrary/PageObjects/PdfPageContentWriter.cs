@@ -20,9 +20,6 @@ public static class PdfPageContentWriter
     /// <summary>The components of a CMYK colour.</summary>
     internal const int CmykComponents = 4;
 
-    /// <summary>The key of a graphics state parameter dictionary that sets the opacity of filling.</summary>
-    private const string FillOpacityKey = "ca";
-
     /// <summary>Gets the byte that ends a line.</summary>
     internal static ReadOnlySpan<byte> NewLine => "\n"u8;
 
@@ -127,15 +124,16 @@ public static class PdfPageContentWriter
 
         var position = 0;
         var nextMark = 0;
-        foreach (var item in state.ObjectItems)
+        for (var index = 0; index < state.ObjectItems.Count; index++)
         {
+            var item = state.ObjectItems[index];
             position = PdfPageContentWriter.WriteScrubbedBegins(state, ref builder, item.Source.Start, position, ref nextMark);
             if (!PdfPageContentWriter.ShouldWrite(item, mode) || item.Source.Start < position)
             {
                 continue;
             }
 
-            builder.WriteRaw(state.SourceBytes.AsSpan(position, item.Source.Start - position));
+            PdfPageContentClipWriter.WriteGap(state, ref builder, item, index, position);
             PdfPageContentWriter.WriteObject(state, ref builder, item, mode);
             position = item.Source.End;
         }
@@ -367,7 +365,15 @@ public static class PdfPageContentWriter
             return;
         }
 
-        builder.Rectangle(crop.Left, crop.Bottom, 1F - crop.Left - crop.Right, 1F - crop.Top - crop.Bottom);
+        if (item is PdfImageObject or PdfFormObject)
+        {
+            builder.Rectangle(crop.Left, crop.Bottom, 1F - crop.Left - crop.Right, 1F - crop.Top - crop.Bottom);
+        }
+        else if (!PdfPageContentWriter.TryWriteBoundsClip(ref builder, item, crop))
+        {
+            return;
+        }
+
         builder.Clip();
         builder.EndPath();
     }
@@ -385,7 +391,20 @@ public static class PdfPageContentWriter
             builder.SetDash(line.Dash, line.Phase);
         }
 
-        if (item.ChangedOpacity is not { } opacity)
+        PdfPageContentWriter.WriteTransparency(state, ref builder, item, false);
+    }
+
+    /// <summary>
+    /// Writes a graphics state with an object's changed opacity and blend mode, or, to undo it after text, with the values the
+    /// content had set before. Text cannot be wrapped in a save and restore, so it puts the old values back itself.
+    /// </summary>
+    /// <param name = "state">The owned parse or content state.</param>
+    /// <param name = "builder">The output.</param>
+    /// <param name = "item">The object.</param>
+    /// <param name = "original">Whether to write the values the content set rather than the changed ones.</param>
+    internal static void WriteTransparency(PdfPageContent state, ref PdfContentBuilder builder, PdfPageObject item, bool original)
+    {
+        if (item.ChangedOpacity is null && item.ChangedBlendMode is null)
         {
             return;
         }
@@ -394,8 +413,18 @@ public static class PdfPageContentWriter
         var name = PdfPageContentEditing.AllocateName(state, KnownName.ExtGState, "RgS");
         var graphicsState = new PdfDictionary(objects);
         graphicsState.Set(KnownName.Type, PdfValue.FromName(KnownName.ExtGState));
-        graphicsState.Set(KnownName.CA, PdfValue.FromReal(opacity));
-        graphicsState.Set(objects.Names.Intern(FillOpacityKey), PdfValue.FromReal(opacity));
+        if (item.ChangedOpacity is { } opacity)
+        {
+            graphicsState.Set(KnownName.CA, PdfValue.FromReal(original ? item.OriginalStrokeAlpha : opacity));
+            graphicsState.Set(KnownName.FillAlpha, PdfValue.FromReal(original ? item.OriginalFillAlpha : opacity));
+        }
+
+        if (item.ChangedBlendMode is { } blend)
+        {
+            var mode = original && !item.OriginalBlendMode.IsNone ? item.OriginalBlendMode : objects.Names.Intern(PdfBlendModes.GetSpelling(original ? PdfBlendMode.Normal : blend));
+            graphicsState.Set(KnownName.BM, PdfValue.FromName(mode));
+        }
+
         state.Generated.Add(new(KnownName.ExtGState, name, PdfValue.FromDictionary(graphicsState), null));
         builder.SetGraphicsState(objects.Names.GetSpelling(name));
     }
@@ -406,7 +435,11 @@ public static class PdfPageContentWriter
     /// <param name = "item">The object.</param>
     internal static void WritePaints(PdfPageContent state, ref PdfContentBuilder builder, PdfPageObject item)
     {
-        if (item.ChangedFill is { } fill)
+        if (item.FillGradient is { } gradient)
+        {
+            PdfPageContentGradientWriter.WriteFill(state, ref builder, item, gradient);
+        }
+        else if (item.ChangedFill is { } fill)
         {
             PdfPageContentPaintWriter.WritePaint(state, ref builder, fill, false);
         }
@@ -415,5 +448,44 @@ public static class PdfPageContentWriter
         {
             PdfPageContentPaintWriter.WritePaint(state, ref builder, stroke, true);
         }
+    }
+
+    /// <summary>
+    /// Writes the path that keeps a share of an object's bounds on the page. Paths and shadings have no frame of their own, so the
+    /// shares are of the box they cover as they are drawn now, and the corners are put back into the object's own coordinates.
+    /// </summary>
+    /// <param name = "builder">The output.</param>
+    /// <param name = "item">The object.</param>
+    /// <param name = "crop">The shares cut off each side.</param>
+    /// <returns><see langword="false"/> when the object's coordinates cannot be inverted and nothing was written.</returns>
+    private static bool TryWriteBoundsClip(ref PdfContentBuilder builder, PdfPageObject item, CropShares crop)
+    {
+        var bounds = item.Bounds;
+        if (!PageGeometry.IsFinite(bounds) || !Matrix3x2.Invert(item.Matrix * item.Transformation, out var inverse))
+        {
+            return false;
+        }
+
+        var left = bounds.Left + (bounds.Width * crop.Left);
+        var right = bounds.Right - (bounds.Width * crop.Right);
+        var bottom = bounds.Bottom + (bounds.Height * crop.Bottom);
+        var top = bounds.Top - (bounds.Height * crop.Top);
+        var first = Vector2.Transform(new(left, bottom), inverse);
+        builder.MoveTo(first.X, first.Y);
+        PdfPageContentWriter.LineToCorner(ref builder, new(right, bottom), inverse);
+        PdfPageContentWriter.LineToCorner(ref builder, new(right, top), inverse);
+        PdfPageContentWriter.LineToCorner(ref builder, new(left, top), inverse);
+        builder.ClosePath();
+        return true;
+    }
+
+    /// <summary>Draws a line to a corner given on the page, in the object's own coordinates.</summary>
+    /// <param name = "builder">The output.</param>
+    /// <param name = "corner">The corner on the page.</param>
+    /// <param name = "inverse">The matrix from the page back to the object's coordinates.</param>
+    private static void LineToCorner(ref PdfContentBuilder builder, Vector2 corner, Matrix3x2 inverse)
+    {
+        var local = Vector2.Transform(corner, inverse);
+        builder.LineTo(local.X, local.Y);
     }
 }

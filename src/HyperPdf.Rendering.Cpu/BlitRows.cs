@@ -22,8 +22,8 @@ internal readonly record struct BlitRows(int Left, int Top, int Right, int Botto
     /// <param name="frame">The frame shape.</param>
     /// <returns>The clipped rows.</returns>
     internal static BlitRows Clip(in BlitRequest request, in PixelGrid frame) => new(
-        Math.Max(request.X, 0),
-        Math.Max(request.Y, 0),
-        Math.Min(request.X + request.Width, frame.Width),
-        Math.Min(request.Y + request.Height, frame.Height));
+        Math.Max(request.X, request.Clip?.Left ?? 0),
+        Math.Max(request.Y, request.Clip?.Top ?? 0),
+        Math.Min(request.X + request.Width, request.Clip?.Right ?? frame.Width),
+        Math.Min(request.Y + request.Height, request.Clip?.Bottom ?? frame.Height));
 }

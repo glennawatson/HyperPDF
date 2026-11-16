@@ -9,6 +9,9 @@ namespace HyperPdf.ViewModels.Markup;
 /// <summary>Compares the words of two documents page by page.</summary>
 internal static class DocumentComparer
 {
+    /// <summary>The share of a page that must look different for the page to be listed when its words are the same.</summary>
+    private const double MinimumLookChange = 0.002;
+
     /// <summary>Finds the pages whose words differ.</summary>
     /// <param name="current">The open document.</param>
     /// <param name="other">The document to compare it with.</param>
@@ -25,9 +28,10 @@ internal static class DocumentComparer
             var after = page < other.PageCount ? Count(other, page) : [];
             var removed = Surplus(before, after);
             var added = Surplus(after, before);
-            if (added + removed > 0)
+            var look = page < current.PageCount && page < other.PageCount ? LookDifference.Measure(current, other, page) : 0;
+            if (added + removed > 0 || look >= MinimumLookChange)
             {
-                result.Add(new(page, added, removed));
+                result.Add(new(page, added, removed) { LookChange = look });
             }
         }
 

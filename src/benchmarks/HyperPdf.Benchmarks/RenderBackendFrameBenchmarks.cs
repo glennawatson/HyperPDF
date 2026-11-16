@@ -42,6 +42,9 @@ public class RenderBackendFrameBenchmarks
     /// <summary>The byte written into every channel of the tiles: opaque white paper, the common page tile.</summary>
     private const byte Paper = 0xFF;
 
+    /// <summary>How much the faded layer counts.</summary>
+    private const double HalfOpacity = 0.5;
+
     /// <summary>The left edge of the selection.</summary>
     private const double SelectionLeft = 200;
 
@@ -135,6 +138,20 @@ public class RenderBackendFrameBenchmarks
     [Benchmark]
     public void CpuFrameStretchedSmooth() => DrawFrame(_cpu, _cpuTiles, WheelStep, smooth: true);
 
+    /// <summary>Draws a frame whose tiles are a half opaque layer on the CPU, as a page fade does: the frame is copied before the layer and mixed with it after.</summary>
+    [Benchmark]
+    public void CpuFrameFaded() => DrawFadedFrame(_cpu, _cpuTiles);
+
+    /// <summary>Draws a frame whose tiles are a half opaque layer on the GPU, which scales the colour of each tile and costs nothing more per frame.</summary>
+    [Benchmark]
+    public void VulkanFrameFaded()
+    {
+        if (_gpu is { } gpu)
+        {
+            DrawFadedFrame(gpu, _gpuTiles);
+        }
+    }
+
     /// <summary>Draws a frame of unscaled cached tiles on the GPU and waits for it.</summary>
     [Benchmark]
     public void VulkanFrame()
@@ -212,6 +229,23 @@ public class RenderBackendFrameBenchmarks
         }
 
         pass.FillRect(new(SelectionLeft, SelectionTop, SelectionWidth, SelectionHeight), Selection);
+    }
+
+    /// <summary>Draws one frame whose tiles are a half opaque layer over the canvas colour.</summary>
+    /// <param name="backend">The backend.</param>
+    /// <param name="tiles">The tiles, row by row.</param>
+    private static void DrawFadedFrame(IRenderBackend backend, IRenderSurface[] tiles)
+    {
+        using var pass = backend.BeginFrame();
+        pass.Clear(Canvas);
+        pass.SetOpacity(HalfOpacity);
+        for (var i = 0; i < tiles.Length; i++)
+        {
+            var row = Math.DivRem(i, Columns, out var column);
+            pass.DrawSurface(tiles[i], new(column * TileEdge, row * TileEdge, TileEdge, TileEdge), smooth: false);
+        }
+
+        pass.SetOpacity(1);
     }
 
     /// <summary>Creates the tile grid of a backend and fills every tile with opaque white.</summary>
