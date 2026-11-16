@@ -5,7 +5,6 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Optimizing;
-using HyperPdf.Core.Platform;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -229,24 +228,6 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
         return string.Equals(Path.GetFullPath(first), Path.GetFullPath(second), comparison);
     }
 
-    /// <summary>Deletes a temporary file, ignoring a failure because the file is only a leftover.</summary>
-    /// <param name="path">The file.</param>
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-            // A leftover temporary file does no harm and a later save replaces it.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Same as above.
-        }
-    }
-
     /// <summary>Stops the copy in progress.</summary>
     [ReactiveCommand(CanExecute = nameof(_canCancel))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -258,21 +239,28 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     private void Close() => Cancel();
 
     /// <summary>Asks where to save, then writes the optimised copy there with progress.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the copy is saved, refused, stopped or the choice was given up.</returns>
     [ReactiveCommand(CanExecute = nameof(_canSave))]
-    private async Task SaveAsync()
+    private IObservable<RxVoid> Save()
     {
         SetError(LocalizedMessage.Literal(null));
-        var path = await SaveInteraction.Handle(SuggestedName).ToTask().ConfigureAwait(true);
+        return SaveInteraction.Handle(SuggestedName).ToSignal().SwitchMap(Copy);
+    }
+
+    /// <summary>Writes the optimised copy to the chosen place.</summary>
+    /// <param name="path">Where to save, or empty when the choice was given up.</param>
+    /// <returns>A signal that ends when the copy is saved, refused or stopped.</returns>
+    private IObservable<RxVoid> Copy(string? path)
+    {
         if (string.IsNullOrEmpty(path))
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         if (IsSameFile(path, _sourcePath))
         {
             SetError(LocalizedMessage.Get(UiText, "That would replace the file you have open. Choose a different name for the copy."));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var cancel = new CancellationTokenSource();
@@ -281,87 +269,89 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
         ProgressPercent = 0;
         _resultDescription = null;
         ResultText = string.Empty;
-        try
-        {
-            var report = await WriteAsync(path, cancel.Token).ConfigureAwait(true);
-            ShowResult(report, path);
-        }
-        catch (OperationCanceledException)
-        {
-            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
-            ProgressPercent = 0;
-        }
-        catch (Exception ex) when (CopyFailure.IsExpected(ex))
-        {
-            SetError(LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(ex)));
-            SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
-            ProgressPercent = 0;
-        }
-        finally
-        {
-            Volatile.Write(ref _cancel, null);
-            cancel.Dispose();
-            IsRunning = false;
-        }
+        return Describer(cancel.Token)
+            .SwitchMap(describer => Optimize(path, describer, cancel.Token))
+            .Select(report => ShowResult(report, path))
+            .Catch<RxVoid, Exception>(Failed)
+            .Finally(() => EndRun(cancel));
     }
 
-    /// <summary>Writes the copy to a temporary file, off the UI thread, then moves it into place.</summary>
-    /// <param name="path">Where the copy goes.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>The report.</returns>
-    private async Task<OptimizeReport> WriteAsync(string path, CancellationToken cancellationToken)
+    /// <summary>Gets the picture describer when pictures are to be described, downloading the model first when it is missing.</summary>
+    /// <param name="cancellationToken">Cancels the download.</param>
+    /// <returns>A cold signal giving the describer, or <see langword="null"/> when none is wanted.</returns>
+    private IObservable<IFigureDescriber?> Describer(CancellationToken cancellationToken)
     {
-        var temporary = path + TemporarySuffix;
-        var settings = Settings;
+        if (!DescribePictures || !AddInferredTags || _pictureDescription is not { } setup)
+        {
+            return Signal.Return<IFigureDescriber?>(null);
+        }
+
+        if (setup.MissingBytes() <= 0)
+        {
+            return Signal.Return<IFigureDescriber?>(setup.CreateDescriber());
+        }
+
+        SetStatusText(LocalizedMessage.Get(UiText, "Downloading the picture model."));
+
+        // The model download is real network and file I/O, so its task is the one call here that is awaited.
+        return Signal.FromAsync(
+                async token =>
+                {
+                    await setup.Download(new Progress<double>(static _ => { }), token).ConfigureAwait(false);
+                    return setup.CreateDescriber();
+                },
+                cancellationToken)
+            .ObserveOn(RxSchedulers.MainThreadScheduler);
+    }
+
+    /// <summary>Writes the optimised copy to a temporary file on the pool, then moves it into place.</summary>
+    /// <param name="path">Where the copy goes.</param>
+    /// <param name="describer">Describes pictures, or <see langword="null"/>; it is disposed when the copy ends.</param>
+    /// <param name="cancellationToken">Stops the run.</param>
+    /// <returns>A cold signal giving the report.</returns>
+    private IObservable<OptimizeReport> Optimize(string path, IFigureDescriber? describer, CancellationToken cancellationToken)
+    {
+        var settings = describer is null ? Settings : Settings with { FigureDescriber = describer };
 
         // Created here, on the UI thread, so each report is posted back to it.
         var progress = new Progress<OptimizeProgress>(ShowProgress);
-        var describer = DescribePictures && AddInferredTags && _pictureDescription is { } setup
-            ? await PrepareDescriberAsync(setup, cancellationToken).ConfigureAwait(true)
-            : null;
-        if (describer is not null)
-        {
-            settings = settings with { FigureDescriber = describer };
-        }
 
-        try
-        {
-            OptimizeReport report;
-            await using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 1, FileOptions.Asynchronous))
-            {
-                // The optimiser snapshots the document and plans before its first await: nearly all of an 8-page run runs
-                // on the caller's thread (HyperPdfOptimizeCopyBenchmarks.TimeBeforeFirstWrite). The library cannot hop threads itself
-                // (no Task.Run there, and an await only yields back to this thread), so the app starts it on the pool.
-                report = await Task.Run(() => _optimizer.OptimizeAsync(stream, settings, progress, cancellationToken), cancellationToken).ConfigureAwait(true);
-            }
-
-            FileReplacement.Replace(temporary, path);
-            return report;
-        }
-        catch
-        {
-            TryDelete(temporary);
-            throw;
-        }
-        finally
-        {
-            (describer as IDisposable)?.Dispose();
-        }
+        // The optimiser snapshots the document and plans before its first await, so nearly all of an 8-page run runs on the
+        // caller's thread (HyperPdfOptimizeCopyBenchmarks.TimeBeforeFirstWrite); the write starts on the pool for that reason.
+        return CopyFile.Write(path, TemporarySuffix, (stream, token) => _optimizer.OptimizeAsync(stream, settings, progress, token), static _ => true, cancellationToken)
+            .Finally(() => (describer as IDisposable)?.Dispose());
     }
 
-    /// <summary>Downloads the picture model when it is missing and creates the describer.</summary>
-    /// <param name="setup">How pictures are described.</param>
-    /// <param name="cancellationToken">A token that cancels the download.</param>
-    /// <returns>The describer.</returns>
-    private async Task<IFigureDescriber> PrepareDescriberAsync(PictureDescriptionSetup setup, CancellationToken cancellationToken)
+    /// <summary>Says why the copy was not saved, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> Failed(Exception error)
     {
-        if (setup.MissingBytes() > 0)
+        if (error is OperationCanceledException)
         {
-            SetStatusText(LocalizedMessage.Get(UiText, "Downloading the picture model."));
-            await setup.Download(new Progress<double>(static _ => { }), cancellationToken).ConfigureAwait(true);
+            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
+            ProgressPercent = 0;
+            return Signal.Return(RxVoid.Default);
         }
 
-        return setup.CreateDescriber();
+        if (!CopyFailure.IsExpected(error))
+        {
+            return Signal.Throw<RxVoid>(error);
+        }
+
+        SetError(LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(error)));
+        SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
+        ProgressPercent = 0;
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Puts the controls back once the run is over.</summary>
+    /// <param name="cancel">The run's cancellation source.</param>
+    private void EndRun(CancellationTokenSource cancel)
+    {
+        Volatile.Write(ref _cancel, null);
+        cancel.Dispose();
+        IsRunning = false;
     }
 
     /// <summary>Shows the progress of the run.</summary>
@@ -388,7 +378,8 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     /// <summary>Shows a finished copy's summary.</summary>
     /// <param name="report">The report.</param>
     /// <param name="path">Where the copy was saved.</param>
-    private void ShowResult(OptimizeReport report, string path)
+    /// <returns>The completion value.</returns>
+    private RxVoid ShowResult(OptimizeReport report, string path)
     {
         Report = report;
         SavedPath = path;
@@ -397,6 +388,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
         _resultDescription = (report, path);
         this.RaisePropertyChanged(nameof(PictureDescriptionNote));
         RefreshResultText();
+        return RxVoid.Default;
     }
 
     /// <summary>Rewords the retained report without repeating the operation.</summary>
