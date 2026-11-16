@@ -4,8 +4,11 @@
 
 using System.Diagnostics;
 using HyperPdf.Core.Accessibility;
+using HyperPdf.Core.Diagnostics;
 using HyperPdf.Platform.Linux.Accessibility;
 using HyperPdf.Windowing.Accessibility;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Disposables;
 
 namespace HyperPdf.Head.Linux;
 
@@ -13,11 +16,14 @@ namespace HyperPdf.Head.Linux;
 [DebuggerDisplay("AtSpiAccessibilityBridge: active {IsAssistiveTechnologyActive}")]
 public sealed class AtSpiAccessibilityBridge : IAccessibilityBridge
 {
-    /// <summary>The server that is starting or running, or <see langword="null"/> before <see cref="Attach"/> and after <see cref="Dispose"/>.</summary>
-    private Task<IDisposable?>? _server;
+    /// <summary>Holds the server once it has started, so disposing the bridge stops it; a server that arrives after disposal is stopped at once.</summary>
+    private readonly MultipleDisposable _server = new();
 
     /// <summary>One when the AT-SPI server is running.</summary>
     private int _running;
+
+    /// <summary>One once the bridge has been disposed.</summary>
+    private int _disposed;
 
     /// <inheritdoc/>
     public bool IsAssistiveTechnologyActive => Volatile.Read(ref _running) != 0;
@@ -26,33 +32,45 @@ public sealed class AtSpiAccessibilityBridge : IAccessibilityBridge
     public void Attach(IAccessibleTree tree)
     {
         ArgumentNullException.ThrowIfNull(tree);
-        Volatile.Write(ref _server, StartAsync(tree));
+
+        // The signal ends by itself once the server has started, so nothing needs to hold the subscription.
+        _ = LinuxAccessibility.Start(tree).SubscribeSafe(Started, static error => AppLog.Error(error, "The AT-SPI server could not start."));
     }
 
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _server, null) is not { } server)
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
 
         Volatile.Write(ref _running, 0);
-        _ = StopAsync(server);
+        _server.Dispose();
     }
 
-    /// <summary>Stops a server once it has finished starting, without making the caller wait.</summary>
-    /// <param name="server">The server task.</param>
-    /// <returns>A task that completes when the server has stopped.</returns>
-    private static async Task StopAsync(Task<IDisposable?> server) => (await server.ConfigureAwait(false))?.Dispose();
-
-    /// <summary>Starts the server and records whether the session had an accessibility bus to serve.</summary>
-    /// <param name="tree">The tree to serve.</param>
-    /// <returns>The running server, or <see langword="null"/> when the session has no accessibility bus.</returns>
-    private async Task<IDisposable?> StartAsync(IAccessibleTree tree)
+    /// <summary>Records the started server, or stops it when the bridge has been disposed in the meantime.</summary>
+    /// <param name="server">The running server, or <see langword="null"/> when the session has no accessibility bus.</param>
+    private void Started(IDisposable? server)
     {
-        var server = await LinuxAccessibility.StartAsync(tree).ConfigureAwait(false);
-        Volatile.Write(ref _running, server is null ? 0 : 1);
-        return server;
+        if (server is null)
+        {
+            return;
+        }
+
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            server.Dispose();
+            return;
+        }
+
+        _server.Add(server);
+        Volatile.Write(ref _running, 1);
+
+        // Disposal that raced with the line above has already emptied the holder, which stops what was just added.
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            Volatile.Write(ref _running, 0);
+        }
     }
 }

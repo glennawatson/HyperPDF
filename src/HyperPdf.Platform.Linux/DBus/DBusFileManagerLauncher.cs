@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Platform;
+using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Signals;
 using Tmds.DBus.Protocol;
 
@@ -25,40 +27,40 @@ public sealed class DBusFileManagerLauncher : IFileManagerLauncher
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);
 
-        // The session bus is an async API from another library, so its call is the one task here.
-        return Signal.FromAsync(token => ShowAsync(filePath, token));
+        // The connection is closed when the request ends or the caller unsubscribes.
+        return SessionBus.TryConnect()
+            .SwitchMap(connection => connection is null
+                ? Signal.Return(false)
+                : Signal.Using(() => connection, open => Show(open, filePath)));
     }
 
     /// <summary>Asks the file manager to show the file.</summary>
+    /// <param name="connection">The open session bus.</param>
     /// <param name="filePath">The file.</param>
-    /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns><see langword="true"/> when the file manager accepted the request.</returns>
-    private static async Task<bool> ShowAsync(string filePath, CancellationToken cancellationToken)
-    {
-        using var connection = await SessionBus.TryConnectAsync().ConfigureAwait(false);
-        if (connection is null)
-        {
-            return false;
-        }
+    /// <returns>A cold signal giving once <see langword="true"/> when the file manager accepted the request.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IObservable<bool> Show(DBusConnection connection, string filePath) =>
+        Signal.Defer(() =>
+            {
+                MessageBuffer message;
+                using (var writer = connection.GetMessageWriter())
+                {
+                    writer.WriteMethodCallHeader(FileManagerName, FileManagerPath, FileManagerName, "ShowItems", "ass");
+                    writer.WriteArray(new[] { new Uri(Path.GetFullPath(filePath)).AbsoluteUri });
+                    writer.WriteString(string.Empty);
+                    message = writer.CreateMessage();
+                }
 
-        MessageBuffer message;
-        using (var writer = connection.GetMessageWriter())
-        {
-            writer.WriteMethodCallHeader(FileManagerName, FileManagerPath, FileManagerName, "ShowItems", "ass");
-            writer.WriteArray(new[] { new Uri(Path.GetFullPath(filePath)).AbsoluteUri });
-            writer.WriteString(string.Empty);
-            message = writer.CreateMessage();
-        }
-
-        try
-        {
-            await connection.CallMethodAsync(message).WaitAsync(cancellationToken).ConfigureAwait(false);
-            return true;
-        }
-        catch (DBusErrorReplyException ex)
-        {
-            AppLog.Warning(ex, "ShowItems failed.");
-            return false;
-        }
-    }
+                // The D-Bus library's own async call, awaited once here; unsubscribing stops waiting for the answer.
+                return Signal.FromAsync(async token =>
+                {
+                    await connection.CallMethodAsync(message).WaitAsync(token).ConfigureAwait(false);
+                    return true;
+                });
+            })
+            .Catch<bool, DBusErrorReplyException>(static ex =>
+            {
+                AppLog.Warning(ex, "ShowItems failed.");
+                return Signal.Return(false);
+            });
 }
