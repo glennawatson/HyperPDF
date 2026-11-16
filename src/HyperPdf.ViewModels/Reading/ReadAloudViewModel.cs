@@ -395,7 +395,16 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     /// <param name="prepared">The prepared sentence.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ObservePrepared(Task<SpeechAudio>? prepared) =>
-        prepared?.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        prepared?.ToSignal().SubscribeSafe(static _ => { }, static _ => { });
+
+    /// <summary>Waits for the audio output to finish playing a clip.</summary>
+    /// <param name="playing">The audio output's task for the clip.</param>
+    /// <returns>A task giving the completion value.</returns>
+    private static async Task<RxVoid> Await(Task playing)
+    {
+        await playing.ConfigureAwait(false);
+        return RxVoid.Default;
+    }
 
     /// <summary>Forgets documents that have gone; if that is not enough, starts the list afresh.</summary>
     /// <param name="positions">The remembered positions.</param>
@@ -568,7 +577,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         var work = new CancellationTokenSource();
         _stopWork = work.Cancel;
         _services.ClaimSpeech(this);
-        _ = ReadAsync(work);
+        _subscriptions.Add(Read(work).SubscribeSafe(static _ => { }, ErrorTrace.Write));
     }
 
     /// <summary>Cancels the reading or download in progress.</summary>
@@ -665,106 +674,193 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
 
     /// <summary>Reads until the end of the document, a pause or a stop, explaining any failure in the bar.</summary>
     /// <param name="work">Stops the reading.</param>
-    /// <returns>A task.</returns>
-    private async Task ReadAsync(CancellationTokenSource work)
+    /// <returns>A cold signal that ends when reading ends; unsubscribing, because reading was paused or stopped, keeps the place.</returns>
+    private IObservable<RxVoid> Read(CancellationTokenSource work)
     {
         var engine = _services.GetSpeechEngine();
         if (!CheckReady(engine) || _owner.TryGetDocument() is not { } document)
         {
             SetPlaying(false);
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         SetPlaying(true);
-        try
-        {
-            await ReadSentencesAsync(document, engine, work.Token).ConfigureAwait(true);
-            SetStatusText(LocalizedMessage.Get(UiText, "Finished reading."));
-            SpokenBounds = [];
-        }
-        catch (OperationCanceledException)
+        return ReadSentences(document, engine, work.Token)
+            .Select(_ => FinishedReading())
+            .Catch<RxVoid, Exception>(ReadingStopped)
+            .Finally(() => EndRead(work));
+    }
+
+    /// <summary>Says reading reached the end of the document.</summary>
+    /// <returns>The completion value.</returns>
+    private RxVoid FinishedReading()
+    {
+        SetStatusText(LocalizedMessage.Get(UiText, "Finished reading."));
+        SpokenBounds = [];
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says why reading stopped, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for a pause, a stop or an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> ReadingStopped(Exception error)
+    {
+        if (error is OperationCanceledException)
         {
             // Paused or stopped: the place is kept.
+            return Signal.Return(RxVoid.Default);
         }
-        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or IOException)
-        {
-            SetStatusText(LocalizedMessage.Format(UiText, "Reading aloud stopped: {0}", ex.Message));
-        }
-        finally
-        {
-            if (IsCurrentWork(work))
-            {
-                _stopWork = null;
-                SetPlaying(false);
-            }
-            else if (_stopWork is null)
-            {
-                SetPlaying(false);
-            }
 
-            work.Dispose();
+        if (error is not (HttpRequestException or InvalidOperationException or IOException))
+        {
+            return Signal.Throw<RxVoid>(error);
         }
+
+        SetStatusText(LocalizedMessage.Format(UiText, "Reading aloud stopped: {0}", error.Message));
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Shows reading has ended, unless newer work has taken over.</summary>
+    /// <param name="work">The reading that ended.</param>
+    private void EndRead(CancellationTokenSource work)
+    {
+        if (IsCurrentWork(work))
+        {
+            _stopWork = null;
+            SetPlaying(false);
+        }
+        else if (_stopWork is null)
+        {
+            SetPlaying(false);
+        }
+
+        work.Dispose();
     }
 
     /// <summary>Reads sentence after sentence, preparing the next while the current one plays.</summary>
     /// <param name="document">The document.</param>
     /// <param name="engine">The engine.</param>
     /// <param name="token">Stops the reading.</param>
-    /// <returns>A task that completes at the end of the document.</returns>
-    private async Task ReadSentencesAsync(IDocument document, ISpeechEngine engine, CancellationToken token)
+    /// <returns>A cold signal that gives one value at the end of the document.</returns>
+    private IObservable<RxVoid> ReadSentences(IDocument document, ISpeechEngine engine, CancellationToken token)
     {
         var voice = engine.Voices[Math.Clamp(VoiceIndex, 0, engine.Voices.Count - 1)].Id;
         var speed = Speed;
-        Task<SpeechAudio>? prepared = null;
-        try
+        var prefetch = new SpeechPrefetch();
+        return Signal.Concat(Sentences(document, engine, voice, speed, prefetch, token))
+            .TakeWhile(static more => more)
+            .Count()
+            .Select(static _ => RxVoid.Default)
+            .Finally(() => ObservePrepared(prefetch.Prepared));
+    }
+
+    /// <summary>Makes the reading of each sentence, one at a time as the caller moves along, for as long as the caller asks.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="engine">The engine.</param>
+    /// <param name="voice">The voice.</param>
+    /// <param name="speed">The speed.</param>
+    /// <param name="prefetch">The next sentence's audio.</param>
+    /// <param name="token">Stops the reading.</param>
+    /// <returns>A cold signal per sentence, giving <see langword="false"/> at the end of the document.</returns>
+    private IEnumerable<IObservable<bool>> Sentences(IDocument document, ISpeechEngine engine, string voice, float speed, SpeechPrefetch prefetch, CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
         {
-            while (await LoadPageAsync(document, token).ConfigureAwait(true))
-            {
-                token.ThrowIfCancellationRequested();
-                SetStatusText(LocalizedMessage.Format(UiText, "Reading page {0} of {1}", SpokenPage + 1, document.PageCount));
-                var clip = await (prepared ?? engine.SynthesizeAsync(SentenceText(_sentence), voice, speed, token)).ConfigureAwait(true);
-                prepared = _sentence + 1 < _sentences.Count ? engine.SynthesizeAsync(SentenceText(_sentence + 1), voice, speed, token) : null;
-                token.ThrowIfCancellationRequested();
-                Highlight();
-                await PlayTrackingWordsAsync(clip, token).ConfigureAwait(true);
-                token.ThrowIfCancellationRequested();
-                _sentence++;
-            }
+            yield return Signal.Defer(() => LoadPage(document, token)
+                .SwitchMap(more => more ? Speak(document, engine, voice, speed, prefetch, token) : Signal.Return(false)));
         }
-        finally
-        {
-            ObservePrepared(prepared);
-        }
+
+        // Reading was paused or stopped, which is not the end of the document.
+        yield return Signal.Throw<bool>(new OperationCanceledException(token));
+    }
+
+    /// <summary>Speaks the current sentence, with the next one prepared while it plays.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="engine">The engine.</param>
+    /// <param name="voice">The voice.</param>
+    /// <param name="speed">The speed.</param>
+    /// <param name="prefetch">The next sentence's audio.</param>
+    /// <param name="token">Stops the reading.</param>
+    /// <returns>A cold signal giving <see langword="true"/> once the sentence is spoken.</returns>
+    private IObservable<bool> Speak(IDocument document, ISpeechEngine engine, string voice, float speed, SpeechPrefetch prefetch, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        SetStatusText(LocalizedMessage.Format(UiText, "Reading page {0} of {1}", SpokenPage + 1, document.PageCount));
+
+        // The voice and the audio output are native, task-based APIs, so their tasks are the only ones here.
+        var clip = prefetch.Prepared ?? engine.SynthesizeAsync(SentenceText(_sentence), voice, speed, token);
+        return clip.ToSignal()
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .SwitchMap(audio => PlayPrepared(engine, voice, speed, prefetch, audio, token))
+            .Select(_ => NextSentence(token));
+    }
+
+    /// <summary>Starts preparing the next sentence, marks the current one and plays it.</summary>
+    /// <param name="engine">The engine.</param>
+    /// <param name="voice">The voice.</param>
+    /// <param name="speed">The speed.</param>
+    /// <param name="prefetch">The next sentence's audio.</param>
+    /// <param name="audio">The current sentence's audio.</param>
+    /// <param name="token">Stops the reading.</param>
+    /// <returns>A cold signal that ends once the sentence has played.</returns>
+    private IObservable<RxVoid> PlayPrepared(ISpeechEngine engine, string voice, float speed, SpeechPrefetch prefetch, SpeechAudio audio, CancellationToken token)
+    {
+        prefetch.Prepared = _sentence + 1 < _sentences.Count ? engine.SynthesizeAsync(SentenceText(_sentence + 1), voice, speed, token) : null;
+        token.ThrowIfCancellationRequested();
+        Highlight();
+        return PlayTrackingWords(audio, token);
+    }
+
+    /// <summary>Moves on to the next sentence.</summary>
+    /// <param name="token">Stops the reading.</param>
+    /// <returns><see langword="true"/>, because reading goes on.</returns>
+    private bool NextSentence(CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        _sentence++;
+        return true;
     }
 
     /// <summary>Plays a sentence, moving the word mark along with it when word highlighting is on.</summary>
     /// <param name="clip">The sentence's audio.</param>
     /// <param name="token">Stops playing.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A cold signal that ends once the sentence has played.</returns>
     /// <remarks>The voice gives no word timings, so the mark moves in proportion to the characters spoken.</remarks>
-    private async Task PlayTrackingWordsAsync(SpeechAudio clip, CancellationToken token)
+    private IObservable<RxVoid> PlayTrackingWords(SpeechAudio clip, CancellationToken token)
     {
         var playing = _services.Audio.PlayAsync(clip, token);
-        if (_services.Settings.ReadAloudHighlight == ReadAloudHighlight.SentenceAndWord && clip.Duration > TimeSpan.Zero && _sentence < _sentences.Count)
+        var tracking = TrackWords(clip);
+        return Signal.FromAsync(() => Await(playing))
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Do(_ => EndTracking(tracking))
+            .Finally(() => EndTracking(tracking));
+    }
+
+    /// <summary>Starts moving the word mark along with a sentence, when word highlighting is on.</summary>
+    /// <param name="clip">The sentence's audio.</param>
+    /// <returns>What stops the marking, or <see langword="null"/> when words are not marked.</returns>
+    private IDisposable? TrackWords(SpeechAudio clip)
+    {
+        if (_services.Settings.ReadAloudHighlight != ReadAloudHighlight.SentenceAndWord || clip.Duration <= TimeSpan.Zero || _sentence >= _sentences.Count)
         {
-            var sentence = _sentences[_sentence];
-            var started = Stopwatch.GetTimestamp();
-            while (!playing.IsCompleted && !token.IsCancellationRequested)
-            {
-                MarkWord(sentence, Math.Clamp(Stopwatch.GetElapsedTime(started) / clip.Duration, 0, 1));
-                _ = await Task.WhenAny(playing, Task.Delay(WordInterval, CancellationToken.None)).ConfigureAwait(true);
-            }
+            return null;
         }
 
-        try
-        {
-            await playing.ConfigureAwait(true);
-        }
-        finally
-        {
-            SpokenWord = TextRange.None;
-            SpokenWordBounds = [];
-        }
+        var sentence = _sentences[_sentence];
+        var started = Stopwatch.GetTimestamp();
+        var duration = clip.Duration;
+        MarkWord(sentence, Math.Clamp(Stopwatch.GetElapsedTime(started) / duration, 0, 1));
+        return Signal.Every(WordInterval, RxSchedulers.MainThreadScheduler)
+            .SubscribeSafe(_ => MarkWord(sentence, Math.Clamp(Stopwatch.GetElapsedTime(started) / duration, 0, 1)), ErrorTrace.Write);
+    }
+
+    /// <summary>Stops marking words and clears the word mark.</summary>
+    /// <param name="tracking">What stops the marking, or <see langword="null"/>.</param>
+    private void EndTracking(IDisposable? tracking)
+    {
+        tracking?.Dispose();
+        SpokenWord = TextRange.None;
+        SpokenWordBounds = [];
     }
 
     /// <summary>Marks the word a share of the way through a sentence.</summary>
@@ -822,8 +918,19 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     /// <summary>Loads the sentences of <see cref="SpokenPage"/>, moving past pages without text.</summary>
     /// <param name="document">The document.</param>
     /// <param name="cancellationToken">Cancels page preparation and extraction.</param>
-    /// <returns><see langword="false"/> at the end of the document.</returns>
-    private async Task<bool> LoadPageAsync(IDocument document, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving <see langword="false"/> at the end of the document.</returns>
+    private IObservable<bool> LoadPage(IDocument document, CancellationToken cancellationToken)
+    {
+        var state = new PageLoadState();
+        return Signal.Concat(PageLoads(document, state, cancellationToken)).Count().Select(_ => state.More);
+    }
+
+    /// <summary>Makes the load of each page that has to be read before a sentence can be, one at a time as the caller moves along.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="state">Whether a page with sentences was found.</param>
+    /// <param name="cancellationToken">Cancels page preparation and extraction.</param>
+    /// <returns>A cold signal per page.</returns>
+    private IEnumerable<IObservable<RxVoid>> PageLoads(IDocument document, PageLoadState state, CancellationToken cancellationToken)
     {
         while (_loadedPage != SpokenPage || _sentence >= _sentences.Count)
         {
@@ -832,7 +939,8 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
                 // Finished this page.
                 if (_pageOnly)
                 {
-                    return false;
+                    state.More = false;
+                    yield break;
                 }
 
                 SpokenPage++;
@@ -843,29 +951,58 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
             {
                 SpokenPage = document.PageCount - 1;
                 _loadedPage = -1;
-                return false;
+                state.More = false;
+                yield break;
             }
 
-            var page = SpokenPage;
-            var reading = _owner.GetReadingDocument();
-            await document.PreparePageAsync(page, cancellationToken).ConfigureAwait(true);
-            var loaded = await Task.Run(() => LoadText(document, reading, page), cancellationToken).ConfigureAwait(true);
+            yield return LoadPageText(document, SpokenPage, cancellationToken);
+        }
+    }
 
-            // A load that was already running when a newer read started must not overwrite the newer read's page, sentences and start.
-            cancellationToken.ThrowIfCancellationRequested();
-            (_pageText, _map) = loaded;
-            _sentences.Clear();
-            SentenceSplitter.Split(_pageText, _sentences);
-            _loadedPage = page;
-            _sentence = _startChar == int.MaxValue ? Math.Max(0, _sentences.Count - 1) : SentenceAt(_sentences, ReadingOffset(_map, _startChar));
-            _startChar = 0;
-            if (_sentences.Count > 0 && page != _owner.CurrentPageIndex)
+    /// <summary>Prepares a page, reads its text on the pool and splits it into sentences.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="cancellationToken">Cancels page preparation and extraction.</param>
+    /// <returns>A cold signal that ends once the page's sentences are ready.</returns>
+    private IObservable<RxVoid> LoadPageText(IDocument document, int page, CancellationToken cancellationToken)
+    {
+        var reading = _owner.GetReadingDocument();
+
+        // Preparing a page is the PDF library's async API, so its call is the one task here.
+        return Signal.FromAsync(
+                async token =>
+                {
+                    await document.PreparePageAsync(page, token).ConfigureAwait(false);
+                    return RxVoid.Default;
+                },
+                cancellationToken)
+            .SwitchMap(_ => Signal.Start(() => LoadText(document, reading, page), TaskPoolSequencer.Default))
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(loaded =>
             {
-                _owner.ShowPage(page);
-            }
+                // A load that was already running when a newer read started must not overwrite the newer read's page, sentences and start.
+                cancellationToken.ThrowIfCancellationRequested();
+                (_pageText, _map) = loaded;
+                return PageLoaded(page);
+            });
+    }
+
+    /// <summary>Splits the page's text into sentences and goes to the sentence reading starts at.</summary>
+    /// <param name="page">The page.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid PageLoaded(int page)
+    {
+        _sentences.Clear();
+        SentenceSplitter.Split(_pageText, _sentences);
+        _loadedPage = page;
+        _sentence = _startChar == int.MaxValue ? Math.Max(0, _sentences.Count - 1) : SentenceAt(_sentences, ReadingOffset(_map, _startChar));
+        _startChar = 0;
+        if (_sentences.Count > 0 && page != _owner.CurrentPageIndex)
+        {
+            _owner.ShowPage(page);
         }
 
-        return true;
+        return RxVoid.Default;
     }
 
     /// <summary>Gets a sentence's text, prepared for the voice.</summary>
@@ -902,47 +1039,91 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     }
 
     /// <summary>Downloads the on-device voice, then starts reading.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the voice is downloaded, and reading started, or the download failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canDownloadVoice))]
-    private async Task DownloadVoiceAsync()
+    private IObservable<RxVoid> DownloadVoice()
     {
         CancelWork();
-        using var work = new CancellationTokenSource();
+        var work = new CancellationTokenSource();
         _stopWork = work.Cancel;
         IsDownloading = true;
         DownloadProgress = 0;
-        try
+        SetStatusText(LocalizedMessage.Get(UiText, "Downloading the voice…"));
+        var progress = new Progress<double>(fraction => DownloadProgress = fraction);
+
+        // The download is real network and file I/O in the speech service, so its task is the one call here that is awaited.
+        return Signal.FromAsync(
+                async token =>
+                {
+                    await _services.Speech.DownloadVoice(_services.Settings, progress, token).ConfigureAwait(false);
+                    return RxVoid.Default;
+                },
+                work.Token)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(_ => VoiceDownloaded())
+            .Catch<RxVoid, Exception>(VoiceDownloadFailed)
+            .Finally(() => EndDownload(work));
+    }
+
+    /// <summary>Starts reading once the voice is on this computer.</summary>
+    /// <returns>The completion value.</returns>
+    private RxVoid VoiceDownloaded()
+    {
+        IsDownloading = false;
+        NeedsVoice = false;
+        CanDownloadVoice = false;
+        if (IsOpen)
         {
-            SetStatusText(LocalizedMessage.Get(UiText, "Downloading the voice…"));
-            var progress = new Progress<double>(fraction => DownloadProgress = fraction);
-            await _services.Speech.DownloadVoice(_services.Settings, progress, work.Token).ConfigureAwait(true);
-            IsDownloading = false;
-            NeedsVoice = false;
-            CanDownloadVoice = false;
-            if (IsOpen)
-            {
-                Play();
-            }
+            Play();
         }
-        catch (OperationCanceledException)
+
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says why the voice was not downloaded, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> VoiceDownloadFailed(Exception error)
+    {
+        switch (error)
         {
-            SetStatusText(LocalizedMessage.Get(UiText, "The download stopped. Download Voice carries on where it left off."));
+            case OperationCanceledException:
+                {
+                    SetStatusText(LocalizedMessage.Get(UiText, "The download stopped. Download Voice carries on where it left off."));
+                    break;
+                }
+
+            case HttpRequestException:
+                {
+                    SetStatusText(LocalizedMessage.Format(UiText, "The voice could not be downloaded: {0}", error.Message));
+                    break;
+                }
+
+            case IOException:
+                {
+                    SetStatusText(LocalizedMessage.Format(UiText, "The voice could not be saved: {0}", error.Message));
+                    break;
+                }
+
+            default:
+                {
+                    return Signal.Throw<RxVoid>(error);
+                }
         }
-        catch (HttpRequestException ex)
+
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Shows the download has ended, unless newer work has taken over.</summary>
+    /// <param name="work">The download that ended.</param>
+    private void EndDownload(CancellationTokenSource work)
+    {
+        IsDownloading = false;
+        if (IsCurrentWork(work))
         {
-            SetStatusText(LocalizedMessage.Format(UiText, "The voice could not be downloaded: {0}", ex.Message));
+            _stopWork = null;
         }
-        catch (IOException ex)
-        {
-            SetStatusText(LocalizedMessage.Format(UiText, "The voice could not be saved: {0}", ex.Message));
-        }
-        finally
-        {
-            IsDownloading = false;
-            if (IsCurrentWork(work))
-            {
-                _stopWork = null;
-            }
-        }
+
+        work.Dispose();
     }
 }

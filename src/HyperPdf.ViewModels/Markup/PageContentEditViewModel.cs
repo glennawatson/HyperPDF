@@ -353,6 +353,13 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         _ => UiText.Get("object"),
     };
 
+    /// <summary>Waits for a page read to end, whether it ends before or after the wait begins.</summary>
+    /// <param name="finished">What the read ends.</param>
+    /// <returns>A signal that gives one value when the read has ended.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IObservable<RxVoid> Waiting(Signal<RxVoid> finished) =>
+        finished.Count().Select(static _ => RxVoid.Default);
+
     /// <summary>Tells whether a failure is one an edit reports to the reader rather than a bug.</summary>
     /// <param name="error">The failure.</param>
     /// <returns><see langword="true"/> for a file, parser or argument failure.</returns>
@@ -445,7 +452,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
 
         if (_loading.TryGetValue(page, out var running))
         {
-            return running;
+            return Waiting(running);
         }
 
         var finished = new Signal<RxVoid>();
@@ -453,7 +460,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         Track(ReadPage(page, editor).Finally(() => FinishLoad(page, finished)));
 
         // A read that ended at once is already forgotten, and a finished read is never waited for.
-        return _loading.ContainsKey(page) ? finished : Signal.Return(RxVoid.Default);
+        return _loading.ContainsKey(page) ? Waiting(finished) : Signal.Return(RxVoid.Default);
     }
 
     /// <summary>Tells those waiting for a page that it was read, and forgets the read.</summary>

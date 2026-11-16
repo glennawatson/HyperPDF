@@ -101,21 +101,21 @@ public sealed partial class TabPrintingViewModel : ReactiveObject, ILocalisation
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> Print() =>
         // The document's own actions bracket the print: they may change fields before the pages are built.
-        Bracket(PreviewAndPrint());
+        Bracket(PreviewAndPrint);
 
     /// <summary>Hands the whole document, as it looks now, straight to the desktop's print dialog.</summary>
     /// <returns>A signal that ends once the dialog was opened or could not be.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<RxVoid> PrintWithSystemDialog() => Bracket(SendToSystemDialog());
+    private IObservable<RxVoid> PrintWithSystemDialog() => Bracket(SendToSystemDialog);
 
     /// <summary>Runs the document's will-print actions, then the print, then its did-print actions when the pages were printed.</summary>
     /// <param name="print">The print.</param>
     /// <returns>A signal that ends once the actions and the print are done.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<RxVoid> Bracket(IObservable<bool> print) =>
+    private IObservable<RxVoid> Bracket(Func<IObservable<bool>> print) =>
         _owner.Forms.RunDocumentEvent(FormDocumentEvent.WillPrint)
-            .SwitchMap(_ => print)
+            .SwitchMap(_ => print())
             .SwitchMap(printed => printed ? _owner.Forms.RunDocumentEvent(FormDocumentEvent.DidPrint) : Signal.Return(FormActionResult.None))
             .Select(static _ => RxVoid.Default);
 
