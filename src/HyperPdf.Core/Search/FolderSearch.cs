@@ -2,8 +2,12 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdf.Core.Documents;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Search;
 
@@ -104,39 +108,72 @@ public static class FolderSearch
     /// <param name="query">The words to find.</param>
     /// <param name="options">Match case and whole words.</param>
     /// <param name="maxMatches">The most matches kept for the file.</param>
-    /// <param name="cancellationToken">Cancels preparation and search.</param>
-    /// <returns>What was found.</returns>
-    public static async Task<FolderSearchFile> SearchFileAsync(IDocumentEngine engine, string path, string query, SearchOptions options, int maxMatches, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving what was found once; unsubscribing cancels the preparation and search and closes the file.</returns>
+    public static IObservable<FolderSearchFile> Search(IDocumentEngine engine, string path, string query, SearchOptions options, int maxMatches)
     {
         ArgumentNullException.ThrowIfNull(engine);
         ArgumentException.ThrowIfNullOrEmpty(query);
-        IDocument document;
+        return Signal.Start(() => TryOpen(engine, path), TaskPoolSequencer.Default)
+            .SwitchMap(opened => opened.Document is { } document
+                ? Signal.Using(() => document, open => SearchOpen(open, path, query, options, maxMatches))
+                : Signal.Return(opened.Failure!));
+    }
+
+    /// <summary>Searches an open file, keeping the matches until there are too many.</summary>
+    /// <param name="document">The open file.</param>
+    /// <param name="path">The file.</param>
+    /// <param name="query">The words to find.</param>
+    /// <param name="options">Match case and whole words.</param>
+    /// <param name="maxMatches">The most matches kept for the file.</param>
+    /// <returns>A cold signal giving what was found once.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IObservable<FolderSearchFile> SearchOpen(IDocument document, string path, string query, SearchOptions options, int maxMatches) =>
+        Signal.Defer(() =>
+        {
+            var found = new List<FolderSearchMatch>();
+            var more = new FolderSearchTally();
+            return DocumentSearch.Search(document, query, options, 0, false)
+
+                // Once there are too many matches nothing more is read, and the search behind stops.
+                .TakeWhile(_ => !more.Truncated)
+                .Do(page => Collect(document, page, found, more, maxMatches))
+                .Count()
+                .Select(_ => new FolderSearchFile(path, found, null, more.Truncated));
+        });
+
+    /// <summary>Keeps the matches of a page, up to the most kept for the file.</summary>
+    /// <param name="document">The open file.</param>
+    /// <param name="page">The page's hits.</param>
+    /// <param name="found">The matches kept so far.</param>
+    /// <param name="tally">Says whether a match was left out.</param>
+    /// <param name="maxMatches">The most matches kept for the file.</param>
+    private static void Collect(IDocument document, SearchPageResult page, List<FolderSearchMatch> found, FolderSearchTally tally, int maxMatches)
+    {
+        foreach (var hit in page.Hits)
+        {
+            if (found.Count == maxMatches)
+            {
+                tally.Truncated = true;
+                return;
+            }
+
+            found.Add(Snippet(document, hit.Match));
+        }
+    }
+
+    /// <summary>Opens a file, saying why when it cannot be.</summary>
+    /// <param name="engine">The engine that opens it.</param>
+    /// <param name="path">The file.</param>
+    /// <returns>The open file, or the result to give instead.</returns>
+    private static OpenedFolderFile TryOpen(IDocumentEngine engine, string path)
+    {
         try
         {
-            document = await Task.Run(() => engine.Open(path, null), cancellationToken).ConfigureAwait(false);
+            return new(engine.Open(path, null), null);
         }
         catch (DocumentOpenException exception)
         {
-            return new(path, [], exception.Error == DocumentOpenError.Password ? "needs a password" : "could not be opened", false);
-        }
-
-        using (document)
-        {
-            var found = new List<FolderSearchMatch>();
-            await foreach (var page in DocumentSearch.SearchAsync(document, query, options, 0, false, cancellationToken).ConfigureAwait(false))
-            {
-                foreach (var hit in page.Hits)
-                {
-                    if (found.Count == maxMatches)
-                    {
-                        return new(path, found, null, true);
-                    }
-
-                    found.Add(Snippet(document, hit.Match));
-                }
-            }
-
-            return new(path, found, null, false);
+            return new(null, new(path, [], exception.Error == DocumentOpenError.Password ? "needs a password" : "could not be opened", false));
         }
     }
 

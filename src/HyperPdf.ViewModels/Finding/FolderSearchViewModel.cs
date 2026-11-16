@@ -190,7 +190,8 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable,
     {
         progress.Total = files.Count;
         var token = run.Token;
-        return LazySequence.Concat(FileSearches(files, query, options, token))
+        return LazySequence.Concat(FileSearches(files, query, options))
+            .TakeUntil(token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
 
             // A file that finished just as the search was stopped or replaced must not add old matches to the results.
@@ -204,13 +205,12 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable,
     /// <param name="files">The files.</param>
     /// <param name="query">The words.</param>
     /// <param name="options">The options.</param>
-    /// <param name="token">Stops the search.</param>
-    /// <returns>A cold signal per file; the library searches a file with real async I/O, so that call is the one task here.</returns>
-    private IEnumerable<IObservable<FolderSearchFile>> FileSearches(List<string> files, string query, SearchOptions options, CancellationToken token)
+    /// <returns>A cold signal per file.</returns>
+    private IEnumerable<IObservable<FolderSearchFile>> FileSearches(List<string> files, string query, SearchOptions options)
     {
         foreach (var path in files)
         {
-            yield return Signal.FromAsync(ct => FolderSearch.SearchFileAsync(_services.Engine, path, query, options, MaxMatchesPerFile, ct), token);
+            yield return FolderSearch.Search(_services.Engine, path, query, options, MaxMatchesPerFile);
         }
     }
 

@@ -6,6 +6,7 @@ using BenchmarkDotNet.Attributes;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Search;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Benchmarks;
 
@@ -51,7 +52,7 @@ public class DocumentSearchAsyncBenchmarks
     public async Task<int> SearchCommonTermWithoutBounds()
     {
         var hits = 0;
-        await foreach (var result in DocumentSearch.SearchAsync(_document.Document, CommonTerm, SearchOptions.None, StartPage, false, CancellationToken.None))
+        foreach (var result in await DocumentSearch.Search(_document.Document, CommonTerm, SearchOptions.None, StartPage, false).ToList().ToTask())
         {
             hits += result.Hits.Count;
         }
@@ -65,7 +66,7 @@ public class DocumentSearchAsyncBenchmarks
     private async Task<int> CountHitsAsync(string query)
     {
         var hits = 0;
-        await foreach (var result in DocumentSearch.SearchAsync(_document.Document, query, SearchOptions.None, StartPage, CancellationToken.None))
+        foreach (var result in await DocumentSearch.Search(_document.Document, query, SearchOptions.None, StartPage).ToList().ToTask())
         {
             hits += result.Hits.Count;
         }

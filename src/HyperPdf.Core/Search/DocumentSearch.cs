@@ -5,6 +5,9 @@
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Search;
 
@@ -19,11 +22,10 @@ public static class DocumentSearch
     /// <param name="query">The text to find.</param>
     /// <param name="options">The search options.</param>
     /// <param name="startPage">The page to start from.</param>
-    /// <param name="cancellationToken">Cancels the search.</param>
-    /// <returns>Pages with at least one hit, in search order.</returns>
+    /// <returns>A cold signal giving the pages with at least one hit, in search order; unsubscribing cancels the search.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static IAsyncEnumerable<SearchPageResult> SearchAsync(IDocument document, string query, SearchOptions options, int startPage, CancellationToken cancellationToken) =>
-        SearchAsync(document, query, options, startPage, true, cancellationToken);
+    public static IObservable<SearchPageResult> Search(IDocument document, string query, SearchOptions options, int startPage) =>
+        Search(document, query, options, startPage, true);
 
     /// <summary>Searches every page, starting at <paramref name="startPage"/> and wrapping around, optionally without working out where each hit lies on the page.</summary>
     /// <param name="document">The document.</param>
@@ -31,13 +33,12 @@ public static class DocumentSearch
     /// <param name="options">The search options.</param>
     /// <param name="startPage">The page to start from.</param>
     /// <param name="includeBounds">Whether each hit carries the rectangles it covers; a caller that reads only the matches leaves them out.</param>
-    /// <param name="cancellationToken">Cancels the search.</param>
-    /// <returns>Pages with at least one hit, in search order.</returns>
-    public static IAsyncEnumerable<SearchPageResult> SearchAsync(IDocument document, string query, SearchOptions options, int startPage, bool includeBounds, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving the pages with at least one hit, in search order; unsubscribing cancels the search.</returns>
+    public static IObservable<SearchPageResult> Search(IDocument document, string query, SearchOptions options, int startPage, bool includeBounds)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(query);
-        return SearchCoreAsync(document, query, options, startPage, includeBounds, cancellationToken);
+        return SearchCore(document, query, options, startPage, includeBounds);
     }
 
     /// <summary>Searches one page.</summary>
@@ -88,95 +89,65 @@ public static class DocumentSearch
         return new(page, hits);
     }
 
-    /// <summary>The search iterator.</summary>
+    /// <summary>Starts a search of the pages from the starting page, wrapping around, with some pages searched side by side.</summary>
     /// <param name="document">The document.</param>
     /// <param name="query">The text to find.</param>
     /// <param name="options">The search options.</param>
     /// <param name="startPage">The page to start from.</param>
     /// <param name="includeBounds">Whether each hit carries the rectangles it covers.</param>
-    /// <param name="cancellationToken">Cancels the search.</param>
-    /// <returns>Pages with at least one hit.</returns>
-    private static async IAsyncEnumerable<SearchPageResult> SearchCoreAsync(
-        IDocument document,
-        string query,
-        SearchOptions options,
-        int startPage,
-        bool includeBounds,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+    /// <returns>A cold signal giving each page with a hit in search order, even when a later page finishes first; unsubscribing stops every page still running.</returns>
+    private static IObservable<SearchPageResult> SearchCore(IDocument document, string query, SearchOptions options, int startPage, bool includeBounds)
     {
         if (query.Length == 0 || document.PageCount == 0)
         {
-            yield break;
+            return Signal.Empty<SearchPageResult>();
         }
 
-        var pageCount = document.PageCount;
-        startPage = Math.Clamp(startPage, 0, pageCount - 1);
+        var first = Math.Clamp(startPage, 0, document.PageCount - 1);
         var window = Math.Clamp(Environment.ProcessorCount, 1, MaxPagesInFlight);
-
-        // One source cancels every in-flight page when the caller stops early, fails or cancels.
-        using var source = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var inFlight = new Queue<Task<SearchPageResult?>>(window);
-        var next = 0;
-        try
+        return Signal.Defer(() =>
         {
-            while (next < pageCount || inFlight.Count > 0)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                while (next < pageCount && inFlight.Count < window)
-                {
-                    inFlight.Enqueue(StartPage(document, query, options, (startPage + next) % pageCount, includeBounds, source.Token));
-                    next++;
-                }
+            var order = new SearchOrder();
+            return PageSearches(document, query, options, first, includeBounds)
+                .Merge(window)
+                .SelectMany(order.Release);
+        });
+    }
 
-                // Results leave in search order even when a later page finishes first.
-                var result = await inFlight.Dequeue().ConfigureAwait(false);
-                if (result is not null)
-                {
-                    yield return result;
-                }
-            }
-        }
-        finally
+    /// <summary>Makes the search of each page from the starting page, wrapping around.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="query">The query.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="first">The page to start from.</param>
+    /// <param name="includeBounds">Whether each hit carries the rectangles it covers.</param>
+    /// <returns>A cold signal for each page, made as the merge asks for it.</returns>
+    private static IEnumerable<IObservable<SearchedPage>> PageSearches(IDocument document, string query, SearchOptions options, int first, bool includeBounds)
+    {
+        var pageCount = document.PageCount;
+        for (var position = 0; position < pageCount; position++)
         {
-            await source.CancelAsync().ConfigureAwait(false);
-            await DrainAsync(inFlight).ConfigureAwait(false);
+            yield return SearchOne(document, query, options, (first + position) % pageCount, position, includeBounds);
         }
     }
 
-    /// <summary>Starts preparing and searching one page on the thread pool.</summary>
+    /// <summary>Prepares and searches one page on the pool.</summary>
     /// <param name="document">The document.</param>
     /// <param name="query">The query.</param>
     /// <param name="options">The options.</param>
     /// <param name="page">The page.</param>
+    /// <param name="position">How many pages into the search the page is.</param>
     /// <param name="includeBounds">Whether each hit carries the rectangles it covers.</param>
-    /// <param name="cancellationToken">Cancels the page.</param>
-    /// <returns>A task giving the page result, or <see langword="null"/> when nothing matched.</returns>
+    /// <returns>A cold signal giving the page's result once.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Task<SearchPageResult?> StartPage(IDocument document, string query, SearchOptions options, int page, bool includeBounds, CancellationToken cancellationToken) =>
-        Task.Run(
-            async () =>
-            {
-                await document.PreparePageAsync(page, cancellationToken).ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-                return SearchPage(document, query, options, page, includeBounds);
-            },
-            cancellationToken);
-
-    /// <summary>Waits for every started page to stop, ignoring the cancellation and failures of pages nobody will read.</summary>
-    /// <param name="inFlight">The started pages.</param>
-    /// <returns>A task completing when no page is still running.</returns>
-    private static async Task DrainAsync(Queue<Task<SearchPageResult?>> inFlight)
-    {
-        while (inFlight.Count > 0)
-        {
-            try
-            {
-                _ = await inFlight.Dequeue().ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or InvalidOperationException)
-            {
-                // The search already ended, so a stopped page has nothing left to report.
-            }
-        }
-    }
+    private static IObservable<SearchedPage> SearchOne(IDocument document, string query, SearchOptions options, int page, int position, bool includeBounds) =>
+        // Preparing a page is the PDF library's async API, so its call is the one task here.
+        Signal.FromAsync(
+                async token =>
+                {
+                    await document.PreparePageAsync(page, token).ConfigureAwait(false);
+                    return RxVoid.Default;
+                })
+            .SwitchMap(_ => Signal.Start(() => SearchPage(document, query, options, page, includeBounds), TaskPoolSequencer.Default))
+            .Select(result => new SearchedPage(position, result))
+            .SubscribeOn(TaskPoolSequencer.Default);
 }

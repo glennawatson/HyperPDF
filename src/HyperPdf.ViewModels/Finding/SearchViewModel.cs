@@ -277,16 +277,15 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable, ILoca
         IsSearching = true;
         Status = UiText.Get("Searching…");
 
-        // The search streams pages from the PDF library as an async sequence, so that sequence is the one task-based source here.
-        return Signal.FromAsyncEnumerable(DocumentSearch.SearchAsync(document, query, options, Math.Max(0, startPage), cancellationToken), cancellationToken)
+        return DocumentSearch.Search(document, query, options, Math.Max(0, startPage))
+            .TakeUntil(cancellationToken)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
 
             // A page read before a newer search cancelled this one still arrives; the results now belong to the newer search.
             .Where(_ => !cancellationToken.IsCancellationRequested)
             .Do(page => AddPage(document, page))
             .Count()
-            .Select(_ => SearchEnded(cancellationToken))
-            .Catch<RxVoid, OperationCanceledException>(static _ => Signal.Return(RxVoid.Default));
+            .Select(_ => SearchEnded(cancellationToken));
     }
 
     /// <summary>Adds the hits of a searched page to the results.</summary>

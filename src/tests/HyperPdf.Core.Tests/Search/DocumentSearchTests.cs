@@ -5,6 +5,7 @@
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Search;
 using HyperPdf.Core.Tests.Fakes;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Search;
 
@@ -35,6 +36,12 @@ public sealed class DocumentSearchTests
     /// <summary>The longest delay used to shuffle the order pages finish in.</summary>
     private const int DelayModulo = 3;
 
+    /// <summary>The seconds to wait for stopped pages to finish stopping.</summary>
+    private const int IdleSeconds = 10;
+
+    /// <summary>The milliseconds between checks that stopped pages have finished.</summary>
+    private const int IdlePollMilliseconds = 10;
+
     /// <summary>Verifies every page is searched starting from the requested page and wrapping.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -46,7 +53,7 @@ public sealed class DocumentSearchTests
         var pages = new List<int>();
         var total = 0;
 
-        await foreach (var result in DocumentSearch.SearchAsync(document, "ALPHA", SearchOptions.None, startPage, CancellationToken.None))
+        foreach (var result in await DocumentSearch.Search(document, "ALPHA", SearchOptions.None, startPage).ToList().ToTask())
         {
             pages.Add(result.PageIndex);
             total += result.Hits.Count;
@@ -63,14 +70,9 @@ public sealed class DocumentSearchTests
     public async Task MatchCaseFiltersResults()
     {
         var document = new FakeDocument(FilePath, FakeEngine.A4);
-        var count = 0;
+        var found = await DocumentSearch.Search(document, "ALPHA", SearchOptions.MatchCase, 0).ToList().ToTask();
 
-        await foreach (var unused in DocumentSearch.SearchAsync(document, "ALPHA", SearchOptions.MatchCase, 0, CancellationToken.None))
-        {
-            count++;
-        }
-
-        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(found.Count).IsEqualTo(0);
     }
 
     /// <summary>Verifies parallel search gives exactly the sequential results for several terms, options and start pages.</summary>
@@ -102,7 +104,7 @@ public sealed class DocumentSearchTests
         }
 
         var actual = new List<string>();
-        await foreach (var result in DocumentSearch.SearchAsync(document, query, options, startPage, CancellationToken.None))
+        foreach (var result in await DocumentSearch.Search(document, query, options, startPage).ToList().ToTask())
         {
             actual.Add(Describe(result));
         }
@@ -124,7 +126,7 @@ public sealed class DocumentSearchTests
         };
         var seen = new List<int>();
 
-        await foreach (var result in DocumentSearch.SearchAsync(document, Alpha, SearchOptions.None, 0, CancellationToken.None))
+        foreach (var result in await DocumentSearch.Search(document, Alpha, SearchOptions.None, 0).ToList().ToTask())
         {
             seen.Add(result.PageIndex);
         }
@@ -139,22 +141,13 @@ public sealed class DocumentSearchTests
     {
         const int pages = 10;
         var document = CreateTextDocument(pages);
-        var count = 0;
+        var found = await DocumentSearch.Search(document, "absent", SearchOptions.None, 0).ToList().ToTask();
+        var empty = await DocumentSearch.Search(document, string.Empty, SearchOptions.None, 0).ToList().ToTask();
 
-        await foreach (var unused in DocumentSearch.SearchAsync(document, "absent", SearchOptions.None, 0, CancellationToken.None))
-        {
-            count++;
-        }
-
-        await foreach (var unused in DocumentSearch.SearchAsync(document, string.Empty, SearchOptions.None, 0, CancellationToken.None))
-        {
-            count++;
-        }
-
-        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(found.Count + empty.Count).IsEqualTo(0);
     }
 
-    /// <summary>Verifies cancelling mid-search throws and stops all in-flight pages.</summary>
+    /// <summary>Verifies cancelling mid-search ends the search and stops all in-flight pages.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task CancellationMidSearchStopsInFlightPages()
@@ -162,26 +155,19 @@ public sealed class DocumentSearchTests
         var counters = new PreparationCounters();
         var document = CreateBlockedDocument(counters);
         using var source = new CancellationTokenSource();
-        var thrown = false;
 
-        try
-        {
-            await foreach (var unused in DocumentSearch.SearchAsync(document, Alpha, SearchOptions.None, 0, source.Token))
-            {
-                await source.CancelAsync();
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            thrown = true;
-        }
+        var seen = await DocumentSearch.Search(document, Alpha, SearchOptions.None, 0)
+            .TakeUntil(source.Token)
+            .Do(_ => source.Cancel())
+            .ToList()
+            .ToTask();
 
-        await Assert.That(thrown).IsTrue();
-        await Assert.That(counters.Running).IsEqualTo(0);
+        await Assert.That(seen.Count).IsEqualTo(1);
+        await Assert.That(await Idle(counters)).IsTrue();
         await Assert.That(counters.Started).IsLessThan(LongDocumentPages);
     }
 
-    /// <summary>Verifies stopping the enumeration early stops in-flight pages before disposal returns.</summary>
+    /// <summary>Verifies unsubscribing early stops in-flight pages.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task StoppingEarlyLeavesNoPageRunning()
@@ -189,12 +175,10 @@ public sealed class DocumentSearchTests
         var counters = new PreparationCounters();
         var document = CreateBlockedDocument(counters);
 
-        var enumerator = DocumentSearch.SearchAsync(document, Alpha, SearchOptions.None, 0, CancellationToken.None).GetAsyncEnumerator();
-        var moved = await enumerator.MoveNextAsync();
-        await enumerator.DisposeAsync();
+        var first = await DocumentSearch.Search(document, Alpha, SearchOptions.None, 0).Take(1).ToList().ToTask();
 
-        await Assert.That(moved).IsTrue();
-        await Assert.That(counters.Running).IsEqualTo(0);
+        await Assert.That(first.Count).IsEqualTo(1);
+        await Assert.That(await Idle(counters)).IsTrue();
     }
 
     /// <summary>Verifies disposing the document during a search ends it without errors or hits from closed pages.</summary>
@@ -204,16 +188,30 @@ public sealed class DocumentSearchTests
     {
         const int pages = 50;
         var document = new FakeDocument(FilePath, [.. Enumerable.Repeat(FakeEngine.A4, pages)]);
-        var seen = 0;
 
-        await foreach (var unused in DocumentSearch.SearchAsync(document, Alpha, SearchOptions.None, 0, CancellationToken.None))
+        var seen = await DocumentSearch.Search(document, Alpha, SearchOptions.None, 0)
+            .Do(_ => document.Dispose())
+            .ToList()
+            .ToTask();
+
+        await Assert.That(seen.Count).IsGreaterThanOrEqualTo(1);
+        await Assert.That(seen.Count).IsLessThan(pages);
+    }
+
+    /// <summary>Waits for every started preparation to stop, which follows the search being cancelled or unsubscribed.</summary>
+    /// <param name="counters">Counts the preparations.</param>
+    /// <returns><see langword="true"/> when no preparation is running.</returns>
+    private static async Task<bool> Idle(PreparationCounters counters)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(IdleSeconds));
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(IdlePollMilliseconds));
+        var waiting = counters.Running > 0;
+        while (waiting)
         {
-            seen++;
-            document.Dispose();
+            waiting = await timer.WaitForNextTickAsync(timeout.Token).ConfigureAwait(false) && counters.Running > 0;
         }
 
-        await Assert.That(seen).IsGreaterThanOrEqualTo(1);
-        await Assert.That(seen).IsLessThan(pages);
+        return counters.Running == 0;
     }
 
     /// <summary>Creates a document where "common" is on most pages and "rare" is on a few.</summary>
