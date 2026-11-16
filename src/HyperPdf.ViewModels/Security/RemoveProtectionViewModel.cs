@@ -53,16 +53,16 @@ public sealed partial class RemoveProtectionViewModel : ProtectionRunViewModel
     private void ForgetPassword() => OwnerPassword = string.Empty;
 
     /// <summary>Asks where to save, then writes the copy without protection there.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the copy is saved, refused, stopped or the choice was given up.</returns>
     [ReactiveCommand(CanExecute = nameof(CanStart))]
-    private async Task SaveAsync()
+    private IObservable<RxVoid> Save()
     {
         SetError(LocalizedMessage.Literal(null));
         var password = OwnerPassword.Length == 0 ? null : OwnerPassword;
-        await RunAsync(
+        return StartCopy(
             SuggestedName,
             LocalizedMessage.Get(UiText, "Removing the protection from a copy. This can take a while for long files."),
             LocalizedMessage.Get(UiText, "removing the protection"),
-            (stream, token) => _protector.RemoveProtectionAsync(password, stream, token)).ConfigureAwait(true);
+            (stream, token) => _protector.RemoveProtectionAsync(password, stream, token));
     }
 }

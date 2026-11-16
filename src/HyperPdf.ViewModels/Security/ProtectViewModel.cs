@@ -136,22 +136,22 @@ public sealed partial class ProtectViewModel : ProtectionRunViewModel
     }
 
     /// <summary>Checks the choices, asks where to save, then writes the protected copy there.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the copy is saved, refused, stopped or the choice was given up.</returns>
     [ReactiveCommand(CanExecute = nameof(CanStart))]
-    private async Task SaveAsync()
+    private IObservable<RxVoid> Save()
     {
         SetError(LocalizedMessage.Literal(null));
         var request = CreateRequest();
         if (ProtectionChecks.Problem(request, UserPasswordRepeat, OwnerPasswordRepeat) is { } problem)
         {
             SetError(LocalizedMessage.Literal(problem));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
-        await RunAsync(
+        return StartCopy(
             SuggestedName,
             LocalizedMessage.Get(UiText, "Protecting the copy. This can take a while for long files."),
             LocalizedMessage.Get(UiText, "the protection"),
-            (stream, token) => _protector.ProtectAsync(request, stream, token)).ConfigureAwait(true);
+            (stream, token) => _protector.ProtectAsync(request, stream, token));
     }
 }
