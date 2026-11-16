@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Advanced;
+using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Media;
@@ -30,8 +32,11 @@ public abstract class MediaPlayerBase : IMediaPlayback
     /// <summary>The caption cues of the open file.</summary>
     private List<CaptionCue> _cues = [];
 
-    /// <summary>Stops the current run.</summary>
-    private CancellationTokenSource? _run;
+    /// <summary>Ends the current run when disposed.</summary>
+    private IDisposable? _run;
+
+    /// <summary>Tells which run is the current one, so a run that was stopped cannot change the state.</summary>
+    private object? _current;
 
     /// <summary>The open file.</summary>
     private string _path = string.Empty;
@@ -110,7 +115,7 @@ public abstract class MediaPlayerBase : IMediaPlayback
     }
 
     /// <inheritdoc />
-    public abstract Task<bool> OpenAsync(string path, CancellationToken cancellationToken);
+    public abstract IObservable<bool> Open(string path);
 
     /// <inheritdoc />
     public bool TryCopyFrame(Span<byte> destination)
@@ -246,14 +251,13 @@ public abstract class MediaPlayerBase : IMediaPlayback
     /// <returns>The retained failure message.</returns>
     protected virtual LocalizedMessage DescribeProblem(string? problem) => LocalizedMessage.Literal(problem);
 
-    /// <summary>Plays the open file from a position until it ends or the token is cancelled.</summary>
+    /// <summary>Plays the open file from a position until it ends or the run is unsubscribed.</summary>
     /// <param name="path">The file.</param>
     /// <param name="start">Where to begin.</param>
     /// <param name="info">What the file holds.</param>
     /// <param name="pump">Receives the pictures, or <see langword="null"/> for a file without a picture.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>A task that completes with <see langword="null"/> when the file played to its end, or with what went wrong.</returns>
-    protected abstract Task<string?> PlayAsync(string path, TimeSpan start, MediaInfo info, FramePump? pump, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving <see langword="null"/> once when the file played to its end, or what went wrong; unsubscribing stops the playing.</returns>
+    protected abstract IObservable<string?> PlayFile(string path, TimeSpan start, MediaInfo info, FramePump? pump);
 
     /// <summary>Works out how far into the file a run has played. The default follows the wall clock.</summary>
     /// <param name="anchor">The position at which the run started.</param>
@@ -338,73 +342,70 @@ public abstract class MediaPlayerBase : IMediaPlayback
     /// <summary>Starts a run from the anchor.</summary>
     private void StartRunLocked()
     {
-        _run = new();
+        var run = new object();
         _startedAt = Stopwatch.GetTimestamp();
         _state = MediaPlayerState.Playing;
-        _ = RunAsync(_path, _anchor, _info, _pump, _run.Token);
+        _current = run;
+
+        // Reporting the position at a steady pace stops with the run; the playing is what ends it.
+        _run = Signal.Merge(
+                Signal.Every(TimeSpan.FromMilliseconds(TickMilliseconds), TaskPoolSequencer.Default).Select(_ => TickedOrEnded(run)),
+                PlayFile(_path, _anchor, _info, _pump).Select(problem => Finished(problem, run)))
+            .TakeWhile(static running => running)
+            .SubscribeSafe(static _ => { }, error => RunFailed(error, run));
     }
 
     /// <summary>Stops the current run.</summary>
     private void CancelRunLocked()
     {
-        if (_run is null)
-        {
-            return;
-        }
-
-        _run.Cancel();
-        _run.Dispose();
+        _current = null;
+        _run?.Dispose();
         _run = null;
     }
 
-    /// <summary>Runs the file and reports how it ended.</summary>
-    /// <param name="path">The file.</param>
-    /// <param name="start">Where to begin.</param>
-    /// <param name="info">What the file holds.</param>
-    /// <param name="pump">Receives the pictures, or <see langword="null"/>.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>A task that completes when the run is over.</returns>
-    private async Task RunAsync(string path, TimeSpan start, MediaInfo info, FramePump? pump, CancellationToken cancellationToken)
+    /// <summary>Reports the position, as long as the run is the current one.</summary>
+    /// <param name="run">The run the tick belongs to.</param>
+    /// <returns><see langword="true"/> while the run goes on.</returns>
+    private bool TickedOrEnded(object run)
     {
-        try
+        if (!ReferenceEquals(_current, run))
         {
-            _ = TickAsync(cancellationToken);
-            var problem = await PlayAsync(path, start, info, pump, cancellationToken).ConfigureAwait(false);
-            Finish(problem, cancellationToken);
+            return false;
         }
-        catch (OperationCanceledException)
-        {
-            // Pausing, stopping or seeking cancels the run, which is the end of it.
-        }
-        catch (IOException)
-        {
-            // A program closed its output while the run was being stopped.
-        }
+
+        Publish();
+        return true;
     }
 
-    /// <summary>Reports the position at a steady pace until the run is cancelled.</summary>
-    /// <param name="cancellationToken">Ends the ticking.</param>
-    /// <returns>A task that completes when the run is cancelled.</returns>
-    private async Task TickAsync(CancellationToken cancellationToken)
-    {
-        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(TickMilliseconds));
-
-        // Disposing the timer ends the wait with false, which avoids the exception a cancelled wait throws each time a run stops.
-        await using var stop = cancellationToken.UnsafeRegister(static state => ((PeriodicTimer)state!).Dispose(), timer);
-        while (await timer.WaitForNextTickAsync(CancellationToken.None).ConfigureAwait(false))
-        {
-            Publish();
-        }
-    }
-
-    /// <summary>Marks the file as ended, or as failed, unless the run was cancelled.</summary>
+    /// <summary>Marks the file as ended, or as failed, once the playing is over.</summary>
     /// <param name="problem">Why the file could not play, or <see langword="null"/> when it played to its end.</param>
-    /// <param name="cancellationToken">The run's token.</param>
-    private void Finish(string? problem, CancellationToken cancellationToken)
+    /// <param name="run">The run that ended.</param>
+    /// <returns>Always <see langword="false"/>, which ends the run's ticking.</returns>
+    private bool Finished(string? problem, object run)
+    {
+        Finish(problem, run);
+        return false;
+    }
+
+    /// <summary>Ignores a program closing its output while a run was being stopped, and marks the file as failed for anything else.</summary>
+    /// <param name="error">The failure.</param>
+    /// <param name="run">The run that failed.</param>
+    private void RunFailed(Exception error, object run)
+    {
+        if (error is not (IOException or OperationCanceledException))
+        {
+            Finish(error.Message, run);
+        }
+    }
+
+    /// <summary>Marks the file as ended, or as failed, unless the run was stopped.</summary>
+    /// <param name="problem">Why the file could not play, or <see langword="null"/> when it played to its end.</param>
+    /// <param name="run">The run that ended.</param>
+    private void Finish(string? problem, object run)
     {
         lock (_gate)
         {
-            if (cancellationToken.IsCancellationRequested || _disposed)
+            if (!ReferenceEquals(_current, run) || _disposed)
             {
                 return;
             }

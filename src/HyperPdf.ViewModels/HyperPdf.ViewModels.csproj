@@ -34,6 +34,7 @@
     <Using Include="ReactiveUI.Primitives.Concurrency" />
     <Using Include="ReactiveUI.Primitives.Disposables" />
     <Using Include="ReactiveUI.Primitives.Signals" />
+    <Using Include="HyperPdf.Core.Reactive" />
   </ItemGroup>
 
   <ItemGroup Label="View model namespaces">

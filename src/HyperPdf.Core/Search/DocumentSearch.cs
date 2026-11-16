@@ -5,8 +5,7 @@
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
-using ReactiveUI.Primitives;
-using ReactiveUI.Primitives.Concurrency;
+using HyperPdf.Core.Reactive;
 using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Search;
@@ -95,7 +94,7 @@ public static class DocumentSearch
     /// <param name="options">The search options.</param>
     /// <param name="startPage">The page to start from.</param>
     /// <param name="includeBounds">Whether each hit carries the rectangles it covers.</param>
-    /// <returns>A cold signal giving each page with a hit in search order, even when a later page finishes first; unsubscribing stops every page still running.</returns>
+    /// <returns>A cold signal giving each page with a hit in search order; unsubscribing stops every page still running.</returns>
     private static IObservable<SearchPageResult> SearchCore(IDocument document, string query, SearchOptions options, int startPage, bool includeBounds)
     {
         if (query.Length == 0 || document.PageCount == 0)
@@ -105,49 +104,8 @@ public static class DocumentSearch
 
         var first = Math.Clamp(startPage, 0, document.PageCount - 1);
         var window = Math.Clamp(Environment.ProcessorCount, 1, MaxPagesInFlight);
-        return Signal.Defer(() =>
-        {
-            var order = new SearchOrder();
-            return PageSearches(document, query, options, first, includeBounds)
-                .Merge(window)
-                .SelectMany(order.Release);
-        });
+        return Signal.Using(
+            () => new SearchWindow(document, query, options, first, includeBounds, window),
+            static pages => LazySequence.Concat(pages.Pages()));
     }
-
-    /// <summary>Makes the search of each page from the starting page, wrapping around.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="query">The query.</param>
-    /// <param name="options">The options.</param>
-    /// <param name="first">The page to start from.</param>
-    /// <param name="includeBounds">Whether each hit carries the rectangles it covers.</param>
-    /// <returns>A cold signal for each page, made as the merge asks for it.</returns>
-    private static IEnumerable<IObservable<SearchedPage>> PageSearches(IDocument document, string query, SearchOptions options, int first, bool includeBounds)
-    {
-        var pageCount = document.PageCount;
-        for (var position = 0; position < pageCount; position++)
-        {
-            yield return SearchOne(document, query, options, (first + position) % pageCount, position, includeBounds);
-        }
-    }
-
-    /// <summary>Prepares and searches one page on the pool.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="query">The query.</param>
-    /// <param name="options">The options.</param>
-    /// <param name="page">The page.</param>
-    /// <param name="position">How many pages into the search the page is.</param>
-    /// <param name="includeBounds">Whether each hit carries the rectangles it covers.</param>
-    /// <returns>A cold signal giving the page's result once.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IObservable<SearchedPage> SearchOne(IDocument document, string query, SearchOptions options, int page, int position, bool includeBounds) =>
-        // Preparing a page is the PDF library's async API, so its call is the one task here.
-        Signal.FromAsync(
-                async token =>
-                {
-                    await document.PreparePageAsync(page, token).ConfigureAwait(false);
-                    return RxVoid.Default;
-                })
-            .SwitchMap(_ => Signal.Start(() => SearchPage(document, query, options, page, includeBounds), TaskPoolSequencer.Default))
-            .Select(result => new SearchedPage(position, result))
-            .SubscribeOn(TaskPoolSequencer.Default);
 }

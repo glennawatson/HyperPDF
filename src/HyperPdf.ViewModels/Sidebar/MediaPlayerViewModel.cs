@@ -307,7 +307,7 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable, 
         return Signal.Return(false);
     }
 
-    /// <summary>Opens the extracted file in the player; the native player's open is the one call that is a task.</summary>
+    /// <summary>Opens the extracted file in the player, giving up when the tab closes.</summary>
     /// <param name="player">The player made for the media.</param>
     /// <param name="media">The media.</param>
     /// <param name="extracted">The temporary file.</param>
@@ -315,7 +315,8 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable, 
     private IObservable<bool> OpenPlayer(IMediaPlayback player, DocumentMedia media, string extracted)
     {
         _folder = Path.GetDirectoryName(extracted);
-        return Signal.FromAsync(token => player.OpenAsync(extracted, token), _media.LifetimeToken)
+        return player.Open(extracted)
+            .TakeUntil(_media.LifetimeToken)
             .Select(opened => Opened(player, media, opened));
     }
 

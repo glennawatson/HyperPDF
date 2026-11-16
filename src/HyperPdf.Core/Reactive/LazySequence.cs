@@ -2,7 +2,10 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace HyperPdf.ViewModels.Services;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
+
+namespace HyperPdf.Core.Reactive;
 
 /// <summary>Runs signals one after another, asking for the next only once the one before has ended.</summary>
 public static class LazySequence

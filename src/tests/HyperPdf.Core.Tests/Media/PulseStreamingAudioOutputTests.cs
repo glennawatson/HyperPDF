@@ -86,7 +86,7 @@ public sealed class PulseStreamingAudioOutputTests
 
         probe.Close();
         using var player = new ManagedMediaPlayer(static () => new PulseStreamingAudioOutput(), false);
-        _ = await player.OpenAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "av-h264-aac-text.mp4"), CancellationToken.None);
+        _ = await player.Open(Path.Combine(AppContext.BaseDirectory, "Fixtures", "av-h264-aac-text.mp4")).ToTask();
         var ended = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var subscription = player.Changes.SubscribeSafe(
             snapshot =>
