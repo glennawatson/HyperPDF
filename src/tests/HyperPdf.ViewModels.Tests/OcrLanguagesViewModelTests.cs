@@ -42,8 +42,11 @@ public sealed class OcrLanguagesViewModelTests
         var kept = languages.Items.First(static item => item.CanDownload);
         var dropped = languages.Items.First(item => item.CanDownload && item != kept);
         languages.Pick(kept);
+
+        // A language cannot be downloaded while another download runs, so the second is picked once the first is done.
+        await Assert.That(await WaitForAsync(() => kept.IsDownloaded && !languages.IsDownloading)).IsTrue();
         languages.Pick(dropped);
-        await Assert.That(await WaitForAsync(() => kept.IsDownloaded && dropped.IsDownloaded && !languages.IsDownloading)).IsTrue();
+        await Assert.That(await WaitForAsync(() => dropped.IsDownloaded && !languages.IsDownloading)).IsTrue();
         languages.Pick(dropped);
 
         _ = await languages.RemoveUntickedCommand.Execute().ToTask();

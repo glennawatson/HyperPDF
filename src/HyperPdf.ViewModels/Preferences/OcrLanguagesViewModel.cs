@@ -103,7 +103,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
         this.RaisePropertyChanged(nameof(Items));
         if (item.IsSelected && item.CanDownload)
         {
-            _subscriptions.Add(Signal.FromAsync(() => DownloadOneAsync(item.Pack)).SubscribeSafe(static _ => { }, ErrorTrace.Write));
+            _subscriptions.Add(Download([item.Pack]).SubscribeSafe(static _ => { }, ErrorTrace.Write));
         }
     }
 
@@ -136,53 +136,12 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
 
     /// <summary>Downloads packs, then refreshes each language's state.</summary>
     /// <param name="packs">The packs.</param>
-    /// <returns>A task.</returns>
-    internal async Task DownloadAsync(IReadOnlyList<OcrLanguagePack> packs)
-    {
-        if (IsDownloading)
-        {
-            return;
-        }
-
-        using var download = new CancellationTokenSource();
-        _stopDownload = download.Cancel;
-        IsDownloading = true;
-        DownloadProgress = 0;
-        Refresh();
-        try
-        {
-            SetStatusText(LocalizedMessage.Format(UiText, "Downloading {0}…", DescribePacks(packs)));
-            var progress = new Progress<double>(fraction => DownloadProgress = fraction);
-            await _services.Ocr.DownloadAsync(packs, progress, download.Token).ConfigureAwait(true);
-            SetStatusText(LocalizedMessage.Format(UiText, "{0} downloaded.", DescribePacks(packs)));
-        }
-        catch (OperationCanceledException)
-        {
-            SetStatusText(LocalizedMessage.Get(UiText, "The download stopped. Nothing was half saved; download again when you are ready."));
-        }
-        catch (HttpRequestException ex)
-        {
-            SetStatusText(LocalizedMessage.Format(UiText, "The language pack could not be downloaded: {0}", ex.Message));
-        }
-        catch (InvalidDataException ex)
-        {
-            SetStatusText(LocalizedMessage.Literal(ex.Message));
-        }
-        catch (IOException ex)
-        {
-            SetStatusText(LocalizedMessage.Format(UiText, "The language pack could not be saved: {0}", ex.Message));
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            SetStatusText(LocalizedMessage.Format(UiText, "The language pack could not be saved: {0}", ex.Message));
-        }
-        finally
-        {
-            _stopDownload = null;
-            IsDownloading = false;
-            Refresh();
-        }
-    }
+    /// <returns>A cold signal that completes when the download is over, and ends the download when unsubscribed.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal IObservable<RxVoid> Download(IReadOnlyList<OcrLanguagePack> packs) =>
+        Signal.Defer(() => IsDownloading
+            ? Signal.Return(RxVoid.Default)
+            : Signal.Using(static () => new CancellationDisposable(), download => StartDownload(packs, download)));
 
     /// <summary>Deletes a language's downloaded pack.</summary>
     /// <param name="item">The language.</param>
@@ -226,13 +185,59 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
         return onComputer ? UiText.Get("On this computer") : UiText.Format("Not downloaded, {0}", OcrLanguageCatalog.DescribeSize(pack.Bytes));
     }
 
-    /// <summary>Downloads one language pack.</summary>
-    /// <param name="pack">The pack.</param>
-    /// <returns>A task that ends when the download is over.</returns>
-    private async Task<RxVoid> DownloadOneAsync(OcrLanguagePack pack)
+    /// <summary>Starts a download that the stop command can end.</summary>
+    /// <param name="packs">The packs.</param>
+    /// <param name="download">Ends the download.</param>
+    /// <returns>A signal that completes when the download is over.</returns>
+    private IObservable<RxVoid> StartDownload(IReadOnlyList<OcrLanguagePack> packs, CancellationDisposable download)
     {
-        await DownloadAsync([pack]).ConfigureAwait(true);
-        return RxVoid.Default;
+        _stopDownload = download.Dispose;
+        IsDownloading = true;
+        DownloadProgress = 0;
+        Refresh();
+        SetStatusText(LocalizedMessage.Format(UiText, "Downloading {0}…", DescribePacks(packs)));
+        var progress = new Progress<double>(fraction => DownloadProgress = fraction);
+
+        // The download is real network and file I/O in the OCR service, so its task is the one call here that is awaited.
+        return Signal.FromAsync(
+                async token =>
+                {
+                    await _services.Ocr.DownloadAsync(packs, progress, token).ConfigureAwait(false);
+                    return RxVoid.Default;
+                },
+                download.Token)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Do(_ => SetStatusText(LocalizedMessage.Format(UiText, "{0} downloaded.", DescribePacks(packs))))
+            .Catch<RxVoid, Exception>(DownloadFailed)
+            .Finally(EndDownload);
+    }
+
+    /// <summary>Says why the download did not finish, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that completes for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> DownloadFailed(Exception error)
+    {
+        if (error is not (OperationCanceledException or HttpRequestException or InvalidDataException or IOException or UnauthorizedAccessException))
+        {
+            return Signal.Throw<RxVoid>(error);
+        }
+
+        SetStatusText(error switch
+        {
+            OperationCanceledException => LocalizedMessage.Get(UiText, "The download stopped. Nothing was half saved; download again when you are ready."),
+            HttpRequestException => LocalizedMessage.Format(UiText, "The language pack could not be downloaded: {0}", error.Message),
+            InvalidDataException => LocalizedMessage.Literal(error.Message),
+            _ => LocalizedMessage.Format(UiText, "The language pack could not be saved: {0}", error.Message),
+        });
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Puts the download controls back once the download is over.</summary>
+    private void EndDownload()
+    {
+        _stopDownload = null;
+        IsDownloading = false;
+        Refresh();
     }
 
     /// <summary>Deletes the downloaded packs of languages that are not ticked, to free the space they take.</summary>
