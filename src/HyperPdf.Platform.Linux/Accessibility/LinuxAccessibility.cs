@@ -38,7 +38,7 @@ public static class LinuxAccessibility
     /// <returns>A cold signal giving the running server, to dispose when the app no longer serves elements, or <see langword="null"/> when there is no accessibility bus.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static IObservable<IDisposable?> Start(IAccessibleTree tree) =>
-        Signal.FromAsync(async () => (IDisposable?)await AtSpiServer.TryStartAsync(tree).ConfigureAwait(false));
+        AtSpiServer.TryStart(tree).Select(static server => (IDisposable?)server);
 
     /// <summary>Reads one of the accessibility service's switches.</summary>
     /// <param name="session">The session bus.</param>

@@ -11,7 +11,7 @@ using HyperPdf.Platform.Linux.Audio;
 using HyperPdf.Platform.Linux.DBus;
 using HyperPdf.Platform.Linux.Kde;
 using HyperPdf.Platform.Linux.Recent;
-using ReactiveUI.Primitives.Signals;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Platform.Linux;
 
@@ -54,12 +54,10 @@ public sealed class KdePlatform : IDesktopPlatform
     public IObservable<bool> TryForward(OpenRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-
-        // The session bus is an async API from another library, so its calls are the tasks here.
-        return Signal.FromAsync(() => SingleInstanceHost.TryForwardAsync(request.Uris, request.ActivationToken));
+        return SingleInstanceHost.TryForward(request.Uris, request.ActivationToken);
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<ISingleInstance?> TryClaimSingleInstance() => Signal.FromAsync(static async () => (ISingleInstance?)await SingleInstanceHost.TryStartAsync().ConfigureAwait(false));
+    public IObservable<ISingleInstance?> TryClaimSingleInstance() => SingleInstanceHost.TryStart().Select(static host => (ISingleInstance?)host);
 }

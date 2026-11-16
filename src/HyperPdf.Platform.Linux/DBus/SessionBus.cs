@@ -47,9 +47,4 @@ internal static class SessionBus
                     return Signal.Return<DBusConnection?>(null);
                 });
         });
-
-    /// <summary>Connects to the session bus for callers that still await it.</summary>
-    /// <returns>The connection, owned by the caller, or <see langword="null"/> when none is available.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static Task<DBusConnection?> TryConnectAsync() => TryConnect().ToTask();
 }

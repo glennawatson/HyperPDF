@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Platform;
+using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Signals;
 using Tmds.DBus.Protocol;
@@ -45,76 +47,26 @@ public sealed class SingleInstanceHost : ISingleInstance
     /// <summary>Asks a running instance to open documents.</summary>
     /// <param name="uris">Paths or URIs to open; empty to just raise the window.</param>
     /// <param name="activationToken">The activation token from the environment, if any.</param>
-    /// <returns><see langword="true"/> when a running instance accepted the request.</returns>
-    public static async Task<bool> TryForwardAsync(IReadOnlyList<string> uris, string? activationToken)
+    /// <returns>A cold signal giving once <see langword="true"/> when a running instance accepted the request; unsubscribing stops waiting.</returns>
+    public static IObservable<bool> TryForward(IReadOnlyList<string> uris, string? activationToken)
     {
         ArgumentNullException.ThrowIfNull(uris);
-        using var connection = await SessionBus.TryConnectAsync().ConfigureAwait(false);
-        if (connection is null)
-        {
-            return false;
-        }
 
-        MessageBuffer message;
-        using (var writer = connection.GetMessageWriter())
-        {
-            var method = uris.Count == 0 ? ApplicationInterface.ActivateMethod : ApplicationInterface.OpenMethod;
-            writer.WriteMethodCallHeader(AppIdentity.ApplicationId, AppIdentity.ObjectPath, ApplicationInterface.Name, method, uris.Count == 0 ? "a{sv}" : "asa{sv}", MessageFlags.NoAutoStart);
-            if (uris.Count > 0)
-            {
-                writer.WriteArray(uris);
-            }
-
-            writer.WriteDictionary(ApplicationInterface.CreatePlatformData(activationToken));
-            message = writer.CreateMessage();
-        }
-
-        try
-        {
-            await connection.CallMethodAsync(message).WaitAsync(ForwardTimeout).ConfigureAwait(false);
-            return true;
-        }
-        catch (DBusErrorReplyException)
-        {
-            return false;
-        }
-        catch (TimeoutException)
-        {
-            return false;
-        }
-        catch (DBusConnectionException)
-        {
-            return false;
-        }
+        // The connection is closed when the request ends or the caller unsubscribes.
+        return SessionBus.TryConnect()
+            .SwitchMap(connection => connection is null
+                ? Signal.Return(false)
+                : Signal.Using(() => connection, open => Forward(open, uris, activationToken)));
     }
 
     /// <summary>Claims the application's D-Bus name.</summary>
-    /// <returns>The host, or <see langword="null"/> when there is no session bus or another instance owns the name.</returns>
-    public static async Task<SingleInstanceHost?> TryStartAsync()
-    {
-        var connection = await SessionBus.TryConnectAsync().ConfigureAwait(false);
-        if (connection is null)
-        {
-            return null;
-        }
-
-        var host = new SingleInstanceHost(connection);
-        connection.AddMethodHandler(new ApplicationMethodHandler(host._openRequests.OnNext));
-        try
-        {
-            if (await connection.TryRequestNameAsync(AppIdentity.ApplicationId, RequestNameOptions.None).ConfigureAwait(false))
-            {
-                return host;
-            }
-        }
-        catch (DBusErrorReplyException ex)
-        {
-            AppLog.Warning(ex, $"Could not claim {AppIdentity.ApplicationId}.");
-        }
-
-        host.Dispose();
-        return null;
-    }
+    /// <returns>A cold signal giving once the host, or <see langword="null"/> when there is no session bus or another instance owns the name.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static IObservable<SingleInstanceHost?> TryStart() =>
+        SessionBus.TryConnect()
+            .SwitchMap(static connection => connection is null
+                ? Signal.Return<SingleInstanceHost?>(null)
+                : Claim(connection));
 
     /// <summary>Gets the activation token handed to this process by the launcher, if any.</summary>
     /// <returns>The token.</returns>
@@ -136,4 +88,68 @@ public sealed class SingleInstanceHost : ISingleInstance
         _openRequests.OnCompleted();
         _openRequests.Dispose();
     }
+
+    /// <summary>Sends the open or activate call to a running instance.</summary>
+    /// <param name="connection">The open session bus.</param>
+    /// <param name="uris">Paths or URIs to open; empty to just raise the window.</param>
+    /// <param name="activationToken">The activation token from the environment, if any.</param>
+    /// <returns>A cold signal giving once whether the running instance accepted the request.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IObservable<bool> Forward(DBusConnection connection, IReadOnlyList<string> uris, string? activationToken) =>
+        Signal.Defer(() =>
+            {
+                MessageBuffer message;
+                using (var writer = connection.GetMessageWriter())
+                {
+                    var method = uris.Count == 0 ? ApplicationInterface.ActivateMethod : ApplicationInterface.OpenMethod;
+                    writer.WriteMethodCallHeader(AppIdentity.ApplicationId, AppIdentity.ObjectPath, ApplicationInterface.Name, method, uris.Count == 0 ? "a{sv}" : "asa{sv}", MessageFlags.NoAutoStart);
+                    if (uris.Count > 0)
+                    {
+                        writer.WriteArray(uris);
+                    }
+
+                    writer.WriteDictionary(ApplicationInterface.CreatePlatformData(activationToken));
+                    message = writer.CreateMessage();
+                }
+
+                // The D-Bus library's own async call, awaited once here; unsubscribing stops waiting for the answer.
+                return Signal.FromAsync(async token =>
+                {
+                    await connection.CallMethodAsync(message).WaitAsync(token).ConfigureAwait(false);
+                    return true;
+                });
+            })
+            .Timeout(ForwardTimeout)
+            .Catch<bool, DBusErrorReplyException>(static _ => Signal.Return(false))
+            .Catch<bool, TimeoutException>(static _ => Signal.Return(false))
+            .Catch<bool, DBusConnectionException>(static _ => Signal.Return(false));
+
+    /// <summary>Asks the bus for the application's name on a connection.</summary>
+    /// <param name="connection">The open session bus; owned by the host once the name is claimed, closed otherwise.</param>
+    /// <returns>A cold signal giving once the host, or <see langword="null"/> when another instance owns the name.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IObservable<SingleInstanceHost?> Claim(DBusConnection connection) =>
+        Signal.Defer(() =>
+        {
+            var host = new SingleInstanceHost(connection);
+            connection.AddMethodHandler(new ApplicationMethodHandler(host._openRequests.OnNext));
+
+            // The D-Bus library's own async call, awaited once here.
+            return Signal.FromAsync(() => connection.TryRequestNameAsync(AppIdentity.ApplicationId, RequestNameOptions.None))
+                .Catch<bool, DBusErrorReplyException>(static ex =>
+                {
+                    AppLog.Warning(ex, $"Could not claim {AppIdentity.ApplicationId}.");
+                    return Signal.Return(false);
+                })
+                .Select(claimed =>
+                {
+                    if (claimed)
+                    {
+                        return host;
+                    }
+
+                    host.Dispose();
+                    return null;
+                });
+        });
 }
