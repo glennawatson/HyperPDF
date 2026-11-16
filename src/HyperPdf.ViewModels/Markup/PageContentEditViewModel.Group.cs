@@ -315,7 +315,7 @@ public sealed partial class PageContentEditViewModel
         }
 
         var gone = new PageRect[picks.Length];
-        Track(EditGroup(picks, gone, () => Editor!.DeleteManyAsync(picks[0].Page, indexes, _lifetime), UiText.Get("Removed.")));
+        Track(EditGroup(picks, gone, () => Editor!.DeleteMany(picks[0].Page, indexes), UiText.Get("Removed.")));
         return true;
     }
 
@@ -349,7 +349,7 @@ public sealed partial class PageContentEditViewModel
             expected[i] = boxes[i] with { Left = boxes[i].Left + moves[i].X, Top = boxes[i].Top + moves[i].Y };
         }
 
-        Track(EditGroup(picks, expected, () => Editor!.TransformManyAsync(picks[0].Page, changes, _lifetime), done));
+        Track(EditGroup(picks, expected, () => Editor!.TransformMany(picks[0].Page, changes), done));
     }
 
     /// <summary>Writes the same change of shape to each picked object.</summary>
@@ -366,7 +366,7 @@ public sealed partial class PageContentEditViewModel
             expected[i] = PageObjectHandles.Carry(picks[i].Object.Bounds, change);
         }
 
-        Track(EditGroup(picks, expected, () => Editor!.TransformManyAsync(picks[0].Page, changes, _lifetime), done));
+        Track(EditGroup(picks, expected, () => Editor!.TransformMany(picks[0].Page, changes), done));
     }
 
     /// <summary>Writes a change of colour to each picked object.</summary>
@@ -382,7 +382,7 @@ public sealed partial class PageContentEditViewModel
             indexes[i] = picks[i].Object.Index;
         }
 
-        Track(EditGroup(picks, expected, () => Editor!.SetColorsManyAsync(picks[0].Page, indexes, colors, _lifetime), done));
+        Track(EditGroup(picks, expected, () => Editor!.SetColorsMany(picks[0].Page, indexes, colors), done));
     }
 
     /// <summary>Writes a change of how objects are drawn to each picked object.</summary>
@@ -398,7 +398,7 @@ public sealed partial class PageContentEditViewModel
             indexes[i] = picks[i].Object.Index;
         }
 
-        Track(EditGroup(picks, expected, () => Editor!.SetLookManyAsync(picks[0].Page, indexes, look, _lifetime), done));
+        Track(EditGroup(picks, expected, () => Editor!.SetLookMany(picks[0].Page, indexes, look), done));
     }
 
     /// <summary>Finds objects again after an edit.</summary>
@@ -432,10 +432,10 @@ public sealed partial class PageContentEditViewModel
     /// <param name="edit">The change.</param>
     /// <param name="done">What to say once the edit is made.</param>
     /// <returns>A cold signal that ends when the page is read again.</returns>
-    private IObservable<RxVoid> EditGroup(PageObjectPick[] picks, PageRect[] expected, Func<ValueTask> edit, string done) =>
+    private IObservable<RxVoid> EditGroup(PageObjectPick[] picks, PageRect[] expected, Func<IObservable<RxVoid>> edit, string done) =>
         Editor is null
             ? Signal.Return(RxVoid.Default)
-            : Call(edit)
+            : Call(edit())
                 .SwitchMap(_ => Reread(picks[0].Page))
                 .Select(_ => GroupEdited(picks, expected, done))
                 .Catch<RxVoid, Exception>(EditFailed);

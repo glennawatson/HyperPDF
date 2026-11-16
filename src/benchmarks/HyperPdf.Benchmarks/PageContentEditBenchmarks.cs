@@ -40,7 +40,7 @@ public class PageContentEditBenchmarks
         _document = new(PdfDocumentReader.Open(TestPdf.CreateTagged(), null), "page-content-benchmark.pdf");
         _editor = new(_document);
         _manager = HyperPdfDocumentPageManagement.GetPageManager(_document);
-        _text = Array.Find(await _editor.ReadObjectsAsync(0, CancellationToken.None).ConfigureAwait(false), static o => o.Kind == PageObjectKind.Text);
+        _text = Array.Find(await _editor.ReadObjects(0).ToTask().ConfigureAwait(false), static o => o.Kind == PageObjectKind.Text);
         _ = await MoveAndUndo().ConfigureAwait(false);
         _ = await ReplaceAndUndo().ConfigureAwait(false);
         _ = await DeleteAndUndo().ConfigureAwait(false);
@@ -53,14 +53,14 @@ public class PageContentEditBenchmarks
     /// <summary>Lists the objects of the page, as hovering the page does the first time.</summary>
     /// <returns>The number of objects.</returns>
     [Benchmark]
-    public async ValueTask<int> ReadObjects() => (await _editor!.ReadObjectsAsync(0, CancellationToken.None).ConfigureAwait(false)).Length;
+    public async ValueTask<int> ReadObjects() => (await _editor!.ReadObjects(0).ToTask().ConfigureAwait(false)).Length;
 
     /// <summary>Moves the first text object and undoes the move.</summary>
     /// <returns>Whether the move was undone.</returns>
     [Benchmark]
     public async ValueTask<bool> MoveAndUndo()
     {
-        await _editor!.MoveAsync(0, _text.Index, Shift, Shift, CancellationToken.None).ConfigureAwait(false);
+        await _editor!.Move(0, _text.Index, Shift, Shift).ToTask().ConfigureAwait(false);
         return await _manager!.Undo().ToTask().ConfigureAwait(false);
     }
 
@@ -69,7 +69,7 @@ public class PageContentEditBenchmarks
     [Benchmark]
     public async ValueTask<bool> ReplaceAndUndo()
     {
-        await _editor!.ReplaceTextAsync(0, _text.Index, Replacement, CancellationToken.None).ConfigureAwait(false);
+        await _editor!.ReplaceText(0, _text.Index, Replacement).ToTask().ConfigureAwait(false);
         return await _manager!.Undo().ToTask().ConfigureAwait(false);
     }
 
@@ -78,7 +78,7 @@ public class PageContentEditBenchmarks
     [Benchmark]
     public async ValueTask<bool> DeleteAndUndo()
     {
-        await _editor!.DeleteAsync(0, _text.Index, CancellationToken.None).ConfigureAwait(false);
+        await _editor!.Delete(0, _text.Index).ToTask().ConfigureAwait(false);
         return await _manager!.Undo().ToTask().ConfigureAwait(false);
     }
 }

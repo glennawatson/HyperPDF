@@ -7,6 +7,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.PageObjects;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -43,7 +44,7 @@ public sealed class PagePictureEditTests
         var editor = DocumentFeature<IPageContentEditor>.Get(test.Document)!;
         var index = await ImageIndexAsync(editor);
 
-        var file = await editor.ExtractPictureAsync(0, index, CancellationToken.None);
+        var file = await editor.ExtractPicture(0, index).ToTask();
 
         await Assert.That(file.Extension).IsEqualTo("png");
         await Assert.That(CryptographicOperations.FixedTimeEquals(file.Data.AsSpan(0, PngSignature.Length), PngSignature)).IsTrue();
@@ -59,7 +60,7 @@ public sealed class PagePictureEditTests
         var index = await ImageIndexAsync(editor);
         var whole = ClipWidth(test);
 
-        await editor.CropPictureAsync(0, index, new(Share, Share, Share, Share), CancellationToken.None);
+        await editor.CropPicture(0, index, new(Share, Share, Share, Share)).ToTask();
 
         await Assert.That(ClipWidth(test)).IsLessThan(whole);
     }
@@ -73,7 +74,7 @@ public sealed class PagePictureEditTests
         var editor = DocumentFeature<IPageContentEditor>.Get(test.Document)!;
         var index = await ImageIndexAsync(editor);
 
-        await Assert.That(async () => await editor.CropPictureAsync(0, index, new(Half, 0, Half, 0), CancellationToken.None)).Throws<ArgumentOutOfRangeException>();
+        await Assert.That(async () => await editor.CropPicture(0, index, new(Half, 0, Half, 0)).ToTask()).Throws<ArgumentOutOfRangeException>();
     }
 
     /// <summary>Another picture drawn in place of the first is what is saved afterwards.</summary>
@@ -84,12 +85,12 @@ public sealed class PagePictureEditTests
         using var test = new HyperPdfTestDocument(TestPdf.CreateScan(new byte[Side * Side], Side, Side));
         var editor = DocumentFeature<IPageContentEditor>.Get(test.Document)!;
         var index = await ImageIndexAsync(editor);
-        var before = (await editor.ReadObjectsAsync(0, CancellationToken.None))[index].Bounds;
+        var before = (await editor.ReadObjects(0).ToTask())[index].Bounds;
 
-        await editor.ReplacePictureAsync(0, index, OnePixelPng, CancellationToken.None);
+        await editor.ReplacePicture(0, index, OnePixelPng).ToTask();
         var now = await ImageIndexAsync(editor);
-        var file = await editor.ExtractPictureAsync(0, now, CancellationToken.None);
-        var bounds = (await editor.ReadObjectsAsync(0, CancellationToken.None))[now].Bounds;
+        var file = await editor.ExtractPicture(0, now).ToTask();
+        var bounds = (await editor.ReadObjects(0).ToTask())[now].Bounds;
 
         await Assert.That(ReadInt(file.Data, PngWidthOffset)).IsEqualTo(1);
         await Assert.That(ReadInt(file.Data, PngHeightOffset)).IsEqualTo(1);
@@ -105,7 +106,7 @@ public sealed class PagePictureEditTests
         var editor = DocumentFeature<IPageContentEditor>.Get(test.Document)!;
         var index = await ImageIndexAsync(editor);
 
-        await Assert.That(async () => await editor.ReplacePictureAsync(0, index, "not a picture"u8.ToArray(), CancellationToken.None)).Throws<InvalidDataException>();
+        await Assert.That(async () => await editor.ReplacePicture(0, index, "not a picture"u8.ToArray()).ToTask()).Throws<InvalidDataException>();
     }
 
     /// <summary>Reads how wide the area is that the first picture of the saved page is clipped to.</summary>
@@ -132,7 +133,7 @@ public sealed class PagePictureEditTests
     /// <exception cref="InvalidOperationException">The page has no picture.</exception>
     private static async Task<int> ImageIndexAsync(IPageContentEditor editor)
     {
-        foreach (var item in await editor.ReadObjectsAsync(0, CancellationToken.None))
+        foreach (var item in await editor.ReadObjects(0).ToTask())
         {
             if (item.Kind == PageObjectKind.Image)
             {

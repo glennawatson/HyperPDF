@@ -133,7 +133,7 @@ public sealed partial class PageContentEditViewModel
         var side = size.Width * PictureShare;
         var area = new PageRect((size.Width - side) * HalfShare, (size.Height - side) * HalfShare, side, side);
         return Signal.Start(() => File.ReadAllBytes(path), TaskPoolSequencer.Default)
-            .SwitchMap(bytes => Call(() => editor.AddPictureAsync(page, area, bytes, _lifetime)))
+            .SwitchMap(bytes => Call(editor.AddPicture(page, area, bytes)))
             .SwitchMap(_ => Reread(page))
             .Select(_ => PictureAdded(page))
             .Catch<RxVoid, Exception>(PictureFailed);
@@ -180,7 +180,7 @@ public sealed partial class PageContentEditViewModel
     {
         // A lambda cannot capture an in parameter, so the draft is copied once.
         var added = draft;
-        return Call(() => Editor!.AddAsync(page, added, _lifetime))
+        return Call(Editor!.Add(page, added))
             .SwitchMap(_ => Reread(page))
             .Select(_ => DraftAdded(page, added))
             .Catch<RxVoid, Exception>(EditFailed);

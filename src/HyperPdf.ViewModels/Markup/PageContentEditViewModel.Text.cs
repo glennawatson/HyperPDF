@@ -28,7 +28,7 @@ public sealed partial class PageContentEditViewModel
         }
 
         var style = new PageTextStyle(NewTextFamily, NewTextBold, NewTextItalic, points);
-        Track(Edit(picked, _ => Editor!.RestyleTextAsync(picked.Page, picked.Object.Index, style, _lifetime), picked.Object.Bounds, UiText.Get("Changed the font.")));
+        Track(Edit(picked, _ => Editor!.RestyleText(picked.Page, picked.Object.Index, style), picked.Object.Bounds, UiText.Get("Changed the font.")));
         return true;
     }
 

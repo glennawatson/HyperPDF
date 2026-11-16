@@ -147,7 +147,7 @@ public sealed class PageDecoratorTests
         var editor = DocumentFeature<IPageContentEditor>.Get(test.Document)!;
 
         await decorator.FillBackground(FirstPage, Yellow).ToTask();
-        var style = await editor.ReadStyleAsync(0, 0, CancellationToken.None);
+        var style = await editor.ReadStyle(0, 0).ToTask();
 
         await Assert.That(style.Fill).IsEqualTo(Yellow);
     }

@@ -424,12 +424,12 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     {
         if (SelectedType is { Length: > 0 } type && !string.Equals(type, tag.Type, StringComparison.Ordinal))
         {
-            yield return Counted(run, (editor, token) => editor.SetTypeAsync(tag.Id, type, token));
+            yield return Counted(run, editor => editor.SetType(tag.Id, type));
         }
 
         if (ScopeChange(tag) is { } scope)
         {
-            yield return Counted(run, (editor, token) => editor.SetTableScopeAsync(tag.Id, scope, token));
+            yield return Counted(run, editor => editor.SetTableScope(tag.Id, scope));
         }
     }
 
@@ -455,7 +455,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
 
         if (rows != tag.RowSpan || columns != tag.ColumnSpan)
         {
-            yield return Counted(run, (editor, token) => editor.SetCellSpansAsync(tag.Id, rows, columns, token));
+            yield return Counted(run, editor => editor.SetCellSpans(tag.Id, rows, columns));
         }
     }
 
@@ -467,17 +467,17 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     {
         if (NumberingChange(tag) is { } numbering)
         {
-            yield return Counted(run, (editor, token) => editor.SetListNumberingAsync(tag.Id, numbering.Length == 0 ? null : numbering, token));
+            yield return Counted(run, editor => editor.SetListNumbering(tag.Id, numbering.Length == 0 ? null : numbering));
         }
 
         if (PlacementChange(tag) is { } placement)
         {
-            yield return Counted(run, (editor, token) => editor.SetPlacementAsync(tag.Id, placement.Length == 0 ? null : placement, token));
+            yield return Counted(run, editor => editor.SetPlacement(tag.Id, placement.Length == 0 ? null : placement));
         }
 
         foreach (var (field, text) in TextChanges(tag))
         {
-            yield return Counted(run, (editor, token) => editor.SetTextAsync(tag.Id, field, text, token));
+            yield return Counted(run, editor => editor.SetText(tag.Id, field, text));
         }
     }
 
@@ -486,7 +486,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     /// <param name="edit">The library call.</param>
     /// <returns>A cold signal giving <see langword="true"/> when the document changed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<bool> Counted(TagEditRun run, Func<ITagEditor, CancellationToken, ValueTask<DocumentEditResult>> edit) =>
+    private IObservable<bool> Counted(TagEditRun run, Func<ITagEditor, IObservable<DocumentEditResult>> edit) =>
         Run(edit).Do(run.Record);
 
     /// <summary>Adds a custom tag type and says which standard type it stands for.</summary>
@@ -501,7 +501,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
             return Signal.Return(RxVoid.Default);
         }
 
-        return Run((editor, token) => editor.SetRoleMappingAsync(type, target, token))
+        return Run(editor => editor.SetRoleMapping(type, target))
             .Where(static changed => changed)
             .Select(_ => RoleMappingAdded(type, target));
     }
@@ -532,7 +532,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
         }
 
         var type = _roleTypes[RoleMappingIndex];
-        return Run((editor, token) => editor.RemoveRoleMappingAsync(type, token))
+        return Run(editor => editor.RemoveRoleMapping(type))
             .Where(static changed => changed)
             .Select(_ => Done(SelectedItem?.Id ?? 0, LocalizedMessage.Format(UiText, "Removed the mapping for custom tag {0}. Undo puts it back.", type)));
     }
@@ -589,7 +589,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
         }
 
         var above = TagText.Message(SiblingAboveType(IndexOf(item)), true);
-        return Run((editor, token) => editor.NestAsync(item.Id, token))
+        return Run(editor => editor.Nest(item.Id))
             .Where(static changed => changed)
             .Select(_ => Done(
                 item.Id,
@@ -613,7 +613,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
         }
 
         var targetName = new TagRowMessage(targetTag);
-        return Run((editor, token) => editor.MoveIntoAsync(item.Id, target, token))
+        return Run(editor => editor.MoveInto(item.Id, target))
             .Where(static changed => changed)
             .Select(_ => Done(
                 item.Id,
@@ -626,7 +626,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     private IObservable<RxVoid> Unnest() =>
         SelectedItem is not { } item
             ? Signal.Return(RxVoid.Default)
-            : Run((editor, token) => editor.UnnestAsync(item.Id, token))
+            : Run(editor => editor.Unnest(item.Id))
                 .Where(static changed => changed)
                 .Select(_ => Done(
                     item.Id,
@@ -638,7 +638,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     private IObservable<RxVoid> Remove() =>
         SelectedItem is not { } item
             ? Signal.Return(RxVoid.Default)
-            : Run((editor, token) => editor.RemoveAsync(item.Id, token))
+            : Run(editor => editor.Remove(item.Id))
                 .Where(static changed => changed)
                 .Select(_ => Done(0, LocalizedMessage.Format(UiText, "Removed the {0} tag. Undo puts it back.", TagText.Message(item.Tag.Type, true))));
 
@@ -649,7 +649,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     private IObservable<RxVoid> Move(int offset, LocalizedMessage direction) =>
         SelectedItem is not { } item
             ? Signal.Return(RxVoid.Default)
-            : Run((editor, token) => editor.MoveAsync(item.Id, offset, token))
+            : Run(editor => editor.Move(item.Id, offset))
                 .Where(static changed => changed)
                 .Select(_ => Done(
                     item.Id,
@@ -658,12 +658,12 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     /// <summary>Runs one change; a refusal is written in the status.</summary>
     /// <param name="edit">The change.</param>
     /// <returns>A cold signal giving <see langword="true"/> when the document changed.</returns>
-    private IObservable<bool> Run(Func<ITagEditor, CancellationToken, ValueTask<DocumentEditResult>> edit) =>
+    private IObservable<bool> Run(Func<ITagEditor, IObservable<DocumentEditResult>> edit) =>
         DocumentFeature<ITagEditor>.Get(_owner.TryGetDocument()) is not { } editor
             ? Signal.Return(false)
 
-            // The tag editor is the PDF library's async editing API, so its call is the one task here.
-            : Signal.FromAsync(token => edit(editor, token).AsTask(), _lifetime)
+            : edit(editor)
+                .ThrowWhenCancelled(_lifetime)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Select(Reported)
                 .Catch<bool, OperationCanceledException>(Stopped);

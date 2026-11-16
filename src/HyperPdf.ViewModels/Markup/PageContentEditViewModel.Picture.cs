@@ -123,7 +123,7 @@ public sealed partial class PageContentEditViewModel
     private IObservable<RxVoid> ReplaceWith(PageObjectPick picked, string path) =>
         Signal.Start(() => File.ReadAllBytes(path), TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
-            .SwitchMap(bytes => Edit(picked, _ => Editor!.ReplacePictureAsync(picked.Page, picked.Object.Index, bytes, _lifetime), picked.Object.Bounds, UiText.Get("Replaced the picture.")))
+            .SwitchMap(bytes => Edit(picked, _ => Editor!.ReplacePicture(picked.Page, picked.Object.Index, bytes), picked.Object.Bounds, UiText.Get("Replaced the picture.")))
             .Catch<RxVoid, IOException>(Unreadable);
 
     /// <summary>Says the picture could not be read.</summary>
@@ -151,7 +151,7 @@ public sealed partial class PageContentEditViewModel
             bounds.Top + (bounds.Height * shares.Top),
             bounds.Width * (1F - shares.Left - shares.Right),
             bounds.Height * (1F - shares.Top - shares.Bottom));
-        Track(Edit(picked, _ => Editor!.CropPictureAsync(picked.Page, picked.Object.Index, shares, _lifetime), kept, UiText.Get("Cropped the picture.")));
+        Track(Edit(picked, _ => Editor!.CropPicture(picked.Page, picked.Object.Index, shares), kept, UiText.Get("Cropped the picture.")));
     }
 
     /// <summary>Asks where to save the picked picture and writes it there: as the JPEG the document holds, or as a PNG.</summary>
@@ -165,8 +165,8 @@ public sealed partial class PageContentEditViewModel
             return Signal.Return(RxVoid.Default);
         }
 
-        // The page editor is the PDF library's async API, so its call is the one task here.
-        return Signal.FromAsync(token => editor.ExtractPictureAsync(picked.Page, picked.Object.Index, token).AsTask(), _lifetime)
+        return editor.ExtractPicture(picked.Page, picked.Object.Index)
+            .ThrowWhenCancelled(_lifetime)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .SwitchMap(file => _owner.PageTools.SaveImageInteraction.Handle(string.Create(CultureInfo.InvariantCulture, $"picture-{picked.Page + 1}.{file.Extension}")).ToSignal()

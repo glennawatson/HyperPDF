@@ -85,7 +85,7 @@ public sealed class PageContentEditorTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-list.pdf", TestPdf.CreateTagged())]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
 
-        var objects = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var objects = await editor.ReadObjects(0).ToTask();
 
         using (Assert.Multiple())
         {
@@ -104,13 +104,13 @@ public sealed class PageContentEditorTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-move.pdf", TestPdf.CreateTagged())]);
         var tab = main.SelectedTab!;
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
-        var before = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(static o => o.Kind == PageObjectKind.Text);
+        var before = (await editor.ReadObjects(0).ToTask()).First(static o => o.Kind == PageObjectKind.Text);
 
-        await editor.MoveAsync(0, before.Index, Shift, Shift, CancellationToken.None);
-        var moved = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(o => o.Text == before.Text);
+        await editor.Move(0, before.Index, Shift, Shift).ToTask();
+        var moved = (await editor.ReadObjects(0).ToTask()).First(o => o.Text == before.Text);
         var manager = DocumentFeature<IPageManagementSource>.Get(tab.TryGetDocument())!.PageManager;
         var undone = await manager.Undo().ToTask();
-        var restored = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(o => o.Text == before.Text);
+        var restored = (await editor.ReadObjects(0).ToTask()).First(o => o.Text == before.Text);
 
         using (Assert.Multiple())
         {
@@ -131,10 +131,10 @@ public sealed class PageContentEditorTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-replace.pdf", TestPdf.CreateTagged())]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
-        var before = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(static o => o.Kind == PageObjectKind.Text);
+        var before = (await editor.ReadObjects(0).ToTask()).First(static o => o.Kind == PageObjectKind.Text);
 
-        await editor.ReplaceTextAsync(0, before.Index, Replacement, CancellationToken.None);
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        await editor.ReplaceText(0, before.Index, Replacement).ToTask();
+        var after = await editor.ReadObjects(0).ToTask();
         var written = Array.Find(after, static o => o.Text.Contains(Replacement, StringComparison.Ordinal));
 
         using (Assert.Multiple())
@@ -154,12 +154,12 @@ public sealed class PageContentEditorTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-restyle.pdf", TestPdf.CreateTagged())]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
-        var before = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(static o => o.Kind == PageObjectKind.Text);
+        var before = (await editor.ReadObjects(0).ToTask()).First(static o => o.Kind == PageObjectKind.Text);
 
-        await editor.RestyleTextAsync(0, before.Index, new(PageTextFamily.Serif, true, false, TextSize), CancellationToken.None);
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        await editor.RestyleText(0, before.Index, new(PageTextFamily.Serif, true, false, TextSize)).ToTask();
+        var after = await editor.ReadObjects(0).ToTask();
         var written = Array.Find(after, o => o.Kind == PageObjectKind.Text && o.Text.Contains(before.Text, StringComparison.Ordinal));
-        var style = await editor.ReadStyleAsync(0, written.Index, CancellationToken.None);
+        var style = await editor.ReadStyle(0, written.Index).ToTask();
 
         using (Assert.Multiple())
         {
@@ -179,15 +179,15 @@ public sealed class PageContentEditorTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-copy.pdf", TestPdf.CreateTagged())]);
         var tab = main.SelectedTab!;
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
-        var before = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var before = await editor.ReadObjects(0).ToTask();
         var target = Array.Find(before, static o => o.Kind == PageObjectKind.Text);
 
-        await editor.CopyAsync(0, target.Index, 0, new(Shift, Shift), CancellationToken.None);
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        await editor.Copy(0, target.Index, 0, new(Shift, Shift)).ToTask();
+        var after = await editor.ReadObjects(0).ToTask();
         var copy = Array.Find(after, o => Math.Abs(o.Bounds.Left - (target.Bounds.Left + Shift)) < CopyReach && Math.Abs(o.Bounds.Top - (target.Bounds.Top + Shift)) < CopyReach);
         var manager = DocumentFeature<IPageManagementSource>.Get(tab.TryGetDocument())!.PageManager;
         _ = await manager.Undo().ToTask();
-        var restored = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var restored = await editor.ReadObjects(0).ToTask();
 
         using (Assert.Multiple())
         {
@@ -208,11 +208,11 @@ public sealed class PageContentEditorTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-copy-ink.pdf", TestPdf.CreateTagged())]);
         var document = main.SelectedTab!.TryGetDocument()!;
         var editor = DocumentFeature<IPageContentEditor>.Get(document)!;
-        var target = Array.Find(await editor.ReadObjectsAsync(0, CancellationToken.None), static o => o.Kind == PageObjectKind.Text);
+        var target = Array.Find(await editor.ReadObjects(0).ToTask(), static o => o.Kind == PageObjectKind.Text);
         var blank = target.Bounds with { Top = target.Bounds.Top + FarDown };
         var empty = PageInk.Count(document, 0, blank, RenderFlags.None);
 
-        await editor.CopyAsync(0, target.Index, 0, new(0, FarDown), CancellationToken.None);
+        await editor.Copy(0, target.Index, 0, new(0, FarDown)).ToTask();
         var drawn = PageInk.Count(document, 0, blank, RenderFlags.None);
 
         using (Assert.Multiple())
@@ -231,11 +231,11 @@ public sealed class PageContentEditorTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-copy-page.pdf", TestPdf.CreateTextFilled(TwoPages, TextLines))]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
-        var target = Array.Find(await editor.ReadObjectsAsync(0, CancellationToken.None), static o => o.Kind == PageObjectKind.Text);
-        var before = await editor.ReadObjectsAsync(1, CancellationToken.None);
+        var target = Array.Find(await editor.ReadObjects(0).ToTask(), static o => o.Kind == PageObjectKind.Text);
+        var before = await editor.ReadObjects(1).ToTask();
 
-        await editor.CopyAsync(0, target.Index, 1, new(0, FarDown), CancellationToken.None);
-        var after = await editor.ReadObjectsAsync(1, CancellationToken.None);
+        await editor.Copy(0, target.Index, 1, new(0, FarDown)).ToTask();
+        var after = await editor.ReadObjects(1).ToTask();
         var copy = Array.Find(after, o => o.Kind == PageObjectKind.Text && o.Text == target.Text && o.Bounds.Top > target.Bounds.Top + Shift);
 
         using (Assert.Multiple())
@@ -254,11 +254,11 @@ public sealed class PageContentEditorTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-front.pdf", TestPdf.CreateTagged())]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
-        var before = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var before = await editor.ReadObjects(0).ToTask();
         var target = Array.Find(before, static o => o.Kind == PageObjectKind.Text);
 
-        await editor.BringToFrontAsync(0, target.Index, CancellationToken.None);
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        await editor.BringToFront(0, target.Index).ToTask();
+        var after = await editor.ReadObjects(0).ToTask();
         var found = Array.FindAll(after, o => o.Text == target.Text);
 
         using (Assert.Multiple())
@@ -278,11 +278,11 @@ public sealed class PageContentEditorTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-back.pdf", TestPdf.CreateTagged())]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
-        var before = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var before = await editor.ReadObjects(0).ToTask();
         var target = Array.FindLast(before, static o => o.Kind == PageObjectKind.Text);
 
-        await editor.SendToBackAsync(0, target.Index, CancellationToken.None);
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        await editor.SendToBack(0, target.Index).ToTask();
+        var after = await editor.ReadObjects(0).ToTask();
         var found = Array.FindAll(after, o => o.Text == target.Text);
 
         using (Assert.Multiple())
@@ -303,16 +303,16 @@ public sealed class PageContentEditorTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-step.pdf", TestPdf.CreateTagged())]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
-        var before = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var before = await editor.ReadObjects(0).ToTask();
         var firstText = before[0].Text;
         var secondText = before[1].Text;
 
-        await editor.BringForwardAsync(0, before[0].Index, CancellationToken.None);
-        var forward = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        await editor.BringForward(0, before[0].Index).ToTask();
+        var forward = await editor.ReadObjects(0).ToTask();
         var movedAt = Array.FindIndex(forward, o => o.Text == firstText);
         var neighbourAt = Array.FindIndex(forward, o => o.Text == secondText);
-        await editor.SendBackwardAsync(0, forward[movedAt].Index, CancellationToken.None);
-        var back = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        await editor.SendBackward(0, forward[movedAt].Index).ToTask();
+        var back = await editor.ReadObjects(0).ToTask();
 
         using (Assert.Multiple())
         {
@@ -332,11 +332,11 @@ public sealed class PageContentEditorTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-delete.pdf", TestPdf.CreateTagged())]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
-        var before = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var before = await editor.ReadObjects(0).ToTask();
         var target = before.First(static o => o.Kind == PageObjectKind.Text);
 
-        await editor.DeleteAsync(0, target.Index, CancellationToken.None);
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        await editor.Delete(0, target.Index).ToTask();
+        var after = await editor.ReadObjects(0).ToTask();
 
         await Assert.That(Array.Exists(after, o => o.Text == target.Text)).IsFalse();
     }
@@ -351,14 +351,14 @@ public sealed class PageContentEditorTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-resize.pdf", TestPdf.CreateTagged())]);
         var tab = main.SelectedTab!;
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
-        var before = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(static o => o.Kind == PageObjectKind.Text);
+        var before = (await editor.ReadObjects(0).ToTask()).First(static o => o.Kind == PageObjectKind.Text);
         var change = HyperPdf.ViewModels.Markup.PageObjectHandles.Fit(before.Bounds, before.Bounds with { Width = before.Bounds.Width * Double, Height = before.Bounds.Height * Double });
 
-        await editor.TransformAsync(0, before.Index, change, CancellationToken.None);
-        var bigger = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(o => o.Text == before.Text);
+        await editor.Transform(0, before.Index, change).ToTask();
+        var bigger = (await editor.ReadObjects(0).ToTask()).First(o => o.Text == before.Text);
         var manager = DocumentFeature<IPageManagementSource>.Get(tab.TryGetDocument())!.PageManager;
         var undone = await manager.Undo().ToTask();
-        var restored = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(o => o.Text == before.Text);
+        var restored = (await editor.ReadObjects(0).ToTask()).First(o => o.Text == before.Text);
 
         using (Assert.Multiple())
         {
@@ -380,11 +380,11 @@ public sealed class PageContentEditorTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-turn.pdf", TestPdf.CreateTagged())]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
-        var before = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(static o => o.Kind == PageObjectKind.Text);
+        var before = (await editor.ReadObjects(0).ToTask()).First(static o => o.Kind == PageObjectKind.Text);
         var middle = new System.Numerics.Vector2(before.Bounds.Left + (before.Bounds.Width / Two), before.Bounds.Top + (before.Bounds.Height / Two));
 
-        await editor.TransformAsync(0, before.Index, System.Numerics.Matrix3x2.CreateRotation(MathF.PI / Two, middle), CancellationToken.None);
-        var after = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(o => o.Text == before.Text);
+        await editor.Transform(0, before.Index, System.Numerics.Matrix3x2.CreateRotation(MathF.PI / Two, middle)).ToTask();
+        var after = (await editor.ReadObjects(0).ToTask()).First(o => o.Text == before.Text);
 
         using (Assert.Multiple())
         {
@@ -402,11 +402,11 @@ public sealed class PageContentEditorTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-colour.pdf", TestPdf.CreateTagged())]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
-        var before = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(static o => o.Kind == PageObjectKind.Text);
+        var before = (await editor.ReadObjects(0).ToTask()).First(static o => o.Kind == PageObjectKind.Text);
 
-        await editor.SetColorsAsync(0, before.Index, new(true, Red, false, 0), CancellationToken.None);
-        var after = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(o => o.Text == before.Text);
-        var style = await editor.ReadStyleAsync(0, after.Index, CancellationToken.None);
+        await editor.SetColors(0, before.Index, new(true, Red, false, 0)).ToTask();
+        var after = (await editor.ReadObjects(0).ToTask()).First(o => o.Text == before.Text);
+        var style = await editor.ReadStyle(0, after.Index).ToTask();
 
         await Assert.That(style.Fill).IsEqualTo(Red | Opaque);
     }
@@ -422,8 +422,8 @@ public sealed class PageContentEditorTests
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
         var area = new HyperPdf.Core.Geometry.PageRect(Left, Top, BoxSize, BoxSize);
 
-        await editor.AddPictureAsync(0, area, Convert.FromBase64String(OnePixelPng), CancellationToken.None);
-        var picture = Array.Find(await editor.ReadObjectsAsync(0, CancellationToken.None), static o => o.Kind == PageObjectKind.Image);
+        await editor.AddPicture(0, area, Convert.FromBase64String(OnePixelPng)).ToTask();
+        var picture = Array.Find(await editor.ReadObjects(0).ToTask(), static o => o.Kind == PageObjectKind.Image);
 
         using (Assert.Multiple())
         {
@@ -441,14 +441,14 @@ public sealed class PageContentEditorTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-add.pdf", TestPdf.CreateTagged())]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
-        var before = (await editor.ReadObjectsAsync(0, CancellationToken.None)).Length;
+        var before = (await editor.ReadObjects(0).ToTask()).Length;
         var box = new HyperPdf.Core.Geometry.PageRect(Left, Top, BoxSize, BoxSize);
 
-        await editor.AddAsync(0, Shape(PageObjectDraftKind.Rectangle, box, true, true), CancellationToken.None);
-        await editor.AddAsync(0, Shape(PageObjectDraftKind.Ellipse, box with { Left = Left + Spread }, true, false), CancellationToken.None);
-        await editor.AddAsync(0, Shape(PageObjectDraftKind.Line, box with { Left = Left + Spread + Spread }, false, true), CancellationToken.None);
-        await editor.AddAsync(0, Words(), CancellationToken.None);
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        await editor.Add(0, Shape(PageObjectDraftKind.Rectangle, box, true, true)).ToTask();
+        await editor.Add(0, Shape(PageObjectDraftKind.Ellipse, box with { Left = Left + Spread }, true, false)).ToTask();
+        await editor.Add(0, Shape(PageObjectDraftKind.Line, box with { Left = Left + Spread + Spread }, false, true)).ToTask();
+        await editor.Add(0, Words()).ToTask();
+        var after = await editor.ReadObjects(0).ToTask();
         var rectangle = Array.Find(after, static o => o.Kind == PageObjectKind.Drawing && Math.Abs(o.Bounds.Left - Left) < Two && Math.Abs(o.Bounds.Top - Top) < Two);
         var words = Array.Find(after, static o => o.Text == Added);
 
@@ -476,8 +476,8 @@ public sealed class PageContentEditorTests
         var draft = new PageObjectDraft(PageObjectDraftKind.Text, area, true, 0, false, 0, 0F, Cyrillic, TextSize, PageTextFamily.Sans, false, false);
         var empty = PageInk.Count(document, 0, area, RenderFlags.None);
 
-        await editor.AddAsync(0, draft, CancellationToken.None);
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        await editor.Add(0, draft).ToTask();
+        var after = await editor.ReadObjects(0).ToTask();
         var inked = PageInk.Count(document, 0, area, RenderFlags.None);
         var text = string.Concat(after.Where(static o => o.Kind == PageObjectKind.Text).Select(static o => o.Text));
 
@@ -499,10 +499,10 @@ public sealed class PageContentEditorTests
         using var main = new MainViewModel(test.Services);
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("content-retype-greek.pdf", TestPdf.CreateTagged())]);
         var editor = DocumentFeature<IPageContentEditor>.Get(main.SelectedTab!.TryGetDocument())!;
-        var target = Array.Find(await editor.ReadObjectsAsync(0, CancellationToken.None), static o => o.Kind == PageObjectKind.Text);
+        var target = Array.Find(await editor.ReadObjects(0).ToTask(), static o => o.Kind == PageObjectKind.Text);
 
-        await editor.ReplaceTextAsync(0, target.Index, Greek, CancellationToken.None);
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        await editor.ReplaceText(0, target.Index, Greek).ToTask();
+        var after = await editor.ReadObjects(0).ToTask();
 
         await Assert.That(Array.Exists(after, static o => o.Kind == PageObjectKind.Text && o.Text == Greek)).IsTrue().Because(string.Join("|", after.Select(static o => o.Text)));
     }

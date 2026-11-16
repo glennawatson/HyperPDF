@@ -74,7 +74,7 @@ public sealed partial class PageContentEditViewModel
         }
 
         // The object is written again at the end of the page, so it is found again by what it is and where it is.
-        Track(Edit(picked, _ => Editor!.BringToFrontAsync(picked.Page, picked.Object.Index, _lifetime), picked.Object.Bounds, UiText.Get("Brought to the front.")));
+        Track(Edit(picked, _ => Editor!.BringToFront(picked.Page, picked.Object.Index), picked.Object.Bounds, UiText.Get("Brought to the front.")));
         return true;
     }
 
@@ -91,11 +91,11 @@ public sealed partial class PageContentEditViewModel
         // The object is written again at the end of the page, so it is found again by what it is and where it is.
         if (backward)
         {
-            Track(Edit(picked, _ => Editor!.SendBackwardAsync(picked.Page, picked.Object.Index, _lifetime), picked.Object.Bounds, UiText.Get("Sent back one step.")));
+            Track(Edit(picked, _ => Editor!.SendBackward(picked.Page, picked.Object.Index), picked.Object.Bounds, UiText.Get("Sent back one step.")));
         }
         else
         {
-            Track(Edit(picked, _ => Editor!.BringForwardAsync(picked.Page, picked.Object.Index, _lifetime), picked.Object.Bounds, UiText.Get("Brought forward one step.")));
+            Track(Edit(picked, _ => Editor!.BringForward(picked.Page, picked.Object.Index), picked.Object.Bounds, UiText.Get("Brought forward one step.")));
         }
 
         return true;
@@ -110,7 +110,7 @@ public sealed partial class PageContentEditViewModel
             return false;
         }
 
-        Track(Edit(picked, _ => Editor!.SendToBackAsync(picked.Page, picked.Object.Index, _lifetime), picked.Object.Bounds, UiText.Get("Sent to the back.")));
+        Track(Edit(picked, _ => Editor!.SendToBack(picked.Page, picked.Object.Index), picked.Object.Bounds, UiText.Get("Sent to the back.")));
         return true;
     }
 
@@ -179,7 +179,7 @@ public sealed partial class PageContentEditViewModel
             : FindSource(source)
                 .SwitchMap(index => index < 0
                     ? Signal.Return(RxVoid.Default)
-                    : Call(() => editor.CopyAsync(source.Page, index, page, offset, _lifetime))
+                    : Call(editor.Copy(source.Page, index, page, offset))
                         .SwitchMap(_ => Reread(page))
                         .Select(_ => Pasted(page, done)))
                 .Catch<RxVoid, Exception>(EditFailed);

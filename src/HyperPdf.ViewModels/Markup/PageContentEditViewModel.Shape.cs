@@ -107,7 +107,7 @@ public sealed partial class PageContentEditViewModel
         else if (to != from && Selected is { } picked)
         {
             var change = PageObjectHandles.Fit(from, to);
-            Track(Edit(picked, _ => Editor!.TransformAsync(picked.Page, picked.Object.Index, change, _lifetime), to, UiText.Get(ResizedText)));
+            Track(Edit(picked, _ => Editor!.Transform(picked.Page, picked.Object.Index, change), to, UiText.Get(ResizedText)));
         }
 
         return true;
@@ -215,7 +215,7 @@ public sealed partial class PageContentEditViewModel
             return false;
         }
 
-        Track(Edit(picked, _ => Editor!.SetLookManyAsync(picked.Page, [picked.Object.Index], look, _lifetime), picked.Object.Bounds, done));
+        Track(Edit(picked, _ => Editor!.SetLookMany(picked.Page, [picked.Object.Index], look), picked.Object.Bounds, done));
         return true;
     }
 
@@ -330,8 +330,8 @@ public sealed partial class PageContentEditViewModel
             return Signal.Return(RxVoid.Default);
         }
 
-        // The page editor is the PDF library's async API, so its call is the one task here.
-        return Signal.FromAsync(token => editor.ReadStyleAsync(picked.Page, picked.Object.Index, token).AsTask(), _lifetime)
+        return editor.ReadStyle(picked.Page, picked.Object.Index)
+            .ThrowWhenCancelled(_lifetime)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(style => StyleRead(picked, style))
@@ -388,7 +388,7 @@ public sealed partial class PageContentEditViewModel
     private void Shape(PageObjectPick picked, Matrix3x2 change, string done)
     {
         var expected = PageObjectHandles.Carry(picked.Object.Bounds, change);
-        Track(Edit(picked, _ => Editor!.TransformAsync(picked.Page, picked.Object.Index, change, _lifetime), expected, done));
+        Track(Edit(picked, _ => Editor!.Transform(picked.Page, picked.Object.Index, change), expected, done));
     }
 
     /// <summary>Writes a change of colour to the page.</summary>
@@ -408,7 +408,7 @@ public sealed partial class PageContentEditViewModel
             return false;
         }
 
-        Track(Edit(picked, _ => Editor!.SetColorsAsync(picked.Page, picked.Object.Index, colors, _lifetime), picked.Object.Bounds, done));
+        Track(Edit(picked, _ => Editor!.SetColors(picked.Page, picked.Object.Index, colors), picked.Object.Bounds, done));
         return true;
     }
 }

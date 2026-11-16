@@ -261,7 +261,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         MarksVersion++;
         if (text != edit.Object.Text)
         {
-            Track(Edit(edit, _ => Editor!.ReplaceTextAsync(edit.Page, edit.Object.Index, text, _lifetime), edit.Object.Bounds, UiText.Get("Changed the text.")));
+            Track(Edit(edit, _ => Editor!.ReplaceText(edit.Page, edit.Object.Index, text), edit.Object.Bounds, UiText.Get("Changed the text.")));
         }
     }
 
@@ -294,7 +294,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         }
 
         var bounds =picked.Object.Bounds with { Left = picked.Object.Bounds.Left + deltaX, Top = picked.Object.Bounds.Top + deltaY };
-        Track(Edit(picked, _ => Editor!.MoveAsync(picked.Page, picked.Object.Index, deltaX, deltaY, _lifetime), bounds, UiText.Get("Moved.")));
+        Track(Edit(picked, _ => Editor!.Move(picked.Page, picked.Object.Index, deltaX, deltaY), bounds, UiText.Get("Moved.")));
         return true;
     }
 
@@ -312,7 +312,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
             return false;
         }
 
-        Track(Edit(picked, _ => Editor!.DeleteAsync(picked.Page, picked.Object.Index, _lifetime), default, UiText.Get("Removed.")));
+        Track(Edit(picked, _ => Editor!.Delete(picked.Page, picked.Object.Index), default, UiText.Get("Removed.")));
         return true;
     }
 
@@ -365,15 +365,6 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <returns><see langword="true"/> for a file, parser or argument failure.</returns>
     private static bool IsEditFailure(Exception error) =>
         error is PdfException or InvalidDataException or IOException or InvalidOperationException or ArgumentOutOfRangeException;
-
-    /// <summary>Waits for a library call.</summary>
-    /// <param name="call">The library call.</param>
-    /// <returns>A task giving the completion value.</returns>
-    private static async Task<RxVoid> Wait(Func<ValueTask> call)
-    {
-        await call().ConfigureAwait(false);
-        return RxVoid.Default;
-    }
 
     /// <summary>Turns Edit mode on or off.</summary>
     [ReactiveCommand]
@@ -479,8 +470,8 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <returns>A cold signal that ends when the page is read.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> ReadPage(int page, IPageContentEditor editor) =>
-        // The page editor is the PDF library's async API, so its call is the one task here.
-        Signal.FromAsync(token => editor.ReadObjectsAsync(page, token).AsTask(), _lifetime)
+        editor.ReadObjects(page)
+            .ThrowWhenCancelled(_lifetime)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(objects => PageRead(page, objects))
@@ -549,10 +540,10 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <param name="expected">Where the object's box should be afterwards.</param>
     /// <param name="done">What to say once the edit is made.</param>
     /// <returns>A cold signal that ends when the page is read again.</returns>
-    private IObservable<RxVoid> Edit(PageObjectPick picked, Func<PageRect, ValueTask> edit, PageRect expected, string done) =>
+    private IObservable<RxVoid> Edit(PageObjectPick picked, Func<PageRect, IObservable<RxVoid>> edit, PageRect expected, string done) =>
         Editor is null
             ? Signal.Return(RxVoid.Default)
-            : Call(() => edit(expected))
+            : Call(edit(expected))
                 .SwitchMap(_ => ReadAgain(picked, expected))
                 .Select(again => Edited(picked, again, done))
                 .Catch<RxVoid, Exception>(EditFailed);
@@ -561,9 +552,9 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
     /// <param name="call">The library call.</param>
     /// <returns>A cold signal that ends once the call is done.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<RxVoid> Call(Func<ValueTask> call) =>
-        // The page editor is the PDF library's async API, so its call is the one task here.
-        Signal.FromAsync(_ => Wait(call), _lifetime)
+    private IObservable<RxVoid> Call(IObservable<RxVoid> call) =>
+        call
+            .ThrowWhenCancelled(_lifetime)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler);
 

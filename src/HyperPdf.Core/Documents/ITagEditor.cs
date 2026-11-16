@@ -31,37 +31,32 @@ public interface ITagEditor : IDocumentFeature
     /// <summary>Changes a tag's type.</summary>
     /// <param name="id">The tag.</param>
     /// <param name="type">The new type, one of <see cref="GetTypeChoices"/>.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> SetTypeAsync(int id, string type, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> SetType(int id, string type);
 
     /// <summary>Sets or clears one of a tag's texts.</summary>
     /// <param name="id">The tag.</param>
     /// <param name="field">The text.</param>
     /// <param name="text">The new text; <see langword="null"/> or empty clears it.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> SetTextAsync(int id, DocumentTagField field, string? text, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> SetText(int id, DocumentTagField field, string? text);
 
     /// <summary>Sets or clears which cells a table header cell labels.</summary>
     /// <param name="id">The tag, which must be a table header cell.</param>
     /// <param name="scope">The scope; <see cref="DocumentTableScope.None"/> clears it.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> SetTableScopeAsync(int id, DocumentTableScope scope, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> SetTableScope(int id, DocumentTableScope scope);
 
     /// <summary>Moves a tag among its siblings, which changes the reading order but not the page.</summary>
     /// <param name="id">The tag.</param>
     /// <param name="offset">How many places to move it; negative moves it earlier.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome; a refusal when the tag is already at that end.</returns>
-    ValueTask<DocumentEditResult> MoveAsync(int id, int offset, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome; a refusal when the tag is already at that end once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> Move(int id, int offset);
 
     /// <summary>Makes a tag the last child of the tag above it in its group.</summary>
     /// <param name="id">The tag.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome; a refusal when there is no tag above.</returns>
-    ValueTask<DocumentEditResult> NestAsync(int id, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome; a refusal when there is no tag above once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> Nest(int id);
 
     /// <summary>Gets the custom tag types the document maps to standard types.</summary>
     /// <returns>The mappings; empty when the document has none or is not tagged.</returns>
@@ -74,54 +69,46 @@ public interface ITagEditor : IDocumentFeature
     /// <summary>Maps a custom tag type to a standard type, replacing an earlier mapping for it.</summary>
     /// <param name="type">The custom type.</param>
     /// <param name="mapsTo">The standard type it stands for.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> SetRoleMappingAsync(string type, string mapsTo, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> SetRoleMapping(string type, string mapsTo);
 
     /// <summary>Removes a custom tag type's mapping, when no tag uses the type.</summary>
     /// <param name="type">The custom type.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> RemoveRoleMappingAsync(string type, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> RemoveRoleMapping(string type);
 
     /// <summary>Sets how many rows and columns a table cell covers.</summary>
     /// <param name="id">The tag, which must be a table cell.</param>
     /// <param name="rows">How many rows, at least 1.</param>
     /// <param name="columns">How many columns, at least 1.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> SetCellSpansAsync(int id, int rows, int columns, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> SetCellSpans(int id, int rows, int columns);
 
     /// <summary>Sets or clears how a list's items are labelled.</summary>
     /// <param name="id">The tag, which must be a list.</param>
     /// <param name="numbering">A name such as <c>Decimal</c> or <c>Disc</c>; <see langword="null"/> or empty clears it.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> SetListNumberingAsync(int id, string? numbering, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> SetListNumbering(int id, string? numbering);
 
     /// <summary>Sets or clears how a tag sits in the flow of content.</summary>
     /// <param name="id">The tag.</param>
     /// <param name="placement">One of <c>Block</c>, <c>Inline</c>, <c>Before</c>, <c>Start</c> or <c>End</c>; <see langword="null"/> or empty clears it.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> SetPlacementAsync(int id, string? placement, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> SetPlacement(int id, string? placement);
 
     /// <summary>Makes a tag the last child of any other tag, which moves it to a different branch.</summary>
     /// <param name="id">The tag to move.</param>
     /// <param name="newParentId">The tag that takes it in; it cannot be inside the tag being moved.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome; a refusal when the move would break the tree.</returns>
-    ValueTask<DocumentEditResult> MoveIntoAsync(int id, int newParentId, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome; a refusal when the move would break the tree once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> MoveInto(int id, int newParentId);
 
     /// <summary>Moves a tag out of its parent, to just after the parent.</summary>
     /// <param name="id">The tag.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome; a refusal when the tag is already at the top.</returns>
-    ValueTask<DocumentEditResult> UnnestAsync(int id, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome; a refusal when the tag is already at the top once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> Unnest(int id);
 
     /// <summary>Removes a tag that holds no page content, and lifts the tags inside it into its parent.</summary>
     /// <param name="id">The tag.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> RemoveAsync(int id, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> Remove(int id);
 }

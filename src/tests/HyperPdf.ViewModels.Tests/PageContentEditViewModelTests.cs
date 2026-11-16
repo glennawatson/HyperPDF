@@ -173,9 +173,9 @@ public sealed class PageContentEditViewModelTests
 
         var used = edit.DeleteSelected();
         var gone = await WaitForAsync(() => edit.Selected is null && edit.Status.Length > 0 && !edit.Status.StartsWith("Picked", StringComparison.Ordinal));
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var after = await editor.ReadObjects(0).ToTask();
         _ = await tab.Pages.UndoCommand.Execute().ToTask();
-        var restored = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var restored = await editor.ReadObjects(0).ToTask();
 
         using (Assert.Multiple())
         {
@@ -195,15 +195,15 @@ public sealed class PageContentEditViewModelTests
         using var main = new MainViewModel(test.Services);
         var (tab, edit, _) = await StartEditingAsync(test, main, "edit-group.pdf");
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
-        var before = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var before = await editor.ReadObjects(0).ToTask();
 
         _ = await edit.PickEveryObject(0).ToTask();
         var picked = edit.PickedCount;
         var used = edit.MoveSelected(Shift, Shift);
         var moved = await WaitForAsync(() => edit.Status == "Moved.");
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var after = await editor.ReadObjects(0).ToTask();
         _ = await tab.Pages.UndoCommand.Execute().ToTask();
-        var restored = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var restored = await editor.ReadObjects(0).ToTask();
 
         using (Assert.Multiple())
         {
@@ -226,12 +226,12 @@ public sealed class PageContentEditViewModelTests
         using var main = new MainViewModel(test.Services);
         var (tab, edit, _) = await StartEditingAsync(test, main, "edit-group-shape.pdf");
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
-        var before = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var before = await editor.ReadObjects(0).ToTask();
         _ = await edit.PickEveryObject(0).ToTask();
 
         var scaled = edit.ScaleSelected(Doubled);
         var resized = await WaitForAsync(() => edit.Status == "Resized.");
-        var afterScale = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var afterScale = await editor.ReadObjects(0).ToTask();
         var painted = edit.SetFill(RedFill);
         var recoloured = await WaitForAsync(() => edit.Status == "Changed the fill colour.");
 
@@ -277,7 +277,7 @@ public sealed class PageContentEditViewModelTests
         using var main = new MainViewModel(test.Services);
         var (tab, edit, _) = await StartEditingAsync(test, main, "edit-group-handles.pdf");
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
-        var before = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var before = await editor.ReadObjects(0).ToTask();
         _ = await edit.PickEveryObject(0).ToTask();
         var box = edit.GroupBounds();
         var corner = new PagePoint(box.Right, box.Bottom);
@@ -286,7 +286,7 @@ public sealed class PageContentEditViewModelTests
         edit.ResizeTo(new(box.Left + (box.Width * Doubled), box.Top + (box.Height * Doubled)), false);
         var ended = edit.EndResize();
         var resized = await WaitForAsync(() => edit.Status == "Resized.");
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var after = await editor.ReadObjects(0).ToTask();
 
         using (Assert.Multiple())
         {
@@ -309,16 +309,16 @@ public sealed class PageContentEditViewModelTests
         var (tab, edit, target) = await StartEditingAsync(test, main, "edit-duplicate.pdf");
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
         _ = await edit.Press(0, Centre(target), false).ToTask();
-        var before = (await editor.ReadObjectsAsync(0, CancellationToken.None)).Length;
+        var before = (await editor.ReadObjects(0).ToTask()).Length;
 
         var duplicating = edit.DuplicatePicked();
         var duplicated = await WaitForAsync(() => edit.Status == "Duplicated.");
-        var afterDuplicate = (await editor.ReadObjectsAsync(0, CancellationToken.None)).Length;
+        var afterDuplicate = (await editor.ReadObjects(0).ToTask()).Length;
         _ = await edit.Press(0, Centre(target), false).ToTask();
         var copying = edit.CopyPicked();
         var pasting = edit.PasteCopied(0);
         var pasted = await WaitForAsync(() => edit.Status == "Pasted.");
-        var afterPaste = (await editor.ReadObjectsAsync(0, CancellationToken.None)).Length;
+        var afterPaste = (await editor.ReadObjects(0).ToTask()).Length;
 
         using (Assert.Multiple())
         {
@@ -347,7 +347,7 @@ public sealed class PageContentEditViewModelTests
         edit.EditingText = NewWords;
         edit.CommitText();
         var written = await WaitForAsync(() => edit.Status == "Changed the text.");
-        var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var after = await editor.ReadObjects(0).ToTask();
 
         using (Assert.Multiple())
         {
@@ -443,7 +443,7 @@ public sealed class PageContentEditViewModelTests
         var edit = tab.ContentEdit;
         _ = await edit.ToggleEditingCommand.Execute().ToTask();
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
-        var target = Array.Find(await editor.ReadObjectsAsync(0, CancellationToken.None), static o => o.Kind == PageObjectKind.Text);
+        var target = Array.Find(await editor.ReadObjects(0).ToTask(), static o => o.Kind == PageObjectKind.Text);
 
         // Hovering reads the page, so the first press does not wait for it.
         edit.HoverAt(0, Centre(target));
@@ -459,7 +459,7 @@ public sealed class PageContentEditViewModelTests
     private static async Task<string> DescribeAsync(DocumentTabViewModel tab, PageContentEditViewModel edit, PageObjectInfo target, int layout)
     {
         var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
-        var now = await editor.ReadObjectsAsync(0, CancellationToken.None);
+        var now = await editor.ReadObjects(0).ToTask();
         var page = string.Join(" | ", now.Select(static o => $"{o.Kind} '{o.Text}' {o.Bounds.Left}"));
         return $"status: {edit.Status}; notice: {tab.Notice}; picked: {edit.Selected?.Object.Bounds}; was: {target.Bounds}; layout {layout} -> {tab.LayoutVersion}; page now: {page}";
     }
