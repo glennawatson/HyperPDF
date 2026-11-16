@@ -40,7 +40,7 @@ public sealed class AnnotationViewModelTests
         tab.SidebarMode = SidebarMode.Annotations;
 
         var marked = annotations.MarkText(AnnotationKind.Highlight, new Dictionary<int, List<PageRect>> { [0] = lines }, AnnotationColors.Sage);
-        await annotations.AddNoteAsync(1, NoteAt);
+        _ = await annotations.AddNote(1, NoteAt).ToTask();
         var afterAdding = annotations.Items.Count;
         var dirty = tab.HasUnsavedChanges;
         _ = await annotations.UndoCommand.Execute().ToTask();
@@ -95,7 +95,7 @@ public sealed class AnnotationViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("replace.pdf", Pages)]);
         var tab = main.SelectedTab!;
         using var prompt = tab.Annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput("Keep this"));
-        await tab.Annotations.AddNoteAsync(0, NoteAt);
+        _ = await tab.Annotations.AddNote(0, NoteAt).ToTask();
         var destination = Path.Combine(test.Directory, "destination");
         _ = System.IO.Directory.CreateDirectory(destination);
 

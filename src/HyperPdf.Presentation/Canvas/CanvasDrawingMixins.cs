@@ -247,7 +247,7 @@ public static class CanvasDrawingMixins
 
             if (shape.Kind == AnnotationKind.Callout)
             {
-                _ = tab.Annotations.AddCalloutAsync(shape.Page, shape.Start, end);
+                tab.Annotations.PlaceCallout(shape.Page, shape.Start, end);
             }
             else
             {

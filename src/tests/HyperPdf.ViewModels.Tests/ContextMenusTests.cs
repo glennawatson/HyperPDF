@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -56,7 +57,7 @@ public sealed class ContextMenusTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("annotation-menu.pdf", Pages)]);
         var annotations = main.SelectedTab!.Annotations;
         using var prompt = annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput("A note"));
-        await annotations.AddNoteAsync(0, NoteAt);
+        _ = await annotations.AddNote(0, NoteAt).ToTask();
         var note = annotations.Items[0].Annotation;
 
         var items = ContextMenus.ForAnnotation(annotations, note);
@@ -83,7 +84,7 @@ public sealed class ContextMenusTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("note-words.pdf", Pages)]);
         var annotations = main.SelectedTab!.Annotations;
         using var prompt = annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput("Some text"));
-        await annotations.AddNoteAsync(0, NoteAt);
+        _ = await annotations.AddNote(0, NoteAt).ToTask();
         var note = annotations.Items[0].Annotation;
 
         var items = ContextMenus.ForAnnotation(annotations, note);

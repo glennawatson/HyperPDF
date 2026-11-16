@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Geometry;
 using HyperPdf.ViewModels.Tests;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Presentation.Tests;
 
@@ -61,7 +62,7 @@ public sealed class CanvasEditTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("edit-move.pdf", Pages)]);
         var tab = main.SelectedTab!;
         using var prompt = tab.Annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput("Move me"));
-        await tab.Annotations.AddNoteAsync(0, NoteAt);
+        _ = await tab.Annotations.AddNote(0, NoteAt).ToTask();
         var (_, state) = CanvasUnderTest.Create(tab);
         state.RebuildLayout();
         var note = tab.Annotations.Items[0].Annotation;
@@ -105,7 +106,7 @@ public sealed class CanvasEditTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("edit-nudge.pdf", Pages)]);
         var tab = main.SelectedTab!;
         using var prompt = tab.Annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput("Nudge me"));
-        await tab.Annotations.AddNoteAsync(0, NoteAt);
+        _ = await tab.Annotations.AddNote(0, NoteAt).ToTask();
         var (_, state) = CanvasUnderTest.Create(tab);
         state.RebuildLayout();
         tab.Annotations.Select(tab.Annotations.Items[0].Annotation);

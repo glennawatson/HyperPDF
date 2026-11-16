@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Geometry;
 using HyperPdf.ViewModels;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -41,8 +42,8 @@ public sealed class AnnotationListRefreshTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("list-refresh.pdf", Pages)]);
         var annotations = main.SelectedTab!.Annotations;
         using var prompt = annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput("Note"));
-        await annotations.AddNoteAsync(0, NoteAt);
-        await annotations.AddNoteAsync(1, NoteAt);
+        _ = await annotations.AddNote(0, NoteAt).ToTask();
+        _ = await annotations.AddNote(1, NoteAt).ToTask();
         _ = annotations.ShowItems();
         var first = annotations.Items[0];
 
@@ -67,13 +68,12 @@ public sealed class AnnotationListRefreshTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("list-patch.pdf", Pages)]);
         var annotations = main.SelectedTab!.Annotations;
         using var prompt = annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput("Note"));
-        await annotations.AddNoteAsync(0, NoteAt);
-        await annotations.AddNoteAsync(Two, NoteAt);
+        _ = await annotations.AddNote(0, NoteAt).ToTask();
+        _ = await annotations.AddNote(Two, NoteAt).ToTask();
         var firstRow = annotations.VisibleItems[0];
         var lastRow = annotations.VisibleItems[1];
 
-        await annotations.AddNoteAsync(1, NoteAt);
-
+        _ = await annotations.AddNote(1, NoteAt).ToTask();
         await Assert.That(annotations.VisibleItems.Count).IsEqualTo(Three);
         await Assert.That(ReferenceEquals(annotations.VisibleItems[0], firstRow)).IsTrue();
         await Assert.That(annotations.VisibleItems[1].Annotation.PageIndex).IsEqualTo(1);
@@ -91,9 +91,8 @@ public sealed class AnnotationListRefreshTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("list-filter.pdf", Pages)]);
         var annotations = main.SelectedTab!.Annotations;
         using var prompt = annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput(RememberText));
-        await annotations.AddNoteAsync(0, NoteAt);
-        await annotations.AddNoteAsync(1, NoteAt);
-
+        _ = await annotations.AddNote(0, NoteAt).ToTask();
+        _ = await annotations.AddNote(1, NoteAt).ToTask();
         annotations.FilterType = Two;
         var notesShown = annotations.VisibleItems.Count;
         annotations.FilterType = 0;
@@ -120,7 +119,7 @@ public sealed class AnnotationListRefreshTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("list-search-text.pdf", Pages)]);
         var annotations = main.SelectedTab!.Annotations;
         using var prompt = annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput(RememberText));
-        await annotations.AddNoteAsync(0, NoteAt);
+        _ = await annotations.AddNote(0, NoteAt).ToTask();
         var item = annotations.Items[0];
 
         await Assert.That(ReferenceEquals(item.SearchText, item.SearchText)).IsTrue();

@@ -96,13 +96,13 @@ public sealed class AnnotationUndoTests
         using var prompt = annotations.PromptInteraction.RegisterHandler(context => context.SetOutput(answers.Dequeue()));
 
         _ = annotations.AddShape(0, AnnotationKind.Rectangle, From, To);
-        await annotations.AddNoteAsync(0, NoteAt);
+        _ = await annotations.AddNote(0, NoteAt).ToTask();
         annotations.Recolor(Get(annotations, AnnotationKind.Note), AnnotationColors.Clay);
         await annotations.EditNoteAsync(Get(annotations, AnnotationKind.Note));
         var note = Get(annotations, AnnotationKind.Note);
         var moved = annotations.Move(note, note.Bounds with { Top = note.Bounds.Top + Shift }, false);
         var thick = annotations.Restyle(Get(annotations, AnnotationKind.Rectangle), Thick);
-        await annotations.AddTextAsync(0, TextAt);
+        _ = await annotations.AddText(0, TextAt).ToTask();
         var larger = annotations.Resize(Get(annotations, AnnotationKind.TextBox), ExtraLarge);
         await annotations.ReplyAsync(Get(annotations, AnnotationKind.Note));
         var accepted = annotations.SetStatus(Get(annotations, AnnotationKind.Note), ReviewState.Accepted);
@@ -223,7 +223,7 @@ public sealed class AnnotationUndoTests
         _ = await annotations.SetFontSizeCommand.Execute("Large").ToTask();
         _ = annotations.AddInk(0, Stroke, [Stroke.Length], AnnotationKind.Ink);
         _ = annotations.AddShape(0, AnnotationKind.Rectangle, From, To);
-        await annotations.AddTextAsync(0, TextAt);
+        _ = await annotations.AddText(0, TextAt).ToTask();
         var ink = Get(annotations, AnnotationKind.Ink);
         var box = Get(annotations, AnnotationKind.Rectangle);
         var text = Get(annotations, AnnotationKind.TextBox);

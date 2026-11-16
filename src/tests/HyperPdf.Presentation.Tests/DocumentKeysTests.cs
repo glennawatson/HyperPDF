@@ -6,6 +6,7 @@ using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
 using HyperPdf.ViewModels.Tests;
 using HyperPdf.ViewModels.Viewing;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Presentation.Tests;
 
@@ -175,7 +176,7 @@ public sealed class DocumentKeysTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("delete.pdf", Pages)]);
         var annotations = main.SelectedTab!.Annotations;
         using var prompt = annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput("Remove me"));
-        await annotations.AddNoteAsync(0, NoteAt);
+        _ = await annotations.AddNote(0, NoteAt).ToTask();
         annotations.Select(annotations.Items[0].Annotation);
 
         var other = DocumentKeys.DeleteSelected(annotations, ViewerKey.Enter);
@@ -196,7 +197,7 @@ public sealed class DocumentKeysTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("edit-text.pdf", Pages)]);
         var annotations = main.SelectedTab!.Annotations;
         using var prompt = annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput("A note"));
-        await annotations.AddNoteAsync(0, NoteAt);
+        _ = await annotations.AddNote(0, NoteAt).ToTask();
         annotations.Select(annotations.Items[0].Annotation);
 
         var edited = DocumentKeys.EditPickedText(annotations, ViewerKey.Enter, ViewerModifiers.None);
