@@ -231,7 +231,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     public IObservable<RxVoid> Move(int destination) => SelectedPages.Count == 0 || (uint)destination > (uint)(_owner.PageCount - SelectedPages.Count)
         ? Signal.Return(RxVoid.Default)
         : RunEdit(
-            static (manager, request, report, token) => manager.ApplyAsync(request, report, token),
+            static (manager, request, report) => manager.Apply(request, report),
             new(PageEditKind.Move, CopySelectedPages(), destination),
             UiText.Get("Could not move pages."));
 
@@ -259,29 +259,6 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     {
         var comparison = OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
         return string.Equals(Path.GetFullPath(first), Path.GetFullPath(second), comparison);
-    }
-
-    /// <summary>Extracts the pages with the library's async writer, the one task here.</summary>
-    /// <param name="manager">The page manager.</param>
-    /// <param name="pages">The pages.</param>
-    /// <param name="stream">Where the PDF goes.</param>
-    /// <param name="report">What the extraction found.</param>
-    /// <param name="token">Stops the work.</param>
-    /// <returns>A task giving <see langword="true"/> once the pages are written.</returns>
-    private static async Task<bool> ExtractPages(IPageManager manager, ReadOnlyMemory<int> pages, Stream stream, PageEditReport report, CancellationToken token)
-    {
-        await manager.ExtractAsync(pages, stream, report, token).ConfigureAwait(false);
-        return true;
-    }
-
-    /// <summary>Waits for a library call that gives no answer.</summary>
-    /// <param name="call">The library call.</param>
-    /// <param name="token">Stops the work.</param>
-    /// <returns>A task giving the completion value.</returns>
-    private static async Task<RxVoid> Wait(Func<CancellationToken, ValueTask> call, CancellationToken token)
-    {
-        await call(token).ConfigureAwait(false);
-        return RxVoid.Default;
     }
 
     /// <summary>Compares two page-index selections without an iterator allocation.</summary>
@@ -558,7 +535,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <returns>A cold signal that ends once the edit is made or failed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> RunSelectedEdit(PageEditKind kind, int value, string failureMessage) => RunEdit(
-        static (manager, request, report, token) => manager.ApplyAsync(request, report, token),
+        static (manager, request, report) => manager.Apply(request, report),
         new(kind, CopySelectedPages(), value),
         failureMessage);
 
@@ -569,7 +546,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <returns>A cold signal that ends once the edit is made or failed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> RunEdit(
-        Func<IPageManager, PageEditRequest, PageEditReport, CancellationToken, ValueTask> edit,
+        Func<IPageManager, PageEditRequest, PageEditReport, IObservable<RxVoid>> edit,
         PageEditRequest request,
         string failureMessage) =>
         Run(
@@ -577,7 +554,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
             {
                 var oldSelection = CopyPages(request.Pages);
                 var report = new PageEditReport();
-                return Call(token => edit(manager, request, report, token))
+                return OnPool(edit(manager, request, report))
                     .Select(_ => Edited(report, request, oldSelection));
             },
             failureMessage,
@@ -599,7 +576,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <returns>A cold signal that ends once the edit is reverted or failed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> RunHistory(bool undo) => Run(
-        manager => Call(token => undo ? manager.UndoAsync(token) : manager.RedoAsync(token))
+        manager => OnPool(undo ? manager.Undo() : manager.Redo())
             .Select(changed => new PageManagementOperationResult(changed, () => SelectedPages)),
         undo ? UiText.Get("Could not undo the page edit.") : UiText.Get("Could not redo the page edit."),
         true);
@@ -615,7 +592,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         var report = new PageEditReport();
 
         // The library reads and rewrites the pages before its first await, so the call starts on the pool.
-        return Call(token => manager.InsertAsync(index, paths, report, token))
+        return OnPool(manager.Insert(index, paths, report))
             .Select(_ => Inserted(report, index, previousCount));
     }
 
@@ -658,7 +635,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     private IObservable<PageManagementOperationResult> InsertReadPictures(IPageManager manager, PageImageSource[] images, int chosen)
     {
         var index = SelectedPages.Count > 0 ? SelectedPages[^1] + 1 : Math.Clamp(_owner.CurrentPageIndex + 1, 0, _owner.PageCount);
-        return Call(token => manager.InsertImagesAsync(index, images, token))
+        return OnPool(manager.InsertImages(index, images))
             .Select(_ => InsertedPictures(index, images.Length, chosen));
     }
 
@@ -696,7 +673,8 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
         var report = new PageEditReport();
         var pages = CopySelectedPages();
-        return CopyFile.Write(destination, TemporarySuffix, (stream, token) => ExtractPages(manager, pages, stream, report, token), static written => written, _lifetime)
+        return CopyFile.WriteSignal(destination, TemporarySuffix, stream => manager.Extract(pages, stream, report).Select(static _ => true), static written => written)
+            .ThrowWhenCancelled(_lifetime)
             .Select(_ => Extracted(report));
     }
 
@@ -712,23 +690,14 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         return default;
     }
 
-    /// <summary>Calls the page manager on the pool and brings the answer back to the interface thread.</summary>
-    /// <param name="call">The library call.</param>
-    /// <returns>A cold signal that ends once the call is done.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<RxVoid> Call(Func<CancellationToken, ValueTask> call) =>
-        // The page manager is the PDF library's async API, so its call is the one task here.
-        Signal.FromAsync(token => Wait(call, token), _lifetime)
-            .SubscribeOn(TaskPoolSequencer.Default)
-            .ObserveOn(RxSchedulers.MainThreadScheduler);
-
-    /// <summary>Calls the page manager on the pool and brings the answer back to the interface thread.</summary>
+    /// <summary>Runs a page manager call on the pool, gives it up when the tab closes, and brings the answer back to the interface thread.</summary>
     /// <typeparam name="TResult">What the call gives.</typeparam>
-    /// <param name="call">The library call.</param>
+    /// <param name="call">The page manager's signal.</param>
     /// <returns>A cold signal giving the answer.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<TResult> Call<TResult>(Func<CancellationToken, ValueTask<TResult>> call) =>
-        Signal.FromAsync(token => call(token).AsTask(), _lifetime)
+    private IObservable<TResult> OnPool<TResult>(IObservable<TResult> call) =>
+        call
+            .ThrowWhenCancelled(_lifetime)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler);
 

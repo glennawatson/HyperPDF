@@ -11,6 +11,7 @@ using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Structure.Tagged;
 using HyperPdfLibrary.Text;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -225,7 +226,7 @@ public sealed class EditCacheScopeTests
         using var test = new HyperPdfTestDocument(Sample());
         var before = Read(test);
 
-        await HyperPdfDocumentPageManagement.GetPageManager(test.Document).ApplyAsync(new(PageEditKind.Move, SecondPage, 0), cancellationToken);
+        await HyperPdfDocumentPageManagement.GetPageManager(test.Document).Apply(new(PageEditKind.Move, SecondPage, 0)).ToTask(cancellationToken);
         var after = Read(test);
 
         await Assert.That(after.Text).IsNotSameReferenceAs(before.Text);

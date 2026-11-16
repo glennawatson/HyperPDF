@@ -9,6 +9,7 @@ using HyperPdf.Core.Geometry;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -154,8 +155,8 @@ public sealed class ConcurrentDocumentEditTests
         var importer = new HyperPdfFormDataImporter(test.Document);
         using (PdfDocumentEditing.BeginEdit(test.Document.Document, "Held elsewhere"))
         {
-            var apply = await Assert.That(async () => await manager.ApplyAsync(new(PageEditKind.Delete, FirstPage, 0), cancellationToken)).Throws<InvalidOperationException>();
-            var undo = await Assert.That(async () => await manager.UndoAsync(cancellationToken)).Throws<InvalidOperationException>();
+            var apply = await Assert.That(async () => await manager.Apply(new(PageEditKind.Delete, FirstPage, 0)).ToTask(cancellationToken)).Throws<InvalidOperationException>();
+            var undo = await Assert.That(async () => await manager.Undo().ToTask(cancellationToken)).Throws<InvalidOperationException>();
             var imported = importer.Import("<xfdf xmlns=\"http://ns.adobe.com/xfdf/\"><fields/></xfdf>"u8.ToArray());
 
             await Assert.That(apply!.Message).IsEqualTo(HyperPdfEditTransactions.EditInProgress);
@@ -163,7 +164,7 @@ public sealed class ConcurrentDocumentEditTests
             await Assert.That(imported.Succeeded).IsFalse();
         }
 
-        await manager.ApplyAsync(new(PageEditKind.Delete, FirstPage, 0), cancellationToken);
+        await manager.Apply(new(PageEditKind.Delete, FirstPage, 0)).ToTask(cancellationToken);
         await Assert.That(test.Document.PageCount).IsEqualTo(Pages - 1);
     }
 

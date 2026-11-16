@@ -9,6 +9,7 @@ using HyperPdf.Core.Documents;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine;
 
@@ -70,51 +71,48 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask ApplyAsync(PageEditRequest request, CancellationToken cancellationToken) => ApplyCoreAsync(request, null, cancellationToken);
+    public IObservable<RxVoid> Apply(PageEditRequest request) => LibrarySignals.Run(token => ApplyCoreAsync(request, null, token));
 
     /// <inheritdoc/>
-    public ValueTask ApplyAsync(PageEditRequest request, PageEditReport report, CancellationToken cancellationToken)
+    public IObservable<RxVoid> Apply(PageEditRequest request, PageEditReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        return ApplyCoreAsync(request, report, cancellationToken);
+        return LibrarySignals.Run(token => ApplyCoreAsync(request, report, token));
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask InsertAsync(int index, string[] files, CancellationToken cancellationToken) =>
-        InsertCoreAsync(index, files, null, cancellationToken);
+    public IObservable<RxVoid> Insert(int index, string[] files) => LibrarySignals.Run(token => InsertCoreAsync(index, files, null, token));
 
     /// <inheritdoc/>
-    public ValueTask InsertAsync(int index, string[] files, PageEditReport report, CancellationToken cancellationToken)
+    public IObservable<RxVoid> Insert(int index, string[] files, PageEditReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        return InsertCoreAsync(index, files, report, cancellationToken);
+        return LibrarySignals.Run(token => InsertCoreAsync(index, files, report, token));
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask InsertImagesAsync(int index, PageImageSource[] images, CancellationToken cancellationToken) =>
-        InsertImagesCoreAsync(index, images, cancellationToken);
+    public IObservable<RxVoid> InsertImages(int index, PageImageSource[] images) => LibrarySignals.Run(token => InsertImagesCoreAsync(index, images, token));
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask ExtractAsync(ReadOnlyMemory<int> pages, Stream destination, CancellationToken cancellationToken) =>
-        ExtractCoreAsync(pages, destination, null, cancellationToken);
+    public IObservable<RxVoid> Extract(ReadOnlyMemory<int> pages, Stream destination) => LibrarySignals.Run(token => ExtractCoreAsync(pages, destination, null, token));
 
     /// <inheritdoc/>
-    public ValueTask ExtractAsync(ReadOnlyMemory<int> pages, Stream destination, PageEditReport report, CancellationToken cancellationToken)
+    public IObservable<RxVoid> Extract(ReadOnlyMemory<int> pages, Stream destination, PageEditReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        return ExtractCoreAsync(pages, destination, report, cancellationToken);
+        return LibrarySignals.Run(token => ExtractCoreAsync(pages, destination, report, token));
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<bool> UndoAsync(CancellationToken cancellationToken) => new(StepHistory(true, cancellationToken));
+    public IObservable<bool> Undo() => LibrarySignals.Run(token => new ValueTask<bool>(StepHistory(true, token)));
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<bool> RedoAsync(CancellationToken cancellationToken) => new(StepHistory(false, cancellationToken));
+    public IObservable<bool> Redo() => LibrarySignals.Run(token => new ValueTask<bool>(StepHistory(false, token)));
 
     /// <inheritdoc/>
     public void Dispose()

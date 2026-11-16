@@ -5,6 +5,7 @@
 using HyperPdf.Core.Documents;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -108,7 +109,7 @@ public sealed class PageContentEditorTests
         await editor.MoveAsync(0, before.Index, Shift, Shift, CancellationToken.None);
         var moved = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(o => o.Text == before.Text);
         var manager = DocumentFeature<IPageManagementSource>.Get(tab.TryGetDocument())!.PageManager;
-        var undone = await manager.UndoAsync(CancellationToken.None);
+        var undone = await manager.Undo().ToTask();
         var restored = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(o => o.Text == before.Text);
 
         using (Assert.Multiple())
@@ -185,7 +186,7 @@ public sealed class PageContentEditorTests
         var after = await editor.ReadObjectsAsync(0, CancellationToken.None);
         var copy = Array.Find(after, o => Math.Abs(o.Bounds.Left - (target.Bounds.Left + Shift)) < CopyReach && Math.Abs(o.Bounds.Top - (target.Bounds.Top + Shift)) < CopyReach);
         var manager = DocumentFeature<IPageManagementSource>.Get(tab.TryGetDocument())!.PageManager;
-        _ = await manager.UndoAsync(CancellationToken.None);
+        _ = await manager.Undo().ToTask();
         var restored = await editor.ReadObjectsAsync(0, CancellationToken.None);
 
         using (Assert.Multiple())
@@ -356,7 +357,7 @@ public sealed class PageContentEditorTests
         await editor.TransformAsync(0, before.Index, change, CancellationToken.None);
         var bigger = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(o => o.Text == before.Text);
         var manager = DocumentFeature<IPageManagementSource>.Get(tab.TryGetDocument())!.PageManager;
-        var undone = await manager.UndoAsync(CancellationToken.None);
+        var undone = await manager.Undo().ToTask();
         var restored = (await editor.ReadObjectsAsync(0, CancellationToken.None)).First(o => o.Text == before.Text);
 
         using (Assert.Multiple())

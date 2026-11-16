@@ -7,6 +7,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Annotations;
 using HyperPdfLibrary.Document;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -58,7 +59,7 @@ public sealed class TrapNetworkSaveTests
         var report = new PageEditReport();
         await using var output = new MemoryStream();
 
-        await manager.ExtractAsync(FirstPage, output, report, CancellationToken.None);
+        await manager.Extract(FirstPage, output, report).ToTask();
 
         await Assert.That(report.TrapNetworkWarnings).Count().IsEqualTo(1);
         await Assert.That(report.TrapNetworkWarnings[0]).Contains("did not copy the trap network of page 1");

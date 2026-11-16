@@ -7,6 +7,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Benchmarks;
 
@@ -60,8 +61,8 @@ public class HyperPdfPageManagementBenchmarks
     {
         var manager = _manager!;
         var value = Kind == PageEditKind.Rotate ? QuarterTurn : Pages - SelectedPages;
-        await manager.ApplyAsync(new(Kind, _selection, value), CancellationToken.None).ConfigureAwait(false);
-        if (!await manager.UndoAsync(CancellationToken.None).ConfigureAwait(false))
+        await manager.Apply(new(Kind, _selection, value)).ToTask().ConfigureAwait(false);
+        if (!await manager.Undo().ToTask().ConfigureAwait(false))
         {
             throw new InvalidOperationException("The page edit could not be undone.");
         }

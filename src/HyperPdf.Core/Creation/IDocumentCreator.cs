@@ -9,7 +9,7 @@ public interface IDocumentCreator
 {
     /// <summary>
     /// Creates a document and writes it to a stream. To add the pages to an open document, write the result to a file and
-    /// insert it with <see cref="Documents.IPageManager.InsertAsync(int, string[], CancellationToken)"/>.
+    /// insert it with <see cref="Documents.IPageManager.Insert(int, string[])"/>.
     /// </summary>
     /// <param name="request">The content and description of the new document.</param>
     /// <param name="destination">The stream receiving the PDF.</param>

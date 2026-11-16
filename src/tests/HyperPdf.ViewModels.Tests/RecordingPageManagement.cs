@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Documents;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -30,59 +32,39 @@ internal sealed class RecordingPageManagement(IPageManagementSource inner, IDocu
         public string? RedoLabel => inner.RedoLabel;
 
         /// <inheritdoc/>
-        public ValueTask ApplyAsync(PageEditRequest request, CancellationToken cancellationToken)
-        {
-            engine.Calls.Enqueue(new(nameof(ApplyAsync), Environment.CurrentManagedThreadId));
-            return inner.ApplyAsync(request, cancellationToken);
-        }
+        public IObservable<RxVoid> Apply(PageEditRequest request) => Record(nameof(Apply), () => inner.Apply(request));
 
         /// <inheritdoc/>
-        public ValueTask ApplyAsync(PageEditRequest request, PageEditReport report, CancellationToken cancellationToken)
-        {
-            engine.Calls.Enqueue(new(nameof(ApplyAsync), Environment.CurrentManagedThreadId));
-            return inner.ApplyAsync(request, report, cancellationToken);
-        }
+        public IObservable<RxVoid> Apply(PageEditRequest request, PageEditReport report) => Record(nameof(Apply), () => inner.Apply(request, report));
 
         /// <inheritdoc/>
-        public ValueTask InsertAsync(int index, string[] files, CancellationToken cancellationToken)
-        {
-            engine.Calls.Enqueue(new(nameof(InsertAsync), Environment.CurrentManagedThreadId));
-            return inner.InsertAsync(index, files, cancellationToken);
-        }
+        public IObservable<RxVoid> Insert(int index, string[] files) => Record(nameof(Insert), () => inner.Insert(index, files));
 
         /// <inheritdoc/>
-        public ValueTask InsertAsync(int index, string[] files, PageEditReport report, CancellationToken cancellationToken)
-        {
-            engine.Calls.Enqueue(new(nameof(InsertAsync), Environment.CurrentManagedThreadId));
-            return inner.InsertAsync(index, files, report, cancellationToken);
-        }
+        public IObservable<RxVoid> Insert(int index, string[] files, PageEditReport report) => Record(nameof(Insert), () => inner.Insert(index, files, report));
 
         /// <inheritdoc/>
-        public ValueTask ExtractAsync(ReadOnlyMemory<int> pages, Stream destination, CancellationToken cancellationToken)
-        {
-            engine.Calls.Enqueue(new(nameof(ExtractAsync), Environment.CurrentManagedThreadId));
-            return inner.ExtractAsync(pages, destination, cancellationToken);
-        }
+        public IObservable<RxVoid> Extract(ReadOnlyMemory<int> pages, Stream destination) => Record(nameof(Extract), () => inner.Extract(pages, destination));
 
         /// <inheritdoc/>
-        public ValueTask ExtractAsync(ReadOnlyMemory<int> pages, Stream destination, PageEditReport report, CancellationToken cancellationToken)
-        {
-            engine.Calls.Enqueue(new(nameof(ExtractAsync), Environment.CurrentManagedThreadId));
-            return inner.ExtractAsync(pages, destination, report, cancellationToken);
-        }
+        public IObservable<RxVoid> Extract(ReadOnlyMemory<int> pages, Stream destination, PageEditReport report) => Record(nameof(Extract), () => inner.Extract(pages, destination, report));
 
         /// <inheritdoc/>
-        public ValueTask<bool> UndoAsync(CancellationToken cancellationToken)
-        {
-            engine.Calls.Enqueue(new(nameof(UndoAsync), Environment.CurrentManagedThreadId));
-            return inner.UndoAsync(cancellationToken);
-        }
+        public IObservable<bool> Undo() => Record(nameof(Undo), inner.Undo);
 
         /// <inheritdoc/>
-        public ValueTask<bool> RedoAsync(CancellationToken cancellationToken)
-        {
-            engine.Calls.Enqueue(new(nameof(RedoAsync), Environment.CurrentManagedThreadId));
-            return inner.RedoAsync(cancellationToken);
-        }
+        public IObservable<bool> Redo() => Record(nameof(Redo), inner.Redo);
+
+        /// <summary>Records the thread the call is made on, when it is subscribed, then passes it on.</summary>
+        /// <typeparam name="T">What the call gives.</typeparam>
+        /// <param name="name">The operation.</param>
+        /// <param name="call">Starts the real call.</param>
+        /// <returns>A cold signal of the real call.</returns>
+        private IObservable<T> Record<T>(string name, Func<IObservable<T>> call) =>
+            Signal.Defer(() =>
+            {
+                engine.Calls.Enqueue(new(name, Environment.CurrentManagedThreadId));
+                return call();
+            });
     }
 }

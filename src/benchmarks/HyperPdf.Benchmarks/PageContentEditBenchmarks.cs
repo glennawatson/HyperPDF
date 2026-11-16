@@ -7,6 +7,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Benchmarks;
 
@@ -60,7 +61,7 @@ public class PageContentEditBenchmarks
     public async ValueTask<bool> MoveAndUndo()
     {
         await _editor!.MoveAsync(0, _text.Index, Shift, Shift, CancellationToken.None).ConfigureAwait(false);
-        return await _manager!.UndoAsync(CancellationToken.None).ConfigureAwait(false);
+        return await _manager!.Undo().ToTask().ConfigureAwait(false);
     }
 
     /// <summary>Retypes the first text object and undoes the change.</summary>
@@ -69,7 +70,7 @@ public class PageContentEditBenchmarks
     public async ValueTask<bool> ReplaceAndUndo()
     {
         await _editor!.ReplaceTextAsync(0, _text.Index, Replacement, CancellationToken.None).ConfigureAwait(false);
-        return await _manager!.UndoAsync(CancellationToken.None).ConfigureAwait(false);
+        return await _manager!.Undo().ToTask().ConfigureAwait(false);
     }
 
     /// <summary>Removes the first text object and undoes the removal.</summary>
@@ -78,6 +79,6 @@ public class PageContentEditBenchmarks
     public async ValueTask<bool> DeleteAndUndo()
     {
         await _editor!.DeleteAsync(0, _text.Index, CancellationToken.None).ConfigureAwait(false);
-        return await _manager!.UndoAsync(CancellationToken.None).ConfigureAwait(false);
+        return await _manager!.Undo().ToTask().ConfigureAwait(false);
     }
 }
