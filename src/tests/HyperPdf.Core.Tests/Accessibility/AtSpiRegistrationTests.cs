@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Platform.Linux.Accessibility;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Accessibility;
 
@@ -26,7 +27,7 @@ public sealed class AtSpiRegistrationTests(AccessibilityBusFixture fixture)
         RequireBus();
         using var service = await fixture.StartBusServiceAsync(true);
 
-        await Assert.That(await LinuxAccessibility.IsAssistiveTechnologyEnabledAsync()).IsTrue();
+        await Assert.That(await LinuxAccessibility.IsAssistiveTechnologyEnabled().ToTask()).IsTrue();
     }
 
     /// <summary>Verifies that the app finds out that assistive technology is off.</summary>
@@ -37,7 +38,7 @@ public sealed class AtSpiRegistrationTests(AccessibilityBusFixture fixture)
         RequireBus();
         using var service = await fixture.StartBusServiceAsync(false);
 
-        await Assert.That(await LinuxAccessibility.IsAssistiveTechnologyEnabledAsync()).IsFalse();
+        await Assert.That(await LinuxAccessibility.IsAssistiveTechnologyEnabled().ToTask()).IsFalse();
     }
 
     /// <summary>Verifies that the server connects to the accessibility bus and attaches itself to the registry.</summary>
@@ -48,7 +49,7 @@ public sealed class AtSpiRegistrationTests(AccessibilityBusFixture fixture)
         RequireBus();
         using var service = await fixture.StartBusServiceAsync(true);
         using var registry = await fixture.StartRegistryAsync();
-        using var server = await LinuxAccessibility.StartAsync(new FakeAccessibleTree());
+        using var server = await LinuxAccessibility.Start(new FakeAccessibleTree()).ToTask();
 
         await Assert.That(server).IsNotNull();
         await Assert.That((await registry.Service.Embedded.WaitAsync(AttachTimeout)).Length).IsGreaterThan(0);
@@ -61,7 +62,7 @@ public sealed class AtSpiRegistrationTests(AccessibilityBusFixture fixture)
     {
         RequireBus();
         using var service = await fixture.StartBusServiceAsync(true);
-        using var server = await LinuxAccessibility.StartAsync(new FakeAccessibleTree());
+        using var server = await LinuxAccessibility.Start(new FakeAccessibleTree()).ToTask();
         await Task.Delay(LateRegistryDelay);
         using var registry = await fixture.StartRegistryAsync();
 

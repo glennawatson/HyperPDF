@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Diagnostics;
+using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Signals;
 using Tmds.DBus.Protocol;
 
@@ -58,46 +60,46 @@ public sealed class PortalPrintService
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(title);
 
-        // The session bus is an async API from another library, so its call is the one task here.
-        return Signal.FromAsync(token => PrintAsync(filePath, title, token));
+        // The connection and the file handle are released when the request ends or the caller unsubscribes.
+        return SessionBus.TryConnect()
+            .SwitchMap(connection => connection is null
+                ? Signal.Return(false)
+                : Signal.Using(() => connection, open => Signal.Using(() => File.OpenHandle(filePath), file => Send(open, file, title))));
     }
 
-    /// <summary>Hands a PDF to the portal and waits for its answer.</summary>
-    /// <param name="filePath">The PDF.</param>
+    /// <summary>Hands the open PDF to the portal and waits for its answer.</summary>
+    /// <param name="connection">The open session bus.</param>
+    /// <param name="file">The open PDF.</param>
     /// <param name="title">The job title.</param>
-    /// <param name="cancellationToken">Cancels waiting for the portal.</param>
-    /// <returns><see langword="true"/> when the portal accepted the file.</returns>
-    private static async Task<bool> PrintAsync(string filePath, string title, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving once <see langword="true"/> when the portal accepted the file.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IObservable<bool> Send(DBusConnection connection, Microsoft.Win32.SafeHandles.SafeFileHandle file, string title) =>
+        Signal.Defer(() =>
+            {
+                MessageBuffer message;
+                using (var writer = connection.GetMessageWriter())
+                {
+                    var w = writer;
+                    WritePrintCall(ref w, title, file);
+                    message = w.CreateMessage();
+                }
+
+                // The D-Bus library's own async call, awaited once here; unsubscribing stops waiting for the answer.
+                return Signal.FromAsync(async token =>
+                {
+                    await connection.CallMethodAsync(message).WaitAsync(token).ConfigureAwait(false);
+                    return true;
+                });
+            })
+            .Catch<bool, DBusErrorReplyException>(PortalFailed)
+            .Catch<bool, DBusConnectionException>(PortalFailed);
+
+    /// <summary>Records that the portal could not print.</summary>
+    /// <param name="exception">The failure.</param>
+    /// <returns>A signal giving <see langword="false"/>.</returns>
+    private static IObservable<bool> PortalFailed(Exception exception)
     {
-        using var connection = await SessionBus.TryConnectAsync().ConfigureAwait(false);
-        if (connection is null)
-        {
-            return false;
-        }
-
-        using var file = File.OpenHandle(filePath);
-        MessageBuffer message;
-        using (var writer = connection.GetMessageWriter())
-        {
-            var w = writer;
-            WritePrintCall(ref w, title, file);
-            message = w.CreateMessage();
-        }
-
-        try
-        {
-            await connection.CallMethodAsync(message).WaitAsync(cancellationToken).ConfigureAwait(false);
-            return true;
-        }
-        catch (DBusErrorReplyException ex)
-        {
-            AppLog.Warning(ex, "Print portal failed.");
-            return false;
-        }
-        catch (DBusConnectionException ex)
-        {
-            AppLog.Warning(ex, "Print portal failed.");
-            return false;
-        }
+        AppLog.Warning(exception, "Print portal failed.");
+        return Signal.Return(false);
     }
 }

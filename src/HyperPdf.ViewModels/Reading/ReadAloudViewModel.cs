@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
+using HyperPdf.Core.Reactive;
 using HyperPdf.Core.Reading;
 using HyperPdf.Core.Settings;
 using HyperPdf.Core.Speech;
@@ -980,7 +981,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     {
         var reading = _owner.GetReadingDocument();
 
-        return document.PreparePage(page, cancellationToken)
+        return document.PreparePage(page).ThrowWhenCancelled(cancellationToken)
             .SwitchMap(_ => Signal.Start(() => LoadText(document, reading, page), TaskPoolSequencer.Default))
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(loaded =>

@@ -10,6 +10,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Printing;
+using HyperPdf.Core.Reactive;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Signals;
@@ -181,8 +182,7 @@ public sealed class WindowsPrintService : IPrintService
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(title);
 
-        // Drawing the pages uses the PDF library's async API and the spooler, so the job is the one task here.
-        return Signal.FromAsync(token => SubmitJobAsync(filePath, title, options, token))
+        return Signal.Defer(() => SubmitJob(filePath, title, options))
             .SubscribeOn(TaskPoolSequencer.Default);
     }
 
@@ -197,9 +197,7 @@ public sealed class WindowsPrintService : IPrintService
             var deviceContext = ShowDialog();
             return deviceContext == 0
                 ? Signal.Return(false)
-
-                // Drawing the pages uses the PDF library's async API and the spooler, so the job is the one task here.
-                : Signal.FromAsync(token => PrintDocumentAsync(deviceContext, filePath, title, false, token))
+                : PrintDocument(deviceContext, filePath, title, false)
                     .SubscribeOn(TaskPoolSequencer.Default)
                     .Select(static outcome => outcome.Sent)
                     .Finally(() => DeleteDeviceContext(deviceContext));
@@ -357,6 +355,32 @@ public sealed class WindowsPrintService : IPrintService
         }
     }
 
+    /// <summary>Makes the preparation and drawing of each page, one at a time as the caller moves along.</summary>
+    /// <param name="deviceContext">The device context.</param>
+    /// <param name="document">The document.</param>
+    /// <param name="sizes">The size of each page.</param>
+    /// <param name="device">The printer's resolution.</param>
+    /// <param name="flags">How to draw.</param>
+    /// <returns>A cold signal per page, giving <see langword="true"/> when the page was sent to the printer.</returns>
+    private static IEnumerable<IObservable<bool>> Pages(nint deviceContext, IDocument document, PageSize[] sizes, Device device, RenderFlags flags)
+    {
+        for (var page = 0; page < sizes.Length; page++)
+        {
+            var index = page;
+            yield return document.PreparePage(index).Select(prepared =>
+            {
+                if (NativeMethods.StartPage(deviceContext) <= 0)
+                {
+                    return false;
+                }
+
+                DrawPage(deviceContext, document, index, sizes[index], device, flags);
+                _ = NativeMethods.EndPage(deviceContext);
+                return true;
+            });
+        }
+    }
+
     /// <summary>Draws one page in bands.</summary>
     /// <param name="deviceContext">The printer's device context.</param>
     /// <param name="document">The document.</param>
@@ -438,30 +462,19 @@ public sealed class WindowsPrintService : IPrintService
     /// <param name="filePath">The PDF.</param>
     /// <param name="title">The job title.</param>
     /// <param name="options">The printer and choices.</param>
-    /// <param name="cancellationToken">Stops between pages.</param>
-    /// <returns>What happened.</returns>
-    private async Task<PrintOutcome> SubmitJobAsync(string filePath, string title, PrintJobOptions options, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving what happened; unsubscribing stops between pages, cancelling the job.</returns>
+    private IObservable<PrintOutcome> SubmitJob(string filePath, string title, PrintJobOptions options)
     {
         if (BuildSettings(options) is not { } settings)
         {
-            return new(false, $"The printer {options.Printer} could not be opened.");
+            return Signal.Return(new PrintOutcome(false, $"The printer {options.Printer} could not be opened."));
         }
 
         var deviceContext = CreateDeviceContext(options.Printer, settings);
 
-        if (deviceContext == 0)
-        {
-            return new(false, $"The printer {options.Printer} is not available.");
-        }
-
-        try
-        {
-            return await PrintDocumentAsync(deviceContext, filePath, title, !options.Colour, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            DeleteDeviceContext(deviceContext);
-        }
+        return deviceContext == 0
+            ? Signal.Return(new PrintOutcome(false, $"The printer {options.Printer} is not available."))
+            : PrintDocument(deviceContext, filePath, title, !options.Colour).Finally(() => DeleteDeviceContext(deviceContext));
     }
 
     /// <summary>Prints every page of a document to a printer's device context.</summary>
@@ -469,48 +482,54 @@ public sealed class WindowsPrintService : IPrintService
     /// <param name="filePath">The PDF.</param>
     /// <param name="title">The job title.</param>
     /// <param name="grayscale">Whether to draw in grey.</param>
-    /// <param name="cancellationToken">Stops between pages, cancelling the job.</param>
-    /// <returns>What happened.</returns>
-    private async Task<PrintOutcome> PrintDocumentAsync(nint deviceContext, string filePath, string title, bool grayscale, CancellationToken cancellationToken)
-    {
-        using var document = _engine.Open(filePath, null);
-        var sizes = document.GetPageSizes();
-        var job = StartDocument(deviceContext, title);
-
-        if (job <= 0)
+    /// <returns>A cold signal giving what happened; unsubscribing stops between pages and cancels the job.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<PrintOutcome> PrintDocument(nint deviceContext, string filePath, string title, bool grayscale) =>
+        Signal.Defer(() =>
         {
-            return new(false, "The printer did not accept the job.");
-        }
+            var document = _engine.Open(filePath, null);
+            var sizes = document.GetPageSizes();
 
-        var device = new Device(
-            NativeMethods.GetDeviceCaps(deviceContext, PixelsPerInchX),
-            NativeMethods.GetDeviceCaps(deviceContext, PixelsPerInchY),
-            NativeMethods.GetDeviceCaps(deviceContext, HorizontalResolution),
-            NativeMethods.GetDeviceCaps(deviceContext, VerticalResolution));
-        var flags = RenderFlags.Printing | RenderFlags.Annotations | (grayscale ? RenderFlags.Grayscale : RenderFlags.None);
-        try
-        {
-            for (var page = 0; page < sizes.Length; page++)
+            if (StartDocument(deviceContext, title) <= 0)
             {
-                await document.PreparePageAsync(page, cancellationToken).ConfigureAwait(false);
-                if (cancellationToken.IsCancellationRequested || NativeMethods.StartPage(deviceContext) <= 0)
-                {
-                    _ = NativeMethods.AbortDoc(deviceContext);
-                    return new(false, "Printing stopped.");
-                }
-
-                DrawPage(deviceContext, document, page, sizes[page], device, flags);
-                _ = NativeMethods.EndPage(deviceContext);
+                document.Dispose();
+                return Signal.Return(new PrintOutcome(false, "The printer did not accept the job."));
             }
 
-            return NativeMethods.EndDoc(deviceContext) > 0 ? new(true, string.Empty) : new(false, "The printer did not finish the job.");
-        }
-        catch
-        {
-            _ = NativeMethods.AbortDoc(deviceContext);
-            throw;
-        }
-    }
+            var device = new Device(
+                NativeMethods.GetDeviceCaps(deviceContext, PixelsPerInchX),
+                NativeMethods.GetDeviceCaps(deviceContext, PixelsPerInchY),
+                NativeMethods.GetDeviceCaps(deviceContext, HorizontalResolution),
+                NativeMethods.GetDeviceCaps(deviceContext, VerticalResolution));
+            var flags = RenderFlags.Printing | RenderFlags.Annotations | (grayscale ? RenderFlags.Grayscale : RenderFlags.None);
+            var ended = false;
+
+            // Each page is prepared and then drawn once the page before it is on the printer.
+            return LazySequence.Concat(Pages(deviceContext, document, sizes, device, flags))
+                .TakeWhile(static drawn => drawn)
+                .Count()
+                .Select(drawn =>
+                {
+                    ended = true;
+                    if (drawn < sizes.Length)
+                    {
+                        _ = NativeMethods.AbortDoc(deviceContext);
+                        return new PrintOutcome(false, "Printing stopped.");
+                    }
+
+                    return NativeMethods.EndDoc(deviceContext) > 0 ? new(true, string.Empty) : new PrintOutcome(false, "The printer did not finish the job.");
+                })
+                .Finally(() =>
+                {
+                    // Unsubscribing, or a failure, leaves the job open, so it is cancelled here.
+                    if (!ended)
+                    {
+                        _ = NativeMethods.AbortDoc(deviceContext);
+                    }
+
+                    document.Dispose();
+                });
+        });
 
     /// <summary>A printer's resolution and printable area.</summary>
     /// <param name="DpiX">The horizontal resolution.</param>

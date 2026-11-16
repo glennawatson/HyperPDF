@@ -10,6 +10,8 @@ using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Printing;
 using HyperPdf.Core.Reading;
 using HyperPdf.Engine;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -185,21 +187,26 @@ internal sealed class PausingEngine : IDocumentEngine
         public IReadOnlyList<OutlineNode> GetOutline() => inner.GetOutline();
 
         /// <inheritdoc/>
-        public async ValueTask PreparePageAsync(int pageIndex, CancellationToken cancellationToken)
-        {
-            _ = Interlocked.Increment(ref engine._preparedPages);
-            var gate = engine.Gate;
-            Volatile.Write(ref _held, gate);
-            if (gate is not { Point: PausePoint.Prepare })
+        public IObservable<RxVoid> PreparePage(int pageIndex) =>
+            Signal.Defer(() =>
             {
-                return;
-            }
+                _ = Interlocked.Increment(ref engine._preparedPages);
+                var gate = engine.Gate;
+                Volatile.Write(ref _held, gate);
+                if (gate is not { Point: PausePoint.Prepare })
+                {
+                    return Signal.Return(RxVoid.Default);
+                }
 
-            _ = gate.Reached.TrySetResult();
+                _ = gate.Reached.TrySetResult();
 
-            // The gate ignores the token on purpose: a search stopped while held must still finish the page it is on.
-            await gate.Released.Task.ConfigureAwait(false);
-        }
+                // The gate ignores unsubscribing on purpose: a search stopped while held must still finish the page it is on.
+                return Signal.FromAsync(async () =>
+                {
+                    await gate.Released.Task.ConfigureAwait(false);
+                    return RxVoid.Default;
+                });
+            });
 
         /// <inheritdoc/>
         public bool Render(in PageRenderInfo info, RenderTarget target)

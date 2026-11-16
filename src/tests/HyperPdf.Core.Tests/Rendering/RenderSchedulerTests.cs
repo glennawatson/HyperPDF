@@ -103,12 +103,11 @@ public sealed class RenderSchedulerTests
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var waiting = new FakeDocument(DocumentName, FakeEngine.A4);
-        waiting.Preparation = (pageIndex, token) =>
+        waiting.Preparation = page => ReactiveUI.Primitives.Signals.Signal.Defer(() =>
         {
-            _ = pageIndex;
             _ = entered.TrySetResult();
-            return new(release.Task.WaitAsync(token));
-        };
+            return FakeDocument.Awaiting(release.Task);
+        });
         var ready = new FakeDocument(DocumentName, FakeEngine.A4, FakeEngine.A4);
         var client = new RenderClient();
 
@@ -141,19 +140,11 @@ public sealed class RenderSchedulerTests
         var stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var document = new FakeDocument(DocumentName, FakeEngine.A4);
-        document.Preparation = async (_, token) =>
+        document.Preparation = _ => ReactiveUI.Primitives.Signals.Signal.Defer(() =>
         {
-            Signal(entered);
-
-            try
-            {
-                await release.Task.WaitAsync(token);
-            }
-            finally
-            {
-                Signal(stopped);
-            }
-        };
+            Complete(entered);
+            return FakeDocument.Awaiting(release.Task).Finally(() => Complete(stopped));
+        });
         var request = Request(Key(0), document, new(), RenderPriority.Visible) with { CancellationToken = tab.Token };
         await Assert.That(scheduler.Request(request)).IsTrue();
         await entered.Task.WaitAsync(cancellationToken);
@@ -178,7 +169,7 @@ public sealed class RenderSchedulerTests
         using var scheduler = new RenderScheduler(new FakeSurfaceFactory());
         using var completions = scheduler.Completed.SubscribeSafe(_ => completed.Release(), static _ => { });
         var failed = new FakeDocument(DocumentName, FakeEngine.A4);
-        failed.Preparation = static (_, _) => throw new IOException("The resource is unavailable.");
+        failed.Preparation = static _ => throw new IOException("The resource is unavailable.");
         var ready = new FakeDocument(DocumentName, FakeEngine.A4, FakeEngine.A4);
         var client = new RenderClient();
         _ = scheduler.Request(Request(Key(0), failed, client, RenderPriority.Visible));
@@ -637,14 +628,12 @@ public sealed class RenderSchedulerTests
         var factory = new PreparationSurfaceFactory();
         var scheduler = new RenderScheduler(factory);
         using var document = new FakeDocument(DocumentName, FakeEngine.A4);
-        Task? pending = null;
-        document.Preparation = (pageIndex, token) =>
+        var cancelledWait = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        document.Preparation = page => ReactiveUI.Primitives.Signals.Signal.Defer(() =>
         {
-            _ = pageIndex;
-            pending = release.Task.WaitAsync(token);
             _ = entered.TrySetResult();
-            return new(pending);
-        };
+            return FakeDocument.Awaiting(release.Task).Finally(() => cancelledWait.TrySetResult());
+        });
 
         try
         {
@@ -656,24 +645,16 @@ public sealed class RenderSchedulerTests
             scheduler.Dispose();
         }
 
-        var cancelled = false;
-        try
-        {
-            await pending!;
-        }
-        catch (OperationCanceledException)
-        {
-            cancelled = true;
-        }
-
-        await Assert.That(cancelled).IsTrue();
+        // The wait only ends because disposing the scheduler unsubscribed from it: nothing else releases it.
+        await cancelledWait.Task.WaitAsync(cancellationToken);
+        await Assert.That(release.Task.IsCompleted).IsFalse();
         await Assert.That(factory.Last).IsNull();
         await Assert.That(document.RenderCount).IsEqualTo(0);
     }
 
     /// <summary>Signals a test phase even when another callback has already signaled it.</summary>
     /// <param name="source">The phase signal.</param>
-    private static void Signal(TaskCompletionSource source) => _ = source.TrySetResult();
+    private static void Complete(TaskCompletionSource source) => _ = source.TrySetResult();
 
     /// <summary>Creates a key for a page.</summary>
     /// <param name="page">The page.</param>

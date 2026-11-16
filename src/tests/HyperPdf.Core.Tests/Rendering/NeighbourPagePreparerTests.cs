@@ -269,16 +269,17 @@ public sealed class NeighbourPagePreparerTests
         /// <summary>Makes preparation of one page wait until it is cancelled, the first time only.</summary>
         /// <param name="page">The page to hold.</param>
         /// <returns>The preparation to give the document.</returns>
-        internal Func<int, CancellationToken, ValueTask> HoldFirstPreparationOf(int page) => async (candidate, token) =>
-        {
-            if (_held || candidate != page)
+        internal Func<int, IObservable<RxVoid>> HoldFirstPreparationOf(int page) => candidate =>
+            ReactiveUI.Primitives.Signals.Signal.Defer(() =>
             {
-                return;
-            }
+                if (_held || candidate != page)
+                {
+                    return ReactiveUI.Primitives.Signals.Signal.Return(RxVoid.Default);
+                }
 
-            _held = true;
-            _ = StartedSource.TrySetResult();
-            await Task.Delay(Timeout.Infinite, token);
-        };
+                _held = true;
+                _ = StartedSource.TrySetResult();
+                return ReactiveUI.Primitives.Signals.Signal.Never<RxVoid>();
+            });
     }
 }

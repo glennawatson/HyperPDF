@@ -18,9 +18,8 @@ public interface IHyperPdfGpuRenderer
 
     /// <summary>Loads and records a page through async I/O.</summary>
     /// <param name="info">The page and rendering flags.</param>
-    /// <param name="cancellationToken">Cancels loading and recording.</param>
-    /// <returns>Whether the page exists and was recorded.</returns>
-    ValueTask<bool> PrepareAsync(PageRenderInfo info, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving whether the page exists and was recorded; unsubscribing cancels the loading.</returns>
+    IObservable<bool> PrepareWhenReady(PageRenderInfo info);
 
     /// <summary>Submits a page replay to the caller's graphics target.</summary>
     /// <param name="info">The page region and rendering flags.</param>

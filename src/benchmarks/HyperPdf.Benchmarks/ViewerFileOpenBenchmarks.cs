@@ -5,6 +5,7 @@
 using BenchmarkDotNet.Attributes;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Benchmarks;
 
@@ -29,7 +30,7 @@ public class ViewerFileOpenBenchmarks
         _path = Path.Combine(Path.GetTempPath(), $"hyperpdf-viewer-open-{Guid.NewGuid():N}.pdf");
         await File.WriteAllBytesAsync(_path, TestPdf.Create(Pages), CancellationToken.None);
         using var document = _engine.Open(_path, null);
-        await document.PreparePageAsync(0, CancellationToken.None);
+        await document.PreparePage(0).ToTask();
     }
 
     /// <summary>Deletes the generated document.</summary>
@@ -42,7 +43,7 @@ public class ViewerFileOpenBenchmarks
     public async ValueTask<int> OpenAndPrepareFirstPage()
     {
         using var document = _engine.Open(_path, null);
-        await document.PreparePageAsync(0, CancellationToken.None).ConfigureAwait(false);
+        await document.PreparePage(0).ToTask().ConfigureAwait(false);
         return document.PageCount;
     }
 }
