@@ -24,64 +24,39 @@ namespace HyperPdf.ViewModels.FormFilling;
 internal sealed class TabFormActionHost(DocumentTabViewModel owner, bool allowNavigation) : IFormActionHost
 {
     /// <inheritdoc/>
-    public ValueTask<bool> RunNamedAsync(string name, int sourcePage, CancellationToken cancellationToken)
-    {
-        if (!allowNavigation)
-        {
-            return ValueTask.FromResult(false);
-        }
-
-        var page = sourcePage >= 0 ? sourcePage : owner.CurrentPageIndex;
-        int? target = name switch
-        {
-            "NextPage" => page + 1,
-            "PrevPage" => page - 1,
-            "FirstPage" => 0,
-            "LastPage" => owner.PageCount - 1,
-            _ => null,
-        };
-        if (target is not { } index)
-        {
-            return ValueTask.FromResult(false);
-        }
-
-        owner.GoToPage(index);
-        return ValueTask.FromResult(true);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<bool> RunNamed(string name, int sourcePage) =>
+        Signal.Defer(() => Signal.Return(RunNamedNow(name, sourcePage)));
 
     /// <inheritdoc/>
-    public ValueTask<bool> OpenAsync(LinkTarget target, CancellationToken cancellationToken)
-    {
-        if (!allowNavigation)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<bool> Open(LinkTarget target) =>
+        Signal.Defer(() =>
         {
-            return ValueTask.FromResult(false);
-        }
+            if (!allowNavigation)
+            {
+                return Signal.Return(false);
+            }
 
-        owner.Navigate(target);
-        return ValueTask.FromResult(true);
-    }
-
-    /// <inheritdoc/>
-    public ValueTask<bool> SubmitAsync(FormSubmission submission, CancellationToken cancellationToken)
-    {
-        // Sending needs network plumbing and a consent flow that the viewer does not have, so the action is refused and explained.
-        owner.SetNotice(
-            string.IsNullOrEmpty(submission.Url)
-                ? LocalizedMessage.Get(UiText, "This form asked to send your answers. HyperPDF does not send form data.")
-                : LocalizedMessage.Format(UiText, "This form asked to send your answers to {0}. HyperPDF does not send form data.", submission.Url));
-        return ValueTask.FromResult(false);
-    }
+            owner.Navigate(target);
+            return Signal.Return(true);
+        });
 
     /// <inheritdoc/>
-    /// <remarks>The library's interface asks for a task, so the import, which is a signal, is turned into one here at the edge.</remarks>
-    public ValueTask<bool> ImportAsync(string? file, IFormDataImporter importer, CancellationToken cancellationToken) =>
-        new(Import(file, importer).ToTask(cancellationToken));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<bool> Submit(FormSubmission submission) =>
+        Signal.Defer(() =>
+        {
+            // Sending needs network plumbing and a consent flow that the viewer does not have, so the action is refused and explained.
+            owner.SetNotice(
+                string.IsNullOrEmpty(submission.Url)
+                    ? LocalizedMessage.Get(UiText, "This form asked to send your answers. HyperPDF does not send form data.")
+                    : LocalizedMessage.Format(UiText, "This form asked to send your answers to {0}. HyperPDF does not send form data.", submission.Url));
+            return Signal.Return(false);
+        });
 
-    /// <summary>Imports form data from a file the reader chooses once the reader agrees.</summary>
-    /// <param name="file">The file name the document gives, which is only shown.</param>
-    /// <param name="importer">Applies the data to the form.</param>
-    /// <returns>A cold signal giving <see langword="true"/> once when the data was imported; unsubscribing gives up on the questions and the read.</returns>
-    internal IObservable<bool> Import(string? file, IFormDataImporter importer)
+    /// <inheritdoc/>
+    public IObservable<bool> Import(string? file, IFormDataImporter importer)
     {
         ArgumentNullException.ThrowIfNull(importer);
 
@@ -99,6 +74,35 @@ internal sealed class TabFormActionHost(DocumentTabViewModel owner, bool allowNa
                 ? owner.Forms.ChooseImportFileInteraction.Handle(name).ToSignal()
                 : Signal.Return<string?>(null))
             .SwitchMap(path => path is { Length: > 0 } ? Imported(path, importer) : Signal.Return(false));
+    }
+
+    /// <summary>Runs a named viewer action once subscribed.</summary>
+    /// <param name="name">The action's name.</param>
+    /// <param name="sourcePage">The page the action came from, or -1.</param>
+    /// <returns><see langword="true"/> when the host ran it.</returns>
+    private bool RunNamedNow(string name, int sourcePage)
+    {
+        if (!allowNavigation)
+        {
+            return false;
+        }
+
+        var page = sourcePage >= 0 ? sourcePage : owner.CurrentPageIndex;
+        int? target = name switch
+        {
+            "NextPage" => page + 1,
+            "PrevPage" => page - 1,
+            "FirstPage" => 0,
+            "LastPage" => owner.PageCount - 1,
+            _ => null,
+        };
+        if (target is not { } index)
+        {
+            return false;
+        }
+
+        owner.GoToPage(index);
+        return true;
     }
 
     /// <summary>Reads the chosen file and applies it to the form.</summary>

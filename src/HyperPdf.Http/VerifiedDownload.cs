@@ -88,6 +88,8 @@ internal static class VerifiedDownload
                     }
                 }
 
+                // A stop requested while the last chunk was reported must still discard the file.
+                token.ThrowIfCancellationRequested();
                 if (!HashMatches(hash, sha256))
                 {
                     throw new InvalidDataException($"{Path.GetFileName(file.Target)} did not download intact; try again.");

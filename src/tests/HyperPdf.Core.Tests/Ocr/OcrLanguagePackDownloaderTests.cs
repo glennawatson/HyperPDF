@@ -24,6 +24,9 @@ public sealed class OcrLanguagePackDownloaderTests
     /// <summary>The milliseconds between checks that a cancelled copy cleaned up.</summary>
     private const int CleanupPollMilliseconds = 10;
 
+    /// <summary>How long a held download thread waits for the test to see the stop.</summary>
+    private static readonly TimeSpan StopWait = TimeSpan.FromSeconds(5);
+
     /// <summary>The host the catalogue's packs come from.</summary>
     private static readonly Uri Host = new("https://raw.githubusercontent.com");
 
@@ -119,12 +122,20 @@ public sealed class OcrLanguagePackDownloaderTests
         var pack = PackFor(content);
         using var handler = new FakeHandler(content);
         using var cancellation = new CancellationTokenSource();
-        var progress = new RecordingProgress(cancellation.Cancel);
+
+        // The download thread waits after the cancel until the test has seen it stop, so the stop always lands mid-download.
+        using var stopSeen = new ManualResetEventSlim();
+        var progress = new RecordingProgress(() =>
+        {
+            cancellation.Cancel();
+            _ = stopSeen.Wait(StopWait);
+        });
 
         _ = await Assert.ThrowsAsync<OperationCanceledException>(() => downloader.Download(Api(handler), [pack], folder.Path, progress).ToTask(cancellation.Token));
+        stopSeen.Set();
 
         // The copy notices the cancellation on its own thread and deletes the partial file straight afterwards.
-        await Assert.That(await NoFilesLeft(folder.Path)).IsTrue();
+        await Assert.That(await FilesLeft(folder.Path)).IsEmpty();
         await downloader.Download(Api(handler), [pack], folder.Path, new RecordingProgress()).ToTask();
         await Assert.That(await File.ReadAllBytesAsync(Path.Combine(folder.Path, pack.FileName))).IsEquivalentTo(content);
     }
@@ -150,7 +161,7 @@ public sealed class OcrLanguagePackDownloaderTests
     /// <summary>Waits for the folder to be empty, which follows a cancelled copy cleaning up.</summary>
     /// <param name="folder">The folder.</param>
     /// <returns><see langword="true"/> when the folder is empty.</returns>
-    private static async Task<bool> NoFilesLeft(string folder)
+    private static async Task<string[]> FilesLeft(string folder)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(CleanupSeconds));
         using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(CleanupPollMilliseconds));
@@ -160,7 +171,7 @@ public sealed class OcrLanguagePackDownloaderTests
             waiting = await timer.WaitForNextTickAsync(timeout.Token) && Directory.GetFiles(folder).Length > 0;
         }
 
-        return Directory.GetFiles(folder).Length == 0;
+        return Directory.GetFiles(folder);
     }
 
     /// <summary>Makes the test pack's bytes.</summary>

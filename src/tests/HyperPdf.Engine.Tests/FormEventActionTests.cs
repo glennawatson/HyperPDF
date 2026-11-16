@@ -8,6 +8,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.TestAssets;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -77,19 +78,20 @@ public sealed class FormEventActionTests
         internal ConcurrentQueue<string> Names { get; } = new();
 
         /// <inheritdoc/>
-        public ValueTask<bool> RunNamedAsync(string name, int sourcePage, CancellationToken cancellationToken)
-        {
-            Names.Enqueue(name);
-            return ValueTask.FromResult(true);
-        }
+        public IObservable<bool> RunNamed(string name, int sourcePage) =>
+            Signal.Defer(() =>
+            {
+                Names.Enqueue(name);
+                return Signal.Return(true);
+            });
 
         /// <inheritdoc/>
-        public ValueTask<bool> OpenAsync(LinkTarget target, CancellationToken cancellationToken) => ValueTask.FromResult(false);
+        public IObservable<bool> Open(LinkTarget target) => Signal.Return(false);
 
         /// <inheritdoc/>
-        public ValueTask<bool> SubmitAsync(FormSubmission submission, CancellationToken cancellationToken) => ValueTask.FromResult(false);
+        public IObservable<bool> Submit(FormSubmission submission) => Signal.Return(false);
 
         /// <inheritdoc/>
-        public ValueTask<bool> ImportAsync(string? file, IFormDataImporter importer, CancellationToken cancellationToken) => ValueTask.FromResult(false);
+        public IObservable<bool> Import(string? file, IFormDataImporter importer) => Signal.Return(false);
     }
 }
