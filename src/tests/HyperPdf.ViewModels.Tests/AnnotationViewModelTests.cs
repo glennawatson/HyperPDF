@@ -45,7 +45,7 @@ public sealed class AnnotationViewModelTests
         var dirty = tab.HasUnsavedChanges;
         _ = await annotations.UndoCommand.Execute().ToTask();
         var afterUndo = annotations.Items.Count;
-        var saved = await tab.SaveAsync(path, CancellationToken.None);
+        var saved = await tab.SaveTo(path).ToTask();
 
         await Assert.That(marked).IsTrue();
         await Assert.That(afterAdding).IsEqualTo(Two);
@@ -99,7 +99,7 @@ public sealed class AnnotationViewModelTests
         var destination = Path.Combine(test.Directory, "destination");
         _ = System.IO.Directory.CreateDirectory(destination);
 
-        var saved = await tab.SaveAsync(destination, CancellationToken.None);
+        var saved = await tab.SaveTo(destination).ToTask();
 
         await Assert.That(saved).IsFalse();
         await Assert.That(tab.HasUnsavedChanges).IsTrue();
@@ -110,7 +110,7 @@ public sealed class AnnotationViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("other.pdf", 1)]);
         await Assert.That(tab.Source.IsOpen).IsTrue();
 
-        var retried = await tab.SaveAsync(tab.FilePath, CancellationToken.None);
+        var retried = await tab.SaveTo(tab.FilePath).ToTask();
         await Assert.That(retried).IsTrue();
         await Assert.That(tab.Source.HasUnsavedChanges).IsFalse();
     }

@@ -206,7 +206,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
         {
             if (RemoteDocumentDownloader.IsRemote(item, out var remote))
             {
-                _ = OpenRemoteAsync(remote);
+                _subscriptions.Add(OpenRemote(remote).SubscribeSafe(static _ => { }, ErrorTrace.Write));
                 continue;
             }
 
@@ -369,8 +369,8 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     }
 
     /// <summary>Asks whether to discard unsaved edits in every tab; true when there are none.</summary>
-    /// <returns><see langword="true"/> to go ahead.</returns>
-    public async Task<bool> ConfirmDiscardAsync()
+    /// <returns>A cold signal giving <see langword="true"/> to go ahead.</returns>
+    public IObservable<bool> ConfirmDiscard()
     {
         var unsaved = 0;
         foreach (var tab in Tabs)
@@ -380,7 +380,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
 
         if (unsaved == 0)
         {
-            return true;
+            return Signal.Return(true);
         }
 
         var request = new ConfirmRequest(
@@ -388,42 +388,24 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
             LocalizedMessage.Get(UiText, "Annotations and form entries you have not saved will be lost. Choose Cancel, then Save (Ctrl+S) to keep them."),
             LocalizedMessage.Get(UiText, "Close Without Saving"));
         IsConfirmingDiscard = true;
-        try
-        {
-            return await ConfirmInteraction.Handle(request).ToTask().ConfigureAwait(true);
-        }
-        finally
-        {
-            IsConfirmingDiscard = false;
-        }
+        return ConfirmInteraction.Handle(request).ToSignal().Finally(StopConfirmingDiscard);
     }
 
     /// <summary>Closes a tab, asking first when it has unsaved edits.</summary>
     /// <param name="tab">The tab; null closes the selected tab.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the tab is closed or the close was given up.</returns>
     [ReactiveCommand]
-    public async Task CloseTabAsync(DocumentTabViewModel? tab)
+    public IObservable<RxVoid> CloseTab(DocumentTabViewModel? tab)
     {
         tab ??= SelectedTab;
         if (tab is null)
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
-        if (tab.HasUnsavedChanges)
-        {
-            var request = new ConfirmRequest(
-                LocalizedMessage.Format(UiText, "Close {0} without saving?", tab.FileName),
-                LocalizedMessage.Get(UiText, "Annotations and form entries you have not saved will be lost. Choose Cancel, then Save (Ctrl+S) to keep them."),
-                LocalizedMessage.Get(UiText, "Close Without Saving"));
-            if (!await ConfirmInteraction.Handle(request).ToTask().ConfigureAwait(true))
-            {
-                return;
-            }
-        }
-
-        _ = await tab.Forms.RunDocumentEventAsync(FormDocumentEvent.WillClose).ConfigureAwait(true);
-        CloseTabWithoutAsking(tab);
+        var closing = tab;
+        return ConfirmUnsaved(closing)
+            .SwitchMap(go => go ? closing.Forms.RunDocumentEvent(FormDocumentEvent.WillClose).Select(_ => CloseWithoutAsking(closing)) : Signal.Return(RxVoid.Default));
     }
 
     /// <summary>Shows a failure no command handled as a notice on the selected tab, so the app goes on running.</summary>
@@ -497,14 +479,45 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
 
     /// <summary>Runs the document actions that happen before a document closes, for each tab about to close.</summary>
     /// <param name="closing">The tabs.</param>
-    /// <returns>A task.</returns>
-    private static async Task RunWillCloseAsync(List<DocumentTabViewModel> closing)
+    /// <returns>A cold signal that ends once every tab's actions have run, one after another.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IObservable<RxVoid> RunWillClose(List<DocumentTabViewModel> closing) =>
+        Signal.Concat(WillCloseEvents(closing)).Count().Select(static _ => RxVoid.Default);
+
+    /// <summary>Makes the will-close actions of each tab, one at a time as the caller moves along.</summary>
+    /// <param name="closing">The tabs.</param>
+    /// <returns>A cold signal per tab.</returns>
+    private static IEnumerable<IObservable<FormActionResult>> WillCloseEvents(List<DocumentTabViewModel> closing)
     {
         foreach (var tab in closing)
         {
-            _ = await tab.Forms.RunDocumentEventAsync(FormDocumentEvent.WillClose).ConfigureAwait(true);
+            yield return tab.Forms.RunDocumentEvent(FormDocumentEvent.WillClose);
         }
     }
+
+    /// <summary>Asks whether to discard a tab's unsaved edits, when it has any.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <returns>A cold signal giving <see langword="true"/> to go ahead.</returns>
+    private IObservable<bool> ConfirmUnsaved(DocumentTabViewModel tab) =>
+        tab.HasUnsavedChanges
+            ? ConfirmInteraction.Handle(new(
+                LocalizedMessage.Format(UiText, "Close {0} without saving?", tab.FileName),
+                LocalizedMessage.Get(UiText, "Annotations and form entries you have not saved will be lost. Choose Cancel, then Save (Ctrl+S) to keep them."),
+                LocalizedMessage.Get(UiText, "Close Without Saving"))).ToSignal()
+            : Signal.Return(true);
+
+    /// <summary>Closes a tab that was already confirmed.</summary>
+    /// <param name="tab">The tab.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid CloseWithoutAsking(DocumentTabViewModel tab)
+    {
+        CloseTabWithoutAsking(tab);
+        return RxVoid.Default;
+    }
+
+    /// <summary>Puts the discard question's flag back once it was answered or given up.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void StopConfirmingDiscard() => IsConfirmingDiscard = false;
 
     /// <summary>Clears the recent PDF list shown by this app.</summary>
     [ReactiveCommand]
@@ -654,9 +667,9 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     }
 
     /// <summary>Shows the Search in Folder window, starting in the selected document's folder.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is put away.</returns>
     [ReactiveCommand]
-    private async Task SearchFolderAsync()
+    private IObservable<RxVoid> SearchFolder()
     {
         var search = FolderSearch;
         if (search.Folder.Length == 0 && SelectedTab is { } tab && Path.GetDirectoryName(tab.FilePath) is { Length: > 0 } folder)
@@ -664,121 +677,180 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
             search.Folder = folder;
         }
 
-        _ = await ShowFolderSearchInteraction.Handle(search).ToTask().ConfigureAwait(true);
+        return ShowFolderSearchInteraction.Handle(search).ToSignal().Select(static _ => RxVoid.Default);
     }
 
     /// <summary>Downloads a remote document and opens it.</summary>
     /// <param name="uri">The URI.</param>
-    /// <returns>A task.</returns>
-    private async Task OpenRemoteAsync(Uri uri)
+    /// <returns>A cold signal that ends once the document is opened or the download failed; unsubscribing, because the window closed, gives it up.</returns>
+    private IObservable<RxVoid> OpenRemote(Uri uri)
     {
         SetStatusMessage(LocalizedMessage.Format(UiText, "Downloading {0}…", uri.Host));
-        var token = _lifetime;
-        try
-        {
-            var path = await _services.Downloader.DownloadAsync(uri, token).ConfigureAwait(true);
 
-            // A download that finished just as the window closed must not open a tab in a disposed view model.
-            token.ThrowIfCancellationRequested();
-            StatusMessage = null;
-            Open([path]);
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        // The download is real network I/O in the downloader, so its task is the one call here that is awaited.
+        return Signal.FromAsync(token => _services.Downloader.DownloadAsync(uri, token), _lifetime)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(OpenDownloaded)
+            .Catch<RxVoid, Exception>(DownloadFailed);
+    }
+
+    /// <summary>Opens a downloaded document.</summary>
+    /// <param name="path">The downloaded file.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid OpenDownloaded(string path)
+    {
+        StatusMessage = null;
+        Open([path]);
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says why the download failed, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> DownloadFailed(Exception error)
+    {
+        switch (error)
         {
-            // The window closed while the file was coming, so there is no one left to show it to.
-        }
-        catch (HttpRequestException ex)
-        {
-            SetStatusMessage(LocalizedMessage.Format(UiText, "Download failed: {0}", ex.Message));
-        }
-        catch (InvalidDataException ex)
-        {
-            StatusMessage = ex.Message;
+            case OperationCanceledException:
+                {
+                    // The window closed while the file was coming, so there is no one left to show it to.
+                    return Signal.Return(RxVoid.Default);
+                }
+
+            case HttpRequestException:
+                {
+                    SetStatusMessage(LocalizedMessage.Format(UiText, "Download failed: {0}", error.Message));
+                    return Signal.Return(RxVoid.Default);
+                }
+
+            case InvalidDataException:
+                {
+                    StatusMessage = error.Message;
+                    return Signal.Return(RxVoid.Default);
+                }
+
+            default:
+                {
+                    return Signal.Throw<RxVoid>(error);
+                }
         }
     }
 
     /// <summary>Asks the view for files and opens them.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the files are opened or the choice was given up.</returns>
     [ReactiveCommand]
-    private async Task OpenAsync()
-    {
-        var files = await OpenFileInteraction.Handle(RxVoid.Default);
-        Open(files);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Open() =>
+        OpenFileInteraction.Handle(RxVoid.Default).ToSignal().Select(files =>
+        {
+            Open(files);
+            return RxVoid.Default;
+        });
 
     /// <summary>Asks for picture files and where to save them, writes them as a new PDF 2.0 file with a page for each, and opens it.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the PDF is opened or the conversion was given up.</returns>
     [ReactiveCommand]
-    private async Task ConvertPicturesAsync()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ConvertPictures() =>
+        ConvertPicturesInteraction.Handle(RxVoid.Default).ToSignal()
+            .SwitchMap(pictures => pictures.Count == 0
+                ? Signal.Return(RxVoid.Default)
+                : ConvertDestinationInteraction.Handle(PictureConversion.SuggestName(pictures)).ToSignal()
+                    .SwitchMap(destination => destination is null ? Signal.Return(RxVoid.Default) : ConvertTo(pictures, destination)));
+
+    /// <summary>Writes the pictures as a PDF and opens it.</summary>
+    /// <param name="pictures">The picture files.</param>
+    /// <param name="destination">The PDF to write.</param>
+    /// <returns>A cold signal that ends once the PDF is opened or could not be made.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ConvertTo(IReadOnlyList<string> pictures, string destination) =>
+        PictureConversion.Convert(_services, pictures, destination)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(pages => Converted(pages, destination))
+            .Catch<RxVoid, Exception>(ConversionFailed);
+
+    /// <summary>Opens the new PDF, or says nothing could be read as a picture.</summary>
+    /// <param name="pages">The number of pages written.</param>
+    /// <param name="destination">The PDF.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Converted(int pages, string destination)
     {
-        var pictures = await ConvertPicturesInteraction.Handle(RxVoid.Default);
-        if (pictures.Count == 0 || await ConvertDestinationInteraction.Handle(PictureConversion.SuggestName(pictures)) is not { } destination)
+        if (pages == 0)
         {
-            return;
+            StatusMessage = UiText.Get("None of the chosen files could be read as pictures.");
+            return RxVoid.Default;
         }
 
-        try
-        {
-            var pages = await PictureConversion.ConvertAsync(_services, pictures, destination, CancellationToken.None);
-            if (pages == 0)
-            {
-                StatusMessage = UiText.Get("None of the chosen files could be read as pictures.");
-                return;
-            }
+        Open([destination]);
+        return RxVoid.Default;
+    }
 
-            Open([destination]);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+    /// <summary>Says why the PDF could not be made, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> ConversionFailed(Exception error)
+    {
+        if (error is not (IOException or UnauthorizedAccessException or ArgumentException))
         {
-            StatusMessage = UiText.Format("Could not make the PDF: {0}", ex.Message);
+            return Signal.Throw<RxVoid>(error);
         }
+
+        StatusMessage = UiText.Format("Could not make the PDF: {0}", error.Message);
+        return Signal.Return(RxVoid.Default);
     }
 
     /// <summary>Asks the view to show properties of the selected document.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is put away.</returns>
     [ReactiveCommand]
-    private async Task PropertiesAsync()
-    {
-        if (SelectedTab is { IsLoaded: true } tab)
-        {
-            _ = await ShowPropertiesInteraction.Handle(tab);
-        }
-    }
+    private IObservable<RxVoid> Properties() =>
+        SelectedTab is { IsLoaded: true } tab
+            ? ShowPropertiesInteraction.Handle(tab).ToSignal().Select(static _ => RxVoid.Default)
+            : Signal.Return(RxVoid.Default);
 
     /// <summary>Asks the view to show the preferences; they stop following the settings when the window closes.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is put away.</returns>
     [ReactiveCommand]
-    private async Task PreferencesAsync()
-    {
-        using PreferencesViewModel preferences = new(_services);
-        _ = await ShowPreferencesInteraction.Handle(preferences).ToTask().ConfigureAwait(true);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Preferences() =>
+        Signal.Using(() => new PreferencesViewModel(_services), preferences => ShowPreferencesInteraction.Handle(preferences).ToSignal().Select(static _ => RxVoid.Default));
 
     /// <summary>Asks the view to show this application's licence and the licences of what it includes.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is put away.</returns>
     [ReactiveCommand]
-    private async Task LicencesAsync()
-    {
-        using LicencesViewModel licences = new(_services.LicenceNotices.Load());
-        _ = await ShowLicencesInteraction.Handle(licences).ToTask().ConfigureAwait(true);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Licences() =>
+        Signal.Using(() => new LicencesViewModel(_services.LicenceNotices.Load()), licences => ShowLicencesInteraction.Handle(licences).ToSignal().Select(static _ => RxVoid.Default));
 
     /// <summary>Shows the selected document in the file manager.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the file manager was asked.</returns>
     [ReactiveCommand]
-    private async Task ShowInFolderAsync()
+    private IObservable<RxVoid> ShowInFolder() =>
+        SelectedTab is not { } tab
+            ? Signal.Return(RxVoid.Default)
+
+            // The file manager launcher is the platform's async API, so its call is the one task here.
+            : Signal.FromAsync(token => _services.FileManager.ShowItemAsync(tab.FilePath, token))
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Select(ShowedInFolder);
+
+    /// <summary>Says when no file manager is available.</summary>
+    /// <param name="shown">Whether the file manager showed the item.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid ShowedInFolder(bool shown)
     {
-        if (SelectedTab is { } tab && !await _services.FileManager.ShowItemAsync(tab.FilePath, CancellationToken.None).ConfigureAwait(true))
+        if (!shown)
         {
             SetStatusMessage(LocalizedMessage.Get(UiText, "No file manager is available."));
         }
+
+        return RxVoid.Default;
     }
 
     /// <summary>Closes every tab except one, asking first when more than one would close.</summary>
     /// <param name="keep">The tab to keep; null keeps the selected tab.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the tabs are closed or the close was given up.</returns>
     [ReactiveCommand]
-    private async Task CloseOtherTabsAsync(DocumentTabViewModel? keep)
+    private IObservable<RxVoid> CloseOtherTabs(DocumentTabViewModel? keep)
     {
         keep ??= SelectedTab;
         var closing = new List<DocumentTabViewModel>(Tabs.Count);
@@ -790,46 +862,56 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
             }
         }
 
-        if (!await ConfirmCloseAsync(closing.Count).ConfigureAwait(true))
-        {
-            return;
-        }
-
-        await RunWillCloseAsync(closing).ConfigureAwait(true);
-        CloseGroup(closing);
+        return ConfirmClose(closing.Count)
+            .SwitchMap(go => go ? RunWillClose(closing).Select(_ => CloseTabs(closing, false)) : Signal.Return(RxVoid.Default));
     }
 
     /// <summary>Closes every tab, asking first when there is more than one.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the tabs are closed or the close was given up.</returns>
     [ReactiveCommand]
-    private async Task CloseAllTabsAsync()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> CloseAllTabs() =>
+        ConfirmClose(Tabs.Count)
+            .SwitchMap(go => go ? CloseAll() : Signal.Return(RxVoid.Default));
+
+    /// <summary>Runs the will-close actions of every tab, then closes them as one group.</summary>
+    /// <returns>A cold signal that ends once the tabs are closed.</returns>
+    private IObservable<RxVoid> CloseAll()
     {
-        if (!await ConfirmCloseAsync(Tabs.Count).ConfigureAwait(true))
+        List<DocumentTabViewModel> closing = [.. Tabs];
+        return RunWillClose(closing).Select(_ => CloseTabs(closing, true));
+    }
+
+    /// <summary>Closes tabs as one group that reopens together.</summary>
+    /// <param name="closing">The tabs.</param>
+    /// <param name="refreshRecent">Whether the recent documents list is shown again afterwards.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid CloseTabs(List<DocumentTabViewModel> closing, bool refreshRecent)
+    {
+        CloseGroup(closing);
+        if (refreshRecent)
         {
-            return;
+            RefreshRecentDocuments();
         }
 
-        List<DocumentTabViewModel> closing = [.. Tabs];
-        await RunWillCloseAsync(closing).ConfigureAwait(true);
-        CloseGroup(closing);
-        RefreshRecentDocuments();
+        return RxVoid.Default;
     }
 
     /// <summary>Asks before closing several tabs at once.</summary>
     /// <param name="count">The number of tabs that would close.</param>
-    /// <returns><see langword="true"/> to go ahead.</returns>
-    private async Task<bool> ConfirmCloseAsync(int count)
+    /// <returns>A cold signal giving <see langword="true"/> to go ahead.</returns>
+    private IObservable<bool> ConfirmClose(int count)
     {
         if (count < ConfirmCloseThreshold)
         {
-            return count == 0 || await ConfirmDiscardAsync().ConfigureAwait(true);
+            return count == 0 ? Signal.Return(true) : ConfirmDiscard();
         }
 
         var request = new ConfirmRequest(
             LocalizedMessage.Format(UiText, "Close {0} tabs?", count),
             LocalizedMessage.Get(UiText, "You can reopen them together with Reopen Closed Tabs (Ctrl+Shift+T)."),
             LocalizedMessage.Get(UiText, "Close Tabs"));
-        return await ConfirmInteraction.Handle(request).ToTask().ConfigureAwait(true);
+        return ConfirmInteraction.Handle(request).ToSignal();
     }
 
     /// <summary>Closes several tabs as one group that reopens together.</summary>
@@ -913,9 +995,9 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     private void TogglePageTone() => PageToneEnabled = !PageToneEnabled;
 
     /// <summary>Opens another window, showing the selected document at the same page.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is put away.</returns>
     [ReactiveCommand]
-    private async Task NewWindowAsync()
+    private IObservable<RxVoid> NewWindow()
     {
         var window = new MainViewModel(_services) { IsSecondaryWindow = true, PageToneEnabled = PageToneEnabled };
         if (SelectedTab is { } current && current.FilePath.Length > 0)
@@ -923,7 +1005,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
             window.OpenAt(current.FilePath, Math.Max(0, current.CurrentPageIndex), string.Empty);
         }
 
-        _ = await NewWindowInteraction.Handle(window).ToTask().ConfigureAwait(true);
+        return NewWindowInteraction.Handle(window).ToSignal().Select(static _ => RxVoid.Default);
     }
 
     /// <summary>Opens a recent document.</summary>

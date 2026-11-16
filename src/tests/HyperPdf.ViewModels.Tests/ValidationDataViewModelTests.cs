@@ -234,7 +234,7 @@ public sealed class ValidationDataViewModelTests
         _ = await stamping.SaveCommand.Execute().ToTask();
         main.Open([destination]);
         var stamped = main.Tabs.First(t => t.FilePath == destination);
-        await stamped.EnsureLoadedAsync(CancellationToken.None);
+        _ = await stamped.EnsureLoaded().ToTask();
         stamped.Signatures.Refresh();
 
         using (Assert.Multiple())

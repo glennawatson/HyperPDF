@@ -6,7 +6,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Annotations;
-using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
@@ -607,13 +606,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     internal partial PageManagementViewModel? PagesInUse { get; private set; }
 
     /// <summary>Opens the document with cancellable I/O and loads its structure on the UI thread.</summary>
-    /// <param name="cancellationToken">Cancels the open and first-page work.</param>
-    /// <returns>A task that completes inline when the document is ready.</returns>
-    public ValueTask EnsureLoadedAsync(CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return IsLoaded && Source.IsOpen ? ValueTask.CompletedTask : LoadAsync(cancellationToken);
-    }
+    /// <returns>A cold signal that completes when the document is ready; unsubscribing cancels the open and first-page work.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<RxVoid> EnsureLoaded() => IsLoaded && Source.IsOpen ? Signal.Return(RxVoid.Default) : Load();
 
     /// <summary>Applies a new tint over fillable form fields to the open document and draws its pages again.</summary>
     /// <param name="highlight">The tint.</param>
@@ -781,55 +776,6 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     public string GetPageDisplay(int pageIndex) =>
         pageIndex >= 0 && pageIndex < Thumbnails.Count ? Thumbnails[pageIndex].Label : (pageIndex + 1).ToString(CultureInfo.CurrentCulture);
 
-    /// <summary>Readies the hover preview, opening a cold document asynchronously and sizing it to the current page.</summary>
-    /// <param name="cancellationToken">Cancels a pending open.</param>
-    /// <returns>A task that completes when the preview is ready.</returns>
-    public async Task PreparePreviewAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            _ = await Source.AcquireAsync(cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-        }
-        catch (OperationCanceledException)
-        {
-            return;
-        }
-        catch (DocumentOpenException ex)
-        {
-            PreviewHeight = 0;
-            SetPreviewCaption(
-                LocalizedMessage.Literal(
-                    ex.Error switch
-                    {
-    DocumentOpenError.Password => UiText.Get("Password protected"),
-    DocumentOpenError.Certificate => UiText.Get("Certificate required"),
-    _ => ex.Message,
-                    }));
-            return;
-        }
-        catch (Exception ex)
-        {
-            AppLog.Error(ex);
-            PreviewHeight = 0;
-            SetPreviewCaption(LocalizedMessage.Get(UiText, "This document could not be opened"));
-            return;
-        }
-
-        PreviewPageIndex = Math.Max(0, CurrentPageIndex);
-        var page = Math.Min(PreviewPageIndex, Source.PageCount - 1);
-        if (page < 0)
-        {
-            PreviewHeight = 0;
-            SetPreviewCaption(LocalizedMessage.Get(UiText, "No pages"));
-            return;
-        }
-
-        var size = Source.PageSizes[page];
-        PreviewHeight = size.Width > 0 ? Math.Round(PreviewWidth * size.Height / size.Width) : PreviewWidth;
-        SetPreviewCaption(LocalizedMessage.Format(UiText, "Page {0} of {1}", GetPageDisplay(page), Source.PageCount));
-    }
-
     /// <summary>Shows the bookmarks of an edited document without moving the reader.</summary>
     /// <param name="items">The rebuilt entries.</param>
     /// <param name="selectId">The object number of the entry to select, or 0 for none.</param>
@@ -860,45 +806,17 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
 
     /// <summary>Saves a document copy with cancellable output I/O, then replaces the destination atomically.</summary>
     /// <param name="path">The destination file.</param>
-    /// <param name="cancellationToken">Cancels the snapshot and output write.</param>
-    /// <returns>Whether the file was saved.</returns>
-    public async Task<bool> SaveAsync(string path, CancellationToken cancellationToken)
-    {
-        if (NeedsPassword || ErrorMessage is not null)
-        {
-            return false;
-        }
+    /// <returns>A cold signal giving whether the file was saved; unsubscribing cancels the snapshot and output write.</returns>
+    public IObservable<bool> SaveTo(string path) =>
+        NeedsPassword || ErrorMessage is not null
+            ? Signal.Return(false)
 
-        IDocument document;
-        try
-        {
-            document = await Source.AcquireAsync(cancellationToken);
-        }
-        catch (DocumentOpenException)
-        {
-            return false;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            return false;
-        }
-
-        if (DocumentFeature<IAnnotationEditor>.Get(document) is not { } editor)
-        {
-            return false;
-        }
-
-        // The document's own actions bracket the save: they may change fields before the file is written.
-        _ = await Forms.RunDocumentEventAsync(FormDocumentEvent.WillSave).ConfigureAwait(true);
-        var upgrade = await Pdf20SavePlan.PlanAsync(document, Source.HasUnsavedChanges, Copies.Pdf20SaveInteraction, cancellationToken).ConfigureAwait(true);
-        var saved = ApplySaveOutcome(await DocumentSave.SaveAsync(editor, Source, path, upgrade, cancellationToken).ConfigureAwait(true));
-        if (saved)
-        {
-            _ = await Forms.RunDocumentEventAsync(FormDocumentEvent.DidSave).ConfigureAwait(true);
-        }
-
-        return saved;
-    }
+            // Acquiring the document is the PDF library's async I/O, so that call is the one task here.
+            : Signal.FromAsync(token => Source.AcquireAsync(token).AsTask())
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .SwitchMap(document => DocumentFeature<IAnnotationEditor>.Get(document) is { } editor ? Write(document, editor, path) : Signal.Return(false))
+                .Catch<bool, DocumentOpenException>(static _ => Signal.Return(false))
+                .Catch<bool, OperationCanceledException>(static _ => Signal.Return(false));
 
     /// <summary>Turns read mode on or off, putting the sidebar away and bringing it back as it was.</summary>
     /// <param name="reading">Whether to read.</param>
@@ -949,13 +867,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     public void Unload() => RenderHub.RemoveDocumentTiles(TileId);
 
     /// <summary>Reloads the document from disk, keeping the current page.</summary>
-    /// <returns>A task for the selected tab's reload.</returns>
+    /// <returns>A signal that completes once the selected tab has loaded again; a tab that is not selected loads when it is.</returns>
     [ReactiveCommand]
-    public async Task ReloadAsync()
+    public IObservable<RxVoid> Reload()
     {
         HasPendingReload = false;
         var page = CurrentPageIndex;
-        var token = SelectedWorkToken;
         if (_copies?.CloseWindows() == true)
         {
             SetNotice(LocalizedMessage.Get(UiText, "The file changed on disk and was reloaded, so the window for saving a copy was closed."));
@@ -966,27 +883,9 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         _reading?.Reset();
         IsLoaded = false;
         LayoutVersion++;
-        if (!IsSelected)
-        {
-            return;
-        }
-
-        try
-        {
-            await EnsureLoadedAsync(token).ConfigureAwait(true);
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
-            return;
-        }
-
-        if (!IsLoaded)
-        {
-            return;
-        }
-
-        GoToPage(page);
-        Search.Refresh();
+        return IsSelected
+            ? EnsureLoaded().Select(_ => ShowReloaded(page)).Catch<RxVoid, OperationCanceledException>(static _ => Signal.Return(RxVoid.Default))
+            : Signal.Return(RxVoid.Default);
     }
 
     /// <inheritdoc/>
@@ -1010,9 +909,30 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         }
         else if (response == FileChangeResponse.Reload)
         {
-            _ = ReloadChangedFileAsync();
+            _subscriptions.Add(Reload().SubscribeSafe(static _ => { }, ErrorTrace.Write));
         }
     }
+
+    /// <summary>Reads the separation details with async I/O, so the page structure read that follows finds them loaded.</summary>
+    /// <param name="document">The acquired document.</param>
+    /// <returns>A cold signal giving the document once its separations are read.</returns>
+    private static IObservable<IDocument> ReadSeparations(IDocument document) =>
+        DocumentFeature<ISeparationSource>.Get(document) is { } separations
+            ? Signal.FromAsync(token => separations.GetSeparationsAsync(token).AsTask()).Select(_ => document)
+            : Signal.Return(document);
+
+    /// <summary>Saves between the document's own will-save and did-save actions, which may change fields before the file is written.</summary>
+    /// <param name="document">The open document.</param>
+    /// <param name="editor">The document writer.</param>
+    /// <param name="path">The destination file.</param>
+    /// <returns>A cold signal giving whether the file was saved.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<bool> Write(IDocument document, IAnnotationEditor editor, string path) =>
+        Forms.RunDocumentEvent(FormDocumentEvent.WillSave)
+            .SwitchMap(_ => Pdf20SavePlan.Plan(document, Source.HasUnsavedChanges, Copies.Pdf20SaveInteraction))
+            .SwitchMap(upgrade => DocumentSave.Write(editor, Source, path, upgrade))
+            .Select(outcome => ApplySaveOutcome(outcome))
+            .SwitchMap(saved => saved ? Forms.RunDocumentEvent(FormDocumentEvent.DidSave).Select(static _ => true) : Signal.Return(false));
 
     /// <summary>Reflects the publication result in the tab and its file watcher.</summary>
     /// <param name="outcome">The write and replacement result.</param>
@@ -1039,47 +959,46 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     }
 
     /// <summary>Opens a cold document, reporting ordinary open errors in the tab.</summary>
-    /// <param name="cancellationToken">Cancels a pending open.</param>
-    /// <returns>A task.</returns>
-    private async ValueTask LoadAsync(CancellationToken cancellationToken)
+    /// <returns>A cold signal that completes once the document is open or could not be.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Load() =>
+        // Acquiring the document and reading its separations are the PDF library's async I/O, so those calls are the tasks here.
+        Signal.FromAsync(token => Source.AcquireAsync(token).AsTask())
+            .SwitchMap(ReadSeparations)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(ShowLoaded)
+            .Catch<RxVoid, DocumentOpenException>(OpenFailed);
+
+    /// <summary>Publishes a document that opened.</summary>
+    /// <param name="document">The ready document.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid ShowLoaded(IDocument document)
     {
-        try
-        {
-            var document = await Source.AcquireAsync(cancellationToken);
-
-            // Reads the separation details with async I/O, so the page structure read that follows finds them loaded.
-            if (DocumentFeature<ISeparationSource>.Get(document) is { } separations)
-            {
-                _ = await separations.GetSeparationsAsync(cancellationToken);
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-            CompleteLoad(document);
-        }
-        catch (DocumentOpenException ex)
-        {
-            NeedsPassword = ex.Error == DocumentOpenError.Password;
-            NeedsCertificate = ex.Error == DocumentOpenError.Certificate;
-            SetCertificateError(NeedsCertificate ? LocalizedMessage.Literal(ex.Message) : LocalizedMessage.Literal(null));
-            SetErrorMessage(NeedsPassword || NeedsCertificate ? LocalizedMessage.Literal(null) : LocalizedMessage.Literal(ex.Message));
-        }
+        CompleteLoad(document);
+        return RxVoid.Default;
     }
 
-    /// <summary>Shows errors from selected-tab loading without leaving a fire-and-forget task unobserved.</summary>
-    /// <param name="cancellationToken">The selected tab token.</param>
-    /// <returns>A task that completes once the document is open, or could not be.</returns>
-    private async Task<RxVoid> LoadSelectedAsync(CancellationToken cancellationToken)
+    /// <summary>Shows why the document did not open.</summary>
+    /// <param name="error">The open failure.</param>
+    /// <returns>A signal that ends at once.</returns>
+    private IObservable<RxVoid> OpenFailed(DocumentOpenException error)
     {
-        try
+        NeedsPassword = error.Error == DocumentOpenError.Password;
+        NeedsCertificate = error.Error == DocumentOpenError.Certificate;
+        SetCertificateError(NeedsCertificate ? LocalizedMessage.Literal(error.Message) : LocalizedMessage.Literal(null));
+        SetErrorMessage(NeedsPassword || NeedsCertificate ? LocalizedMessage.Literal(null) : LocalizedMessage.Literal(error.Message));
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Goes back to the page that was shown before a reload, once the document is open again.</summary>
+    /// <param name="page">The page.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid ShowReloaded(int page)
+    {
+        if (IsLoaded)
         {
-            await EnsureLoadedAsync(cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
-        catch (Exception error)
-        {
-            ErrorTrace.Write(error);
+            GoToPage(page);
+            Search.Refresh();
         }
 
         return RxVoid.Default;
@@ -1223,18 +1142,18 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     }
 
     /// <summary>Asks where to save a copy and saves it there.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the copy is saved or the choice was given up.</returns>
     [ReactiveCommand]
-    private async Task SaveAsAsync() => _ = await AskAndSaveAsync().ConfigureAwait(true);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> SaveAs() => AskAndSave().Select(static _ => RxVoid.Default);
 
     /// <summary>Asks where to save a copy, suggesting a PDF name for a picture opened as a document, and saves it there.</summary>
-    /// <returns>A task that reports whether the file was saved.</returns>
-    private async Task<bool> AskAndSaveAsync()
+    /// <returns>A cold signal giving whether the file was saved.</returns>
+    private IObservable<bool> AskAndSave()
     {
-        var cancellationToken = SelectedWorkToken;
         var suggested = PictureFiles.IsPictureFile(FileName) ? PictureFiles.SuggestedPdfName(FileName) : FileName;
-        var path = await SaveAsInteraction.Handle(suggested).ToTask().ConfigureAwait(true);
-        return !string.IsNullOrEmpty(path) && await SaveAsync(path, cancellationToken).ConfigureAwait(true);
+        return SaveAsInteraction.Handle(suggested).ToSignal()
+            .SwitchMap(path => string.IsNullOrEmpty(path) ? Signal.Return(false) : SaveTo(path));
     }
 
     /// <summary>Zooms in one step.</summary>
@@ -1308,10 +1227,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     private void DismissReload() => HasPendingReload = false;
 
     /// <summary>Saves the document over its own file; a picture opened as a document is never overwritten, so it asks where to save a PDF.</summary>
-    /// <returns>A task that reports whether the file was saved.</returns>
+    /// <returns>A signal giving whether the file was saved.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task<bool> Save() => PictureFiles.IsPictureFile(FilePath) ? AskAndSaveAsync() : SaveAsync(FilePath, SelectedWorkToken);
+    private IObservable<bool> Save() => PictureFiles.IsPictureFile(FilePath) ? AskAndSave() : SaveTo(FilePath);
 
     /// <summary>Turns caret navigation on or off.</summary>
     [ReactiveCommand]
@@ -1441,52 +1360,38 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     }
 
     /// <summary>Retries opening with the typed password.</summary>
-    /// <returns>A task for the open attempt.</returns>
+    /// <returns>A signal that ends once the open attempt is over.</returns>
     [ReactiveCommand]
-    private async Task SubmitPasswordAsync()
+    private IObservable<RxVoid> SubmitPassword()
     {
         Source.Password = PasswordEntry;
         PasswordEntry = string.Empty;
         NeedsPassword = false;
-        var token = SelectedWorkToken;
-        try
-        {
-            await EnsureLoadedAsync(token).ConfigureAwait(true);
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
-        }
+        return EnsureLoaded().Catch<RxVoid, OperationCanceledException>(static _ => Signal.Return(RxVoid.Default));
     }
 
     /// <summary>Chooses a certificate file through the desktop picker.</summary>
-    /// <returns>A task for the picker.</returns>
+    /// <returns>A signal that ends once the picker is closed.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task BrowseCertificateAsync() => DocumentCertificateBrowsing.BrowseAsync(this);
+    private IObservable<RxVoid> BrowseCertificate() => DocumentCertificateBrowsing.Browse(this);
 
     /// <summary>Retries opening with the selected recipient certificate.</summary>
-    /// <returns>A task for the open attempt.</returns>
+    /// <returns>A signal that ends once the open attempt is over.</returns>
     [ReactiveCommand]
-    private async Task SubmitCertificateAsync()
+    private IObservable<RxVoid> SubmitCertificate()
     {
         if (string.IsNullOrWhiteSpace(CertificatePathEntry))
         {
             SetCertificateError(LocalizedMessage.Get(UiText, "Choose a certificate file first."));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         Source.UseCertificate(CertificatePathEntry, CertificatePasswordEntry);
         CertificatePasswordEntry = string.Empty;
         SetCertificateError(LocalizedMessage.Literal(null));
         NeedsCertificate = false;
-        var token = SelectedWorkToken;
-        try
-        {
-            await EnsureLoadedAsync(token).ConfigureAwait(true);
-        }
-        catch (OperationCanceledException) when (token.IsCancellationRequested)
-        {
-        }
+        return EnsureLoaded().Catch<RxVoid, OperationCanceledException>(static _ => Signal.Return(RxVoid.Default));
     }
 
     /// <summary>Sets the zoom from a percentage such as "150".</summary>
@@ -1530,20 +1435,6 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         if (isChecked)
         {
             SidebarMode = mode;
-        }
-    }
-
-    /// <summary>Reloads on the UI thread while observing errors from the file watcher callback.</summary>
-    /// <returns>A task.</returns>
-    private async Task ReloadChangedFileAsync()
-    {
-        try
-        {
-            await ReloadAsync().ConfigureAwait(true);
-        }
-        catch (Exception error)
-        {
-            AppLog.Error(error);
         }
     }
 
@@ -1603,7 +1494,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         internal CancellationToken Token => _work.Token;
 
         /// <summary>Gets the opening of the document, which lasts as long as the tab is selected.</summary>
-        internal IObservable<RxVoid> Loading => Signal.FromAsync(() => tab.LoadSelectedAsync(Token)).Concat(Signal.Never<RxVoid>());
+        internal IObservable<RxVoid> Loading => tab.EnsureLoaded().Catch<RxVoid, Exception>(LoadFailed).Concat(Signal.Never<RxVoid>());
 
         /// <inheritdoc/>
         public void Dispose()
@@ -1611,6 +1502,19 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
             tab.EndSelectedWork();
             _work.Cancel();
             _work.Dispose();
+        }
+
+        /// <summary>Shows an error from loading the selected tab; a load that was cancelled because the tab was deselected is not one.</summary>
+        /// <param name="error">The failure.</param>
+        /// <returns>A signal that ends at once.</returns>
+        private static IObservable<RxVoid> LoadFailed(Exception error)
+        {
+            if (error is not OperationCanceledException)
+            {
+                ErrorTrace.Write(error);
+            }
+
+            return Signal.Return(RxVoid.Default);
         }
     }
 }

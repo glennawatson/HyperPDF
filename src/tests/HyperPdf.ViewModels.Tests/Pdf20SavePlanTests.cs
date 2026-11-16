@@ -7,6 +7,7 @@ using HyperPdf.Core.Protection;
 using HyperPdf.Engine;
 using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Output;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -40,7 +41,7 @@ public sealed class Pdf20SavePlanTests
             context.SetOutput(true);
         });
 
-        var plan = await Pdf20SavePlan.PlanAsync(document, true, confirm, CancellationToken.None);
+        var plan = await Pdf20SavePlan.Plan(document, true, confirm).ToTask();
 
         using (Assert.Multiple())
         {
@@ -58,7 +59,7 @@ public sealed class Pdf20SavePlanTests
         using var test = new TestServices();
         using var document = new HyperPdfEngine().Open(test.CreateDocument("plan-unchanged.pdf", Pages), null);
 
-        var plan = await Pdf20SavePlan.PlanAsync(document, false, new(), CancellationToken.None);
+        var plan = await Pdf20SavePlan.Plan(document, false, new()).ToTask();
 
         await Assert.That(plan).IsNull();
     }
@@ -78,9 +79,9 @@ public sealed class Pdf20SavePlanTests
             context.SetOutput(true);
         });
 
-        var plan = await Pdf20SavePlan.PlanAsync(document, true, confirm, CancellationToken.None);
+        var plan = await Pdf20SavePlan.Plan(document, true, confirm).ToTask();
         var path = Path.Combine(test.Directory, "plan-protected-saved.pdf");
-        var result = await Pdf20Resave.TryAsync(plan!, path, CancellationToken.None);
+        var result = await Pdf20Resave.Try(plan!, path).ToTask();
         var header = new byte[HeaderLength];
         await using (var file = File.OpenRead(path))
         {
@@ -108,7 +109,7 @@ public sealed class Pdf20SavePlanTests
         var confirm = new Interaction<ConfirmRequest, bool>();
         using var handler = confirm.RegisterHandler(static context => context.SetOutput(false));
 
-        var plan = await Pdf20SavePlan.PlanAsync(document, true, confirm, CancellationToken.None);
+        var plan = await Pdf20SavePlan.Plan(document, true, confirm).ToTask();
 
         await Assert.That(plan).IsNull();
     }

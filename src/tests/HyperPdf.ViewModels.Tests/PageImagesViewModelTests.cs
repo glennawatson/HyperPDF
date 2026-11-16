@@ -70,7 +70,7 @@ public sealed class PageImagesViewModelTests
         ((FakeRenderHead)test.Services.Head).Image = new(PictureName, new byte[PictureWidth * PictureHeight * BytesPerPixel], PictureWidth, PictureHeight);
         var destination = Path.Combine(test.Directory, "pictures.pdf");
 
-        var pages = await PictureConversion.ConvertAsync(test.Services, [FirstFile, "two.png"], destination, CancellationToken.None);
+        var pages = await PictureConversion.Convert(test.Services, [FirstFile, "two.png"], destination).ToTask();
         var header = new byte[HeaderLength];
         await using (var file = File.OpenRead(destination))
         {
@@ -99,7 +99,7 @@ public sealed class PageImagesViewModelTests
         _ = await tab.Pages.InsertImagesCommand.Execute().ToTask();
         var path = Path.Combine(test.Directory, "pages-saved.pdf");
 
-        var saved = await tab.SaveAsync(path, CancellationToken.None);
+        var saved = await tab.SaveTo(path).ToTask();
         var header = new byte[HeaderLength];
         await using (var file = File.OpenRead(path))
         {

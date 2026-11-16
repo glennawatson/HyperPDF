@@ -368,12 +368,12 @@ public sealed class PageContentEditViewModelTests
         var (tab, edit, target) = await StartEditingAsync(test, main, "edit-save.pdf");
         var untouched = Path.Combine(test.Directory, "untouched.pdf");
         var upgraded = Path.Combine(test.Directory, "upgraded.pdf");
-        var savedUntouched = await tab.SaveAsync(untouched, CancellationToken.None);
+        var savedUntouched = await tab.SaveTo(untouched).ToTask();
         await edit.PressAsync(0, Centre(target), false);
         _ = edit.DeleteSelected();
         var written = await WaitForAsync(() => edit.Status == "Removed.");
 
-        var savedEdited = await tab.SaveAsync(upgraded, CancellationToken.None);
+        var savedEdited = await tab.SaveTo(upgraded).ToTask();
 
         using (Assert.Multiple())
         {
