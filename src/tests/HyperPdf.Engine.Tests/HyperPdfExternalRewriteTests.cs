@@ -4,6 +4,7 @@
 
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.IO;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -36,7 +37,7 @@ public sealed class HyperPdfExternalRewriteTests
         {
             var engine = new HyperPdfEngine();
             using var document = (HyperPdfDocument)(asynchronous
-                ? await engine.OpenAsync(path, null, CancellationToken.None)
+                ? await engine.Load(path, null).ToTask()
                 : engine.Open(path, null));
             var source = document.Document.Objects.Source;
 
@@ -49,7 +50,7 @@ public sealed class HyperPdfExternalRewriteTests
 
             await Assert.That(source.Read(1, new byte[ReadLength])).IsEqualTo(0);
             await File.WriteAllBytesAsync(path, TestPdf.Create(ReplacementPages), CancellationToken.None);
-            using var replacement = await engine.OpenAsync(path, null, CancellationToken.None);
+            using var replacement = await engine.Load(path, null).ToTask();
             await replacement.PreparePageAsync(ReplacementPages - 1, CancellationToken.None);
             await Assert.That(replacement.PageCount).IsEqualTo(ReplacementPages);
         }

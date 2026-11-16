@@ -7,6 +7,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Benchmarks;
 
@@ -32,7 +33,7 @@ public class HyperPdfTextQueryBenchmarks
     {
         _path = Path.Combine(Path.GetTempPath(), $"hyperpdf-text-query-{Guid.NewGuid():N}.pdf");
         await File.WriteAllBytesAsync(_path, TestPdf.CreateTagged(), CancellationToken.None);
-        _document = (HyperPdfDocument)await new HyperPdfEngine().OpenAsync(_path, null, CancellationToken.None);
+        _document = (HyperPdfDocument)await new HyperPdfEngine().Load(_path, null).ToTask();
         _document.GetTextBounds(0, 0, 1, _bounds);
         _document.Find(0, TestPdf.TaggedHeading, default, _matches);
     }

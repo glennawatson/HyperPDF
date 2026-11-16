@@ -6,6 +6,9 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Documents;
 
@@ -95,12 +98,14 @@ public sealed class DocumentSource
     public IDocument Acquire() => _pool.Acquire(this);
 
     /// <summary>Gets the open document, using cancellable I/O when it must be opened.</summary>
-    /// <param name="cancellationToken">Cancels a pending open without discarding a ready document.</param>
-    /// <returns>The document; a ready document completes without scheduling.</returns>
-    /// <exception cref="DocumentOpenException">The document cannot be opened.</exception>
-    /// <exception cref="OperationCanceledException">The open was cancelled or the source closed before publication.</exception>
+    /// <param name="owner">The sequencer of the thread that owns the pool; the open document is published there.</param>
+    /// <returns>
+    /// A cold signal giving the document once; a ready document is given without scheduling. Unsubscribing cancels a pending open
+    /// without discarding a ready document. It fails with <see cref="DocumentOpenException"/> when the document cannot be opened and with
+    /// <see cref="OperationCanceledException"/> when the source closed before publication.
+    /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<IDocument> AcquireAsync(CancellationToken cancellationToken) => _pool.AcquireAsync(this, cancellationToken);
+    public IObservable<IDocument> Load(ISequencer owner) => _pool.Load(this, owner);
 
     /// <summary>Keeps the document open when its serialized edits could not replace the destination file.</summary>
     public void MarkSaveUnpublished() => _unpublishedSave = true;
@@ -152,18 +157,19 @@ public sealed class DocumentSource
         return document;
     }
 
-    /// <summary>Opens on a cache miss and returns a ready result on a hit.</summary>
+    /// <summary>Opens on a cache miss and gives a ready result on a hit.</summary>
     /// <param name="engine">The engine that opens this source.</param>
-    /// <param name="cancellationToken">Cancels a cold open.</param>
-    /// <returns>The document.</returns>
-    internal ValueTask<IDocument> OpenIfNeededAsync(IDocumentEngine engine, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        LastUsed = Environment.TickCount64;
-        return _document is { IsDisposed: false } open
-            ? ValueTask.FromResult(open)
-            : OpenColdAsync(engine, cancellationToken);
-    }
+    /// <param name="owner">The sequencer of the thread that owns the pool.</param>
+    /// <returns>A cold signal giving the document once; unsubscribing cancels a cold open.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal IObservable<IDocument> LoadIfNeeded(IDocumentEngine engine, ISequencer owner) =>
+        Signal.Defer(() =>
+        {
+            LastUsed = Environment.TickCount64;
+            return _document is { IsDisposed: false } open
+                ? Signal.Return(open)
+                : LoadCold(engine, owner);
+        });
 
     /// <summary>Closes the native document, keeping cached information.</summary>
     internal void Close()
@@ -181,21 +187,31 @@ public sealed class DocumentSource
         _certificate = null;
     }
 
-    /// <summary>Publishes only an open that remains current after I/O and parsing finish.</summary>
+    /// <summary>Opens the native document without blocking, and publishes it only if the source did not change meanwhile.</summary>
     /// <param name="engine">The document engine.</param>
-    /// <param name="cancellationToken">Cancels the open.</param>
-    /// <returns>The opened document.</returns>
-    /// <exception cref="OperationCanceledException">The source was closed while opening.</exception>
-    private async ValueTask<IDocument> OpenColdAsync(IDocumentEngine engine, CancellationToken cancellationToken)
+    /// <param name="owner">The sequencer of the thread that owns the pool.</param>
+    /// <returns>A cold signal giving the opened document once.</returns>
+    private IObservable<IDocument> LoadCold(IDocumentEngine engine, ISequencer owner)
     {
         var version = Volatile.Read(ref _lifetimeVersion);
 
-        // The document pool belongs to the UI thread, so resume there before publishing and trimming it.
-        var document = await OpenWithCredentialsAsync(engine, cancellationToken);
-        if (cancellationToken.IsCancellationRequested || version != Volatile.Read(ref _lifetimeVersion))
+        // The document pool belongs to the UI thread, so the open document is brought there before it is published and trimmed.
+        return LoadWithCredentials(engine)
+            .ObserveOn(owner)
+            .Select(document => Publish(document, version));
+    }
+
+    /// <summary>Publishes only an open that remains current after I/O and parsing finish.</summary>
+    /// <param name="document">The document that was opened.</param>
+    /// <param name="version">The lifetime version the open started under.</param>
+    /// <returns>The document to use.</returns>
+    /// <exception cref="OperationCanceledException">The source was closed while opening.</exception>
+    private IDocument Publish(IDocument document, int version)
+    {
+        if (version != Volatile.Read(ref _lifetimeVersion))
         {
             document.Dispose();
-            throw new OperationCanceledException("The document source changed while opening.", cancellationToken);
+            throw new OperationCanceledException("The document source changed while opening.");
         }
 
         if (_document is { IsDisposed: false } open)
@@ -244,18 +260,17 @@ public sealed class DocumentSource
 
     /// <summary>Uses the credential selected for this source with cancellable I/O.</summary>
     /// <param name="engine">The document engine.</param>
-    /// <param name="cancellationToken">Cancels the open.</param>
-    /// <returns>The opened document.</returns>
-    private ValueTask<IDocument> OpenWithCredentialsAsync(IDocumentEngine engine, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving the opened document once; unsubscribing cancels the open.</returns>
+    private IObservable<IDocument> LoadWithCredentials(IDocumentEngine engine)
     {
         if (_certificate is not { } credential)
         {
-            return engine.OpenAsync(FilePath, Password, cancellationToken);
+            return engine.Load(FilePath, Password);
         }
 
         return engine is ICertificateDocumentEngine certificates
-            ? certificates.OpenWithCertificateAsync(FilePath, credential.Path, credential.Password, cancellationToken)
-            : ValueTask.FromException<IDocument>(new DocumentOpenException(DocumentOpenError.Certificate, "This document engine cannot open certificate-encrypted files."));
+            ? certificates.LoadWithCertificate(FilePath, credential.Path, credential.Password)
+            : Signal.Throw<IDocument>(new DocumentOpenException(DocumentOpenError.Certificate, "This document engine cannot open certificate-encrypted files."));
     }
 
     /// <summary>The certificate selection retained by one tab.</summary>

@@ -6,6 +6,8 @@ using BenchmarkDotNet.Attributes;
 using HyperPdf.Core.Documents;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
 
 namespace HyperPdf.Benchmarks;
 
@@ -33,7 +35,7 @@ public class AsyncPipelineBenchmarks
         await File.WriteAllBytesAsync(_path, TestPdf.Create(Pages));
         _pool = new(new HyperPdfEngine());
         _source = _pool.Create(_path, null);
-        _ = await _source.AcquireAsync(CancellationToken.None);
+        _ = await _source.Load(ImmediateSequencer.Instance).ToTask();
     }
 
     /// <summary>Closes the document and deletes the generated file.</summary>
@@ -52,5 +54,5 @@ public class AsyncPipelineBenchmarks
     /// <summary>Gets the same ready document through a synchronously completed ValueTask.</summary>
     /// <returns>The document.</returns>
     [Benchmark]
-    public ValueTask<IDocument> WarmAcquireAsync() => _source.AcquireAsync(CancellationToken.None);
+    public Task<IDocument> WarmLoad() => _source.Load(ImmediateSequencer.Instance).ToTask();
 }

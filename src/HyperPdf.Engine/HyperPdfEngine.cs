@@ -152,19 +152,45 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
     }
 
     /// <inheritdoc/>
-    public ValueTask<IDocument> OpenAsync(string path, string? password, CancellationToken cancellationToken)
+    public IObservable<IDocument> Load(string path, string? password)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
-        cancellationToken.ThrowIfCancellationRequested();
-        return OpenCoreAsync(this, Path.GetFullPath(path), password, null, cancellationToken);
+        return Signal.FromAsync(token => OpenCoreAsync(this, Path.GetFullPath(path), password, null, token).AsTask());
     }
 
     /// <inheritdoc/>
-    public async ValueTask<IDocument> OpenWithCertificateAsync(string path, string certificatePath, string certificatePassword, CancellationToken cancellationToken)
+    public IObservable<IDocument> LoadWithCertificate(string path, string certificatePath, string certificatePassword)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
         ArgumentException.ThrowIfNullOrWhiteSpace(certificatePath);
         ArgumentNullException.ThrowIfNull(certificatePassword);
+        return Signal.FromAsync(token => OpenWithCertificateAsync(this, path, certificatePath, certificatePassword, token).AsTask());
+    }
+
+    /// <summary>Maps a library error to the viewer's open error.</summary>
+    /// <param name="exception">The library exception.</param>
+    /// <param name="path">The file path.</param>
+    /// <returns>The viewer exception.</returns>
+    internal static DocumentOpenException CreateOpenException(PdfException exception, string path) => exception.Error switch
+    {
+        PdfError.Format => new(DocumentOpenError.Format, $"The file '{path}' is not a valid PDF document."),
+        PdfError.Password => new(DocumentOpenError.Password, "The document is password protected."),
+        PdfError.Security => new(DocumentOpenError.Security, exception.Message),
+        PdfError.Certificate => new(DocumentOpenError.Certificate, exception.Message),
+        PdfError.File or PdfError.Unknown when exception.InnerException is IOException or UnauthorizedAccessException =>
+            new(DocumentOpenError.File, $"The file '{path}' could not be found or read."),
+        _ => new(DocumentOpenError.Unknown, $"The document '{path}' could not be opened."),
+    };
+
+    /// <summary>Reads the certificate file with cancellable I/O, then opens the document with it.</summary>
+    /// <param name="self">The engine.</param>
+    /// <param name="path">The document path.</param>
+    /// <param name="certificatePath">The certificate file path.</param>
+    /// <param name="certificatePassword">The certificate file password.</param>
+    /// <param name="cancellationToken">Cancels the open.</param>
+    /// <returns>The opened document.</returns>
+    private static async ValueTask<IDocument> OpenWithCertificateAsync(HyperPdfEngine self, string path, string certificatePath, string certificatePassword, CancellationToken cancellationToken)
+    {
         byte[] bytes;
         try
         {
@@ -188,23 +214,8 @@ public sealed class HyperPdfEngine : IDocumentEngine, ICertificateDocumentEngine
         }
 
         using var certificate = LoadCertificate(bytes, certificatePassword);
-        return await OpenCoreAsync(this, Path.GetFullPath(path), null, certificate, cancellationToken).ConfigureAwait(false);
+        return await OpenCoreAsync(self, Path.GetFullPath(path), null, certificate, cancellationToken).ConfigureAwait(false);
     }
-
-    /// <summary>Maps a library error to the viewer's open error.</summary>
-    /// <param name="exception">The library exception.</param>
-    /// <param name="path">The file path.</param>
-    /// <returns>The viewer exception.</returns>
-    internal static DocumentOpenException CreateOpenException(PdfException exception, string path) => exception.Error switch
-    {
-        PdfError.Format => new(DocumentOpenError.Format, $"The file '{path}' is not a valid PDF document."),
-        PdfError.Password => new(DocumentOpenError.Password, "The document is password protected."),
-        PdfError.Security => new(DocumentOpenError.Security, exception.Message),
-        PdfError.Certificate => new(DocumentOpenError.Certificate, exception.Message),
-        PdfError.File or PdfError.Unknown when exception.InnerException is IOException or UnauthorizedAccessException =>
-            new(DocumentOpenError.File, $"The file '{path}' could not be found or read."),
-        _ => new(DocumentOpenError.Unknown, $"The document '{path}' could not be opened."),
-    };
 
     /// <summary>Opens a file with either a password or a recipient certificate.</summary>
     /// <param name="self">The engine's font and drawing services.</param>

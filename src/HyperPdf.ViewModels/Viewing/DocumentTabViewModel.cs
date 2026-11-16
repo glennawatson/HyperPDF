@@ -811,9 +811,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         NeedsPassword || ErrorMessage is not null
             ? Signal.Return(false)
 
-            // Acquiring the document is the PDF library's async I/O, so that call is the one task here.
-            : Signal.FromAsync(token => Source.AcquireAsync(token).AsTask())
-                .ObserveOn(RxSchedulers.MainThreadScheduler)
+            : Source.Load(RxSchedulers.MainThreadScheduler)
                 .SwitchMap(document => DocumentFeature<IAnnotationEditor>.Get(document) is { } editor ? Write(document, editor, path) : Signal.Return(false))
                 .Catch<bool, DocumentOpenException>(static _ => Signal.Return(false))
                 .Catch<bool, OperationCanceledException>(static _ => Signal.Return(false));
@@ -918,7 +916,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <returns>A cold signal giving the document once its separations are read.</returns>
     private static IObservable<IDocument> ReadSeparations(IDocument document) =>
         DocumentFeature<ISeparationSource>.Get(document) is { } separations
-            ? Signal.FromAsync(token => separations.GetSeparationsAsync(token).AsTask()).Select(_ => document)
+            ? separations.ReadSeparations().Select(_ => document)
             : Signal.Return(document);
 
     /// <summary>Saves between the document's own will-save and did-save actions, which may change fields before the file is written.</summary>
@@ -962,8 +960,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <returns>A cold signal that completes once the document is open or could not be.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> Load() =>
-        // Acquiring the document and reading its separations are the PDF library's async I/O, so those calls are the tasks here.
-        Signal.FromAsync(token => Source.AcquireAsync(token).AsTask())
+        Source.Load(RxSchedulers.MainThreadScheduler)
             .SwitchMap(ReadSeparations)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(ShowLoaded)

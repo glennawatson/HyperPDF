@@ -13,36 +13,6 @@ internal static class CopyFile
     /// <summary>The bytes copied at a time.</summary>
     private const int ChunkSize = 81_920;
 
-    /// <summary>Writes the copy on the pool, then moves it over <paramref name="path"/> when it was made.</summary>
-    /// <typeparam name="TResult">What the library reports about the copy.</typeparam>
-    /// <param name="path">Where the copy goes.</param>
-    /// <param name="suffix">The ending of the temporary file.</param>
-    /// <param name="write">Writes the copy to the stream it is given; this is the PDF library's async call, the one task here.</param>
-    /// <param name="wasMade">Whether the result means a copy was made, so the file is kept.</param>
-    /// <param name="cancellationToken">Stops the write.</param>
-    /// <returns>
-    /// A cold signal giving the result on the interface thread. Nothing is left at <paramref name="path"/> when the copy was
-    /// refused, failed or stopped, and unsubscribing deletes the temporary file.
-    /// </returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static IObservable<TResult> Write<TResult>(
-        string path,
-        string suffix,
-        Func<Stream, CancellationToken, Task<TResult>> write,
-        Func<TResult, bool> wasMade,
-        CancellationToken cancellationToken) =>
-        Signal.Using(
-            () => new TemporaryCopy(path + suffix),
-            copy =>
-
-                // The library reads and rewrites the whole document before its first await, so the write starts on the
-                // pool to keep the window responsive; the library cannot hop threads itself.
-                Signal.FromAsync(token => write(copy.Stream, token), cancellationToken)
-                    .SubscribeOn(TaskPoolSequencer.Default)
-                    .ObserveOn(RxSchedulers.MainThreadScheduler)
-                    .Do(result => Finish(copy, path, wasMade(result)))
-                    .Catch<TResult, Exception>(error => Discard<TResult>(copy, error)));
-
     /// <summary>Writes the copy through a signal, then moves it over <paramref name="path"/> when it was made.</summary>
     /// <typeparam name="TResult">What the write reports about the copy.</typeparam>
     /// <param name="path">Where the copy goes.</param>

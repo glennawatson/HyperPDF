@@ -31,7 +31,7 @@ public sealed class HyperPdfSeparationTests
     {
         using var document = Open(SeparationPdf.CreatePreseparated());
         var source = DocumentFeature<ISeparationSource>.Get(document)!;
-        var separations = await source.GetSeparationsAsync(CancellationToken.None);
+        var separations = await source.ReadSeparations().ToTask();
 
         await Assert.That(separations.ProblemCount).IsEqualTo(0);
         await Assert.That(separations.Groups.Length).IsEqualTo(SeparationPdf.PrintedPages);
