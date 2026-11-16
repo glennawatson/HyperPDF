@@ -572,9 +572,9 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Binding
-- Version: 9.1.0
+- Version: 10.0.0
 - Origin: NuGet package
-- Copyright: Copyright (c) 2026 ReactiveUI Association Inc
+- Copyright: Copyright (c) 2026 ReactiveUI and Contributors
 - Link: https://github.com/reactiveui/ReactiveUI.Binding.SourceGenerators
 
 ````text
@@ -632,7 +632,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Disposables
-- Version: 9.0.0
+- Version: 10.0.0
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
@@ -662,7 +662,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Primitives
-- Version: 9.0.0
+- Version: 10.0.0
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
@@ -692,7 +692,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Primitives.Core
-- Version: 9.0.0
+- Version: 10.0.0
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
@@ -782,7 +782,7 @@ SOFTWARE.
 ````
 
 ### Splat
-- Version: 21.0.0
+- Version: 22.0.1
 - Origin: NuGet package
 - Copyright: Copyright (c) .NET Foundation and Contributors
 - Link: https://github.com/reactiveui/splat/
@@ -812,7 +812,7 @@ SOFTWARE.
 ````
 
 ### Splat.Builder
-- Version: 21.0.0
+- Version: 22.0.1
 - Origin: NuGet package
 - Copyright: Copyright (c) .NET Foundation and Contributors
 - Link: https://github.com/reactiveui/splat/
@@ -842,7 +842,7 @@ SOFTWARE.
 ````
 
 ### Splat.Core
-- Version: 21.0.0
+- Version: 22.0.1
 - Origin: NuGet package
 - Copyright: Copyright (c) .NET Foundation and Contributors
 - Link: https://github.com/reactiveui/splat/
@@ -872,7 +872,7 @@ SOFTWARE.
 ````
 
 ### Splat.Logging
-- Version: 21.0.0
+- Version: 22.0.1
 - Origin: NuGet package
 - Copyright: Copyright (c) .NET Foundation and Contributors
 - Link: https://github.com/reactiveui/splat/

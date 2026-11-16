@@ -34,7 +34,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Disposables
-- Version: 9.0.0
+- Version: 10.0.0
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
@@ -64,7 +64,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Primitives
-- Version: 9.0.0
+- Version: 10.0.0
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
@@ -94,7 +94,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Primitives.Core
-- Version: 9.0.0
+- Version: 10.0.0
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
@@ -154,7 +154,7 @@ SOFTWARE.
 ````
 
 ### SkiaSharp
-- Version: 4.156.0
+- Version: 4.156.1
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
@@ -182,7 +182,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ````
 
 ### SkiaSharp.NativeAssets.Linux
-- Version: 4.156.0
+- Version: 4.156.1
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
@@ -210,7 +210,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ````
 
 ### SkiaSharp.NativeAssets.macOS
-- Version: 4.156.0
+- Version: 4.156.1
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
@@ -238,7 +238,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ````
 
 ### SkiaSharp.NativeAssets.Win32
-- Version: 4.156.0
+- Version: 4.156.1
 - Origin: NuGet package
 - Copyright: © Microsoft Corporation. All rights reserved.
 - Link: https://go.microsoft.com/fwlink/?linkid=868515
