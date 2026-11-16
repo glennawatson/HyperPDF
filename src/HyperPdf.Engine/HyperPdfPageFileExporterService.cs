@@ -5,7 +5,6 @@
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Exporting;
-using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -25,5 +24,5 @@ internal sealed class HyperPdfPageFileExporterService : IPageFileExporter
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<PageFileExportResult> Export(IReadOnlyList<int> pages, PageFileFormat format, PageFileExportOptions options, Stream destination) =>
-        Signal.FromAsync(token => HyperPdfDocumentPageFileExport.ExportAsync(_owner, pages, format, options, destination, token).AsTask());
+        HyperPdfDocumentPageFileExport.Export(_owner, pages, format, options, destination);
 }

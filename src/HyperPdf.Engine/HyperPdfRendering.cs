@@ -38,20 +38,6 @@ internal static class HyperPdfRendering
         return created;
     }
 
-    /// <summary>Loads external page resources before rendering or reading text.</summary>
-    /// <param name="self">The owning document.</param>
-    /// <param name="pageIndex">The zero based page index.</param>
-    /// <param name="cancellationToken">Cancels resource I/O.</param>
-    /// <returns>A task completing when page resources are ready.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static ValueTask PreparePageAsync(HyperPdfDocument self, int pageIndex, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return PageToPrepare(self, pageIndex) is { } page
-            ? PdfDocumentPages.PrefetchPageAsync(self.Document, page, cancellationToken)
-            : ValueTask.CompletedTask;
-    }
-
     /// <summary>Loads external page resources once subscribed; the library's own async call is awaited here, at its boundary.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="pageIndex">The zero based page index.</param>
