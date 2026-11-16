@@ -6,6 +6,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -48,8 +49,8 @@ public sealed class FormDesignerTests
         var designer = DocumentFeature<IFormDesigner>.Get(pair.Document)!;
         var bounds = new PageRect(Left, Top, Width, Height);
 
-        var created = await designer.CreateFieldAsync(new(FormFieldKind.Text, TextName, [new(0, bounds)]) { Value = "Ada" }, CancellationToken.None);
-        var fields = await designer.GetFieldsAsync(CancellationToken.None);
+        var created = await designer.CreateField(new(FormFieldKind.Text, TextName, [new(0, bounds)]) { Value = "Ada" }).ToTask();
+        var fields = await designer.GetFields().ToTask();
         var widget = fields.Single().Widgets.Single();
 
         await Assert.That(created.Succeeded).IsTrue();
@@ -59,9 +60,9 @@ public sealed class FormDesignerTests
         await Assert.That(widget.Bounds.Top).IsEqualTo(Top).Within(Tolerance);
         await Assert.That(widget.Bounds.Width).IsEqualTo(Width).Within(Tolerance);
 
-        var changed = await designer.ChangeFieldAsync(TextName, new() { Value = "Grace", MaxLength = Limit }, CancellationToken.None);
-        var renamed = await designer.RenameFieldAsync(TextName, PersonName, CancellationToken.None);
-        fields = await designer.GetFieldsAsync(CancellationToken.None);
+        var changed = await designer.ChangeField(TextName, new() { Value = "Grace", MaxLength = Limit }).ToTask();
+        var renamed = await designer.RenameField(TextName, PersonName).ToTask();
+        fields = await designer.GetFields().ToTask();
 
         await Assert.That(changed.Succeeded).IsTrue();
         await Assert.That(renamed.Succeeded).IsTrue();
@@ -69,12 +70,12 @@ public sealed class FormDesignerTests
         await Assert.That(fields.Single().Value).IsEqualTo("Grace");
         await Assert.That(fields.Single().MaxLength).IsEqualTo(Limit);
 
-        var moved = await designer.MoveWidgetAsync(PersonName, 0, new(Left, Top + Height, Width, Height), CancellationToken.None);
-        var removed = await designer.RemoveFieldAsync(PersonName, CancellationToken.None);
+        var moved = await designer.MoveWidget(PersonName, 0, new(Left, Top + Height, Width, Height)).ToTask();
+        var removed = await designer.RemoveField(PersonName).ToTask();
 
         await Assert.That(moved.Succeeded).IsTrue();
         await Assert.That(removed.Succeeded).IsTrue();
-        await Assert.That((await designer.GetFieldsAsync(CancellationToken.None)).Count).IsEqualTo(0);
+        await Assert.That((await designer.GetFields().ToTask()).Count).IsEqualTo(0);
     }
 
     /// <summary>A name that is already used and a field that does not exist are refused with a reason.</summary>
@@ -85,11 +86,11 @@ public sealed class FormDesignerTests
         using var pair = new HyperPdfTestDocument(TestPdf.Create(1));
         var designer = DocumentFeature<IFormDesigner>.Get(pair.Document)!;
         var design = new FormFieldDesign(FormFieldKind.Text, TextName, [new(0, new(Left, Top, Width, Height))]);
-        _ = await designer.CreateFieldAsync(design, CancellationToken.None);
+        _ = await designer.CreateField(design).ToTask();
 
-        var duplicate = await designer.CreateFieldAsync(design, CancellationToken.None);
-        var missing = await designer.RemoveFieldAsync("Nothing", CancellationToken.None);
-        var offPage = await designer.CreateFieldAsync(design with { Name = "Other", Widgets = [new(MissingPage, new(Left, Top, Width, Height))] }, CancellationToken.None);
+        var duplicate = await designer.CreateField(design).ToTask();
+        var missing = await designer.RemoveField("Nothing").ToTask();
+        var offPage = await designer.CreateField(design with { Name = "Other", Widgets = [new(MissingPage, new(Left, Top, Width, Height))] }).ToTask();
 
         await Assert.That(duplicate.Succeeded).IsFalse();
         await Assert.That(duplicate.Problem).IsNotNull();

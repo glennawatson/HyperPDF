@@ -122,7 +122,7 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> RemoveFocused() => Run(
-        static (designer, field, token) => designer.RemoveFieldAsync(field.Name, token),
+        static (designer, field) => designer.RemoveField(field.Name),
         UiText.Get("Removed the field."),
         PickFirst);
 
@@ -131,10 +131,9 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> ToggleRequired() => Run(
-        static (designer, field, token) => designer.ChangeFieldAsync(
+        static (designer, field) => designer.ChangeField(
             field.Name,
-            field.IsRequired ? new() { RemoveFlags = FormDesignFlags.Required } : new() { AddFlags = FormDesignFlags.Required },
-            token),
+            field.IsRequired ? new() { RemoveFlags = FormDesignFlags.Required } : new() { AddFlags = FormDesignFlags.Required }),
         UiText.Get("Changed whether the field must be filled in."),
         PickFirst);
 
@@ -143,10 +142,9 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> ToggleReadOnly() => Run(
-        static (designer, field, token) => designer.ChangeFieldAsync(
+        static (designer, field) => designer.ChangeField(
             field.Name,
-            field.IsReadOnly ? new() { RemoveFlags = FormDesignFlags.ReadOnly } : new() { AddFlags = FormDesignFlags.ReadOnly },
-            token),
+            field.IsReadOnly ? new() { RemoveFlags = FormDesignFlags.ReadOnly } : new() { AddFlags = FormDesignFlags.ReadOnly }),
         UiText.Get("Changed whether the field can be changed."),
         PickFirst);
 
@@ -173,9 +171,9 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
 
         var bounds = new PageRect((size.Width - width) * Half, (size.Height - height) * Half, width, height);
 
-        // The form designer is the PDF library's async API, so its calls are the only tasks here.
-        return Signal.FromAsync(token => designer.GetFieldsAsync(token).AsTask(), _lifetime.Token)
+        return designer.GetFields()
             .SwitchMap(fields => Create(designer, NextName(fields), new(kind, string.Empty, [new(page, bounds)]) { Options = options ?? [] }, page))
+            .ThrowWhenCancelled(_lifetime.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Catch<RxVoid, OperationCanceledException>(Stopped);
     }
@@ -189,7 +187,7 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
     private IObservable<RxVoid> Create(IFormDesigner designer, string name, FormFieldDesign template, int page)
     {
         var design = template with { Name = name, Caption = template.Kind == FormFieldKind.PushButton ? name : null };
-        return Signal.FromAsync(token => designer.CreateFieldAsync(design, token).AsTask(), _lifetime.Token)
+        return designer.CreateField(design)
             .Select(result => Finish(result, page, UiText.Format("Added the field {0}. Drag it to where it belongs.", name)));
     }
 
@@ -198,7 +196,7 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
     /// <param name="done">What to say when it worked.</param>
     /// <param name="nothing">What to say when no field has the focus.</param>
     /// <returns>A cold signal that ends once the change is made.</returns>
-    private IObservable<RxVoid> Run(Func<IFormDesigner, FormField, CancellationToken, ValueTask<DocumentEditResult>> edit, string done, string nothing)
+    private IObservable<RxVoid> Run(Func<IFormDesigner, FormField, IObservable<DocumentEditResult>> edit, string done, string nothing)
     {
         if (Designer is not { } designer)
         {
@@ -211,7 +209,8 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
             return Signal.Return(RxVoid.Default);
         }
 
-        return Signal.FromAsync(token => edit(designer, field, token).AsTask(), _lifetime.Token)
+        return edit(designer, field)
+            .ThrowWhenCancelled(_lifetime.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(result => Finish(result, field.PageIndex, done))
             .Catch<RxVoid, OperationCanceledException>(Stopped);

@@ -16,35 +16,30 @@ public interface IOutlineEditor : IDocumentFeature
     /// <param name="index">The position among the parent's children; a negative number appends.</param>
     /// <param name="title">The title.</param>
     /// <param name="pageIndex">The zero based page the bookmark goes to.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> AddBookmarkAsync(int parentId, int index, string title, int pageIndex, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> AddBookmark(int parentId, int index, string title, int pageIndex);
 
     /// <summary>Removes a bookmark and the bookmarks below it.</summary>
     /// <param name="id">The entry.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> RemoveBookmarkAsync(int id, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> RemoveBookmark(int id);
 
     /// <summary>Changes a bookmark's title.</summary>
     /// <param name="id">The entry.</param>
     /// <param name="title">The new title.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> RenameBookmarkAsync(int id, string title, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> RenameBookmark(int id, string title);
 
     /// <summary>Moves a bookmark, with the bookmarks below it, under another entry or to another position.</summary>
     /// <param name="id">The entry.</param>
     /// <param name="newParentId">The new parent, or 0 for the top level.</param>
     /// <param name="index">The position among the new parent's children; a negative number appends.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> MoveBookmarkAsync(int id, int newParentId, int index, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> MoveBookmark(int id, int newParentId, int index);
 
     /// <summary>Opens or closes a bookmark, so the bookmarks below it start shown or hidden.</summary>
     /// <param name="id">The entry.</param>
     /// <param name="open">Whether it is open.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> SetBookmarkOpenAsync(int id, bool open, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> SetBookmarkOpen(int id, bool open);
 }

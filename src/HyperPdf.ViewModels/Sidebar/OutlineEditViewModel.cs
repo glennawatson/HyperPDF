@@ -162,7 +162,7 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable, 
                 LocalizedMessage.Get(UiText, "Add Bookmark"),
                 false),
             title => Run(
-                (editor, token) => editor.AddBookmarkAsync(_owner.SelectedOutlineItem?.Id ?? 0, Append, title, page, token),
+                editor => editor.AddBookmark(_owner.SelectedOutlineItem?.Id ?? 0, Append, title, page),
                 UiText.Format("Added bookmark {0}.", title),
                 _owner.SelectedOutlineItem?.Id ?? 0));
     }
@@ -180,14 +180,14 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable, 
                     item.Title,
                     LocalizedMessage.Get(UiText, "Rename"),
                     false),
-                title => Run((editor, token) => editor.RenameBookmarkAsync(item.Id, title, token), UiText.Format("Renamed bookmark to {0}.", title), item.Id));
+                title => Run(editor => editor.RenameBookmark(item.Id, title), UiText.Format("Renamed bookmark to {0}.", title), item.Id));
 
     /// <summary>Removes the selected bookmark and the bookmarks below it. Undo puts them back.</summary>
     /// <returns>A signal that ends once the bookmark is removed or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canChange))]
     private IObservable<RxVoid> Remove() => _owner.SelectedOutlineItem is { } item
         ? Run(
-            (editor, token) => editor.RemoveBookmarkAsync(item.Id, token),
+            editor => editor.RemoveBookmark(item.Id),
             UiText.Format("Removed bookmark {0}. Undo puts it back.", item.Title),
             0)
         : Signal.Return(RxVoid.Default);
@@ -197,7 +197,7 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable, 
     [ReactiveCommand(CanExecute = nameof(_canMoveUp))]
     private IObservable<RxVoid> MoveUp() => Place() is { } place && _owner.SelectedOutlineItem is { } item
         ? Run(
-            (editor, token) => editor.MoveBookmarkAsync(item.Id, place.ParentId, place.Index - 1, token),
+            editor => editor.MoveBookmark(item.Id, place.ParentId, place.Index - 1),
             UiText.Format("Moved {0} up.", item.Title),
             item.Id)
         : Signal.Return(RxVoid.Default);
@@ -207,7 +207,7 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable, 
     [ReactiveCommand(CanExecute = nameof(_canMoveDown))]
     private IObservable<RxVoid> MoveDown() => Place() is { } place && _owner.SelectedOutlineItem is { } item
         ? Run(
-            (editor, token) => editor.MoveBookmarkAsync(item.Id, place.ParentId, place.Index + 1, token),
+            editor => editor.MoveBookmark(item.Id, place.ParentId, place.Index + 1),
             UiText.Format("Moved {0} down.", item.Title),
             item.Id)
         : Signal.Return(RxVoid.Default);
@@ -217,7 +217,7 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable, 
     [ReactiveCommand(CanExecute = nameof(_canIndent))]
     private IObservable<RxVoid> Indent() => Place() is { } place && _owner.SelectedOutlineItem is { } item
         ? Run(
-            (editor, token) => editor.MoveBookmarkAsync(item.Id, place.PreviousId, Append, token),
+            editor => editor.MoveBookmark(item.Id, place.PreviousId, Append),
             UiText.Format("Moved {0} into the bookmark above.", item.Title),
             item.Id)
         : Signal.Return(RxVoid.Default);
@@ -227,7 +227,7 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable, 
     [ReactiveCommand(CanExecute = nameof(_canOutdent))]
     private IObservable<RxVoid> Outdent() => Place() is { } place && _owner.SelectedOutlineItem is { } item
         ? Run(
-            (editor, token) => editor.MoveBookmarkAsync(item.Id, place.GrandParentId, place.ParentIndex + 1, token),
+            editor => editor.MoveBookmark(item.Id, place.GrandParentId, place.ParentIndex + 1),
             UiText.Format("Moved {0} out of its parent.", item.Title),
             item.Id)
         : Signal.Return(RxVoid.Default);
@@ -250,12 +250,12 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable, 
     /// <param name="done">What to say when it worked.</param>
     /// <param name="selectId">The bookmark to select afterwards, or 0 for none.</param>
     /// <returns>A cold signal that ends once the edit is shown.</returns>
-    private IObservable<RxVoid> Run(Func<IOutlineEditor, CancellationToken, ValueTask<DocumentEditResult>> edit, string done, int selectId) =>
+    private IObservable<RxVoid> Run(Func<IOutlineEditor, IObservable<DocumentEditResult>> edit, string done, int selectId) =>
         DocumentFeature<IOutlineEditor>.Get(_owner.TryGetDocument()) is not { } editor
             ? Signal.Return(RxVoid.Default)
 
-            // The outline editor is the PDF library's async API, so its call is the one task here.
-            : Signal.FromAsync(token => edit(editor, token).AsTask(), _lifetime)
+            : edit(editor)
+                .ThrowWhenCancelled(_lifetime)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Select(result => Edited(result, done, selectId))
                 .Catch<RxVoid, OperationCanceledException>(Stopped);

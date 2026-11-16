@@ -61,7 +61,7 @@ public sealed class ConcurrentDocumentEditTests
                 async () =>
                 {
                     await start.Task;
-                    return await editor.AddBookmarkAsync(0, -1, title, 0, cancellationToken);
+                    return await editor.AddBookmark(0, -1, title, 0).ToTask(cancellationToken);
                 },
                 cancellationToken);
         }
@@ -83,7 +83,7 @@ public sealed class ConcurrentDocumentEditTests
         var editor = DocumentFeature<IOutlineEditor>.Cast(test.Document)!;
         var stale = await EditWhileReadingAsync(
             () => test.Document.GetOutline().Count,
-            async index => (await editor.AddBookmarkAsync(0, -1, $"Bookmark {index}", 0, cancellationToken)).Succeeded,
+            async index => (await editor.AddBookmark(0, -1, $"Bookmark {index}", 0).ToTask(cancellationToken)).Succeeded,
             cancellationToken);
 
         await Assert.That(stale).IsEqualTo(0);
@@ -131,7 +131,7 @@ public sealed class ConcurrentDocumentEditTests
                 async () =>
                 {
                     await start.Task;
-                    _ = await designer.CreateFieldAsync(new(FormFieldKind.Text, $"Field{index}", [new(0, new PageRect(BoxSize * (index + 1), BoxSize, BoxSize, BoxSize))]), cancellationToken);
+                    _ = await designer.CreateField(new(FormFieldKind.Text, $"Field{index}", [new(0, new PageRect(BoxSize * (index + 1), BoxSize, BoxSize, BoxSize))])).ToTask(cancellationToken);
                 },
                 cancellationToken));
         }
@@ -141,7 +141,7 @@ public sealed class ConcurrentDocumentEditTests
 
         var page = PdfDocumentPages.GetPage(test.Document.Document, 0);
         await Assert.That(page.Dictionary.GetArray(KnownName.Annots)!.Count).IsEqualTo(Pairs * ItemsPerPair);
-        await Assert.That((await designer.GetFieldsAsync(cancellationToken)).Count).IsEqualTo(Pairs);
+        await Assert.That((await designer.GetFields().ToTask(cancellationToken)).Count).IsEqualTo(Pairs);
     }
 
     /// <summary>A page edit, an undo and a form data import that find another edit holding the document's transaction say so plainly and change nothing.</summary>

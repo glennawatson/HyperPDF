@@ -26,13 +26,13 @@ public sealed class FormDesignViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("form-design.pdf", TestPdf.CreateForm())]);
         var tab = main.SelectedTab!;
         var designer = DocumentFeature<IFormDesigner>.Get(tab.TryGetDocument())!;
-        var before = (await designer.GetFieldsAsync(CancellationToken.None)).Count;
+        var before = (await designer.GetFields().ToTask()).Count;
 
         _ = await tab.FormDesign.AddTextFieldCommand.Execute().ToTask();
         _ = await tab.FormDesign.AddCheckBoxCommand.Execute().ToTask();
         _ = await tab.FormDesign.AddDropDownCommand.Execute().ToTask();
         _ = await tab.FormDesign.AddButtonCommand.Execute().ToTask();
-        var fields = await designer.GetFieldsAsync(CancellationToken.None);
+        var fields = await designer.GetFields().ToTask();
 
         using (Assert.Multiple())
         {
