@@ -14,11 +14,10 @@ public interface IPageFileExporter : IDocumentFeature
     /// <param name="format">The file format.</param>
     /// <param name="options">How to write them.</param>
     /// <param name="destination">The stream that receives the file.</param>
-    /// <param name="cancellationToken">Cancels the export.</param>
-    /// <returns>What the export did; nothing is written to <paramref name="destination"/> when <see cref="PageFileExportResult.Written"/> is <see langword="false"/>.</returns>
+    /// <returns>A cold signal giving what the export did once; unsubscribing cancels the work.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">There are no pages, or the format takes one page and more were given.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A page is not in the document, or the resolution is not positive.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    ValueTask<PageFileExportResult> ExportAsync(IReadOnlyList<int> pages, PageFileFormat format, PageFileExportOptions options, Stream destination, CancellationToken cancellationToken);
+    IObservable<PageFileExportResult> Export(IReadOnlyList<int> pages, PageFileFormat format, PageFileExportOptions options, Stream destination);
 }

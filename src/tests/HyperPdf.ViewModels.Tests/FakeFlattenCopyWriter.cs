@@ -5,6 +5,7 @@
 using HyperPdf.Core.Archiving;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Flattening;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -45,7 +46,15 @@ internal sealed class FakeFlattenCopyWriter : IFlattenCopyWriter
     internal TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <inheritdoc/>
-    public async Task<FlattenCopyResult> WriteFlattenedCopyAsync(Stream destination, FlattenCopyOptions options, CancellationToken cancellationToken)
+    public IObservable<FlattenCopyResult> WriteFlattenedCopy(Stream destination, FlattenCopyOptions options) =>
+        Signal.FromAsync(token => WriteFlattenedCopyAsync(destination, options, token));
+
+    /// <summary>Runs WriteFlattenedCopy as the library's task.</summary>
+    /// <param name="destination">The destination.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="cancellationToken">Stops the run.</param>
+    /// <returns>The task.</returns>
+    internal async Task<FlattenCopyResult> WriteFlattenedCopyAsync(Stream destination, FlattenCopyOptions options, CancellationToken cancellationToken)
     {
         Calls++;
         LastOptions = options;

@@ -125,7 +125,7 @@ public sealed class Pdf20SavePlanTests
         using var plain = engine.Open(test.CreateDocument(name, Pages), null);
         await using var output = new MemoryStream();
         var request = new ProtectionRequest { Format = ProtectionFormat.Strong, UserPassword = UserPassword, OwnerPassword = OwnerPassword, Permissions = ProtectionPermissions.All };
-        var written = await DocumentFeature<IDocumentProtector>.Get(plain)!.ProtectAsync(request, output, CancellationToken.None);
+        var written = await DocumentFeature<IDocumentProtector>.Get(plain)!.Protect(request, output).ToTask();
         var path = Path.Combine(test.Directory, $"protected-{name}");
         await File.WriteAllBytesAsync(path, output.ToArray());
         return written.Written ? engine.Open(path, OwnerPassword) : throw new InvalidOperationException(written.Refusal);

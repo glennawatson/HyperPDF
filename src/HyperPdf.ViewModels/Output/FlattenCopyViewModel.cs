@@ -229,7 +229,7 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
         ResultText = string.Empty;
         SetStatusText(LocalizedMessage.Get(UiText, "Making a flattened copy. This can take a while for long files."));
         var options = Options;
-        return CopyFile.Write(path, TemporarySuffix, (stream, token) => _writer.WriteFlattenedCopyAsync(stream, options, token), static result => result.Flattened, run.Token)
+        return CopyFile.WriteSignal(path, TemporarySuffix, stream => _writer.WriteFlattenedCopy(stream, options), static result => result.Flattened).ThrowWhenCancelled(run.Token)
             .Select(result => ShowResult(result, path))
             .Catch<RxVoid, Exception>(Failed)
             .Finally(() => EndRun(run));

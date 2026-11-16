@@ -23,7 +23,7 @@ internal static class Pdf20Resave
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static IObservable<Pdf20ResaveResult> Try(Pdf20Upgrade upgrade, string path) =>
-        CopyFile.Write(path, TemporarySuffix, (stream, token) => upgrade.Writer.WritePdf20CopyAsync(stream, upgrade.Options, token), static result => result.Converted, CancellationToken.None)
+        CopyFile.WriteSignal(path, TemporarySuffix, stream => upgrade.Writer.WritePdf20Copy(stream, upgrade.Options), static result => result.Converted)
             .Select(static result => new Pdf20ResaveResult(result.Converted, ReasonOf(result)))
             .Catch<Pdf20ResaveResult, Exception>(Refused);
 

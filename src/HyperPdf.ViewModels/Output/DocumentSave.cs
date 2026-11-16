@@ -88,8 +88,7 @@ internal static class DocumentSave
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static IObservable<bool> Serialize(IAnnotationEditor editor, TemporaryCopy copy, DocumentSaveReport report, DocumentSaveState state) =>
         // Serializing the whole file runs before the library's first await, so it starts on the pool to keep the window alive.
-        // The editor's async save is the PDF library's call, the one task here.
-        Signal.FromAsync(token => editor.SaveAsync(copy.Stream, report, token).AsTask())
+        editor.SaveToStream(copy.Stream, report)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Do(serialized => Serialized(copy, state, serialized));

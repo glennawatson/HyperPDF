@@ -7,6 +7,7 @@ using System.Security.Cryptography.X509Certificates;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Signatures.Signing;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -34,11 +35,11 @@ public sealed class PendingSignatureSingleUseTests
         using var source = new HyperPdfTestDocument(Pages);
         var signer = DocumentFeature<IDocumentSigner>.Get(source.Document)!;
         var pending = await PrepareAsync(signer, cancellationToken);
-        var first = await signer.CompleteAsync(pending, Sign(pending), cancellationToken);
+        var first = await signer.Complete(pending, Sign(pending)).ToTask(cancellationToken);
         var before = first.Bytes.ToArray();
 
-        var refusal = await Assert.That(async () => await signer.CompleteAsync(pending, Sign(pending), cancellationToken)).Throws<SigningRefusedException>();
-        var again = await Assert.That(async () => await signer.CompleteWithContainerAsync(pending, new byte[1], cancellationToken)).Throws<SigningRefusedException>();
+        var refusal = await Assert.That(async () => await signer.Complete(pending, Sign(pending)).ToTask(cancellationToken)).Throws<SigningRefusedException>();
+        var again = await Assert.That(async () => await signer.CompleteWithContainer(pending, new byte[1]).ToTask(cancellationToken)).Throws<SigningRefusedException>();
 
         await Assert.That(first.Bytes).IsEquivalentTo(before);
         await Assert.That(refusal!.Reasons.Count).IsEqualTo(1);
@@ -80,7 +81,7 @@ public sealed class PendingSignatureSingleUseTests
         await start;
         try
         {
-            _ = await signer.CompleteAsync(pending, value, cancellationToken);
+            _ = await signer.Complete(pending, value).ToTask(cancellationToken);
             return true;
         }
         catch (SigningRefusedException)
@@ -93,8 +94,8 @@ public sealed class PendingSignatureSingleUseTests
     /// <param name="signer">The signer.</param>
     /// <param name="cancellationToken">Cancels the preparation.</param>
     /// <returns>The pending signature.</returns>
-    private static async Task<IPendingSignature> PrepareAsync(IDocumentSigner signer, CancellationToken cancellationToken) =>
-        await signer.PrepareAsync(new([Signer.RawData], SigningKeyKind.RsaPkcs1), new(0, "Approved", string.Empty, Time), null, cancellationToken);
+    private static Task<IPendingSignature> PrepareAsync(IDocumentSigner signer, CancellationToken cancellationToken) =>
+        signer.Prepare(new([Signer.RawData], SigningKeyKind.RsaPkcs1), new(0, "Approved", string.Empty, Time), null).ToTask(cancellationToken);
 
     /// <summary>Signs the signed attributes of a pending signature with the test key.</summary>
     /// <param name="pending">The pending signature.</param>

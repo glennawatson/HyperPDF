@@ -333,7 +333,8 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
         var cancel = Begin(UiText.Get("Preparing the file. This can take a while for long files."));
 
         // Preparing reads the whole document before the library's first await, so it starts on the pool; the signer is the library's async API.
-        return Signal.FromAsync(token => _signer.PrepareAsync(identity, request, _timestamper, token).AsTask(), cancel.Token)
+        return _signer.Prepare(identity, request, _timestamper)
+            .ThrowWhenCancelled(cancel.Token)
             .SubscribeOn(TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(ShowPrepared)
@@ -462,7 +463,7 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
 
         // Completing the signature builds the whole file before its first await, so it starts on the pool; the signer is the library's async API.
         return Signal.Start(() => File.ReadAllBytes(answerPath), TaskPoolSequencer.Default)
-            .SwitchMap(answer => Signal.FromAsync(token => CompleteSignature(pending, answer, container, token), cancel.Token))
+            .SwitchMap(answer => CompleteSignature(pending, answer, container).ThrowWhenCancelled(cancel.Token))
             .SwitchMap(outcome => SignedCopyFile.Write(outcome, path).Select(_ => outcome))
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(outcome => ShowSaved(outcome, path))
@@ -474,10 +475,9 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
     /// <param name="pending">The prepared signature.</param>
     /// <param name="answer">The signer's answer.</param>
     /// <param name="container">Whether the answer is a whole signature container.</param>
-    /// <param name="token">Stops the work.</param>
-    /// <returns>A task giving the signed file.</returns>
-    private Task<SigningOutcome> CompleteSignature(IPendingSignature pending, byte[] answer, bool container, CancellationToken token) =>
-        container ? _signer.CompleteWithContainerAsync(pending, answer, token).AsTask() : _signer.CompleteAsync(pending, answer, token).AsTask();
+    /// <returns>A cold signal giving the signed file.</returns>
+    private IObservable<SigningOutcome> CompleteSignature(IPendingSignature pending, byte[] answer, bool container) =>
+        container ? _signer.CompleteWithContainer(pending, answer) : _signer.Complete(pending, answer);
 
     /// <summary>Says why the signature was not finished, or passes on a failure that is not expected.</summary>
     /// <param name="error">The failure.</param>

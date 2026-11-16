@@ -271,7 +271,7 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
         var settings = Settings;
 
         // Redaction rewrites the pages before its first await, so the write starts on the pool to keep Cancel alive.
-        return CopyFile.Write(path, TemporarySuffix, (stream, token) => _redactor.ApplyAsync(stream, settings, token), static _ => true, run.Token)
+        return CopyFile.WriteSignal(path, TemporarySuffix, stream => _redactor.Apply(stream, settings), static _ => true).ThrowWhenCancelled(run.Token)
             .Select(report => ShowResult(report, path))
             .Catch<RxVoid, Exception>(Failed)
             .Finally(() => EndRun(run));

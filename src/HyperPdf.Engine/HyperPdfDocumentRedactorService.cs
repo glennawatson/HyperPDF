@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Redaction;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -23,7 +24,16 @@ internal sealed class HyperPdfDocumentRedactorService : IDocumentRedactor
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<RedactionReport> ApplyAsync(Stream destination, RedactionSettings settings, CancellationToken cancellationToken) => HyperPdfDocumentRedaction.ApplyAsync(
+    public IObservable<RedactionReport> Apply(Stream destination, RedactionSettings settings) =>
+        Signal.FromAsync(token => ApplyAsync(destination, settings, token));
+
+    /// <summary>Runs Apply against the library.</summary>
+    /// <param name="destination">The destination.</param>
+    /// <param name="settings">The settings.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal Task<RedactionReport> ApplyAsync(Stream destination, RedactionSettings settings, CancellationToken cancellationToken) => HyperPdfDocumentRedaction.ApplyAsync(
             _owner,
             destination,
             settings,

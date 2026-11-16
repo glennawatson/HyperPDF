@@ -9,6 +9,7 @@ using HyperPdf.Core.Optimizing;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Conformance;
 using HyperPdfLibrary.Document;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -50,7 +51,7 @@ public sealed class ArchiveCopyTests
         var writer = DocumentFeature<IArchiveCopyWriter>.Cast(source.Document)!;
         await using var output = new MemoryStream();
 
-        var result = await writer.WriteArchiveCopyAsync(output, level, CancellationToken.None);
+        var result = await writer.WriteArchiveCopy(output, level).ToTask();
 
         await Assert.That(result.Converted).IsTrue().Because(string.Join("; ", result.Problems.Select(static p => p.Description)));
         await Assert.That(result.Level).IsEqualTo(level);
@@ -70,7 +71,7 @@ public sealed class ArchiveCopyTests
         var writer = DocumentFeature<IArchiveCopyWriter>.Cast(source.Document)!;
         await using var output = new MemoryStream();
 
-        var result = await writer.WriteArchiveCopyAsync(output, ArchiveLevel.PdfA2A, CancellationToken.None);
+        var result = await writer.WriteArchiveCopy(output, ArchiveLevel.PdfA2A).ToTask();
 
         await Assert.That(result.Converted).IsFalse();
         await Assert.That(result.Problems).IsNotEmpty();
@@ -88,7 +89,7 @@ public sealed class ArchiveCopyTests
         var report = new DocumentSaveReport();
         await using var output = new MemoryStream();
 
-        var saved = await editor.SaveAsync(output, report, CancellationToken.None);
+        var saved = await editor.SaveToStream(output, report).ToTask();
 
         await Assert.That(saved).IsTrue();
         await Assert.That(report.ClaimRemoved).IsNull();
@@ -109,7 +110,7 @@ public sealed class ArchiveCopyTests
         var report = new DocumentSaveReport();
         await using var output = new MemoryStream();
 
-        var saved = await editor.SaveAsync(output, report, CancellationToken.None);
+        var saved = await editor.SaveToStream(output, report).ToTask();
 
         await Assert.That(saved).IsTrue();
         await Assert.That(report.ClaimRepaired).IsNull();
@@ -130,7 +131,7 @@ public sealed class ArchiveCopyTests
         var optimizer = DocumentFeature<IDocumentOptimizer>.Cast(source.Document)!;
         await using var output = new MemoryStream();
 
-        var report = await optimizer.OptimizeAsync(output, new(OptimizePreset.KeepQuality, false, "en-AU", false, false), null, CancellationToken.None);
+        var report = await optimizer.Optimize(output, new(OptimizePreset.KeepQuality, false, "en-AU", false, false), null).ToTask();
 
         await Assert.That(report.ClaimRemoved).IsNull();
         await Assert.That(report.ClaimRepaired).IsNotNull();
@@ -146,7 +147,7 @@ public sealed class ArchiveCopyTests
         var optimizer = DocumentFeature<IDocumentOptimizer>.Cast(source.Document)!;
         await using var output = new MemoryStream();
 
-        var report = await optimizer.OptimizeAsync(output, new(OptimizePreset.KeepQuality, false, "en-AU", false, false), null, CancellationToken.None);
+        var report = await optimizer.Optimize(output, new(OptimizePreset.KeepQuality, false, "en-AU", false, false), null).ToTask();
 
         await Assert.That(report.ClaimRemoved).IsNotNull();
         await Assert.That(report.ClaimRemoved!.Level).IsEqualTo(ArchiveLevel.PdfA2B);

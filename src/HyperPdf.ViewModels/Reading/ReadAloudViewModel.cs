@@ -1057,7 +1057,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         var progress = new Progress<double>(fraction => DownloadProgress = fraction);
 
         return _services.Speech.DownloadVoice(_services.Settings, progress)
-            .TakeUntil(work.Token)
+            .ThrowWhenCancelled(work.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(_ => VoiceDownloaded())
             .Catch<RxVoid, Exception>(VoiceDownloadFailed)

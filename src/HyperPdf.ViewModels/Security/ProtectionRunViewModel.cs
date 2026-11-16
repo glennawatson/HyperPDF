@@ -136,7 +136,7 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
     /// <param name="write">Writes the copy.</param>
     /// <returns>A signal that ends when the copy is saved, refused, stopped or the choice was given up.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected IObservable<RxVoid> StartCopy(string suggestedName, LocalizedMessage runningText, LocalizedMessage action, Func<Stream, CancellationToken, Task<ProtectionResult>> write) =>
+    protected IObservable<RxVoid> StartCopy(string suggestedName, LocalizedMessage runningText, LocalizedMessage action, Func<Stream, IObservable<ProtectionResult>> write) =>
         SaveInteraction.Handle(suggestedName).ToSignal().SwitchMap(path => Copy(path, runningText, action, write));
 
     /// <summary>Writes the copy to the chosen place.</summary>
@@ -145,7 +145,7 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
     /// <param name="action">What the run does, for the refusal line.</param>
     /// <param name="write">Writes the copy.</param>
     /// <returns>A signal that ends when the copy is saved, refused or stopped.</returns>
-    private IObservable<RxVoid> Copy(string? path, in LocalizedMessage runningText, in LocalizedMessage action, Func<Stream, CancellationToken, Task<ProtectionResult>> write)
+    private IObservable<RxVoid> Copy(string? path, in LocalizedMessage runningText, in LocalizedMessage action, Func<Stream, IObservable<ProtectionResult>> write)
     {
         if (string.IsNullOrEmpty(path))
         {
@@ -168,7 +168,7 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
 
         // A lambda cannot capture an in parameter, so the action is copied once.
         var doing = action;
-        return CopyFile.Write(path, ProtectedCopyFile.TemporarySuffix, write, static result => result.Written, run.Token)
+        return CopyFile.WriteSignal(path, ProtectedCopyFile.TemporarySuffix, write, static result => result.Written).ThrowWhenCancelled(run.Token)
             .Select(result => ShowResult(result, path, doing))
             .Catch<RxVoid, Exception>(Failed)
             .Finally(() => EndRun(run));

@@ -300,11 +300,12 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
 
         // Building the update is CPU work, so it starts on the pool, then the lookups await in the signer, the library's async API.
         // The captures are the choices made when the run started, so a change in the window cannot alter a run in progress.
-        return Signal.FromAsync(
-                token => action == ValidationAction.AddTimestamp
-                    ? _signer.AddDocumentTimestampAsync(_timestamper!, SigningDigest.Sha256, token).AsTask()
-                    : _signer.AddValidationDataAsync(_revocation, includeVri, token).AsTask(),
-                cancellationToken)
+        var update = action == ValidationAction.AddTimestamp
+            ? _signer.AddDocumentTimestamp(_timestamper!, SigningDigest.Sha256)
+            : _signer.AddValidationData(_revocation, includeVri);
+
+        return update
+            .ThrowWhenCancelled(cancellationToken)
             .SubscribeOn(TaskPoolSequencer.Default);
     }
 

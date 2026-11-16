@@ -295,7 +295,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
 
         return setup.Download(new Progress<double>(static _ => { }))
             .Select(_ => setup.CreateDescriber())
-            .TakeUntil(cancellationToken)
+            .ThrowWhenCancelled(cancellationToken)
             .ObserveOn(RxSchedulers.MainThreadScheduler);
     }
 
@@ -313,7 +313,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
 
         // The optimiser snapshots the document and plans before its first await, so nearly all of an 8-page run runs on the
         // caller's thread (HyperPdfOptimizeCopyBenchmarks.TimeBeforeFirstWrite); the write starts on the pool for that reason.
-        return CopyFile.Write(path, TemporarySuffix, (stream, token) => _optimizer.OptimizeAsync(stream, settings, progress, token), static _ => true, cancellationToken)
+        return CopyFile.WriteSignal(path, TemporarySuffix, stream => _optimizer.Optimize(stream, settings, progress), static _ => true).ThrowWhenCancelled(cancellationToken)
             .Finally(() => (describer as IDisposable)?.Dispose());
     }
 

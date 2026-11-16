@@ -13,9 +13,8 @@ public interface IDocumentOptimizer : IDocumentFeature
     /// <param name="destination">The writable stream that receives the new file; it holds a partial file after a failure or cancel.</param>
     /// <param name="settings">What may change.</param>
     /// <param name="progress">Receives progress, or <see langword="null"/>.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>What was done.</returns>
+    /// <returns>A cold signal giving what was done once; unsubscribing cancels the work.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     /// <exception cref="InvalidDataException">The document cannot be read or written.</exception>
-    Task<OptimizeReport> OptimizeAsync(Stream destination, OptimizeSettings settings, IProgress<OptimizeProgress>? progress, CancellationToken cancellationToken);
+    IObservable<OptimizeReport> Optimize(Stream destination, OptimizeSettings settings, IProgress<OptimizeProgress>? progress);
 }

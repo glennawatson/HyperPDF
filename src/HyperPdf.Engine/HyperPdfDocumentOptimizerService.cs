@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Optimizing;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -23,11 +24,11 @@ internal sealed class HyperPdfDocumentOptimizerService : IDocumentOptimizer
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<OptimizeReport> OptimizeAsync(Stream destination, OptimizeSettings settings, IProgress<OptimizeProgress>? progress, CancellationToken cancellationToken) =>
-        HyperPdfDocumentOptimization.OptimizeAsync(
+    public IObservable<OptimizeReport> Optimize(Stream destination, OptimizeSettings settings, IProgress<OptimizeProgress>? progress) =>
+        Signal.FromAsync(token => HyperPdfDocumentOptimization.OptimizeAsync(
             _owner,
             destination,
             settings,
             progress,
-            cancellationToken);
+            token));
 }

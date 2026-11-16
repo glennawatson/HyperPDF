@@ -365,12 +365,12 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
             var number = job + 1;
 
             // Drawing a page reads and renders before the first await, so the write starts on the pool to keep the window responsive.
-            yield return CopyFile.Write(
+            yield return CopyFile.WriteSignal(
                     target,
                     TemporarySuffix,
-                    (stream, token) => _exporter.ExportAsync(chosen, format, options, stream, token).AsTask(),
-                    static result => result.Written,
-                    cancellationToken)
+                    stream => _exporter.Export(chosen, format, options, stream),
+                    static result => result.Written)
+                .ThrowWhenCancelled(cancellationToken)
                 .Select(result => Written(result, totals, number, jobs));
         }
     }

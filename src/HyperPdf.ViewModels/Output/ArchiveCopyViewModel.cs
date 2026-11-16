@@ -214,7 +214,7 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
         ResultText = string.Empty;
         SetStatusText(LocalizedMessage.Format(UiText, "Making a {0} copy. This can take a while for long files.", ArchiveText.Label(Level)));
         var level = Level;
-        return CopyFile.Write(path, TemporarySuffix, (stream, token) => _writer.WriteArchiveCopyAsync(stream, level, token), static result => result.Converted, run.Token)
+        return CopyFile.WriteSignal(path, TemporarySuffix, stream => _writer.WriteArchiveCopy(stream, level), static result => result.Converted).ThrowWhenCancelled(run.Token)
             .Select(result => ShowResult(result, path))
             .Catch<RxVoid, Exception>(Failed)
             .Finally(() => EndRun(run));

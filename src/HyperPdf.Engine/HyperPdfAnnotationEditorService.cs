@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -217,11 +218,11 @@ internal sealed class HyperPdfAnnotationEditorService : IAnnotationEditor
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<bool> SaveAsync(Stream destination, CancellationToken cancellationToken) =>
-        HyperPdfDocumentAnnotationEditing.SaveAsync(_owner, destination, null, cancellationToken);
+    public IObservable<bool> SaveToStream(Stream destination) =>
+        Signal.FromAsync(token => HyperPdfDocumentAnnotationEditing.SaveAsync(_owner, destination, null, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<bool> SaveAsync(Stream destination, DocumentSaveReport report, CancellationToken cancellationToken) =>
-        HyperPdfDocumentAnnotationEditing.SaveAsync(_owner, destination, report, cancellationToken);
+    public IObservable<bool> SaveToStream(Stream destination, DocumentSaveReport report) =>
+        Signal.FromAsync(token => HyperPdfDocumentAnnotationEditing.SaveAsync(_owner, destination, report, token).AsTask());
 }

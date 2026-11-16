@@ -8,6 +8,7 @@ using HyperPdf.Core.Forms;
 using HyperPdf.Core.Optimizing;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Optimizing;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -61,7 +62,7 @@ public sealed class OptimizeCopyTests
         var steps = new List<OptimizeStep>();
         await using var output = new MemoryStream();
 
-        var report = await optimizer.OptimizeAsync(output, new(preset, true, "en-AU", false, true), new StepRecorder(steps), CancellationToken.None);
+        var report = await optimizer.Optimize(output, new(preset, true, "en-AU", false, true), new StepRecorder(steps)).ToTask();
 
         var path = Path.Combine(Path.GetTempPath(), $"optimised-{Guid.NewGuid():N}.pdf");
         await File.WriteAllBytesAsync(path, output.ToArray());
@@ -98,11 +99,10 @@ public sealed class OptimizeCopyTests
         var hidden = editor.SetRemoved(0, removed, true);
         await using var output = new MemoryStream();
 
-        _ = await HyperPdf.Core.Documents.DocumentFeature<IDocumentOptimizer>.Cast(source.Document)!.OptimizeAsync(
+        _ = await HyperPdf.Core.Documents.DocumentFeature<IDocumentOptimizer>.Cast(source.Document)!.Optimize(
             output,
             new(OptimizePreset.KeepQuality, false, string.Empty, false, false),
-            null,
-            CancellationToken.None);
+            null).ToTask();
 
         var path = Path.Combine(Path.GetTempPath(), $"optimised-edits-{Guid.NewGuid():N}.pdf");
         await File.WriteAllBytesAsync(path, output.ToArray());
@@ -147,7 +147,7 @@ public sealed class OptimizeCopyTests
         await using var output = new MemoryStream();
 
         await Assert.That(async () => await HyperPdf.Core.Documents.DocumentFeature<IDocumentOptimizer>.Cast(
-            source.Document)!.OptimizeAsync(output, OptimizeSettings.Default, null, cancel.Token))
+            source.Document)!.Optimize(output, OptimizeSettings.Default, null).ToTask(cancel.Token))
             .Throws<OperationCanceledException>();
     }
 
@@ -161,7 +161,7 @@ public sealed class OptimizeCopyTests
         source.Dispose();
         await using var output = new MemoryStream();
 
-        await Assert.That(async () => await optimizer.OptimizeAsync(output, OptimizeSettings.Default, null, CancellationToken.None))
+        await Assert.That(async () => await optimizer.Optimize(output, OptimizeSettings.Default, null).ToTask())
             .Throws<ObjectDisposedException>();
     }
 

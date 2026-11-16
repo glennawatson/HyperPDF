@@ -526,7 +526,7 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
 
         var wasDirty = _source?.HasUnsavedChanges ?? editor.HasUnsavedChanges;
         var report = new DocumentSaveReport();
-        return CopyFile.Write(path, TemporarySuffix, (stream, token) => editor.SaveAsync(stream, report, token).AsTask(), static serialized => serialized, cancellationToken)
+        return CopyFile.WriteSignal(path, TemporarySuffix, stream => editor.SaveToStream(stream, report), static serialized => serialized).ThrowWhenCancelled(cancellationToken)
             .Select(serialized => Serialized(serialized, report))
             .Do(_ => KeepDirty(wasDirty))
             .Finally(() => KeepDirty(wasDirty));

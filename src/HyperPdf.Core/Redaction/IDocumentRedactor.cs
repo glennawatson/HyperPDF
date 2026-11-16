@@ -15,9 +15,8 @@ public interface IDocumentRedactor : IDocumentFeature
     /// <summary>Applies every redaction mark and writes a new file. The open document is never changed, and neither is its file.</summary>
     /// <param name="destination">The writable stream that receives the new file; it holds a partial file after a failure or cancel.</param>
     /// <param name="settings">What to remove under the marks, and what to clean up.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>What was removed.</returns>
+    /// <returns>A cold signal giving what was removed once; unsubscribing cancels the work.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     /// <exception cref="InvalidDataException">The document cannot be read or written.</exception>
-    Task<RedactionReport> ApplyAsync(Stream destination, RedactionSettings settings, CancellationToken cancellationToken);
+    IObservable<RedactionReport> Apply(Stream destination, RedactionSettings settings);
 }

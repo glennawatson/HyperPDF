@@ -16,13 +16,11 @@ public interface IAttachmentEditor : IDocumentFeature
     /// <summary>Attaches a file.</summary>
     /// <param name="name">The file name.</param>
     /// <param name="data">The file's bytes.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> AddAttachmentAsync(string name, ReadOnlyMemory<byte> data, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> AddAttachment(string name, ReadOnlyMemory<byte> data);
 
     /// <summary>Removes an attached file.</summary>
     /// <param name="index">The file's <see cref="DocumentAttachment.Index"/>.</param>
-    /// <param name="cancellationToken">Cancels the loading; the document is unchanged when it is cancelled.</param>
-    /// <returns>The outcome.</returns>
-    ValueTask<DocumentEditResult> RemoveAttachmentAsync(int index, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
+    IObservable<DocumentEditResult> RemoveAttachment(int index);
 }

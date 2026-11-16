@@ -63,6 +63,6 @@ public sealed partial class RemoveProtectionViewModel : ProtectionRunViewModel
             SuggestedName,
             LocalizedMessage.Get(UiText, "Removing the protection from a copy. This can take a while for long files."),
             LocalizedMessage.Get(UiText, "removing the protection"),
-            (stream, token) => _protector.RemoveProtectionAsync(password, stream, token));
+            stream => _protector.RemoveProtection(password, stream));
     }
 }

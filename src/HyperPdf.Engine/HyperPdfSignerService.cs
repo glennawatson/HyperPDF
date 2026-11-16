@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Signatures.Signing;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -28,36 +29,36 @@ internal sealed class HyperPdfSignerService : IDocumentSigner
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<SigningOutcome> SignAsync(X509Certificate2 certificate, SigningRequest request, ISignatureTimestamper? timestamper, CancellationToken cancellationToken) =>
-        HyperPdfDocumentSigning.SignAsync(_owner, certificate, request, timestamper, cancellationToken);
+    public IObservable<SigningOutcome> Sign(X509Certificate2 certificate, SigningRequest request, ISignatureTimestamper? timestamper) =>
+        Signal.FromAsync(token => HyperPdfDocumentSigning.SignAsync(_owner, certificate, request, timestamper, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<SigningOutcome> SignAsync(ISignatureProvider provider, SigningRequest request, ISignatureTimestamper? timestamper, CancellationToken cancellationToken) =>
-        HyperPdfDocumentSigning.SignAsync(_owner, provider, request, timestamper, cancellationToken);
+    public IObservable<SigningOutcome> Sign(ISignatureProvider provider, SigningRequest request, ISignatureTimestamper? timestamper) =>
+        Signal.FromAsync(token => HyperPdfDocumentSigning.SignAsync(_owner, provider, request, timestamper, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<IPendingSignature> PrepareAsync(SignerIdentity identity, SigningRequest request, ISignatureTimestamper? timestamper, CancellationToken cancellationToken) =>
-        HyperPdfDocumentSigning.PrepareAsync(_owner, identity, request, timestamper, cancellationToken);
+    public IObservable<IPendingSignature> Prepare(SignerIdentity identity, SigningRequest request, ISignatureTimestamper? timestamper) =>
+        Signal.FromAsync(token => HyperPdfDocumentSigning.PrepareAsync(_owner, identity, request, timestamper, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<SigningOutcome> CompleteAsync(IPendingSignature pending, ReadOnlyMemory<byte> signature, CancellationToken cancellationToken) =>
-        HyperPdfDocumentSigning.CompleteAsync(pending, signature, cancellationToken);
+    public IObservable<SigningOutcome> Complete(IPendingSignature pending, ReadOnlyMemory<byte> signature) =>
+        Signal.FromAsync(token => HyperPdfDocumentSigning.CompleteAsync(pending, signature, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<SigningOutcome> CompleteWithContainerAsync(IPendingSignature pending, ReadOnlyMemory<byte> container, CancellationToken cancellationToken) =>
-        HyperPdfDocumentSigning.CompleteWithContainerAsync(pending, container, cancellationToken);
+    public IObservable<SigningOutcome> CompleteWithContainer(IPendingSignature pending, ReadOnlyMemory<byte> container) =>
+        Signal.FromAsync(token => HyperPdfDocumentSigning.CompleteWithContainerAsync(pending, container, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<SigningOutcome> AddValidationDataAsync(ISignatureRevocationSource source, bool includeVri, CancellationToken cancellationToken) =>
-        HyperPdfDocumentSigning.AddValidationDataAsync(_owner, source, includeVri, cancellationToken);
+    public IObservable<SigningOutcome> AddValidationData(ISignatureRevocationSource source, bool includeVri) =>
+        Signal.FromAsync(token => HyperPdfDocumentSigning.AddValidationDataAsync(_owner, source, includeVri, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<SigningOutcome> AddDocumentTimestampAsync(ISignatureTimestamper timestamper, SigningDigest digest, CancellationToken cancellationToken) =>
-        HyperPdfDocumentSigning.AddDocumentTimestampAsync(_owner, timestamper, digest, cancellationToken);
+    public IObservable<SigningOutcome> AddDocumentTimestamp(ISignatureTimestamper timestamper, SigningDigest digest) =>
+        Signal.FromAsync(token => HyperPdfDocumentSigning.AddDocumentTimestampAsync(_owner, timestamper, digest, token).AsTask());
 }

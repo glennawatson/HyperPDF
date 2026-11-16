@@ -3,11 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Creation;
 using HyperPdf.Core.Documents;
 using HyperPdfLibrary;
 using HyperPdfLibrary.Creation;
 using HyperPdfLibrary.Document;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -16,7 +18,16 @@ namespace HyperPdf.Engine;
 public sealed class HyperPdfDocumentCreator : IDocumentCreator
 {
     /// <inheritdoc/>
-    public async ValueTask<DocumentCreationResult> CreateAsync(DocumentCreationRequest request, Stream destination, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentCreationResult> Create(DocumentCreationRequest request, Stream destination) =>
+        Signal.FromAsync(token => CreateAsync(request, destination, token).AsTask());
+
+    /// <summary>Runs Create against the library.</summary>
+    /// <param name="request">The request.</param>
+    /// <param name="destination">The destination.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    internal static async ValueTask<DocumentCreationResult> CreateAsync(DocumentCreationRequest request, Stream destination, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(destination);

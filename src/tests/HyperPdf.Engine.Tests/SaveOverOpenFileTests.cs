@@ -7,6 +7,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Platform;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -84,7 +85,7 @@ public sealed class SaveOverOpenFileTests
             await using var output = new PausedWriteStream();
             using var timeout = new CancellationTokenSource(WriteTimeout);
 
-            var save = editor.SaveAsync(output, timeout.Token);
+            var save = editor.SaveToStream(output).ToTask(timeout.Token);
             await output.Entered.WaitAsync(timeout.Token);
             _ = editor.AddNote(0, SecondNote, "second", AnnotationColors.Sage);
             output.Release();

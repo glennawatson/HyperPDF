@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
 using HyperPdf.Core.Documents;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Signatures.Signing;
 
@@ -31,28 +32,25 @@ public static class PdfSigner
     /// <param name="certificate">The signing certificate, with its private key.</param>
     /// <param name="request">What the signature records.</param>
     /// <param name="timestamper">The timestamp authority, or <see langword="null"/> for none.</param>
-    /// <param name="cancellationToken">Stops signing, including waiting for the timestamp authority.</param>
-    /// <returns>The signed file.</returns>
-    /// <exception cref="NotSupportedException">The document cannot be signed.</exception>
-    /// <exception cref="SigningRefusedException">A lock, a certification, a seed value or the certificate forbids the signature.</exception>
+    /// <returns>
+    /// A cold signal giving the signed file once; unsubscribing stops signing. It fails with <see cref="NotSupportedException"/> when the
+    /// document cannot be signed and with <see cref="SigningRefusedException"/> when a lock, a certification, a seed value or the certificate forbids it.
+    /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ValueTask<SigningOutcome> SignAsync(
+    public static IObservable<SigningOutcome> Sign(
         IDocument? document,
         X509Certificate2 certificate,
         SigningRequest request,
-        ISignatureTimestamper? timestamper,
-        CancellationToken cancellationToken) =>
-        (DocumentFeature<IDocumentSigner>.Get(document) ?? throw new NotSupportedException("This document cannot be signed."))
-            .SignAsync(certificate, request, timestamper, cancellationToken);
+        ISignatureTimestamper? timestamper) =>
+        Signal.Defer(() => (DocumentFeature<IDocumentSigner>.Get(document) ?? throw new NotSupportedException("This document cannot be signed."))
+            .Sign(certificate, request, timestamper));
 
     /// <summary>Adds a document timestamp to a document.</summary>
     /// <param name="document">The document.</param>
     /// <param name="timestamper">The timestamp authority.</param>
-    /// <param name="cancellationToken">Stops waiting for the authority.</param>
-    /// <returns>The timestamped file.</returns>
-    /// <exception cref="NotSupportedException">The document cannot be signed.</exception>
+    /// <returns>A cold signal giving the timestamped file once; it fails with <see cref="NotSupportedException"/> when the document cannot be signed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ValueTask<SigningOutcome> AddDocumentTimestampAsync(IDocument? document, ISignatureTimestamper timestamper, CancellationToken cancellationToken) =>
-        (DocumentFeature<IDocumentSigner>.Get(document) ?? throw new NotSupportedException("This document cannot be signed."))
-            .AddDocumentTimestampAsync(timestamper, SigningDigest.Sha256, cancellationToken);
+    public static IObservable<SigningOutcome> AddDocumentTimestamp(IDocument? document, ISignatureTimestamper timestamper) =>
+        Signal.Defer(() => (DocumentFeature<IDocumentSigner>.Get(document) ?? throw new NotSupportedException("This document cannot be signed."))
+            .AddDocumentTimestamp(timestamper, SigningDigest.Sha256));
 }

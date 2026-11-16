@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Archiving;
 using HyperPdf.Core.Documents;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -35,7 +36,14 @@ internal sealed class FakePdf20CopyWriter : IPdf20CopyWriter
     internal TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <inheritdoc/>
-    public async Task<Pdf20CopyResult> WritePdf20CopyAsync(Stream destination, CancellationToken cancellationToken)
+    public IObservable<Pdf20CopyResult> WritePdf20Copy(Stream destination) =>
+        Signal.FromAsync(token => WritePdf20CopyAsync(destination, token));
+
+    /// <summary>Runs WritePdf20Copy as the library's task.</summary>
+    /// <param name="destination">The destination.</param>
+    /// <param name="cancellationToken">Stops the run.</param>
+    /// <returns>The task.</returns>
+    internal async Task<Pdf20CopyResult> WritePdf20CopyAsync(Stream destination, CancellationToken cancellationToken)
     {
         Calls++;
         _ = Started.TrySetResult();

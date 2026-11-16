@@ -7,6 +7,7 @@ using System.Diagnostics;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -21,7 +22,7 @@ public sealed class FormEventActionTests
         using var input = new HyperPdfTestDocument(FormRuntimeSamples.Create(string.Empty));
         var host = new NamedActionHost();
 
-        var result = await Actions(input).RunDocumentEventAsync(FormDocumentEvent.WillClose, host, CancellationToken.None);
+        var result = await Actions(input).RunDocumentEvent(FormDocumentEvent.WillClose, host).ToTask();
 
         await Assert.That(result).IsEqualTo(FormActionResult.Ran);
         await Assert.That(host.Names.ToArray()).IsEquivalentTo(["Close"]);
@@ -40,7 +41,7 @@ public sealed class FormEventActionTests
         using var input = new HyperPdfTestDocument(FormRuntimeSamples.Create(string.Empty));
         var host = new NamedActionHost();
 
-        var result = await Actions(input).RunDocumentEventAsync(documentEvent, host, CancellationToken.None);
+        var result = await Actions(input).RunDocumentEvent(documentEvent, host).ToTask();
 
         await Assert.That(result).IsEqualTo(FormActionResult.None);
         await Assert.That(host.Names.Count).IsEqualTo(0);
@@ -55,8 +56,8 @@ public sealed class FormEventActionTests
         var host = new NamedActionHost();
         var actions = Actions(input);
 
-        var closed = await actions.RunPageClosedAsync(0, host, CancellationToken.None);
-        var opened = await actions.RunPageOpenedAsync(0, host, CancellationToken.None);
+        var closed = await actions.RunPageClosed(0, host).ToTask();
+        var opened = await actions.RunPageOpened(0, host).ToTask();
 
         await Assert.That(closed).IsEqualTo(FormActionResult.None);
         await Assert.That(opened).IsEqualTo(FormActionResult.Ran);

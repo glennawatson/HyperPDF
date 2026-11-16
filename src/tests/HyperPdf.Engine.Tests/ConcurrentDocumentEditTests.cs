@@ -100,7 +100,7 @@ public sealed class ConcurrentDocumentEditTests
         var source = DocumentFeature<IAttachmentSource>.Cast(test.Document)!;
         var stale = await EditWhileReadingAsync(
             () => source.GetAttachments().Count,
-            async index => (await editor.AddAttachmentAsync($"file{index}.txt", AttachedBytes, cancellationToken)).Succeeded,
+            async index => (await editor.AddAttachment($"file{index}.txt", AttachedBytes).ToTask(cancellationToken)).Succeeded,
             cancellationToken);
 
         await Assert.That(stale).IsEqualTo(0);

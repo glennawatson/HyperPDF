@@ -192,7 +192,7 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocal
     public IObservable<FormActionResult> RunButton(FormField field)
     {
         ArgumentNullException.ThrowIfNull(field);
-        return Run((actions, token) => actions.RunWidgetActionAsync(field.PageIndex, field.Index, new TabFormActionHost(_owner, true), token))
+        return Run(actions => actions.RunWidgetAction(field.PageIndex, field.Index, new TabFormActionHost(_owner, true)))
             .Do(RecalculateWhenChanged);
     }
 
@@ -205,14 +205,14 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocal
     /// <returns>A cold signal giving what happened, then completing.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<FormActionResult> RunPageOpened(int pageIndex) =>
-        Run((actions, token) => actions.RunPageOpenedAsync(pageIndex, new TabFormActionHost(_owner, false), token));
+        Run(actions => actions.RunPageOpened(pageIndex, new TabFormActionHost(_owner, false)));
 
     /// <summary>Runs the actions a page does when it closes.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>A cold signal giving what happened, then completing.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<FormActionResult> RunPageClosed(int pageIndex) =>
-        Run((actions, token) => actions.RunPageClosedAsync(pageIndex, new TabFormActionHost(_owner, false), token));
+        Run(actions => actions.RunPageClosed(pageIndex, new TabFormActionHost(_owner, false)));
 
     /// <summary>
     /// Runs the document's additional actions for the event the viewer reached. Like a page's actions they run on their
@@ -222,7 +222,7 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocal
     /// <returns>A cold signal giving what happened, then completing.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<FormActionResult> RunDocumentEvent(FormDocumentEvent documentEvent) =>
-        Run((actions, token) => actions.RunDocumentEventAsync(documentEvent, new TabFormActionHost(_owner, false), token));
+        Run(actions => actions.RunDocumentEvent(documentEvent, new TabFormActionHost(_owner, false)));
 
     /// <summary>Picks a choice of a combo or list box.</summary>
     /// <param name="field">The field.</param>
@@ -711,12 +711,12 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocal
     /// <summary>Runs one action call of the document's form actions, then redraws the pages it changed.</summary>
     /// <param name="run">The library call.</param>
     /// <returns>A cold signal giving what happened; nothing happened when the tab or its document closed under the actions.</returns>
-    private IObservable<FormActionResult> Run(Func<IFormActions, CancellationToken, ValueTask<FormActionResult>> run) =>
+    private IObservable<FormActionResult> Run(Func<IFormActions, IObservable<FormActionResult>> run) =>
         Actions is not { } actions
             ? Signal.Return(FormActionResult.None)
 
-            // The form actions are the PDF library's async API, so its call is the one task here.
-            : Signal.FromAsync(token => run(actions, token).AsTask(), _owner.LifetimeToken)
+            : run(actions)
+                .TakeUntil(_owner.LifetimeToken)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Do(RedrawWhenChanged)
                 .Catch<FormActionResult, Exception>(Closed);

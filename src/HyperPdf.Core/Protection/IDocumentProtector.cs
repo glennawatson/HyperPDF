@@ -19,11 +19,10 @@ public interface IDocumentProtector : IDocumentFeature
     /// </summary>
     /// <param name="request">The passwords and permissions.</param>
     /// <param name="destination">The writable stream that receives the copy.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>The outcome.</returns>
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     /// <exception cref="InvalidDataException">The document cannot be read or written.</exception>
-    Task<ProtectionResult> ProtectAsync(ProtectionRequest request, Stream destination, CancellationToken cancellationToken);
+    IObservable<ProtectionResult> Protect(ProtectionRequest request, Stream destination);
 
     /// <summary>
     /// Writes a copy without protection, or explains why it cannot. The open document is never changed, and nothing is
@@ -31,9 +30,8 @@ public interface IDocumentProtector : IDocumentFeature
     /// </summary>
     /// <param name="ownerPassword">The owner password, needed when the document was opened with its user password; or <see langword="null"/>.</param>
     /// <param name="destination">The writable stream that receives the copy.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>The outcome.</returns>
+    /// <returns>A cold signal giving the outcome once; unsubscribing cancels the work.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     /// <exception cref="InvalidDataException">The document cannot be read or written.</exception>
-    Task<ProtectionResult> RemoveProtectionAsync(string? ownerPassword, Stream destination, CancellationToken cancellationToken);
+    IObservable<ProtectionResult> RemoveProtection(string? ownerPassword, Stream destination);
 }

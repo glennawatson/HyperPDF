@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Annotations;
 
@@ -205,18 +206,12 @@ public interface IAnnotationEditor : IDocumentFeature
 
     /// <summary>Saves the document to a stream with cancellable output I/O.</summary>
     /// <param name="destination">The stream receiving the document.</param>
-    /// <param name="cancellationToken">Cancels preparation and writing.</param>
-    /// <returns>Whether the document was saved.</returns>
-    ValueTask<bool> SaveAsync(Stream destination, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(Save(destination));
-    }
+    /// <returns>A cold signal giving whether the document was saved; unsubscribing cancels preparation and writing.</returns>
+    IObservable<bool> SaveToStream(Stream destination) => Signal.Defer(() => Signal.Return(Save(destination)));
 
     /// <summary>Saves the document to a stream with cancellable output I/O and reports what the user should know.</summary>
     /// <param name="destination">The stream receiving the document.</param>
     /// <param name="report">Receives what the save found.</param>
-    /// <param name="cancellationToken">Cancels preparation and writing.</param>
-    /// <returns>Whether the document was saved.</returns>
-    ValueTask<bool> SaveAsync(Stream destination, DocumentSaveReport report, CancellationToken cancellationToken) => SaveAsync(destination, cancellationToken);
+    /// <returns>A cold signal giving whether the document was saved; unsubscribing cancels preparation and writing.</returns>
+    IObservable<bool> SaveToStream(Stream destination, DocumentSaveReport report) => SaveToStream(destination);
 }

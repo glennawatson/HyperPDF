@@ -14,22 +14,17 @@ public interface IPdf20CopyWriter : IDocumentFeature
     /// document is never changed, and nothing is written to <paramref name="destination"/> when the copy cannot be made.
     /// </summary>
     /// <param name="destination">The writable stream that receives the copy.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>What was changed, or why the copy could not be made.</returns>
-    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    /// <returns>A cold signal giving what was changed, or why the copy could not be made; unsubscribing stops the run.</returns>
     /// <exception cref="InvalidDataException">The document cannot be read or written.</exception>
-    Task<Pdf20CopyResult> WritePdf20CopyAsync(Stream destination, CancellationToken cancellationToken);
+    IObservable<Pdf20CopyResult> WritePdf20Copy(Stream destination);
 
     /// <summary>
-    /// Writes a copy as <see cref="WritePdf20CopyAsync(Stream, CancellationToken)"/> does, dropping the signatures and the
+    /// Writes a copy as <see cref="WritePdf20Copy(Stream)"/> does, dropping the signatures and the
     /// protection when the options say so. A writer that cannot drop them refuses a signed or protected document.
     /// </summary>
     /// <param name="destination">The writable stream that receives the copy.</param>
     /// <param name="options">What the copy may drop.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>What was changed, or why the copy could not be made.</returns>
-    /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
+    /// <returns>A cold signal giving what was changed, or why the copy could not be made; unsubscribing stops the run.</returns>
     /// <exception cref="InvalidDataException">The document cannot be read or written.</exception>
-    Task<Pdf20CopyResult> WritePdf20CopyAsync(Stream destination, Pdf20CopyOptions options, CancellationToken cancellationToken) =>
-        WritePdf20CopyAsync(destination, cancellationToken);
+    IObservable<Pdf20CopyResult> WritePdf20Copy(Stream destination, Pdf20CopyOptions options) => WritePdf20Copy(destination);
 }

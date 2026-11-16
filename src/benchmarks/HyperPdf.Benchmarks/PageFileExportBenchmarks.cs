@@ -6,6 +6,7 @@ using BenchmarkDotNet.Attributes;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Exporting;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Benchmarks;
 
@@ -86,7 +87,7 @@ public class PageFileExportBenchmarks
     private async Task<long> Export(int[] pages, PageFileFormat format)
     {
         _destination.SetLength(0);
-        _ = await _exporter.ExportAsync(pages, format, new(Dpi, true), _destination, CancellationToken.None);
+        _ = await _exporter.Export(pages, format, new(Dpi, true), _destination).ToTask();
         return _destination.Length;
     }
 }

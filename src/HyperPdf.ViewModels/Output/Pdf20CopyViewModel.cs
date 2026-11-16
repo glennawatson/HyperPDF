@@ -178,7 +178,7 @@ public sealed partial class Pdf20CopyViewModel : ReactiveObject, ICopyWindowRequ
         _resultDescription = null;
         ResultText = string.Empty;
         SetStatusText(LocalizedMessage.Get(UiText, "Making a PDF 2.0 copy. This can take a while for long files."));
-        return CopyFile.Write(path, TemporarySuffix, _writer.WritePdf20CopyAsync, static result => result.Converted, run.Token)
+        return CopyFile.WriteSignal(path, TemporarySuffix, _writer.WritePdf20Copy, static result => result.Converted).ThrowWhenCancelled(run.Token)
             .Select(result => ShowResult(result, path))
             .Catch<RxVoid, Exception>(Failed)
             .Finally(() => EndRun(run));

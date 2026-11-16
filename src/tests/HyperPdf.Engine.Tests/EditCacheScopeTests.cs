@@ -155,7 +155,7 @@ public sealed class EditCacheScopeTests
         var editor = DocumentFeature<IAttachmentEditor>.Cast(test.Document)!;
         var before = Read(test);
 
-        var result = await editor.AddAttachmentAsync("note.txt", AttachedBytes, cancellationToken);
+        var result = await editor.AddAttachment("note.txt", AttachedBytes).ToTask(cancellationToken);
 
         await Assert.That(result.Succeeded).IsTrue();
         await AssertKept(before, Read(test));

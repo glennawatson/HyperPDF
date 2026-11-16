@@ -5,6 +5,7 @@
 using System.Security.Cryptography.X509Certificates;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Signatures.Signing;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -29,7 +30,7 @@ internal sealed class FakeDocumentSigner : IDocumentSigner
     /// <summary>Gets the managed thread the last run started on.</summary>
     internal int ThreadId { get; private set; }
 
-    /// <summary>Gets or sets the prepared signature <see cref="PrepareAsync"/> returns; <see langword="null"/> makes it fail.</summary>
+    /// <summary>Gets or sets the prepared signature <see cref="Prepare"/> returns; <see langword="null"/> makes it fail.</summary>
     internal IPendingSignature? Pending { get; set; }
 
     /// <summary>Gets or sets what the run throws, or <see langword="null"/>.</summary>
@@ -45,35 +46,35 @@ internal sealed class FakeDocumentSigner : IDocumentSigner
     public SigningPreview Preview(in SigningRequest request) => throw new NotSupportedException("The fake does not preview.");
 
     /// <inheritdoc/>
-    public ValueTask<SigningOutcome> SignAsync(X509Certificate2 certificate, SigningRequest request, ISignatureTimestamper? timestamper, CancellationToken cancellationToken) =>
-        RunAsync(nameof(SignAsync), cancellationToken);
+    public IObservable<SigningOutcome> Sign(X509Certificate2 certificate, SigningRequest request, ISignatureTimestamper? timestamper) =>
+        Signal.FromAsync(token => RunAsync(nameof(Sign), token).AsTask());
 
     /// <inheritdoc/>
-    public ValueTask<SigningOutcome> SignAsync(ISignatureProvider provider, SigningRequest request, ISignatureTimestamper? timestamper, CancellationToken cancellationToken) =>
-        RunAsync(nameof(SignAsync), cancellationToken);
+    public IObservable<SigningOutcome> Sign(ISignatureProvider provider, SigningRequest request, ISignatureTimestamper? timestamper) =>
+        Signal.FromAsync(token => RunAsync(nameof(Sign), token).AsTask());
 
     /// <inheritdoc/>
-    public ValueTask<IPendingSignature> PrepareAsync(SignerIdentity identity, SigningRequest request, ISignatureTimestamper? timestamper, CancellationToken cancellationToken) =>
-        Pending is { } pending ? ValueTask.FromResult(pending) : throw Failure ?? new NotSupportedException("The fake does not prepare.");
+    public IObservable<IPendingSignature> Prepare(SignerIdentity identity, SigningRequest request, ISignatureTimestamper? timestamper) =>
+        Pending is { } pending ? Signal.Return(pending) : Signal.Throw<IPendingSignature>(Failure ?? new NotSupportedException("The fake does not prepare."));
 
     /// <inheritdoc/>
-    public ValueTask<SigningOutcome> CompleteAsync(IPendingSignature pending, ReadOnlyMemory<byte> signature, CancellationToken cancellationToken) =>
-        RunAsync(nameof(CompleteAsync), cancellationToken);
+    public IObservable<SigningOutcome> Complete(IPendingSignature pending, ReadOnlyMemory<byte> signature) =>
+        Signal.FromAsync(token => RunAsync(nameof(Complete), token).AsTask());
 
     /// <inheritdoc/>
-    public ValueTask<SigningOutcome> CompleteWithContainerAsync(IPendingSignature pending, ReadOnlyMemory<byte> container, CancellationToken cancellationToken) =>
-        RunAsync(nameof(CompleteWithContainerAsync), cancellationToken);
+    public IObservable<SigningOutcome> CompleteWithContainer(IPendingSignature pending, ReadOnlyMemory<byte> container) =>
+        Signal.FromAsync(token => RunAsync(nameof(CompleteWithContainer), token).AsTask());
 
     /// <inheritdoc/>
-    public ValueTask<SigningOutcome> AddValidationDataAsync(ISignatureRevocationSource source, bool includeVri, CancellationToken cancellationToken)
+    public IObservable<SigningOutcome> AddValidationData(ISignatureRevocationSource source, bool includeVri)
     {
         IncludedVri = includeVri;
-        return RunAsync(nameof(AddValidationDataAsync), cancellationToken);
+        return Signal.FromAsync(token => RunAsync(nameof(AddValidationData), token).AsTask());
     }
 
     /// <inheritdoc/>
-    public ValueTask<SigningOutcome> AddDocumentTimestampAsync(ISignatureTimestamper timestamper, SigningDigest digest, CancellationToken cancellationToken) =>
-        RunAsync(nameof(AddDocumentTimestampAsync), cancellationToken);
+    public IObservable<SigningOutcome> AddDocumentTimestamp(ISignatureTimestamper timestamper, SigningDigest digest) =>
+        Signal.FromAsync(token => RunAsync(nameof(AddDocumentTimestamp), token).AsTask());
 
     /// <summary>Records a call, waits at the gate, fails on request, and returns the fixed file.</summary>
     /// <param name="name">The name of the call.</param>

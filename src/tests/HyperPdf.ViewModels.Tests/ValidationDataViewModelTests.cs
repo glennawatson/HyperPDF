@@ -77,7 +77,7 @@ public sealed class ValidationDataViewModelTests
         using (Assert.Multiple())
         {
             await Assert.That(suggested).IsEqualTo("contract-validation.pdf");
-            await Assert.That(fake.Calls).IsEquivalentTo([nameof(IDocumentSigner.AddValidationDataAsync)]);
+            await Assert.That(fake.Calls).IsEquivalentTo([nameof(IDocumentSigner.AddValidationData)]);
             await Assert.That(fake.IncludedVri).IsEqualTo(includeVri);
             await Assert.That(File.Exists(destination)).IsTrue();
             await Assert.That(File.Exists(destination + TemporarySuffix)).IsFalse();
@@ -105,7 +105,7 @@ public sealed class ValidationDataViewModelTests
 
         using (Assert.Multiple())
         {
-            await Assert.That(fake.Calls).IsEquivalentTo([nameof(IDocumentSigner.AddDocumentTimestampAsync)]);
+            await Assert.That(fake.Calls).IsEquivalentTo([nameof(IDocumentSigner.AddDocumentTimestamp)]);
             await Assert.That(File.Exists(destination)).IsTrue();
             await Assert.That(vm.ResultText).Contains("Saved as stamped.pdf.");
         }

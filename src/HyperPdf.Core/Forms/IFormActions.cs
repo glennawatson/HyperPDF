@@ -16,9 +16,8 @@ public interface IFormActions : IDocumentFeature
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="index">The widget index.</param>
     /// <param name="host">The application's part of running actions.</param>
-    /// <param name="cancellationToken">A token that cancels the run.</param>
-    /// <returns>What happened; <see cref="FormActionResult.None"/> when the widget has no action.</returns>
-    ValueTask<FormActionResult> RunWidgetActionAsync(int pageIndex, int index, IFormActionHost host, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving what happened; <see cref="FormActionResult.None"/> when the widget has no action once; unsubscribing cancels the work.</returns>
+    IObservable<FormActionResult> RunWidgetAction(int pageIndex, int index, IFormActionHost host);
 
     /// <summary>Gets a value indicating whether a page has actions to run when it opens or closes, so the viewer can skip the run when it has none.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
@@ -28,21 +27,18 @@ public interface IFormActions : IDocumentFeature
     /// <summary>Runs the actions a page does when it opens.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="host">The application's part of running actions.</param>
-    /// <param name="cancellationToken">A token that cancels the run.</param>
-    /// <returns>What happened.</returns>
-    ValueTask<FormActionResult> RunPageOpenedAsync(int pageIndex, IFormActionHost host, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving what happened once; unsubscribing cancels the work.</returns>
+    IObservable<FormActionResult> RunPageOpened(int pageIndex, IFormActionHost host);
 
     /// <summary>Runs the actions a page does when it closes.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="host">The application's part of running actions.</param>
-    /// <param name="cancellationToken">A token that cancels the run.</param>
-    /// <returns>What happened.</returns>
-    ValueTask<FormActionResult> RunPageClosedAsync(int pageIndex, IFormActionHost host, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving what happened once; unsubscribing cancels the work.</returns>
+    IObservable<FormActionResult> RunPageClosed(int pageIndex, IFormActionHost host);
 
     /// <summary>Runs the document's additional actions for one event: close, save or print.</summary>
     /// <param name="documentEvent">The event the viewer reached.</param>
     /// <param name="host">The application's part of running actions.</param>
-    /// <param name="cancellationToken">A token that cancels the run.</param>
-    /// <returns>What happened.</returns>
-    ValueTask<FormActionResult> RunDocumentEventAsync(FormDocumentEvent documentEvent, IFormActionHost host, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving what happened once; unsubscribing cancels the work.</returns>
+    IObservable<FormActionResult> RunDocumentEvent(FormDocumentEvent documentEvent, IFormActionHost host);
 }

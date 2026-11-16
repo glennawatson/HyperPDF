@@ -152,6 +152,6 @@ public sealed partial class ProtectViewModel : ProtectionRunViewModel
             SuggestedName,
             LocalizedMessage.Get(UiText, "Protecting the copy. This can take a while for long files."),
             LocalizedMessage.Get(UiText, "the protection"),
-            (stream, token) => _protector.ProtectAsync(request, stream, token));
+            stream => _protector.Protect(request, stream));
     }
 }

@@ -40,7 +40,7 @@ public sealed class TrapNetworkSaveTests
         var report = new DocumentSaveReport();
         await using var output = new MemoryStream();
 
-        var saved = await editor.SaveAsync(output, report, CancellationToken.None);
+        var saved = await editor.SaveToStream(output, report).ToTask();
 
         await Assert.That(saved).IsTrue();
         await Assert.That(report.TrapNetworkWarnings).Count().IsEqualTo(1);

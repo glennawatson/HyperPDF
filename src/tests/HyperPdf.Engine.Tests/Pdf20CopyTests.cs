@@ -6,6 +6,7 @@ using HyperPdf.Core.Archiving;
 using HyperPdf.Core.Documents;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -28,7 +29,7 @@ public sealed class Pdf20CopyTests
         var writer = DocumentFeature<IPdf20CopyWriter>.Cast(source.Document)!;
         await using var output = new MemoryStream();
 
-        var result = await writer.WritePdf20CopyAsync(output, CancellationToken.None);
+        var result = await writer.WritePdf20Copy(output).ToTask();
 
         await Assert.That(result.Converted).IsTrue().Because(string.Join("; ", result.Problems.Select(static p => p.Description)));
         var bytes = output.ToArray();
@@ -66,7 +67,7 @@ public sealed class Pdf20CopyTests
         var writer = DocumentFeature<IPdf20CopyWriter>.Cast(source.Document)!;
         await using var output = new MemoryStream();
 
-        var result = await writer.WritePdf20CopyAsync(output, CancellationToken.None);
+        var result = await writer.WritePdf20Copy(output).ToTask();
 
         await Assert.That(result.Converted).IsFalse();
         await Assert.That(result.Problems).IsNotEmpty();
@@ -85,7 +86,7 @@ public sealed class Pdf20CopyTests
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
-        await Assert.That(async () => await writer.WritePdf20CopyAsync(output, cancelled.Token)).Throws<OperationCanceledException>();
+        await Assert.That(async () => await writer.WritePdf20Copy(output).ToTask(cancelled.Token)).Throws<OperationCanceledException>();
         await Assert.That(output.Length).IsEqualTo(0);
     }
 }
