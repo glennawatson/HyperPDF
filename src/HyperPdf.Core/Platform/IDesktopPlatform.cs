@@ -42,10 +42,10 @@ public interface IDesktopPlatform
 
     /// <summary>Asks an already running instance to open documents.</summary>
     /// <param name="request">The documents and activation token.</param>
-    /// <returns><see langword="true"/> when a running instance took the request, so this process can exit.</returns>
-    Task<bool> TryForwardAsync(OpenRequest request);
+    /// <returns>A cold signal giving <see langword="true"/> once when a running instance took the request, so this process can exit.</returns>
+    IObservable<bool> TryForward(OpenRequest request);
 
     /// <summary>Claims the single running window for this process.</summary>
-    /// <returns>The claim, or <see langword="null"/> when the desktop has no such mechanism or another process holds it.</returns>
-    Task<ISingleInstance?> TryClaimSingleInstanceAsync();
+    /// <returns>A cold signal giving the claim once, or <see langword="null"/> when the desktop has no such mechanism or another process holds it.</returns>
+    IObservable<ISingleInstance?> TryClaimSingleInstance();
 }

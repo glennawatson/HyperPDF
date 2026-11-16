@@ -125,33 +125,18 @@ public sealed class PipeSingleInstance : ISingleInstance
     /// <summary>Sends a request to the running instance.</summary>
     /// <param name="name">The pipe name, from <see cref="NameFor"/>.</param>
     /// <param name="request">The documents and activation token.</param>
-    /// <returns><see langword="true"/> when a running instance took the request.</returns>
-    public static async Task<bool> TryForwardAsync(string name, OpenRequest request)
+    /// <returns>A cold signal giving <see langword="true"/> once when a running instance took the request, and <see langword="false"/> when none answered in time.</returns>
+    public static IObservable<bool> TryForward(string name, OpenRequest request)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(request);
-        try
-        {
-            await using var client = new NamedPipeClientStream(".", PipeNameFor(name), PipeDirection.Out, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-            using var timeout = new CancellationTokenSource(ConnectTimeout);
-            await client.ConnectAsync(timeout.Token).ConfigureAwait(false);
-            var bytes = Encoding.UTF8.GetBytes(Encode(request));
-            await client.WriteAsync(bytes, timeout.Token).ConfigureAwait(false);
-            await client.FlushAsync(timeout.Token).ConfigureAwait(false);
-            return true;
-        }
-        catch (OperationCanceledException)
-        {
-            return false;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
-        }
+
+        // The pipe is the operating system's async stream, so writing to it is the one task here.
+        return Signal.FromAsync(token => SendAsync(name, request, token))
+            .Timeout(ConnectTimeout)
+            .Catch<bool, Exception>(static error => error is TimeoutException or OperationCanceledException or IOException or UnauthorizedAccessException
+                ? Signal.Return(false)
+                : Signal.Throw<bool>(error));
     }
 
     /// <summary>Claims the single running window for this user.</summary>
@@ -218,6 +203,20 @@ public sealed class PipeSingleInstance : ISingleInstance
     /// <returns>The pipe.</returns>
     private static NamedPipeServerStream CreateServer(string name) =>
         new(PipeNameFor(name), PipeDirection.In, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+
+    /// <summary>Writes a request down the pipe of the running instance.</summary>
+    /// <param name="name">The pipe name.</param>
+    /// <param name="request">The documents and activation token.</param>
+    /// <param name="token">Stops the write.</param>
+    /// <returns><see langword="true"/> once the request is written.</returns>
+    private static async Task<bool> SendAsync(string name, OpenRequest request, CancellationToken token)
+    {
+        await using var client = new NamedPipeClientStream(".", PipeNameFor(name), PipeDirection.Out, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        await client.ConnectAsync(token).ConfigureAwait(false);
+        await client.WriteAsync(Encoding.UTF8.GetBytes(Encode(request)), token).ConfigureAwait(false);
+        await client.FlushAsync(token).ConfigureAwait(false);
+        return true;
+    }
 
     /// <summary>Reads the message a launch writes once it connects.</summary>
     /// <param name="server">The pipe.</param>

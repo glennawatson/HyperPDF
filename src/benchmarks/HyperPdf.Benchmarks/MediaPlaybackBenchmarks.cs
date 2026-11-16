@@ -44,9 +44,6 @@ public sealed class MediaPlaybackBenchmarks : IDisposable
     /// <summary>The pump that reads the pictures.</summary>
     private FramePump _pump = null!;
 
-    /// <summary>The stream of pictures, read again from the start by each run.</summary>
-    private MemoryStream _source = null!;
-
     /// <summary>The size of the sample pictures.</summary>
     private FrameSize _size;
 
@@ -69,12 +66,14 @@ public sealed class MediaPlaybackBenchmarks : IDisposable
         _pictures = new byte[_size.ByteCount * PictureCount];
         _copy = new byte[_size.ByteCount];
         _pump = new(_size);
-        _source = new(_pictures, false);
     }
 
-    /// <summary>Closes the stream of pictures.</summary>
+    /// <summary>Nothing to release; the sample pictures are plain arrays.</summary>
     [GlobalCleanup]
-    public void Dispose() => _source?.Dispose();
+    public void Dispose()
+    {
+        // The pump and the pictures hold no unmanaged resources.
+    }
 
     /// <summary>Reads a file of captions.</summary>
     /// <returns>The number of captions.</returns>
@@ -86,13 +85,16 @@ public sealed class MediaPlaybackBenchmarks : IDisposable
     [Benchmark]
     public int FindCaption() => SrtCaptions.TextAt(_cues, TimeSpan.FromSeconds((CueCount * CueSpacing) - 1)).Length;
 
-    /// <summary>Reads a stream of pictures and copies the latest one out, as the view does for each picture.</summary>
-    /// <returns>A task that completes with the number of pictures shown.</returns>
+    /// <summary>Shows a run of pictures as a decoder does and copies the latest one out, as the view does for each picture.</summary>
+    /// <returns>The number of pictures shown.</returns>
     [Benchmark]
-    public async Task<int> PumpPictures()
+    public int PumpPictures()
     {
-        _source.Position = 0;
-        await _pump.RunAsync(_source, static () => { }, CancellationToken.None).ConfigureAwait(false);
+        for (var picture = 0; picture < PictureCount; picture++)
+        {
+            _ = _pump.Show(_pictures.AsSpan(picture * _size.ByteCount, _size.ByteCount));
+        }
+
         return _pump.TryCopy(_copy) ? _pump.Version : 0;
     }
 }

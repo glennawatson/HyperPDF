@@ -8,6 +8,7 @@ using HyperPdf.Core.Media;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Speech;
 using HyperPdf.Platform.MacOS.Audio;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Platform.MacOS;
 
@@ -61,9 +62,9 @@ public sealed class MacPlatform : IDesktopPlatform
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<bool> TryForwardAsync(OpenRequest request) => PipeSingleInstance.TryForwardAsync(InstanceName, request);
+    public IObservable<bool> TryForward(OpenRequest request) => PipeSingleInstance.TryForward(InstanceName, request);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<ISingleInstance?> TryClaimSingleInstanceAsync() => Task.FromResult<ISingleInstance?>(PipeSingleInstance.TryStart(InstanceName));
+    public IObservable<ISingleInstance?> TryClaimSingleInstance() => Signal.Defer(static () => Signal.Return<ISingleInstance?>(PipeSingleInstance.TryStart(InstanceName)));
 }

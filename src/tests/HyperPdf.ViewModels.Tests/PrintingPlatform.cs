@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Platform;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -36,8 +37,8 @@ internal sealed class PrintingPlatform(IPrintService printer, IRecentDocumentSto
     public HyperPdf.Core.Speech.IAudioOutput CreateAudioOutput() => new HyperPdf.Core.Speech.NullAudioOutput();
 
     /// <inheritdoc/>
-    public Task<bool> TryForwardAsync(OpenRequest request) => Task.FromResult(false);
+    public IObservable<bool> TryForward(OpenRequest request) => Signal.Return(false);
 
     /// <inheritdoc/>
-    public Task<ISingleInstance?> TryClaimSingleInstanceAsync() => Task.FromResult<ISingleInstance?>(null);
+    public IObservable<ISingleInstance?> TryClaimSingleInstance() => Signal.Return<ISingleInstance?>(null);
 }
