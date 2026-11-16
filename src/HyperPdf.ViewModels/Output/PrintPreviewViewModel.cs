@@ -89,7 +89,6 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
             Scaling = defaults.ActualSize ? PrintScaling.ActualSize : Scaling;
         }
 
-        _ = LoadPrintersAsync();
         _subscriptions =
         [
 
@@ -120,8 +119,13 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
                     this.WhenChanged(static vm => vm.Scaling, static vm => vm.ScalePercent, static (_, _) => RxVoid.Default)
                         .Skip(1)
                         .Where(_ => ShowsScaling))
-                .SwitchMap(_ => Signal.FromAsync(RebuildAsync))
+                .SwitchMap(_ => Rebuild())
                 .SubscribeSafeErrors(ErrorTrace.Write),
+
+            // The printers are listed on the pool and the default one chosen when they arrive.
+            Signal.Start(_services.Platform.Printer.GetPrinters, TaskPoolSequencer.Default)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .SubscribeSafe(ShowPrinters, ErrorTrace.Write),
         ];
 
         // Print and the system dialog answer yes, Cancel answers no; each is a command, so the answer is their results.
@@ -286,6 +290,27 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
         LocalisationRefresh.RefreshCore(_services, visited);
     }
 
+    /// <summary>Deletes a file, ignoring failures.</summary>
+    /// <param name="path">The file.</param>
+    internal static void Delete(string? path)
+    {
+        if (path is null)
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(path);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
     /// <summary>Writes the chosen pages to a new temporary file.</summary>
     /// <param name="exporter">The document.</param>
     /// <param name="pages">The pages.</param>
@@ -318,25 +343,16 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
         return null;
     }
 
-    /// <summary>Deletes a file, ignoring failures.</summary>
-    /// <param name="path">The file.</param>
-    private static void Delete(string? path)
+    /// <summary>Writes the sheets and hands the file to the pending owner, which deletes it if the build was replaced meanwhile.</summary>
+    /// <param name="pending">Owns the file until it is shown.</param>
+    /// <param name="exporter">The document.</param>
+    /// <param name="pages">The pages.</param>
+    /// <param name="layout">The sheet layout.</param>
+    /// <returns>The completion value.</returns>
+    private static RxVoid Write(PendingPrintFile pending, IPageExporter exporter, int[] pages, in SheetLayout layout)
     {
-        if (path is null)
-        {
-            return;
-        }
-
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
+        pending.Set(Build(exporter, pages, layout));
+        return RxVoid.Default;
     }
 
     /// <summary>Closes the window without printing.</summary>
@@ -356,12 +372,11 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void SetSummary(in LocalizedMessage message) => this.RaiseAndSetIfChanged(ref _summary, message, nameof(Summary));
 
-    /// <summary>Lists the printers off the UI thread and chooses the default one, when there are any.</summary>
-    /// <returns>A task.</returns>
-    private async Task LoadPrintersAsync()
+    /// <summary>Adds the printers to the destinations and chooses the default one, when there are any.</summary>
+    /// <param name="printers">The printers.</param>
+    private void ShowPrinters(IReadOnlyList<PrinterInfo> printers)
     {
         var printer = _services.Platform.Printer;
-        var printers = await Task.Run(printer.GetPrinters).ConfigureAwait(true);
         for (var i = 0; i < printers.Count; i++)
         {
             Targets.Insert(i, new(PrintDestination.Printer, printers[i].Name, printers[i].DisplayName));
@@ -434,10 +449,9 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
         }
     }
 
-    /// <summary>Builds the file that will print off the UI thread, then shows its sheets.</summary>
-    /// <param name="cancellationToken">Cancelled when a newer setting starts another build or the window closes; the file built is then deleted.</param>
-    /// <returns>A task that completes once the sheets are shown.</returns>
-    private async Task<RxVoid> RebuildAsync(CancellationToken cancellationToken)
+    /// <summary>Builds the file that will print on the pool, then shows its sheets.</summary>
+    /// <returns>A cold signal that completes once the sheets are shown. Unsubscribing, because a newer setting starts another build or the window closes, deletes the file built.</returns>
+    private IObservable<RxVoid> Rebuild()
     {
         if (DocumentFeature<IPageExporter>.Get(_tab.TryGetDocument()) is not
             {
@@ -446,26 +460,35 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
             IsValid = false;
             SetSummary(LocalizedMessage.Get(UiText, PageChoice == PrintPageChoice.Custom ? "Type pages like 1-3, 7" : "Nothing to print"));
             IsBuilding = false;
-            return RxVoid.Default;
+            return Signal.Return(RxVoid.Default);
         }
 
         IsBuilding = true;
         var pages = _chosen.ToArray();
         var layout = CurrentLayout();
         var builtFor = Destination;
-        var path = await Task.Run(() => Build(exporter, pages, layout), CancellationToken.None).ConfigureAwait(true);
+        return Signal.Using(
+            static () => new PendingPrintFile(),
+            pending => Signal.Start(() => Write(pending, exporter, pages, layout), TaskPoolSequencer.Default)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Select(_ => Publish(pending, builtFor)));
+    }
+
+    /// <summary>Shows the sheets of a finished build, unless it was replaced.</summary>
+    /// <param name="pending">Owns the built file.</param>
+    /// <param name="builtFor">The destination chosen when the build started.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Publish(PendingPrintFile pending, PrintDestination builtFor)
+    {
+        // Builds that finish on different threads must not mix their sheets: without a UI thread to run them one at a time,
+        // two could add their sheets to the same list.
         lock (_show)
         {
-            // Builds that finish on different threads must not mix their sheets: without a UI thread to run them one at a time,
-            // two could add their sheets to the same list.
-            if (cancellationToken.IsCancellationRequested)
+            // A newer build replaced this one, or the window closed, and the pending file was deleted.
+            if (!pending.IsDisposed)
             {
-                // A newer build replaced this one, or the window closed.
-                Delete(path);
-                return RxVoid.Default;
+                Show(pending.Claim(), builtFor);
             }
-
-            Show(path, builtFor);
         }
 
         return RxVoid.Default;
