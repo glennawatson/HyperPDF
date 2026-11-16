@@ -27,90 +27,43 @@ internal sealed class HyperPdfOutlineEditorService : IOutlineEditor
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IObservable<DocumentEditResult> AddBookmark(int parentId, int index, string title, int pageIndex) =>
-        Signal.FromAsync(token => AddBookmarkAsync(parentId, index, title, pageIndex, token).AsTask());
+        Signal.FromAsync(token => HyperPdfDocumentEdits.RunAsync(_owner, new AddStep(parentId, index, title, pageIndex), HyperPdfEditPrefetch.OutlineAsync, Add, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> RemoveBookmark(int id) => Signal.FromAsync(token => RemoveBookmarkAsync(id, token).AsTask());
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> RenameBookmark(int id, string title) => Signal.FromAsync(token => RenameBookmarkAsync(id, title, token).AsTask());
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> MoveBookmark(int id, int newParentId, int index) => Signal.FromAsync(token => MoveBookmarkAsync(id, newParentId, index, token).AsTask());
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<DocumentEditResult> SetBookmarkOpen(int id, bool open) => Signal.FromAsync(token => SetBookmarkOpenAsync(id, open, token).AsTask());
-
-    /// <summary>Runs AddBookmark against the library.</summary>
-    /// <param name="parentId">The parentId.</param>
-    /// <param name="index">The index.</param>
-    /// <param name="title">The title.</param>
-    /// <param name="pageIndex">The pageIndex.</param>
-    /// <param name="cancellationToken">Cancels the work.</param>
-    /// <returns>The library's task.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ValueTask<DocumentEditResult> AddBookmarkAsync(int parentId, int index, string title, int pageIndex, CancellationToken cancellationToken) =>
-        HyperPdfDocumentEdits.RunAsync(_owner, new AddStep(parentId, index, title, pageIndex), HyperPdfEditPrefetch.OutlineAsync, Add, cancellationToken);
-
-    /// <summary>Runs RemoveBookmark against the library.</summary>
-    /// <param name="id">The id.</param>
-    /// <param name="cancellationToken">Cancels the work.</param>
-    /// <returns>The library's task.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ValueTask<DocumentEditResult> RemoveBookmarkAsync(int id, CancellationToken cancellationToken) =>
-        HyperPdfDocumentEdits.RunAsync(
+    public IObservable<DocumentEditResult> RemoveBookmark(int id) => Signal.FromAsync(token => HyperPdfDocumentEdits.RunAsync(
             _owner,
             new IdStep(id),
             HyperPdfEditPrefetch.OutlineAsync,
             static (document, step) => PdfDocumentOutlineEditing.RemoveBookmark(document, Find(document, step.Id)),
-            cancellationToken);
+            token).AsTask());
 
-    /// <summary>Runs RenameBookmark against the library.</summary>
-    /// <param name="id">The id.</param>
-    /// <param name="title">The title.</param>
-    /// <param name="cancellationToken">Cancels the work.</param>
-    /// <returns>The library's task.</returns>
+    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ValueTask<DocumentEditResult> RenameBookmarkAsync(int id, string title, CancellationToken cancellationToken) =>
-        HyperPdfDocumentEdits.RunAsync(
+    public IObservable<DocumentEditResult> RenameBookmark(int id, string title) => Signal.FromAsync(token => HyperPdfDocumentEdits.RunAsync(
             _owner,
             new TitleStep(id, title),
             HyperPdfEditPrefetch.OutlineAsync,
             static (document, step) => PdfDocumentOutlineEditing.RenameBookmark(document, Find(document, step.Id), step.Title),
-            cancellationToken);
+            token).AsTask());
 
-    /// <summary>Runs MoveBookmark against the library.</summary>
-    /// <param name="id">The id.</param>
-    /// <param name="newParentId">The newParentId.</param>
-    /// <param name="index">The index.</param>
-    /// <param name="cancellationToken">Cancels the work.</param>
-    /// <returns>The library's task.</returns>
+    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ValueTask<DocumentEditResult> MoveBookmarkAsync(int id, int newParentId, int index, CancellationToken cancellationToken) =>
-        HyperPdfDocumentEdits.RunAsync(
+    public IObservable<DocumentEditResult> MoveBookmark(int id, int newParentId, int index) => Signal.FromAsync(token => HyperPdfDocumentEdits.RunAsync(
             _owner,
             new MoveStep(id, newParentId, index),
             HyperPdfEditPrefetch.OutlineAsync,
             static (document, step) => PdfDocumentOutlineEditing.MoveBookmark(document, Find(document, step.Id), Find(document, step.NewParentId), step.Index),
-            cancellationToken);
+            token).AsTask());
 
-    /// <summary>Runs SetBookmarkOpen against the library.</summary>
-    /// <param name="id">The id.</param>
-    /// <param name="open">The open.</param>
-    /// <param name="cancellationToken">Cancels the work.</param>
-    /// <returns>The library's task.</returns>
+    /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ValueTask<DocumentEditResult> SetBookmarkOpenAsync(int id, bool open, CancellationToken cancellationToken) =>
-        HyperPdfDocumentEdits.RunAsync(
+    public IObservable<DocumentEditResult> SetBookmarkOpen(int id, bool open) => Signal.FromAsync(token => HyperPdfDocumentEdits.RunAsync(
             _owner,
             new OpenStep(id, open),
             HyperPdfEditPrefetch.OutlineAsync,
             static (document, step) => PdfDocumentOutlineEditing.SetBookmarkOpen(document, Find(document, step.Id), step.Open),
-            cancellationToken);
+            token).AsTask());
 
     /// <summary>Adds a bookmark that goes to the top of a page.</summary>
     /// <param name="document">The library document.</param>
