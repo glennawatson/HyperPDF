@@ -516,14 +516,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         ProgressText = UiText.Format("Recognising text: page {0} of {1}", index + 1, pageCount);
         var check = state.CheckFirst;
 
-        // Preparing a page is the PDF library's async API, so its call is the one task here.
-        return Signal.FromAsync(
-                async token =>
-                {
-                    await document.PreparePageAsync(index, token).ConfigureAwait(false);
-                    return RxVoid.Default;
-                },
-                cancellation)
+        return document.PreparePage(index, cancellation)
             .SwitchMap(_ => Signal.Start(() => RecognizeOne(document, writer, engine, index, state.Words, check, cancellation), TaskPoolSequencer.Default))
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(result => PageDone(state, result, index));

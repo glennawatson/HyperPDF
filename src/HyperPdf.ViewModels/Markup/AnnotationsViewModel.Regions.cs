@@ -129,13 +129,7 @@ public sealed partial class AnnotationsViewModel
     /// <returns>A cold signal that ends once the page's places are offered.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> ReadRegions(IDocument document, int page) =>
-        // Preparing a page is the PDF library's async API, so its call is the one task here.
-        Signal.FromAsync(
-                async token =>
-                {
-                    await document.PreparePageAsync(page, token).ConfigureAwait(false);
-                    return RxVoid.Default;
-                })
+        document.PreparePage(page)
             .SwitchMap(_ => Signal.Start(() => FindRegions(document, page), TaskPoolSequencer.Default))
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(found => RegionsRead(document, page, found));

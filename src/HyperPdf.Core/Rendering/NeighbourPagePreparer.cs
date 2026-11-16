@@ -243,16 +243,13 @@ public sealed class NeighbourPagePreparer : IDisposable
             _cancelAttempt = attempt.Cancel;
         }
 
-        // Preparing a page is the PDF library's async API, so its call is the one task here.
-        return Signal.FromAsync(
-                async token =>
-                {
-                    await document.PreparePageAsync(info.PageIndex, token).ConfigureAwait(false);
-                    _ = document.PrepareAhead(info, token);
-                    ReadLinks(document, info.PageIndex);
-                    return RxVoid.Default;
-                },
-                attempt.Token)
+        var token = attempt.Token;
+        return document.PreparePage(info.PageIndex, token)
+            .Do(prepared =>
+            {
+                _ = document.PrepareAhead(info, token);
+                ReadLinks(document, info.PageIndex);
+            })
             .Finally(() => EndAttempt(attempt));
     }
 

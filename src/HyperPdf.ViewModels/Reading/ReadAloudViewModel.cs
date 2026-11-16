@@ -980,14 +980,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     {
         var reading = _owner.GetReadingDocument();
 
-        // Preparing a page is the PDF library's async API, so its call is the one task here.
-        return Signal.FromAsync(
-                async token =>
-                {
-                    await document.PreparePageAsync(page, token).ConfigureAwait(false);
-                    return RxVoid.Default;
-                },
-                cancellationToken)
+        return document.PreparePage(page, cancellationToken)
             .SwitchMap(_ => Signal.Start(() => LoadText(document, reading, page), TaskPoolSequencer.Default))
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(loaded =>

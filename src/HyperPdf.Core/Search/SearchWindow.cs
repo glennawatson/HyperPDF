@@ -95,13 +95,7 @@ internal sealed class SearchWindow : IDisposable
     /// <returns>A cold signal giving the page's result once, or <see langword="null"/> when nothing matched.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<SearchPageResult?> SearchOne(int page) =>
-        // Preparing a page is the PDF library's async API, so its call is the one task here.
-        Signal.FromAsync(
-                async token =>
-                {
-                    await _document.PreparePageAsync(page, token).ConfigureAwait(false);
-                    return RxVoid.Default;
-                })
+        _document.PreparePage(page)
             .SwitchMap(_ => Signal.Start(() => DocumentSearch.SearchPage(_document, _query, _options, page, _includeBounds), TaskPoolSequencer.Default))
             .SubscribeOn(TaskPoolSequencer.Default);
 }
