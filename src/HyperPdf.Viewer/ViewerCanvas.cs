@@ -13,6 +13,7 @@ using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Services;
 using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer.Chrome;
+using HyperPdf.Windowing.Rendering;
 using HyperPdf.Windowing.Windows;
 using ReactiveUI;
 using ReactiveUI.Primitives;
@@ -28,6 +29,12 @@ namespace HyperPdf.Viewer;
 [DebuggerDisplay("ViewerCanvas: offset ({_offset.X}, {_offset.Y})")]
 public sealed class ViewerCanvas : ICanvasHost, IDisposable
 {
+    /// <summary>The number of views a split window shows, which share the page area.</summary>
+    private const double Halves = 2;
+
+    /// <summary>The half width of the line between the two views of a split document, in device pixels.</summary>
+    private const double DividerWidth = 1;
+
     /// <summary>The window.</summary>
     private readonly IPlatformWindow _window;
 
@@ -159,6 +166,15 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
     /// <inheritdoc/>
     public CanvasSize ScrollerSize => ViewportSize;
 
+    /// <summary>
+    /// Gets or sets the canvas of the second view of the document, which this canvas draws in the same frame, to its right. While it is set this
+    /// canvas has the left half of the page area.
+    /// </summary>
+    internal ViewerCanvas? Neighbour { get; set; }
+
+    /// <summary>Gets or sets the canvas of the first view, when this canvas shows the second view and so has the right half of the page area.</summary>
+    internal ViewerCanvas? Partner { get; set; }
+
     /// <summary>Gets or sets where the pointer last was inside the window, in canvas units. Wheel zoom stays put around it.</summary>
     internal CanvasPoint PointerInWindow { get; set; }
 
@@ -230,32 +246,16 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
     /// <summary>Draws one frame: steps what is moving, then draws the pages and what lies over them.</summary>
     public void DrawFrame()
     {
-        if (ReadBounds())
-        {
-            // The page area changed size without a resize event, as when the controls are first laid out.
-            State.RelayoutInPlace();
-        }
-
-        var moving = StepMotion();
+        var moving = Prepare();
         using (var pass = _window.Backend.BeginFrame())
         {
             pass.Clear(Colors.Canvas);
-            if (_tab is { } tab && tab.TryGetDocument() is { } document && State.Layout.PageCount > 0)
+            DrawPages(pass);
+            if (Neighbour is { } second)
             {
-                var view = ViewportSize;
-                var area = new LayoutRect(_offset.X, _offset.Y, view.Width, view.Height);
-                var scale = _window.Scale;
-                var frame = new FrameContext(tab, document, tab.RenderHub, area, scale, State.GetRenderGeneration(tab, document, area, scale));
-                var painter = _painter ??= new(State);
-                painter.Start(pass, Colors, DrawOffset, scale, Chrome?.Text);
-                State.DrawPages(painter, frame);
-                State.DrawMarks(painter, tab, area);
-                State.DrawAnnotationOverlay(painter, tab, area);
-                State.DrawRegions(painter, tab, area);
-                State.DrawMeasurement(painter, tab);
-                State.DrawArea(painter);
-                State.DrawCaret(painter, tab);
-                painter.Finish();
+                moving |= second.Prepare();
+                second.DrawPages(pass);
+                pass.FillRect(new(second.Bounds.X - DividerWidth, second.Bounds.Y, DividerWidth + DividerWidth, second.Bounds.Height), Colors.Accent);
             }
 
             // The controls are opaque and drawn last, so pages that reach under the bars are covered.
@@ -318,6 +318,14 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
         _incoming.Dispose();
         _tabStreams.Dispose();
         _copy?.Dispose();
+    }
+
+    /// <summary>Reads the page area again and lays the pages out for it, as when the window is resized or the view is split or put back whole.</summary>
+    internal void Refit()
+    {
+        _ = ReadBounds();
+        State.RelayoutInPlace();
+        _window.RequestFrame();
     }
 
     /// <summary>Finds where a part of a page lies in the window.</summary>
@@ -401,12 +409,64 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
         chrome.ShowMenu(entries, new((int)(_bounds.X + (pointer.X * scale)), (int)(_bounds.Y + (pointer.Y * scale))));
     }
 
+    /// <summary>Reads the page area and steps what is moving before a frame is drawn.</summary>
+    /// <returns><see langword="true"/> when something is still moving and needs another frame.</returns>
+    private bool Prepare()
+    {
+        if (ReadBounds())
+        {
+            // The page area changed size without a resize event, as when the controls are first laid out.
+            State.RelayoutInPlace();
+        }
+
+        return StepMotion();
+    }
+
+    /// <summary>Draws the pages of the tab shown, and what lies over them, into a frame.</summary>
+    /// <param name="pass">The frame.</param>
+    private void DrawPages(IFramePass pass)
+    {
+        if (_tab is not { } tab || tab.TryGetDocument() is not { } document || State.Layout.PageCount == 0)
+        {
+            return;
+        }
+
+        var view = ViewportSize;
+        var area = new LayoutRect(_offset.X, _offset.Y, view.Width, view.Height);
+        var scale = _window.Scale;
+        var frame = new FrameContext(tab, document, tab.RenderHub, area, scale, State.GetRenderGeneration(tab, document, area, scale));
+        var painter = _painter ??= new(State);
+        painter.Start(pass, Colors, DrawOffset, scale, Chrome?.Text);
+        State.DrawPages(painter, frame);
+        State.DrawMarks(painter, tab, area);
+        State.DrawAnnotationOverlay(painter, tab, area);
+        State.DrawRegions(painter, tab, area);
+        State.DrawMeasurement(painter, tab);
+        State.DrawArea(painter);
+        State.DrawCaret(painter, tab);
+        painter.Finish();
+    }
+
+    /// <summary>Takes the share of the page area this canvas has when the view is split.</summary>
+    /// <param name="whole">The whole page area.</param>
+    /// <returns>The left half for the first view, the right half for the second, and the whole area when the view is not split.</returns>
+    private LayoutRect Share(in LayoutRect whole)
+    {
+        var half = Math.Floor(whole.Width / Halves);
+        if (Neighbour is not null)
+        {
+            return whole with { Width = half };
+        }
+
+        return Partner is not null ? whole with { X = whole.X + half, Width = whole.Width - half } : whole;
+    }
+
     /// <summary>Reads the part of the window left for the pages.</summary>
     /// <returns><see langword="true"/> when it changed.</returns>
     private bool ReadBounds()
     {
         var size = _window.ClientSize;
-        var bounds = Chrome?.CanvasBounds ?? new LayoutRect(0, 0, size.Width, size.Height);
+        var bounds = Share(Chrome?.CanvasBounds ?? new LayoutRect(0, 0, size.Width, size.Height));
         var changed = _boundsRead && bounds != _bounds;
         _bounds = bounds;
         _boundsRead = true;
@@ -498,17 +558,9 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
     /// <returns>What ends the joins.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private MultipleDisposable RouteEvents() => new(
-        _incoming.WhereEventKind(WindowEventKind.Resized).SubscribeSafe(_ => Resize(), ErrorTrace.Write),
+        _incoming.WhereEventKind(WindowEventKind.Resized).SubscribeSafe(_ => Refit(), ErrorTrace.Write),
         _incoming.WhereEventKind(WindowEventKind.Exposed).SubscribeSafe(_ => DrawFrame(), ErrorTrace.Write),
         _incoming.WhereEventKind(WindowEventKind.Scrolled).SubscribeSafe(windowEvent => ViewerCanvasInput.Scroll(this, windowEvent), ErrorTrace.Write),
         _incoming.Where(static windowEvent => windowEvent.Kind is not (WindowEventKind.Resized or WindowEventKind.Exposed or WindowEventKind.Scrolled))
             .SubscribeSafe(windowEvent => Apply(ViewerCanvasInput.Route(this, ref _clicks, windowEvent)), ErrorTrace.Write));
-
-    /// <summary>Lays the pages out again for a new size or display scale.</summary>
-    private void Resize()
-    {
-        _ = ReadBounds();
-        State.RelayoutInPlace();
-        _window.RequestFrame();
-    }
 }

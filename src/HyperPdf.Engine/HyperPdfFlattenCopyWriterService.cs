@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Flattening;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -23,6 +24,6 @@ internal sealed class HyperPdfFlattenCopyWriterService : IFlattenCopyWriter
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<FlattenCopyResult> WriteFlattenedCopyAsync(Stream destination, FlattenCopyOptions options, CancellationToken cancellationToken) =>
-        HyperPdfDocumentFlattenCopy.WriteAsync(_owner, destination, options, cancellationToken);
+    public IObservable<FlattenCopyResult> WriteFlattenedCopy(Stream destination, FlattenCopyOptions options) =>
+        Signal.FromAsync(token => HyperPdfDocumentFlattenCopy.WriteAsync(_owner, destination, options, token));
 }

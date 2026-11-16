@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Archiving;
 using HyperPdf.Core.Documents;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -38,7 +39,15 @@ internal sealed class FakeArchiveCopyWriter : IArchiveCopyWriter
     internal TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <inheritdoc/>
-    public async Task<ArchiveCopyResult> WriteArchiveCopyAsync(Stream destination, ArchiveLevel level, CancellationToken cancellationToken)
+    public IObservable<ArchiveCopyResult> WriteArchiveCopy(Stream destination, ArchiveLevel level) =>
+        Signal.FromAsync(token => WriteArchiveCopyAsync(destination, level, token));
+
+    /// <summary>Runs WriteArchiveCopy as the library's task.</summary>
+    /// <param name="destination">The destination.</param>
+    /// <param name="level">The level.</param>
+    /// <param name="cancellationToken">Stops the run.</param>
+    /// <returns>The task.</returns>
+    internal async Task<ArchiveCopyResult> WriteArchiveCopyAsync(Stream destination, ArchiveLevel level, CancellationToken cancellationToken)
     {
         Calls++;
         Received = level;

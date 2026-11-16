@@ -134,19 +134,28 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
     /// <param name="runningText">What the status says while the copy is made.</param>
     /// <param name="action">What the run does, for the refusal line.</param>
     /// <param name="write">Writes the copy.</param>
-    /// <returns>A task.</returns>
-    protected async Task RunAsync(string suggestedName, LocalizedMessage runningText, LocalizedMessage action, Func<Stream, CancellationToken, Task<ProtectionResult>> write)
+    /// <returns>A signal that ends when the copy is saved, refused, stopped or the choice was given up.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected IObservable<RxVoid> StartCopy(string suggestedName, LocalizedMessage runningText, LocalizedMessage action, Func<Stream, IObservable<ProtectionResult>> write) =>
+        SaveInteraction.Handle(suggestedName).ToSignal().SwitchMap(path => Copy(path, runningText, action, write));
+
+    /// <summary>Writes the copy to the chosen place.</summary>
+    /// <param name="path">Where to save, or empty when the choice was given up.</param>
+    /// <param name="runningText">What the status says while the copy is made.</param>
+    /// <param name="action">What the run does, for the refusal line.</param>
+    /// <param name="write">Writes the copy.</param>
+    /// <returns>A signal that ends when the copy is saved, refused or stopped.</returns>
+    private IObservable<RxVoid> Copy(string? path, in LocalizedMessage runningText, in LocalizedMessage action, Func<Stream, IObservable<ProtectionResult>> write)
     {
-        var path = await SaveInteraction.Handle(suggestedName).ToTask().ConfigureAwait(true);
         if (string.IsNullOrEmpty(path))
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         if (ProtectedCopyFile.IsSameFile(path, _sourcePath))
         {
             SetError(ProtectedCopyFile.OverwriteStatus);
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var run = new CancellationDisposable();
@@ -156,28 +165,46 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
         _resultDescription = null;
         ResultText = string.Empty;
         SetStatusText(runningText);
-        try
-        {
-            ShowResult(await ProtectedCopyFile.WriteAsync(write, path, run.Token).ConfigureAwait(true), path, action);
-        }
-        catch (OperationCanceledException)
+
+        // A lambda cannot capture an in parameter, so the action is copied once.
+        var doing = action;
+        return CopyFile.WriteSignal(path, ProtectedCopyFile.TemporarySuffix, write, static result => result.Written).ThrowWhenCancelled(run.Token)
+            .Select(result => ShowResult(result, path, doing))
+            .Catch<RxVoid, Exception>(Failed)
+            .Finally(() => EndRun(run));
+    }
+
+    /// <summary>Says why the copy was not saved, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> Failed(Exception error)
+    {
+        if (error is OperationCanceledException)
         {
             SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
+            return Signal.Return(RxVoid.Default);
         }
-        catch (Exception ex) when (CopyFailure.IsExpected(ex) || ex is ArgumentException)
-        {
-            SetError(LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(ex)));
-            SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
-        }
-        finally
-        {
-            if (ReferenceEquals(Run, run))
-            {
-                Run = null;
-            }
 
-            IsRunning = false;
+        if (!CopyFailure.IsExpected(error) && error is not ArgumentException)
+        {
+            return Signal.Throw<RxVoid>(error);
         }
+
+        SetError(LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(error)));
+        SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Puts the controls back once the run is over.</summary>
+    /// <param name="run">The run that ended.</param>
+    private void EndRun(CancellationDisposable run)
+    {
+        if (ReferenceEquals(Run, run))
+        {
+            Run = null;
+        }
+
+        IsRunning = false;
     }
 
     /// <summary>Stops the copy in progress.</summary>
@@ -194,13 +221,15 @@ public abstract partial class ProtectionRunViewModel : ReactiveObject, ICopyWind
     /// <param name="result">The result.</param>
     /// <param name="path">Where the copy was to be saved.</param>
     /// <param name="action">What the run does.</param>
-    private void ShowResult(ProtectionResult result, string path, in LocalizedMessage action)
+    /// <returns>The completion value.</returns>
+    private RxVoid ShowResult(ProtectionResult result, string path, in LocalizedMessage action)
     {
         SavedPath = result.Written ? path : null;
         ProgressPercent = result.Written ? FullBar : 0;
         SetStatusText(result.Written ? LocalizedMessage.Get(UiText, "Done. The copy is saved.") : LocalizedMessage.Get(UiText, "The copy could not be made. See the reason below."));
         _resultDescription = (result, path, action);
         RefreshResultText();
+        return RxVoid.Default;
     }
 
     /// <summary>Rewords the retained report without repeating the operation.</summary>

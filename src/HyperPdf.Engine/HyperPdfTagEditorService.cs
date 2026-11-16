@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Structure.Tagged;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -92,23 +93,13 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> SetRoleMappingAsync(string type, string mapsTo, CancellationToken cancellationToken) =>
-        HyperPdfDocumentEdits.RunAsync(
-            _owner,
-            new RoleStep(type, mapsTo),
-            HyperPdfEditPrefetch.TagsAsync,
-            static (document, step) => PdfDocumentStructureEditing.SetRoleMapping(document, step.Type, step.MapsTo),
-            cancellationToken);
+    public IObservable<DocumentEditResult> SetRoleMapping(string type, string mapsTo) =>
+        Signal.FromAsync(token => SetRoleMappingAsync(type, mapsTo, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> RemoveRoleMappingAsync(string type, CancellationToken cancellationToken) =>
-        HyperPdfDocumentEdits.RunAsync(
-            _owner,
-            new RoleStep(type, string.Empty),
-            HyperPdfEditPrefetch.TagsAsync,
-            static (document, step) => PdfDocumentStructureEditing.RemoveRoleMapping(document, step.Type),
-            cancellationToken);
+    public IObservable<DocumentEditResult> RemoveRoleMapping(string type) =>
+        Signal.FromAsync(token => RemoveRoleMappingAsync(type, token).AsTask());
 
     /// <inheritdoc/>
     public IReadOnlyList<DocumentTagProblem> GetProblems(CancellationToken cancellationToken)
@@ -133,7 +124,66 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> SetTypeAsync(int id, string type, CancellationToken cancellationToken) =>
+    public IObservable<DocumentEditResult> SetType(int id, string type) =>
+        Signal.FromAsync(token => SetTypeAsync(id, type, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> SetText(int id, DocumentTagField field, string? text) =>
+        Signal.FromAsync(token => SetTextAsync(id, field, text, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> SetTableScope(int id, DocumentTableScope scope) =>
+        Signal.FromAsync(token => SetTableScopeAsync(id, scope, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> Move(int id, int offset) =>
+        Signal.FromAsync(token => MoveAsync(id, offset, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> Nest(int id) =>
+        Signal.FromAsync(token => NestAsync(id, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> SetCellSpans(int id, int rows, int columns) =>
+        Signal.FromAsync(token => SetCellSpansAsync(id, rows, columns, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> SetListNumbering(int id, string? numbering) =>
+        Signal.FromAsync(token => SetListNumberingAsync(id, numbering, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> SetPlacement(int id, string? placement) =>
+        Signal.FromAsync(token => SetPlacementAsync(id, placement, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> MoveInto(int id, int newParentId) =>
+        Signal.FromAsync(token => MoveIntoAsync(id, newParentId, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> Unnest(int id) =>
+        Signal.FromAsync(token => UnnestAsync(id, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> Remove(int id) =>
+        Signal.FromAsync(token => RemoveAsync(id, token).AsTask());
+
+    /// <summary>Runs SetType against the library.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="type">The type.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ValueTask<DocumentEditResult> SetTypeAsync(int id, string type, CancellationToken cancellationToken) =>
         HyperPdfDocumentEdits.RunAsync(
             _owner,
             new TypeStep(id, type),
@@ -141,9 +191,14 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
             static (document, step) => PdfDocumentStructureEditing.SetType(document, Require(document, step.Id), step.Type),
             cancellationToken);
 
-    /// <inheritdoc/>
+    /// <summary>Runs SetText against the library.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="field">The field.</param>
+    /// <param name="text">The text.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> SetTextAsync(int id, DocumentTagField field, string? text, CancellationToken cancellationToken) =>
+    internal ValueTask<DocumentEditResult> SetTextAsync(int id, DocumentTagField field, string? text, CancellationToken cancellationToken) =>
         HyperPdfDocumentEdits.RunAsync(
             _owner,
             new TextStep(id, field, text),
@@ -151,9 +206,13 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
             static (document, step) => PdfDocumentStructureEditing.SetText(document, Require(document, step.Id), Map(step.Field), step.Text),
             cancellationToken);
 
-    /// <inheritdoc/>
+    /// <summary>Runs SetTableScope against the library.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="scope">The scope.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> SetTableScopeAsync(int id, DocumentTableScope scope, CancellationToken cancellationToken) =>
+    internal ValueTask<DocumentEditResult> SetTableScopeAsync(int id, DocumentTableScope scope, CancellationToken cancellationToken) =>
         HyperPdfDocumentEdits.RunAsync(
             _owner,
             new ScopeStep(id, scope),
@@ -161,9 +220,13 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
             static (document, step) => PdfDocumentStructureEditing.SetTableScope(document, Require(document, step.Id), (PdfTableScope)step.Scope),
             cancellationToken);
 
-    /// <inheritdoc/>
+    /// <summary>Runs Move against the library.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="offset">The offset.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> MoveAsync(int id, int offset, CancellationToken cancellationToken) =>
+    internal ValueTask<DocumentEditResult> MoveAsync(int id, int offset, CancellationToken cancellationToken) =>
         HyperPdfDocumentEdits.RunAsync(
             _owner,
             new MoveStep(id, offset),
@@ -177,9 +240,12 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
             },
             cancellationToken);
 
-    /// <inheritdoc/>
+    /// <summary>Runs Nest against the library.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> NestAsync(int id, CancellationToken cancellationToken) =>
+    internal ValueTask<DocumentEditResult> NestAsync(int id, CancellationToken cancellationToken) =>
         HyperPdfDocumentEdits.RunAsync(
             _owner,
             new IdStep(id),
@@ -187,9 +253,41 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
             static (document, step) => PdfDocumentStructureEditing.Nest(document, Require(document, step.Id)),
             cancellationToken);
 
-    /// <inheritdoc/>
+    /// <summary>Runs SetRoleMapping against the library.</summary>
+    /// <param name="type">The type.</param>
+    /// <param name="mapsTo">The mapsTo.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> SetCellSpansAsync(int id, int rows, int columns, CancellationToken cancellationToken) =>
+    internal ValueTask<DocumentEditResult> SetRoleMappingAsync(string type, string mapsTo, CancellationToken cancellationToken) =>
+        HyperPdfDocumentEdits.RunAsync(
+            _owner,
+            new RoleStep(type, mapsTo),
+            HyperPdfEditPrefetch.TagsAsync,
+            static (document, step) => PdfDocumentStructureEditing.SetRoleMapping(document, step.Type, step.MapsTo),
+            cancellationToken);
+
+    /// <summary>Runs RemoveRoleMapping against the library.</summary>
+    /// <param name="type">The type.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ValueTask<DocumentEditResult> RemoveRoleMappingAsync(string type, CancellationToken cancellationToken) =>
+        HyperPdfDocumentEdits.RunAsync(
+            _owner,
+            new RoleStep(type, string.Empty),
+            HyperPdfEditPrefetch.TagsAsync,
+            static (document, step) => PdfDocumentStructureEditing.RemoveRoleMapping(document, step.Type),
+            cancellationToken);
+
+    /// <summary>Runs SetCellSpans against the library.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="rows">The rows.</param>
+    /// <param name="columns">The columns.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ValueTask<DocumentEditResult> SetCellSpansAsync(int id, int rows, int columns, CancellationToken cancellationToken) =>
         HyperPdfDocumentEdits.RunAsync(
             _owner,
             new SpanStep(id, rows, columns),
@@ -197,9 +295,13 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
             static (document, step) => PdfDocumentStructureEditing.SetCellSpans(document, Require(document, step.Id), step.Rows, step.Columns),
             cancellationToken);
 
-    /// <inheritdoc/>
+    /// <summary>Runs SetListNumbering against the library.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="numbering">The numbering.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> SetListNumberingAsync(int id, string? numbering, CancellationToken cancellationToken) =>
+    internal ValueTask<DocumentEditResult> SetListNumberingAsync(int id, string? numbering, CancellationToken cancellationToken) =>
         HyperPdfDocumentEdits.RunAsync(
             _owner,
             new NumberingStep(id, numbering),
@@ -207,9 +309,13 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
             static (document, step) => PdfDocumentStructureEditing.SetListNumbering(document, Require(document, step.Id), step.Numbering),
             cancellationToken);
 
-    /// <inheritdoc/>
+    /// <summary>Runs SetPlacement against the library.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="placement">The placement.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> SetPlacementAsync(int id, string? placement, CancellationToken cancellationToken) =>
+    internal ValueTask<DocumentEditResult> SetPlacementAsync(int id, string? placement, CancellationToken cancellationToken) =>
         HyperPdfDocumentEdits.RunAsync(
             _owner,
             new PlacementStep(id, placement),
@@ -217,9 +323,13 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
             static (document, step) => PdfDocumentStructureEditing.SetPlacement(document, Require(document, step.Id), step.Placement),
             cancellationToken);
 
-    /// <inheritdoc/>
+    /// <summary>Runs MoveInto against the library.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="newParentId">The newParentId.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> MoveIntoAsync(int id, int newParentId, CancellationToken cancellationToken) =>
+    internal ValueTask<DocumentEditResult> MoveIntoAsync(int id, int newParentId, CancellationToken cancellationToken) =>
         HyperPdfDocumentEdits.RunAsync(
             _owner,
             new MoveIntoStep(id, newParentId),
@@ -227,9 +337,12 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
             static (document, step) => PdfDocumentStructureEditing.MoveInto(document, Require(document, step.Id), Require(document, step.NewParentId)),
             cancellationToken);
 
-    /// <inheritdoc/>
+    /// <summary>Runs Unnest against the library.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> UnnestAsync(int id, CancellationToken cancellationToken) =>
+    internal ValueTask<DocumentEditResult> UnnestAsync(int id, CancellationToken cancellationToken) =>
         HyperPdfDocumentEdits.RunAsync(
             _owner,
             new IdStep(id),
@@ -237,9 +350,12 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
             static (document, step) => PdfDocumentStructureEditing.Unnest(document, Require(document, step.Id)),
             cancellationToken);
 
-    /// <inheritdoc/>
+    /// <summary>Runs Remove against the library.</summary>
+    /// <param name="id">The id.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> RemoveAsync(int id, CancellationToken cancellationToken) =>
+    internal ValueTask<DocumentEditResult> RemoveAsync(int id, CancellationToken cancellationToken) =>
         HyperPdfDocumentEdits.RunAsync(
             _owner,
             new IdStep(id),

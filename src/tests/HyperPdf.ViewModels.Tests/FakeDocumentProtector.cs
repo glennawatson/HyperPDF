@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Protection;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -44,14 +45,30 @@ internal sealed class FakeDocumentProtector : IDocumentProtector
     public ProtectionStatus GetStatus() => Status;
 
     /// <inheritdoc/>
-    public Task<ProtectionResult> ProtectAsync(ProtectionRequest request, Stream destination, CancellationToken cancellationToken)
+    public IObservable<ProtectionResult> Protect(ProtectionRequest request, Stream destination) =>
+        Signal.FromAsync(token => ProtectAsync(request, destination, token));
+
+    /// <inheritdoc/>
+    public IObservable<ProtectionResult> RemoveProtection(string? ownerPassword, Stream destination) =>
+        Signal.FromAsync(token => RemoveProtectionAsync(ownerPassword, destination, token));
+
+    /// <summary>Runs Protect as the library's task.</summary>
+    /// <param name="request">The request.</param>
+    /// <param name="destination">The destination.</param>
+    /// <param name="cancellationToken">Stops the run.</param>
+    /// <returns>The task.</returns>
+    internal Task<ProtectionResult> ProtectAsync(ProtectionRequest request, Stream destination, CancellationToken cancellationToken)
     {
         LastRequest = request;
         return RunAsync(destination, cancellationToken);
     }
 
-    /// <inheritdoc/>
-    public Task<ProtectionResult> RemoveProtectionAsync(string? ownerPassword, Stream destination, CancellationToken cancellationToken)
+    /// <summary>Runs RemoveProtection as the library's task.</summary>
+    /// <param name="ownerPassword">The ownerPassword.</param>
+    /// <param name="destination">The destination.</param>
+    /// <param name="cancellationToken">Stops the run.</param>
+    /// <returns>The task.</returns>
+    internal Task<ProtectionResult> RemoveProtectionAsync(string? ownerPassword, Stream destination, CancellationToken cancellationToken)
     {
         LastOwnerPassword = ownerPassword;
         return RunAsync(destination, cancellationToken);

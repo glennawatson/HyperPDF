@@ -173,6 +173,12 @@ public sealed partial class PageSeparationViewModel : ReactiveObject, IDisposabl
         SelectedIndex = slot.Position;
     }
 
+    /// <summary>Shows the page that holds one of the inks of the page being read.</summary>
+    /// <param name="index">The place of the ink among <see cref="Colorants"/>.</param>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ShowInk(int index) => SelectedIndex = index;
+
     /// <summary>Reformats retained separation metadata without selecting or navigating a page.</summary>
     private void RefreshCultureText()
     {

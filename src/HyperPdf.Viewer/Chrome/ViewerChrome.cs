@@ -145,6 +145,7 @@ public sealed class ViewerChrome : IDisposable
         _owned.Add(main.ControlChanges.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => InvalidateBars(), ErrorTrace.Write));
         _owned.Add(ChromeBindings.Window(_presses, main));
         _owned.Add(_presses.WhereCommand(ChromeCommand.Menu).SubscribeSafe(ShowMainMenu, ErrorTrace.Write));
+        _owned.Add(_presses.WhereCommand(ChromeCommand.MarkMore).SubscribeSafe(ShowMoreMarks, ErrorTrace.Write));
         _owned.Add(_presses.WhereCommand(ChromeCommand.Find).SubscribeSafe(_ => ShowFind(), ErrorTrace.Write));
         _owned.Add(main.WhenChanged(static m => m.SelectedTab).SubscribeSafe(JoinTab, ErrorTrace.Write));
         _owned.Add(_shortcuts.SubscribeSafe(RunEntry, ErrorTrace.Write));
@@ -387,6 +388,25 @@ public sealed class ViewerChrome : IDisposable
         return true;
     }
 
+    /// <summary>Puts the keyboard on a control, as a screen reader or a magnifier does when it follows or sets focus through the accessibility tree.</summary>
+    /// <param name="inOverlay">Whether the control is in the open menu, dialog or search bar rather than the bars.</param>
+    /// <param name="index">The control's place in <see cref="OverlayItems"/> or <see cref="Bars"/>.</param>
+    /// <returns><see langword="true"/> when the control can take the keyboard and now has it.</returns>
+    public bool FocusControl(bool inOverlay, int index)
+    {
+        Layout();
+        var items = inOverlay ? _overlayItems : _bars;
+        if ((uint)index >= (uint)items.Count || !ChromeFocus.CanStopOn(items[index]))
+        {
+            return false;
+        }
+
+        _focus = ChromeFocus.At(items, inOverlay, index);
+        _version++;
+        _window.RequestFrame();
+        return true;
+    }
+
     /// <summary>Draws the controls over the pages.</summary>
     /// <param name="pass">The frame.</param>
     public void Draw(IFramePass pass)
@@ -623,6 +643,16 @@ public sealed class ViewerChrome : IDisposable
     /// <param name="press">The press of the menu button.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ShowMainMenu(ChromePress press) => ShowMenu(MainMenu.Build(_main), new((int)press.Bounds.X, (int)press.Bounds.Bottom));
+
+    /// <summary>Opens the menu of the extra marking tools and text settings under the button that was pressed.</summary>
+    /// <param name="press">The press of the button.</param>
+    private void ShowMoreMarks(ChromePress press)
+    {
+        if (_main.SelectedTab is { } tab)
+        {
+            ShowMenu(ToolMenus.MoreMarks(tab.Annotations), new((int)press.Bounds.X, (int)press.Bounds.Bottom));
+        }
+    }
 
     /// <summary>Joins the presses of the controls to the tab shown.</summary>
     /// <param name="tab">The tab, or <see langword="null"/> when none is open.</param>

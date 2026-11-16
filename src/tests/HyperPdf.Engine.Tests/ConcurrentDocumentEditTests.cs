@@ -9,6 +9,7 @@ using HyperPdf.Core.Geometry;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Objects;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -60,7 +61,7 @@ public sealed class ConcurrentDocumentEditTests
                 async () =>
                 {
                     await start.Task;
-                    return await editor.AddBookmarkAsync(0, -1, title, 0, cancellationToken);
+                    return await editor.AddBookmark(0, -1, title, 0).ToTask(cancellationToken);
                 },
                 cancellationToken);
         }
@@ -82,7 +83,7 @@ public sealed class ConcurrentDocumentEditTests
         var editor = DocumentFeature<IOutlineEditor>.Cast(test.Document)!;
         var stale = await EditWhileReadingAsync(
             () => test.Document.GetOutline().Count,
-            async index => (await editor.AddBookmarkAsync(0, -1, $"Bookmark {index}", 0, cancellationToken)).Succeeded,
+            async index => (await editor.AddBookmark(0, -1, $"Bookmark {index}", 0).ToTask(cancellationToken)).Succeeded,
             cancellationToken);
 
         await Assert.That(stale).IsEqualTo(0);
@@ -99,7 +100,7 @@ public sealed class ConcurrentDocumentEditTests
         var source = DocumentFeature<IAttachmentSource>.Cast(test.Document)!;
         var stale = await EditWhileReadingAsync(
             () => source.GetAttachments().Count,
-            async index => (await editor.AddAttachmentAsync($"file{index}.txt", AttachedBytes, cancellationToken)).Succeeded,
+            async index => (await editor.AddAttachment($"file{index}.txt", AttachedBytes).ToTask(cancellationToken)).Succeeded,
             cancellationToken);
 
         await Assert.That(stale).IsEqualTo(0);
@@ -130,7 +131,7 @@ public sealed class ConcurrentDocumentEditTests
                 async () =>
                 {
                     await start.Task;
-                    _ = await designer.CreateFieldAsync(new(FormFieldKind.Text, $"Field{index}", [new(0, new PageRect(BoxSize * (index + 1), BoxSize, BoxSize, BoxSize))]), cancellationToken);
+                    _ = await designer.CreateField(new(FormFieldKind.Text, $"Field{index}", [new(0, new PageRect(BoxSize * (index + 1), BoxSize, BoxSize, BoxSize))])).ToTask(cancellationToken);
                 },
                 cancellationToken));
         }
@@ -140,7 +141,7 @@ public sealed class ConcurrentDocumentEditTests
 
         var page = PdfDocumentPages.GetPage(test.Document.Document, 0);
         await Assert.That(page.Dictionary.GetArray(KnownName.Annots)!.Count).IsEqualTo(Pairs * ItemsPerPair);
-        await Assert.That((await designer.GetFieldsAsync(cancellationToken)).Count).IsEqualTo(Pairs);
+        await Assert.That((await designer.GetFields().ToTask(cancellationToken)).Count).IsEqualTo(Pairs);
     }
 
     /// <summary>A page edit, an undo and a form data import that find another edit holding the document's transaction say so plainly and change nothing.</summary>
@@ -154,8 +155,8 @@ public sealed class ConcurrentDocumentEditTests
         var importer = new HyperPdfFormDataImporter(test.Document);
         using (PdfDocumentEditing.BeginEdit(test.Document.Document, "Held elsewhere"))
         {
-            var apply = await Assert.That(async () => await manager.ApplyAsync(new(PageEditKind.Delete, FirstPage, 0), cancellationToken)).Throws<InvalidOperationException>();
-            var undo = await Assert.That(async () => await manager.UndoAsync(cancellationToken)).Throws<InvalidOperationException>();
+            var apply = await Assert.That(async () => await manager.Apply(new(PageEditKind.Delete, FirstPage, 0)).ToTask(cancellationToken)).Throws<InvalidOperationException>();
+            var undo = await Assert.That(async () => await manager.Undo().ToTask(cancellationToken)).Throws<InvalidOperationException>();
             var imported = importer.Import("<xfdf xmlns=\"http://ns.adobe.com/xfdf/\"><fields/></xfdf>"u8.ToArray());
 
             await Assert.That(apply!.Message).IsEqualTo(HyperPdfEditTransactions.EditInProgress);
@@ -163,7 +164,7 @@ public sealed class ConcurrentDocumentEditTests
             await Assert.That(imported.Succeeded).IsFalse();
         }
 
-        await manager.ApplyAsync(new(PageEditKind.Delete, FirstPage, 0), cancellationToken);
+        await manager.Apply(new(PageEditKind.Delete, FirstPage, 0)).ToTask(cancellationToken);
         await Assert.That(test.Document.PageCount).IsEqualTo(Pages - 1);
     }
 

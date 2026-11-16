@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using HyperPdf.Core.Platform;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Platform.MacOS;
 
@@ -12,13 +13,20 @@ namespace HyperPdf.Platform.MacOS;
 public sealed class FinderFileManagerLauncher : IFileManagerLauncher
 {
     /// <inheritdoc/>
-    public Task<bool> ShowItemAsync(string filePath, CancellationToken cancellationToken)
+    public IObservable<bool> ShowItem(string filePath)
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);
-        var full = Path.GetFullPath(filePath);
+        return Signal.Defer(() => Signal.Return(Reveal(Path.GetFullPath(filePath))));
+    }
+
+    /// <summary>Reveals a file in the Finder.</summary>
+    /// <param name="full">The full path.</param>
+    /// <returns><see langword="true"/> when the file exists and the Finder was asked to show it.</returns>
+    private static bool Reveal(string full)
+    {
         if (!File.Exists(full))
         {
-            return Task.FromResult(false);
+            return false;
         }
 
         Foundation.InPool(() =>
@@ -28,6 +36,6 @@ public sealed class FinderFileManagerLauncher : IFileManagerLauncher
             var workspace = NativeMethods.Send(NativeMethods.GetClass("NSWorkspace"), NativeMethods.Selector("sharedWorkspace"));
             _ = NativeMethods.Send(workspace, NativeMethods.Selector("activateFileViewerSelectingURLs:"), urls);
         });
-        return Task.FromResult(true);
+        return true;
     }
 }

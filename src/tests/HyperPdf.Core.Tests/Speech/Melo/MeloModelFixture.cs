@@ -4,6 +4,7 @@
 
 using HyperPdf.Http.Speech;
 using HyperPdf.Speech.Melo;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Speech.Melo;
 
@@ -46,7 +47,7 @@ internal static class MeloModelFixture
         await Gate.WaitAsync();
         try
         {
-            await downloader.DownloadAsync(MeloModel.Files, Directory, new Progress<double>(), CancellationToken.None);
+            await downloader.Download(MeloModel.Files, Directory, new Progress<double>()).ToTask();
         }
         finally
         {

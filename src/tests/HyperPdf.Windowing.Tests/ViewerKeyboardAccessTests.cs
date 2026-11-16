@@ -92,6 +92,32 @@ public sealed class ViewerKeyboardAccessTests
         await Assert.That(outcome.BackOnPage).IsTrue();
     }
 
+    /// <summary>An assistive technology can give the keyboard to a control through the tree, as a magnifier or a switch device does, and the reader follows it there.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task AssistiveTechnologyCanMoveFocusToAControl()
+    {
+        var outcome = Run(TextFile, TestPdf.CreateTextFilled(Pages, Lines), static (_, session) =>
+        {
+            var chrome = session.Chrome;
+            Wake(session);
+            var target = IndexOf(chrome.Bars, ChromeCommand.NextPage);
+            var accepted = session.Accessibility.Focus(ViewerNodes.FirstControlId + target);
+            var moved = PumpUntil(session, () => chrome.FocusedControl == target && !chrome.FocusIsInOverlay);
+            var reported = PumpUntil(session, () => session.Accessibility.FocusedId == ViewerNodes.FirstControlId + target);
+            var refused = session.Accessibility.Focus(ViewerNodes.FirstControlId + chrome.Bars.Count + chrome.Bars.Count);
+            return new FocusMoveOutcome(accepted, moved, reported, refused);
+        });
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(outcome.Accepted).IsTrue();
+            await Assert.That(outcome.Moved).IsTrue();
+            await Assert.That(outcome.Reported).IsTrue();
+            await Assert.That(outcome.RefusedUnknown).IsFalse();
+        }
+    }
+
     /// <summary>A shortcut opens the preferences, Tab moves through its rows, and a switch is flipped with Space and reported to a screen reader as a tick box.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -136,6 +162,31 @@ public sealed class ViewerKeyboardAccessTests
         await Assert.That(outcome.Flipped).IsTrue();
         await Assert.That(outcome.TickReported).IsTrue();
         await Assert.That(outcome.Closed).IsTrue();
+    }
+
+    /// <summary>The first start asks for the language, and putting the window away keeps the choice so it is not asked again.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task TheFirstStartAsksForTheLanguageOnce()
+    {
+        var outcome = Run(TextFile, TestPdf.CreateTextFilled(Pages, Lines), static (window, session) =>
+        {
+            var chrome = session.Chrome;
+            session.AskForLanguage();
+            var asked = PumpUntil(session, () => chrome.HasOverlay);
+            Key(window, ViewerKey.Escape, ViewerModifiers.None);
+            var closed = PumpUntil(session, () => !chrome.HasOverlay);
+            session.AskForLanguage();
+            _ = session.PumpOnce(PumpMilliseconds);
+            return new LanguageOutcome(asked, closed, chrome.HasOverlay);
+        });
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(outcome.Asked).IsTrue();
+            await Assert.That(outcome.Closed).IsTrue();
+            await Assert.That(outcome.AskedAgain).IsFalse();
+        }
     }
 
     /// <summary>The fields of a form are elements of the document, and pressing one through the tree starts filling it in.</summary>
@@ -298,6 +349,14 @@ public sealed class ViewerKeyboardAccessTests
         }
     }
 
+    /// <summary>Asks for the tree, as an assistive technology does first, and lets the window react.</summary>
+    /// <param name="session">The viewer session.</param>
+    private static void Wake(ViewerSession session)
+    {
+        _ = session.Accessibility.Get(session.Accessibility.RootId);
+        _ = session.PumpOnce(PumpMilliseconds);
+    }
+
     /// <summary>Sends a key press to the window.</summary>
     /// <param name="window">The window.</param>
     /// <param name="key">The key.</param>
@@ -434,4 +493,17 @@ public sealed class ViewerKeyboardAccessTests
     /// <param name="Pressed">Whether pressing it through the tree reached the form.</param>
     /// <param name="Detail">What the element was, for the message of a failure.</param>
     private readonly record struct FieldOutcome(bool Found, bool Described, bool Pressed, string Detail);
+
+    /// <summary>What happened when an assistive technology asked for focus on a control.</summary>
+    /// <param name="Accepted">Whether the tree took the request.</param>
+    /// <param name="Moved">Whether the keyboard reached the control.</param>
+    /// <param name="Reported">Whether the tree then reported that control as focused.</param>
+    /// <param name="RefusedUnknown">Whether a request for a control that does not exist was taken.</param>
+    private readonly record struct FocusMoveOutcome(bool Accepted, bool Moved, bool Reported, bool RefusedUnknown);
+
+    /// <summary>What happened when the language was asked for.</summary>
+    /// <param name="Asked">Whether the window opened.</param>
+    /// <param name="Closed">Whether Escape put it away.</param>
+    /// <param name="AskedAgain">Whether asking again opened it again.</param>
+    private readonly record struct LanguageOutcome(bool Asked, bool Closed, bool AskedAgain);
 }

@@ -5,6 +5,8 @@
 using System.Buffers;
 using System.Diagnostics;
 using HyperPdf.Core.Speech;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Http.Speech;
 
@@ -61,44 +63,29 @@ public sealed class SpeechModelDownloader : IDisposable
     /// <param name="files">The files.</param>
     /// <param name="directory">The voice folder.</param>
     /// <param name="progress">Receives the fraction done, 0 to 1.</param>
-    /// <param name="cancellationToken">Cancels the download, leaving finished files in place.</param>
-    /// <returns>A task.</returns>
-    /// <exception cref="HttpRequestException">Thrown when a server fails a request.</exception>
-    /// <exception cref="InvalidDataException">Thrown when a file's name would place it outside the voice folder, or a download does not match its SHA-256.</exception>
-    public async Task DownloadAsync(IReadOnlyList<SpeechModelFile> files, string directory, IProgress<double> progress, CancellationToken cancellationToken)
+    /// <returns>
+    /// A cold signal giving one value once every file is in place; unsubscribing stops the download and leaves finished files in place. It fails with
+    /// <see cref="HttpRequestException"/> when a server fails a request and with <see cref="InvalidDataException"/> when a file's name would place it
+    /// outside the voice folder, or a download does not match its SHA-256.
+    /// </returns>
+    public IObservable<RxVoid> Download(IReadOnlyList<SpeechModelFile> files, string directory, IProgress<double> progress)
     {
         ArgumentNullException.ThrowIfNull(progress);
-        using var missing = FindMissing(files, directory);
-        if (missing.Count == 0)
-        {
-            progress.Report(1D);
-            return;
-        }
-
-        var total = missing.Bytes;
-        var done = 0L;
-        var buffer = ArrayPool<byte>.Shared.Rent(VerifiedDownload.BufferSize);
-        try
-        {
-            for (var i = 0; i < missing.Count; i++)
+        return Signal.Using(
+            () => FindMissing(files, directory),
+            missing =>
             {
-                var file = missing.Items[i];
-                done += await VerifiedDownload.DownloadAsync(
-                    _clients.For(file.Source),
-                    RefitClients.RequestPathOf(file.Source),
-                    _files.For(directory, file.LocalName),
-                    file.Sha256,
-                    new(buffer, _hashes),
-                    new(progress, done, total),
-                    cancellationToken).ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
+                if (missing.Count == 0)
+                {
+                    progress.Report(1D);
+                    return Signal.Return(RxVoid.Default);
+                }
 
-        new DownloadProgress(progress, done, total).Complete();
+                return DownloadSequence.Run(
+                    missing,
+                    progress,
+                    (file, step) => VerifiedDownload.Download(_clients.For(file.Source), RefitClients.RequestPathOf(file.Source), _files.For(directory, file.LocalName), file.Sha256, _hashes, step));
+            });
     }
 
     /// <inheritdoc/>

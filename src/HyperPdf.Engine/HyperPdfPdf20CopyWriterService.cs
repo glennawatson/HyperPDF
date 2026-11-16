@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Archiving;
 using HyperPdf.Core.Documents;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -23,11 +24,11 @@ internal sealed class HyperPdfPdf20CopyWriterService : IPdf20CopyWriter
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<Pdf20CopyResult> WritePdf20CopyAsync(Stream destination, CancellationToken cancellationToken) =>
-        HyperPdfDocumentPdf20Copy.WriteAsync(_owner, destination, default, cancellationToken);
+    public IObservable<Pdf20CopyResult> WritePdf20Copy(Stream destination) =>
+        Signal.FromAsync(token => HyperPdfDocumentPdf20Copy.WriteAsync(_owner, destination, default, token));
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<Pdf20CopyResult> WritePdf20CopyAsync(Stream destination, Pdf20CopyOptions options, CancellationToken cancellationToken) =>
-        HyperPdfDocumentPdf20Copy.WriteAsync(_owner, destination, options, cancellationToken);
+    public IObservable<Pdf20CopyResult> WritePdf20Copy(Stream destination, Pdf20CopyOptions options) =>
+        Signal.FromAsync(token => HyperPdfDocumentPdf20Copy.WriteAsync(_owner, destination, options, token));
 }

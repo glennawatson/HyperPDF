@@ -3,6 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Documents;
 
@@ -109,27 +113,15 @@ public sealed class DocumentPool : IDisposable
         return document;
     }
 
-    /// <summary>Opens a source asynchronously, then applies the pool's capacity on its owning thread.</summary>
+    /// <summary>Opens a source without blocking, then applies the pool's capacity on its owning thread.</summary>
     /// <param name="source">The source.</param>
-    /// <param name="cancellationToken">Cancels a pending open.</param>
-    /// <returns>The open document.</returns>
-    /// <exception cref="OperationCanceledException">The open was cancelled.</exception>
-    internal ValueTask<IDocument> AcquireAsync(DocumentSource source, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return source.IsOpen ? new(Acquire(source)) : AcquireColdAsync(source, cancellationToken);
-    }
-
-    /// <summary>Awaits a cold open before applying the pool capacity.</summary>
-    /// <param name="source">The source to open.</param>
-    /// <param name="cancellationToken">Cancels a pending open.</param>
-    /// <returns>The opened document.</returns>
-    private async ValueTask<IDocument> AcquireColdAsync(DocumentSource source, CancellationToken cancellationToken)
-    {
-        var document = await source.OpenIfNeededAsync(_engine, cancellationToken);
-        Trim(source);
-        return document;
-    }
+    /// <param name="owner">The sequencer of the thread that owns the pool.</param>
+    /// <returns>A cold signal giving the open document once; unsubscribing cancels a pending open.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal IObservable<IDocument> Load(DocumentSource source, ISequencer owner) =>
+        Signal.Defer(() => source.IsOpen
+            ? Signal.Return(Acquire(source))
+            : source.LoadIfNeeded(_engine, owner).Do(_ => Trim(source)));
 
     /// <summary>Closes documents beyond capacity, never the one just used nor one with unsaved edits.</summary>
     /// <param name="keep">The source to keep open.</param>

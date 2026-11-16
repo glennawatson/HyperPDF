@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -22,7 +23,8 @@ internal sealed class HyperPdfSeparationSourceService : ISeparationSource
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentSeparations> GetSeparationsAsync(CancellationToken cancellationToken) => HyperPdfSeparations.GetSeparationsAsync(_owner, cancellationToken);
+    public IObservable<DocumentSeparations> ReadSeparations() =>
+        Signal.FromAsync(token => HyperPdfSeparations.GetSeparationsAsync(_owner, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

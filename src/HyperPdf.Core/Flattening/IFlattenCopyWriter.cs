@@ -16,9 +16,8 @@ public interface IFlattenCopyWriter : IDocumentFeature
     /// </summary>
     /// <param name="destination">The writable stream that receives the copy.</param>
     /// <param name="options">What to flatten and which look to keep.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>What was flattened and what was left alone, or why the copy could not be made.</returns>
+    /// <returns>A cold signal giving what was flattened and what was left alone, or why the copy could not be made once; unsubscribing cancels the work.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     /// <exception cref="InvalidDataException">The document cannot be read or written.</exception>
-    Task<FlattenCopyResult> WriteFlattenedCopyAsync(Stream destination, FlattenCopyOptions options, CancellationToken cancellationToken);
+    IObservable<FlattenCopyResult> WriteFlattenedCopy(Stream destination, FlattenCopyOptions options);
 }

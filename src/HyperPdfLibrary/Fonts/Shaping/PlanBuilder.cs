@@ -34,6 +34,9 @@ internal static class PlanBuilder
         {
             ShapingKind.Arabic => ArabicSubstitution(rightToLeft),
             ShapingKind.Indic => IndicSubstitution(),
+            ShapingKind.Khmer => KhmerSubstitution(),
+            ShapingKind.Myanmar => MyanmarSubstitution(),
+            ShapingKind.Universal or ShapingKind.UniversalJoining => UniversalSubstitution(vertical),
             _ => DefaultSubstitution(rightToLeft, vertical),
         };
         var positioning = vertical ? new List<List<FeatureRequest>>() : PositioningFor(script.Kind);
@@ -86,6 +89,60 @@ internal static class PlanBuilder
         return [first, forms, Features(OtTags.Rlig, OtTags.Calt, OtTags.Rclt, OtTags.Liga, OtTags.Clig)];
     }
 
+    /// <summary>Makes the substitution stages for Khmer: the glyphs are reordered after the first stage, then each syllable feature gets its own stage.</summary>
+    /// <returns>The stages.</returns>
+    private static List<List<FeatureRequest>> KhmerSubstitution() =>
+    [
+        Features(OtTags.Ccmp, OtTags.Locl),
+        [new(OtTags.Pref, ShapeMasks.Pref, 1)],
+        [new(OtTags.Blwf, ShapeMasks.Blwf, 1)],
+        [new(OtTags.Abvf, ShapeMasks.Abvf, 1)],
+        [new(OtTags.Pstf, ShapeMasks.Pstf, 1)],
+        [new(OtTags.Cfar, ShapeMasks.Cfar, 1)],
+        Features(OtTags.Pres, OtTags.Abvs, OtTags.Blws, OtTags.Psts, OtTags.Rlig, OtTags.Calt, OtTags.Rclt, OtTags.Clig),
+    ];
+
+    /// <summary>Makes the substitution stages for Myanmar: the glyphs are reordered after the first stage, then each syllable feature gets its own stage.</summary>
+    /// <returns>The stages.</returns>
+    private static List<List<FeatureRequest>> MyanmarSubstitution() =>
+    [
+        Features(OtTags.Ccmp, OtTags.Locl),
+        Features(OtTags.Rphf),
+        Features(OtTags.Pref),
+        Features(OtTags.Blwf),
+        Features(OtTags.Pstf),
+        Features(OtTags.Pres, OtTags.Abvs, OtTags.Blws, OtTags.Psts, OtTags.Rlig, OtTags.Calt, OtTags.Rclt, OtTags.Liga, OtTags.Clig),
+    ];
+
+    /// <summary>Makes the substitution stages for scripts that follow the Universal Shaping Engine model: the glyphs are reordered after the first stage.</summary>
+    /// <param name="vertical">Whether the text is set down a column.</param>
+    /// <returns>The stages.</returns>
+    private static List<List<FeatureRequest>> UniversalSubstitution(bool vertical)
+    {
+        List<FeatureRequest> first = [Every(OtTags.Ccmp), Every(OtTags.Locl), Every(OtTags.Nukt), Every(OtTags.Akhn)];
+        if (vertical)
+        {
+            first.Add(Every(OtTags.Vert));
+            first.Add(Every(OtTags.Vrt2));
+        }
+
+        List<FeatureRequest> forms =
+        [
+            new(OtTags.Isol, ShapeMasks.Isolated, 1),
+            new(OtTags.Fina, ShapeMasks.Final, 1),
+            new(OtTags.Medi, ShapeMasks.Medial, 1),
+            new(OtTags.Init, ShapeMasks.Initial, 1),
+        ];
+        return
+        [
+            first,
+            Features(OtTags.Rphf, OtTags.Pref),
+            Features(OtTags.Rkrf, OtTags.Abvf, OtTags.Blwf, OtTags.Half, OtTags.Pstf, OtTags.Vatu, OtTags.Cjct),
+            forms,
+            Features(OtTags.Abvs, OtTags.Blws, OtTags.Haln, OtTags.Pres, OtTags.Psts, OtTags.Rlig, OtTags.Calt, OtTags.Rclt, OtTags.Liga, OtTags.Clig),
+        ];
+    }
+
     /// <summary>Makes the substitution stages for Indic scripts: each basic feature in its own stage, so the shaper can reorder between them.</summary>
     /// <returns>The stages.</returns>
     private static List<List<FeatureRequest>> IndicSubstitution() =>
@@ -110,7 +167,8 @@ internal static class PlanBuilder
     /// <returns>The stages.</returns>
     private static List<List<FeatureRequest>> PositioningFor(ShapingKind kind) => kind switch
     {
-        ShapingKind.Indic => [Features(OtTags.Dist, OtTags.Abvm, OtTags.Blwm, OtTags.Kern, OtTags.Mark, OtTags.Mkmk, OtTags.Curs)],
+        ShapingKind.Indic or ShapingKind.Khmer or ShapingKind.Myanmar or ShapingKind.Universal or ShapingKind.UniversalJoining =>
+            [Features(OtTags.Dist, OtTags.Abvm, OtTags.Blwm, OtTags.Kern, OtTags.Mark, OtTags.Mkmk, OtTags.Curs)],
         ShapingKind.Arabic => [Features(OtTags.Curs, OtTags.Kern, OtTags.Mark, OtTags.Mkmk)],
         _ => [Features(OtTags.Kern, OtTags.Mark, OtTags.Mkmk, OtTags.Curs, OtTags.Dist)],
     };

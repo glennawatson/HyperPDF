@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using HyperPdf.Core.Diagnostics;
+using ReactiveUI.Primitives.Signals;
 using Tmds.DBus.Protocol;
 
 namespace HyperPdf.Platform.Linux.DBus;
@@ -51,12 +52,23 @@ public sealed class PortalPrintService
     /// <summary>Hands a PDF to the portal, which shows the desktop's print dialog.</summary>
     /// <param name="filePath">The PDF.</param>
     /// <param name="title">The job title.</param>
-    /// <param name="cancellationToken">Cancels waiting for the portal.</param>
-    /// <returns><see langword="true"/> when the portal accepted the file.</returns>
-    public async Task<bool> PrintAsync(string filePath, string title, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving <see langword="true"/> once when the portal accepted the file; unsubscribing stops waiting for the portal.</returns>
+    public IObservable<bool> Print(string filePath, string title)
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(title);
+
+        // The session bus is an async API from another library, so its call is the one task here.
+        return Signal.FromAsync(token => PrintAsync(filePath, title, token));
+    }
+
+    /// <summary>Hands a PDF to the portal and waits for its answer.</summary>
+    /// <param name="filePath">The PDF.</param>
+    /// <param name="title">The job title.</param>
+    /// <param name="cancellationToken">Cancels waiting for the portal.</param>
+    /// <returns><see langword="true"/> when the portal accepted the file.</returns>
+    private static async Task<bool> PrintAsync(string filePath, string title, CancellationToken cancellationToken)
+    {
         using var connection = await SessionBus.TryConnectAsync().ConfigureAwait(false);
         if (connection is null)
         {

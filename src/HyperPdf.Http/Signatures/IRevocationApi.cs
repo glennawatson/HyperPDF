@@ -13,16 +13,14 @@ public interface IRevocationApi
     /// <summary>Sends an OCSP request (RFC 6960, A.1).</summary>
     /// <param name="path">The path and query relative to the base address.</param>
     /// <param name="request">The DER request, sent as <c>application/ocsp-request</c>.</param>
-    /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The response; the caller disposes it.</returns>
+    /// <returns>A cold signal giving the response once; the caller disposes it, and unsubscribing cancels the request.</returns>
     [Post("/{**path}")]
     [Headers("Accept: application/ocsp-response")]
-    Task<HttpResponseMessage> RequestOcspAsync(string path, [Body] HttpContent request, CancellationToken cancellationToken);
+    IObservable<HttpResponseMessage> RequestOcsp(string path, [Body] HttpContent request);
 
     /// <summary>Fetches a CRL or an issuer certificate.</summary>
     /// <param name="path">The path and query relative to the base address.</param>
-    /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The response; the caller disposes it.</returns>
+    /// <returns>A cold signal giving the response once; the caller disposes it, and unsubscribing cancels the request.</returns>
     [Get("/{**path}")]
-    Task<HttpResponseMessage> FetchAsync(string path, CancellationToken cancellationToken);
+    IObservable<HttpResponseMessage> Fetch(string path);
 }

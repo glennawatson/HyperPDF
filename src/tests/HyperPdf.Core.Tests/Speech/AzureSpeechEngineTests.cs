@@ -4,6 +4,7 @@
 
 using System.Net;
 using HyperPdf.Http.Speech;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Speech;
 
@@ -60,7 +61,7 @@ public sealed class AzureSpeechEngineTests
         var handler = PcmHandler;
         using var engine = new AzureSpeechEngine(new("secret", "uksouth"), PcmClient);
 
-        var audio = await engine.SynthesizeAsync("Fish & chips", "en-GB-SoniaNeural", Brisk, CancellationToken.None);
+        var audio = await engine.Synthesize("Fish & chips", "en-GB-SoniaNeural", Brisk).ToTask();
 
         await Assert.That(handler.Uri!.ToString()).IsEqualTo("https://uksouth.tts.speech.microsoft.com/cognitiveservices/v1");
         await Assert.That(handler.Key).IsEqualTo("secret");
@@ -83,7 +84,7 @@ public sealed class AzureSpeechEngineTests
         using var engine = new AzureSpeechEngine(new(string.Empty, "uksouth"), UnusedClient);
 
         await Assert.That(engine.IsReady).IsFalse();
-        await Assert.That(async () => _ = await engine.SynthesizeAsync("Hello", "en-GB-SoniaNeural", 1, CancellationToken.None)).Throws<InvalidOperationException>();
+        await Assert.That(async () => _ = await engine.Synthesize("Hello", "en-GB-SoniaNeural", 1).ToTask()).Throws<InvalidOperationException>();
         await Assert.That(handler.Uri).IsNull();
     }
 

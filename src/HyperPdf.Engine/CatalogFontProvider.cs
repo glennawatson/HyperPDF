@@ -41,6 +41,9 @@ internal sealed class CatalogFontProvider(Lazy<FontCatalog> catalog) : IPdfFontP
     /// <summary>The face found for each block of characters asked for, or <see langword="null"/> when no probed font had it.</summary>
     private readonly Dictionary<int, FontFace?> _blocks = [];
 
+    /// <summary>The fonts that ship with the app, for scripts no installed font has.</summary>
+    private readonly BundledScriptFonts _scripts = new();
+
     /// <summary>Guards the two tables.</summary>
     private readonly Lock _gate = new();
 
@@ -58,7 +61,22 @@ internal sealed class CatalogFontProvider(Lazy<FontCatalog> catalog) : IPdfFontP
     }
 
     /// <inheritdoc/>
-    public IPdfFontFace? MatchCharacter(int unicode)
+    public IPdfFontFace? MatchCharacter(int unicode) => MatchInstalled(unicode) ?? MatchBundled(unicode);
+
+    /// <summary>Tells whether a style name names a bold face.</summary>
+    /// <param name="style">The style name, such as "Bold Oblique".</param>
+    /// <returns><see langword="true"/> when it does.</returns>
+    private static bool IsBold(string style) => style.Contains("Bold", StringComparison.OrdinalIgnoreCase) || style.Contains("Black", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Tells whether a style name names a slanted face.</summary>
+    /// <param name="style">The style name.</param>
+    /// <returns><see langword="true"/> when it does.</returns>
+    private static bool IsItalic(string style) => style.Contains("Italic", StringComparison.OrdinalIgnoreCase) || style.Contains("Oblique", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Finds an installed font that has a character.</summary>
+    /// <param name="unicode">The character.</param>
+    /// <returns>The font, or <see langword="null"/> when no installed font has it.</returns>
+    private CatalogFontFace? MatchInstalled(int unicode)
     {
         var block = unicode >> BlockBits;
         FontFace? known;
@@ -82,15 +100,11 @@ internal sealed class CatalogFontProvider(Lazy<FontCatalog> catalog) : IPdfFontP
         return found is null ? null : Open(found);
     }
 
-    /// <summary>Tells whether a style name names a bold face.</summary>
-    /// <param name="style">The style name, such as "Bold Oblique".</param>
-    /// <returns><see langword="true"/> when it does.</returns>
-    private static bool IsBold(string style) => style.Contains("Bold", StringComparison.OrdinalIgnoreCase) || style.Contains("Black", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Tells whether a style name names a slanted face.</summary>
-    /// <param name="style">The style name.</param>
-    /// <returns><see langword="true"/> when it does.</returns>
-    private static bool IsItalic(string style) => style.Contains("Italic", StringComparison.OrdinalIgnoreCase) || style.Contains("Oblique", StringComparison.OrdinalIgnoreCase);
+    /// <summary>Finds a font that ships with the app for a character, used when no installed font has it.</summary>
+    /// <param name="unicode">The character.</param>
+    /// <returns>The font, or <see langword="null"/> when none has it.</returns>
+    private CatalogFontFace? MatchBundled(int unicode) =>
+        _scripts.Open(unicode) is { } face ? new(face.Source.FamilyName, RegularWeight, false, face.Program) : null;
 
     /// <summary>Looks through the installed fonts for one that has a character, upright regular faces first.</summary>
     /// <param name="unicode">The character.</param>

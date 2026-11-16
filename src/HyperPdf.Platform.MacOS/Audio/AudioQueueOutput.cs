@@ -5,7 +5,9 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using HyperPdf.Core.Reactive;
 using HyperPdf.Core.Speech;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Platform.MacOS.Audio;
 
@@ -59,21 +61,18 @@ public sealed unsafe class AudioQueueOutput : IAudioOutput
     }
 
     /// <inheritdoc/>
-    public Task PlayAsync(SpeechAudio audio, CancellationToken cancellationToken)
+    public IObservable<RxVoid> Play(SpeechAudio audio)
     {
         ArgumentNullException.ThrowIfNull(audio);
 
         // Playback waits for the clip to be heard, so it gets its own thread rather than holding a pool thread.
-        return Task.Factory.StartNew(
-            static state =>
+        return DedicatedThread.Run(
+            "HyperPdf speech",
+            token =>
             {
-                var (output, clip, token) = ((AudioQueueOutput, SpeechAudio, CancellationToken))state!;
-                output.Play(clip, token);
-            },
-            (this, audio, cancellationToken),
-            CancellationToken.None,
-            TaskCreationOptions.LongRunning,
-            TaskScheduler.Default);
+                PlayBlocking(audio, token);
+                return RxVoid.Default;
+            });
     }
 
     /// <inheritdoc/>
@@ -181,7 +180,7 @@ public sealed unsafe class AudioQueueOutput : IAudioOutput
     /// <summary>Plays the clip and waits for it to finish.</summary>
     /// <param name="audio">The audio.</param>
     /// <param name="cancellationToken">Stops at once.</param>
-    private void Play(SpeechAudio audio, CancellationToken cancellationToken)
+    private void PlayBlocking(SpeechAudio audio, CancellationToken cancellationToken)
     {
         if (audio.Samples.Length == 0)
         {

@@ -9,6 +9,8 @@ using HyperPdf.Core.Documents;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -70,51 +72,76 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask ApplyAsync(PageEditRequest request, CancellationToken cancellationToken) => ApplyCoreAsync(request, null, cancellationToken);
+    public IObservable<RxVoid> Apply(PageEditRequest request) => Signal.FromAsync(async token =>
+        {
+            await ApplyCoreAsync(request, null, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
-    public ValueTask ApplyAsync(PageEditRequest request, PageEditReport report, CancellationToken cancellationToken)
+    public IObservable<RxVoid> Apply(PageEditRequest request, PageEditReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        return ApplyCoreAsync(request, report, cancellationToken);
+        return Signal.FromAsync(async token =>
+        {
+            await ApplyCoreAsync(request, report, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask InsertAsync(int index, string[] files, CancellationToken cancellationToken) =>
-        InsertCoreAsync(index, files, null, cancellationToken);
+    public IObservable<RxVoid> Insert(int index, string[] files) => Signal.FromAsync(async token =>
+        {
+            await InsertCoreAsync(index, files, null, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
-    public ValueTask InsertAsync(int index, string[] files, PageEditReport report, CancellationToken cancellationToken)
+    public IObservable<RxVoid> Insert(int index, string[] files, PageEditReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        return InsertCoreAsync(index, files, report, cancellationToken);
+        return Signal.FromAsync(async token =>
+        {
+            await InsertCoreAsync(index, files, report, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask InsertImagesAsync(int index, PageImageSource[] images, CancellationToken cancellationToken) =>
-        InsertImagesCoreAsync(index, images, cancellationToken);
+    public IObservable<RxVoid> InsertImages(int index, PageImageSource[] images) => Signal.FromAsync(async token =>
+        {
+            await InsertImagesCoreAsync(index, images, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask ExtractAsync(ReadOnlyMemory<int> pages, Stream destination, CancellationToken cancellationToken) =>
-        ExtractCoreAsync(pages, destination, null, cancellationToken);
+    public IObservable<RxVoid> Extract(ReadOnlyMemory<int> pages, Stream destination) => Signal.FromAsync(async token =>
+        {
+            await ExtractCoreAsync(pages, destination, null, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
 
     /// <inheritdoc/>
-    public ValueTask ExtractAsync(ReadOnlyMemory<int> pages, Stream destination, PageEditReport report, CancellationToken cancellationToken)
+    public IObservable<RxVoid> Extract(ReadOnlyMemory<int> pages, Stream destination, PageEditReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
-        return ExtractCoreAsync(pages, destination, report, cancellationToken);
+        return Signal.FromAsync(async token =>
+        {
+            await ExtractCoreAsync(pages, destination, report, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<bool> UndoAsync(CancellationToken cancellationToken) => new(StepHistory(true, cancellationToken));
+    public IObservable<bool> Undo() => Signal.FromAsync(token => new ValueTask<bool>(StepHistory(true, token)).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<bool> RedoAsync(CancellationToken cancellationToken) => new(StepHistory(false, cancellationToken));
+    public IObservable<bool> Redo() => Signal.FromAsync(token => new ValueTask<bool>(StepHistory(false, token)).AsTask());
 
     /// <inheritdoc/>
     public void Dispose()

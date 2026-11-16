@@ -16,7 +16,6 @@ public interface ISignatureTimestamper
     /// <summary>Gets a timestamp token over a hash. Only the hash is sent to the authority, never the document.</summary>
     /// <param name="hash">The hash to stamp.</param>
     /// <param name="digest">The digest that made the hash.</param>
-    /// <param name="cancellationToken">Stops waiting for the authority.</param>
-    /// <returns>The DER-encoded timestamp token.</returns>
-    ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> hash, SigningDigest digest, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the DER-encoded timestamp token once; unsubscribing stops waiting for the authority.</returns>
+    IObservable<byte[]> Timestamp(ReadOnlyMemory<byte> hash, SigningDigest digest);
 }

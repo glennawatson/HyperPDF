@@ -4,6 +4,8 @@
 
 using System.Diagnostics;
 using HyperPdf.Core.Platform;
+using ReactiveUI.Primitives.Disposables;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Platform.Windows.Shell;
 
@@ -15,16 +17,22 @@ public sealed class ExplorerFileManagerLauncher : IFileManagerLauncher
     private const uint ApartmentThreaded = 0x2;
 
     /// <inheritdoc/>
-    public Task<bool> ShowItemAsync(string filePath, CancellationToken cancellationToken)
+    public IObservable<bool> ShowItem(string filePath)
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);
-        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // The shell call needs a single-threaded apartment, so it runs on a thread of its own.
-        var thread = new Thread(() => completion.TrySetResult(Show(Path.GetFullPath(filePath)))) { IsBackground = true, Name = "Show in Explorer" };
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        return completion.Task.WaitAsync(cancellationToken);
+        // The shell call needs a single-threaded apartment, so it runs on a thread of its own, started by the subscription.
+        return Signal.Create<bool>(observer =>
+        {
+            var thread = new Thread(() =>
+            {
+                observer.OnNext(Show(Path.GetFullPath(filePath)));
+                observer.OnCompleted();
+            }) { IsBackground = true, Name = "Show in Explorer" };
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            return Scope.Create(static () => { });
+        });
     }
 
     /// <summary>Selects a file in Explorer.</summary>

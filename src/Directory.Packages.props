@@ -5,12 +5,11 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Shared Version Variables">
-    <TUnitVersion>1.84.0</TUnitVersion>
+    <TUnitVersion>1.85.0</TUnitVersion>
     <!-- StyleSharp.Analyzers, PerformanceSharp.Analyzers and SecuritySharp.Analyzers ship from the
          same release pipeline and always share a version. -->
-    <RoslynCommonAnalyzersVersion>5.1.4</RoslynCommonAnalyzersVersion>
-    <SkiaVersion>4.156.0</SkiaVersion>
-    <HarfBuzzVersion>14.4.0.100</HarfBuzzVersion>
+    <RoslynCommonAnalyzersVersion>5.2.0</RoslynCommonAnalyzersVersion>
+    <SkiaVersion>4.156.1</SkiaVersion>
   </PropertyGroup>
 
   <ItemGroup Label="ReactiveUI">
@@ -19,22 +18,16 @@
     <PackageVersion Include="Localisation.Core" Version="3.0.1" />
     <PackageVersion Include="Localisation.Generators" Version="3.0.1" />
     <PackageVersion Include="ReactiveUI" Version="26.0.1" />
-    <PackageVersion Include="ReactiveUI.Binding" Version="9.1.0" />
-    <PackageVersion Include="ReactiveUI.Primitives" Version="9.0.0" />
-    <PackageVersion Include="ReactiveUI.Primitives.ObservableEvents" Version="9.0.0" />
+    <PackageVersion Include="ReactiveUI.Binding" Version="10.0.0" />
+    <PackageVersion Include="ReactiveUI.Primitives" Version="10.0.0" />
+    <PackageVersion Include="ReactiveUI.Primitives.ObservableEvents" Version="10.0.0" />
     <PackageVersion Include="ReactiveUI.SourceGenerators" Version="5.0.0" />
   </ItemGroup>
 
   <ItemGroup Label="Platform / HTTP">
     <PackageVersion Include="Tmds.DBus.Protocol" Version="0.95.2" />
     <PackageVersion Include="SkiaSharp" Version="$(SkiaVersion)" />
-    <PackageVersion Include="HarfBuzzSharp" Version="$(HarfBuzzVersion)" />
-    <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="$(HarfBuzzVersion)" />
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="$(SkiaVersion)" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.macOS" Version="$(SkiaVersion)" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.Win32" Version="$(SkiaVersion)" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.WebAssembly" Version="$(SkiaVersion)" />
-    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="$(SkiaVersion)" />
     <PackageVersion Include="Refit" Version="16.4.0" />
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.32.0" />
   </ItemGroup>

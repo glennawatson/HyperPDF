@@ -74,10 +74,33 @@ public static class CanvasMarksMixins
             return;
         }
 
-        var bounds = picked.Object.Bounds;
-        var shown = edit.DragPage == page ? bounds with { Left = bounds.Left + edit.DragDelta.X, Top = bounds.Top + edit.DragDelta.Y } : bounds;
-        painter.DrawEditOutline(transform.MapToCanvas(shown), true);
+        var group = edit.Group;
+        if (group.Length == 0)
+        {
+            painter.DrawEditOutline(transform.MapToCanvas(edit.IsResizing ? edit.ResizeBounds : Dragged(edit, page, picked.Object.Bounds)), true);
+            return;
+        }
+
+        // Several objects are outlined one by one, and one box with handles stands around them all.
+        if (!edit.IsResizing)
+        {
+            painter.DrawEditOutline(transform.MapToCanvas(Dragged(edit, page, picked.Object.Bounds)), false);
+            for (var i = 0; i < group.Length; i++)
+            {
+                painter.DrawEditOutline(transform.MapToCanvas(Dragged(edit, page, group[i].Object.Bounds)), false);
+            }
+        }
+
+        painter.DrawEditOutline(transform.MapToCanvas(edit.IsResizing ? edit.ResizeBounds : Dragged(edit, page, edit.GroupBounds())), true);
     }
+
+    /// <summary>Gets a picked object's box shifted by how far the pick has been dragged.</summary>
+    /// <param name="edit">Edit mode.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="bounds">The box where the object is on the page.</param>
+    /// <returns>The box to draw.</returns>
+    private static PageRect Dragged(PageContentEditViewModel edit, int page, PageRect bounds) =>
+        edit.DragPage == page ? bounds with { Left = bounds.Left + edit.DragDelta.X, Top = bounds.Top + edit.DragDelta.Y } : bounds;
 
     /// <summary>Tells whether two picks are the same object on the same page.</summary>
     /// <param name="first">The first pick.</param>

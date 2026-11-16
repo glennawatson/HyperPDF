@@ -6,6 +6,8 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Tests.Fakes;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
 
 namespace HyperPdf.Core.Tests.Rendering;
 
@@ -91,7 +93,7 @@ public sealed class NeighbourPagePreparerTests
         var document = Document();
 
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(cancellationToken);
+        _ = await preparer.Latest.ToTask(cancellationToken);
 
         await Assert.That(document.PreparedAhead).IsEquivalentTo([Next, Further, Previous]);
     }
@@ -106,7 +108,7 @@ public sealed class NeighbourPagePreparerTests
         var document = Document();
 
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(cancellationToken);
+        _ = await preparer.Latest.ToTask(cancellationToken);
 
         await Assert.That(document.LinksRead).IsEquivalentTo([Current, Next, Further, Previous]);
     }
@@ -120,11 +122,11 @@ public sealed class NeighbourPagePreparerTests
         using var preparer = Create(static () => false, static () => false);
         var document = Document();
         preparer.Visit(document, Next, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(cancellationToken);
+        _ = await preparer.Latest.ToTask(cancellationToken);
         document.PreparedAhead.Clear();
 
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(cancellationToken);
+        _ = await preparer.Latest.ToTask(cancellationToken);
 
         await Assert.That(document.PreparedAhead[0]).IsEqualTo(Previous);
     }
@@ -139,7 +141,7 @@ public sealed class NeighbourPagePreparerTests
         var document = Document();
 
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(cancellationToken);
+        _ = await preparer.Latest.ToTask(cancellationToken);
 
         await Assert.That(document.PreparedAhead.Count).IsEqualTo(0);
     }
@@ -158,7 +160,7 @@ public sealed class NeighbourPagePreparerTests
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
 
         await Assert.That(ReferenceEquals(preparer.Latest, first)).IsTrue();
-        await first.WaitAsync(cancellationToken);
+        _ = await first.ToTask(cancellationToken);
     }
 
     /// <summary>A page turn before the wait ends cancels the earlier run, so only the new page's neighbours are prepared.</summary>
@@ -167,7 +169,7 @@ public sealed class NeighbourPagePreparerTests
     [Test]
     public async Task QuickTurnCancelsTheEarlierRun(CancellationToken cancellationToken)
     {
-        var time = new ManualTimeProvider();
+        var time = new VirtualClock();
         using var preparer = new NeighbourPagePreparer(static () => false, static () => false, TimeSpan.FromMilliseconds(LongWaitMilliseconds), time);
         var document = Document();
         preparer.Visit(document, 0, Scale, PageRotation.None, RenderFlags.None);
@@ -175,9 +177,9 @@ public sealed class NeighbourPagePreparerTests
 
         // Both settle waits are still held when the second turn comes, so the first run cannot have prepared anything.
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        time.Release();
-        await preparer.Latest.WaitAsync(cancellationToken);
-        await first.WaitAsync(cancellationToken);
+        time.AdvanceBy(TimeSpan.FromMilliseconds(LongWaitMilliseconds));
+        _ = await preparer.Latest.ToTask(cancellationToken);
+        _ = await first.ToTask(cancellationToken);
 
         await Assert.That(document.PreparedAhead).IsEquivalentTo([Next, Further, Previous]);
     }
@@ -198,7 +200,7 @@ public sealed class NeighbourPagePreparerTests
         await screen.Started.WaitAsync(cancellationToken);
         preparer.Preempt();
         screen.Busy = false;
-        await preparer.Latest.WaitAsync(cancellationToken);
+        _ = await preparer.Latest.ToTask(cancellationToken);
 
         await Assert.That(document.PreparedAhead).IsEquivalentTo([Next, Further, Previous]);
     }
@@ -212,12 +214,12 @@ public sealed class NeighbourPagePreparerTests
         using var preparer = Create(static () => false, static () => false);
         var document = Document();
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(cancellationToken);
+        _ = await preparer.Latest.ToTask(cancellationToken);
         document.PreparedAhead.Clear();
 
         preparer.Reset();
         preparer.Visit(document, Current, Scale, PageRotation.None, RenderFlags.None);
-        await preparer.Latest.WaitAsync(cancellationToken);
+        _ = await preparer.Latest.ToTask(cancellationToken);
 
         await Assert.That(document.PreparedAhead.Count).IsEqualTo(NeighbourCount);
     }
@@ -227,7 +229,7 @@ public sealed class NeighbourPagePreparerTests
     /// <param name="underPressure">Tells whether memory is short.</param>
     /// <returns>The preparer.</returns>
     private static NeighbourPagePreparer Create(Func<bool> hasVisibleWork, Func<bool> underPressure) =>
-        new(hasVisibleWork, underPressure, TimeSpan.Zero, TimeProvider.System);
+        new(hasVisibleWork, underPressure, TimeSpan.Zero, TaskPoolSequencer.Default);
 
     /// <summary>Makes a document of equal pages.</summary>
     /// <returns>The document.</returns>

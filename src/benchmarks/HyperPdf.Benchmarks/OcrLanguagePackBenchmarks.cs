@@ -10,6 +10,7 @@ using HyperPdf.Http;
 using HyperPdf.Http.Ocr;
 using HyperPdf.Http.Remote;
 using HyperPdf.Ocr;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Benchmarks;
 
@@ -97,7 +98,7 @@ public class OcrLanguagePackBenchmarks
     /// <summary>Downloads, hashes and moves a one megabyte pack into place.</summary>
     /// <returns>A task.</returns>
     [Benchmark]
-    public Task DownloadPack() => _downloads.DownloadAsync(_api, _download, _folder, NoProgress.Instance, CancellationToken.None);
+    public Task<RxVoid> DownloadPack() => _downloads.Download(_api, _download, _folder, NoProgress.Instance).ToTask();
 
     /// <summary>Discards progress.</summary>
     private sealed class NoProgress : IProgress<double>

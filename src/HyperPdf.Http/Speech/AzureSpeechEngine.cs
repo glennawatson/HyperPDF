@@ -7,6 +7,9 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using HyperPdf.Core.Speech;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Http.Speech;
 
@@ -134,22 +137,28 @@ public sealed class AzureSpeechEngine : ISpeechEngine
 
     /// <inheritdoc/>
     /// <exception cref="InvalidOperationException">Thrown when no key or region is set.</exception>
-    public async Task<SpeechAudio> SynthesizeAsync(string text, string voiceId, float speed, CancellationToken cancellationToken)
+    public IObservable<SpeechAudio> Synthesize(string text, string voiceId, float speed)
     {
-        if (!IsReady)
-        {
-            throw new InvalidOperationException("Enter an Azure Speech key and region in Preferences first.");
-        }
-
-        _api ??= RefitClients.CreateAzureSpeechApi(_httpClient, _settings.Region);
         ArgumentNullException.ThrowIfNull(text);
-        using var ssml = SsmlDocument.Build(text, voiceId, speed);
-        using var content = new ReadOnlyMemoryContent(ssml.Bytes);
-        content.Headers.ContentType = new("application/ssml+xml");
-        using var response = await _api.SynthesizeAsync(_settings.Key, content, cancellationToken).ConfigureAwait(false);
-        _ = response.EnsureSuccessStatusCode();
-        var pcm = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-        return new(ToSamples(pcm), Hertz);
+        return Signal.Defer(() =>
+        {
+            if (!IsReady)
+            {
+                return Signal.Throw<SpeechAudio>(new InvalidOperationException("Enter an Azure Speech key and region in Preferences first."));
+            }
+
+            var api = _api ??= RefitClients.CreateAzureSpeechApi(_httpClient, _settings.Region);
+            return Signal.Using(
+                () => SsmlDocument.Build(text, voiceId, speed),
+                ssml => Signal.Using(
+                    () => new ReadOnlyMemoryContent(ssml.Bytes),
+                    content =>
+                    {
+                        content.Headers.ContentType = new("application/ssml+xml");
+                        return api.Synthesize(_settings.Key, content)
+                            .SelectMany(static response => Signal.Start(() => ReadAudio(response), TaskPoolSequencer.Default));
+                    }));
+        });
     }
 
     /// <summary>Converts 16 bit little endian PCM into samples, a vector of them at a time where the machine allows.</summary>
@@ -173,6 +182,21 @@ public sealed class AzureSpeechEngine : ISpeechEngine
         for (; done < samples.Length; done++)
         {
             samples[done] = BinaryPrimitives.ReadInt16LittleEndian(pcm[(done * sizeof(short))..]) * SampleScale;
+        }
+    }
+
+    /// <summary>Reads the speech out of the service's response, on the calling thread.</summary>
+    /// <param name="response">The response; it is disposed here.</param>
+    /// <returns>The audio.</returns>
+    private static SpeechAudio ReadAudio(HttpResponseMessage response)
+    {
+        using (response)
+        {
+            _ = response.EnsureSuccessStatusCode();
+            using var body = response.Content.ReadAsStream();
+            using var pcm = new MemoryStream();
+            body.CopyTo(pcm);
+            return new(ToSamples(pcm.GetBuffer().AsSpan(0, (int)pcm.Length)), Hertz);
         }
     }
 }

@@ -283,27 +283,51 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable, 
 
     /// <summary>Writes the chosen media to a temporary file and opens it in a new player.</summary>
     /// <param name="media">The media.</param>
-    /// <returns><see langword="true"/> when the media can be played.</returns>
-    private async Task<bool> LoadAsync(DocumentMedia media)
+    /// <returns>A cold signal that emits <see langword="true"/> when the media can be played, then completes.</returns>
+    private IObservable<bool> Load(DocumentMedia media)
     {
         Release();
         SetStatus(LocalizedMessage.Get(UiText, "Opening…"));
         if (_factory.Create(_media.ReduceMotion) is not { } player)
         {
             SetStatus(IdleMessage());
-            return false;
+            return Signal.Return(false);
         }
 
-        var extracted = await _media.ExtractAsync(media).ConfigureAwait(true);
-        if (extracted is null)
-        {
-            SetStatus(LocalizedMessage.Get(UiText, "This media could not be read from the document."));
-            player.Dispose();
-            return false;
-        }
+        return _media.Extract(media).SwitchMap(extracted => extracted is null ? Unreadable(player) : OpenPlayer(player, media, extracted));
+    }
 
+    /// <summary>Says the media could not be read and lets the new player go.</summary>
+    /// <param name="player">The player made for the media.</param>
+    /// <returns>A signal giving <see langword="false"/>.</returns>
+    private IObservable<bool> Unreadable(IMediaPlayback player)
+    {
+        SetStatus(LocalizedMessage.Get(UiText, "This media could not be read from the document."));
+        player.Dispose();
+        return Signal.Return(false);
+    }
+
+    /// <summary>Opens the extracted file in the player, giving up when the tab closes.</summary>
+    /// <param name="player">The player made for the media.</param>
+    /// <param name="media">The media.</param>
+    /// <param name="extracted">The temporary file.</param>
+    /// <returns>A signal giving <see langword="true"/> when the media can be played.</returns>
+    private IObservable<bool> OpenPlayer(IMediaPlayback player, DocumentMedia media, string extracted)
+    {
         _folder = Path.GetDirectoryName(extracted);
-        if (!await player.OpenAsync(extracted, _media.LifetimeToken).ConfigureAwait(true))
+        return player.Open(extracted)
+            .TakeUntil(_media.LifetimeToken)
+            .Select(opened => Opened(player, media, opened));
+    }
+
+    /// <summary>Starts following the player when it opened, or says what went wrong.</summary>
+    /// <param name="player">The player.</param>
+    /// <param name="media">The media.</param>
+    /// <param name="opened">Whether the player opened the file.</param>
+    /// <returns><paramref name="opened"/>.</returns>
+    private bool Opened(IMediaPlayback player, DocumentMedia media, bool opened)
+    {
+        if (!opened)
         {
             SetStatus(PlayerProblem(player));
             player.Dispose();
@@ -344,21 +368,24 @@ public sealed partial class MediaPlayerViewModel : ReactiveObject, IDisposable, 
     }
 
     /// <summary>Plays the chosen media, or carries on after a pause. Nothing plays until this runs.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the media is loaded and playing, or could not be.</returns>
     [ReactiveCommand(CanExecute = nameof(_canPlay))]
-    private async Task PlayAsync()
+    private IObservable<RxVoid> Play() =>
+        !IsAvailable || _media.Selected is not { } selected
+            ? Signal.Return(RxVoid.Default)
+            : (_player is null || _loadedIndex != selected.Index ? Load(selected) : Signal.Return(true)).Select(PlayIfReady);
+
+    /// <summary>Plays the loaded media.</summary>
+    /// <param name="ready">Whether the media is loaded.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid PlayIfReady(bool ready)
     {
-        if (!IsAvailable || _media.Selected is not { } selected)
+        if (ready)
         {
-            return;
+            _player?.Play();
         }
 
-        if ((_player is null || _loadedIndex != selected.Index) && !await LoadAsync(selected).ConfigureAwait(true))
-        {
-            return;
-        }
-
-        _player?.Play();
+        return RxVoid.Default;
     }
 
     /// <summary>Pauses at the current position.</summary>

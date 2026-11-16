@@ -76,6 +76,9 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     /// <summary>Gets the languages offered in the language bar, English first.</summary>
     public static IReadOnlyList<string> LanguageNames { get; } = BuildLanguageNames();
 
+    /// <summary>Gets the interaction that shows the window that manages the languages; the output says whether the window was accepted.</summary>
+    public Interaction<OcrLanguagesViewModel, bool> ManageLanguagesInteraction { get; } = new();
+
     /// <summary>Gets the latest page recognition wrote text on; the tab redraws the page it names.</summary>
     [Reactive]
     public partial PageChange LastPageChange { get; private set; }
@@ -238,10 +241,19 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     }
 
     /// <summary>Recognises the pages in the chosen languages, asking first only if the first page reads poorly.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the pages are recognised, stopped or refused.</returns>
     [ReactiveCommand(CanExecute = nameof(_isIdle))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task RecognizeAsync() => RunAsync(false);
+    private IObservable<RxVoid> Recognize() => Run(false);
+
+    /// <summary>Opens the window that lists the languages text can be recognised in, to tick them, download them and remove the ones that are not used.</summary>
+    /// <returns>A signal that ends when the window is closed.</returns>
+    [ReactiveCommand]
+    private IObservable<RxVoid> ManageLanguages()
+    {
+        var languages = new OcrLanguagesViewModel(_services);
+        return ManageLanguagesInteraction.Handle(languages).ToSignal().Select(static _ => RxVoid.Default).Finally(languages.Dispose);
+    }
 
     /// <summary>Opens the language bar so a language can be picked before recognising.</summary>
     [ReactiveCommand(CanExecute = nameof(_isIdle))]
@@ -250,20 +262,23 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         OpenLanguageBar(UiText.Get("Choose the language of this document. Languages not on this computer download in the same click."));
 
     /// <summary>Downloads the picked language if needed, then recognises the text in it.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the pages are recognised, or the language could not be downloaded.</returns>
     [ReactiveCommand(CanExecute = nameof(_isIdle))]
-    private async Task ConfirmLanguageAsync()
+    private IObservable<RxVoid> ConfirmLanguage()
     {
         _services.Settings.OcrLanguage = OcrLanguageCatalog.Format(_chosen);
         _services.SaveSettings();
         var needed = _services.Ocr.PacksNeededFor(_chosen, []);
-        if (needed.Count > 0 && !await DownloadAsync(needed).ConfigureAwait(true))
-        {
-            return;
-        }
+        return (needed.Count > 0 ? Download(needed) : Signal.Return(true))
+            .SwitchMap(ready => ready ? RunConfirmed() : Signal.Return(RxVoid.Default));
+    }
 
+    /// <summary>Closes the language bar and recognises the text in the language the person picked.</summary>
+    /// <returns>A cold signal that ends once the pages are recognised, stopped or refused.</returns>
+    private IObservable<RxVoid> RunConfirmed()
+    {
         IsLanguageBarOpen = false;
-        await RunAsync(true).ConfigureAwait(true);
+        return Run(true);
     }
 
     /// <summary>Hides the language bar, stopping any download. Nothing has been written.</summary>
@@ -302,120 +317,274 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
 
     /// <summary>Downloads packs, explaining any failure in the language bar.</summary>
     /// <param name="packs">The packs.</param>
-    /// <returns><see langword="true"/> when they downloaded.</returns>
-    private async Task<bool> DownloadAsync(IReadOnlyList<OcrLanguagePack> packs)
+    /// <returns>A cold signal giving <see langword="true"/> when they downloaded; unsubscribing stops the download.</returns>
+    private IObservable<bool> Download(IReadOnlyList<OcrLanguagePack> packs)
     {
         var download = new CancellationDisposable();
         DownloadRun = download;
         IsDownloading = true;
         IsBusy = true;
         DownloadProgress = 0;
-        try
-        {
-            LanguageBarText = UiText.Format("Downloading {0}. It stays on this computer for next time.", OcrLanguagesViewModel.DescribePacks(packs));
-            var progress = new Progress<double>(fraction => DownloadProgress = fraction);
-            await _services.Ocr.DownloadAsync(packs, progress, download.Token).ConfigureAwait(true);
-            return true;
-        }
-        catch (OperationCanceledException)
-        {
-            LanguageBarText = UiText.Get("The download stopped. Nothing was half saved.");
-        }
-        catch (HttpRequestException ex)
-        {
-            LanguageBarText = UiText.Format("The language could not be downloaded ({0}). Check the internet connection, then press the button again.", ex.Message);
-        }
-        catch (InvalidDataException)
-        {
-            LanguageBarText = UiText.Get("The language arrived damaged and was thrown away. Press the button to try again.");
-        }
-        catch (IOException ex)
-        {
-            LanguageBarText = UiText.Format("The language could not be saved: {0}", ex.Message);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            LanguageBarText = UiText.Format("The language could not be saved: {0}", ex.Message);
-        }
-        finally
-        {
-            if (ReferenceEquals(DownloadRun, download))
-            {
-                DownloadRun = null;
-            }
+        LanguageBarText = UiText.Format("Downloading {0}. It stays on this computer for next time.", OcrLanguagesViewModel.DescribePacks(packs));
+        var progress = new Progress<double>(fraction => DownloadProgress = fraction);
 
-            IsDownloading = false;
-            IsBusy = false;
+        return _services.Ocr.Download(packs, progress)
+            .Select(static _ => true)
+            .ThrowWhenCancelled(download.Token)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Catch<bool, Exception>(DownloadFailed)
+            .Finally(() => EndDownload(download));
+    }
+
+    /// <summary>Explains why the download failed in the language bar, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal giving <see langword="false"/> for an expected failure, or failing with the same error.</returns>
+    private IObservable<bool> DownloadFailed(Exception error)
+    {
+        switch (error)
+        {
+            case OperationCanceledException:
+                {
+                    LanguageBarText = UiText.Get("The download stopped. Nothing was half saved.");
+                    break;
+                }
+
+            case HttpRequestException:
+                {
+                    LanguageBarText = UiText.Format("The language could not be downloaded ({0}). Check the internet connection, then press the button again.", error.Message);
+                    break;
+                }
+
+            case InvalidDataException:
+                {
+                    LanguageBarText = UiText.Get("The language arrived damaged and was thrown away. Press the button to try again.");
+                    break;
+                }
+
+            case IOException or UnauthorizedAccessException:
+                {
+                    LanguageBarText = UiText.Format("The language could not be saved: {0}", error.Message);
+                    break;
+                }
+
+            default:
+                {
+                    return Signal.Throw<bool>(error);
+                }
         }
 
-        return false;
+        return Signal.Return(false);
+    }
+
+    /// <summary>Puts the language bar's controls back once the download is over.</summary>
+    /// <param name="download">The download that ended.</param>
+    private void EndDownload(CancellationDisposable download)
+    {
+        if (ReferenceEquals(DownloadRun, download))
+        {
+            DownloadRun = null;
+        }
+
+        IsDownloading = false;
+        IsBusy = false;
     }
 
     /// <summary>Checks the chosen languages are on this computer, then recognises the pages and reports the outcome.</summary>
     /// <param name="confirmed">Whether the person picked the language, so a poor first page is not questioned.</param>
-    /// <returns>A task.</returns>
-    private async Task RunAsync(bool confirmed)
+    /// <returns>A cold signal that ends once the pages are recognised, stopped or refused.</returns>
+    private IObservable<RxVoid> Run(bool confirmed)
     {
         if (_owner.TryGetDocument() is not { } document || DocumentFeature<ITextLayerWriter>.Get(document) is not
             {
             } writer || !CheckReady())
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var recognition = new CancellationDisposable();
         RecognitionRun = recognition;
-        var cancellationToken = recognition.Token;
         IsRunning = true;
         IsBusy = true;
-        try
-        {
-            ProgressText = UiText.Get("Starting text recognition…");
-            using var engine = await Task.Run(_services.CreateOcrEngine, cancellationToken).ConfigureAwait(true);
-            if (!engine.IsAvailable)
-            {
-                _owner.SetNotice(OcrSetup.EngineUnavailableMessage);
-                return;
-            }
+        ProgressText = UiText.Get("Starting text recognition…");
+        return Signal.Start(() => _services.CreateOcrEngine(), TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .SwitchMap(engine => Signal.Using(() => engine, recogniser => RecognizePages(document, writer, recogniser, confirmed, recognition.Token)))
+            .Catch<RxVoid, Exception>(RunFailed)
+            .Finally(() => EndRun(recognition));
+    }
 
-            var run = await RecognizePagesAsync(document, writer, engine, confirmed, cancellationToken).ConfigureAwait(true);
-            if (run.Unsure)
-            {
-                OpenLanguageBar(
-                    UiText.Format("The first scanned page does not read well as {0}, ", OcrLanguagesViewModel.DescribePacks(ChosenPacks()))
-                    + UiText.Get("so nothing has been changed yet. Choose the language of this document."));
-                return;
-            }
+    /// <summary>Says why recognition stopped, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> RunFailed(Exception error)
+    {
+        switch (error)
+        {
+            case OperationCanceledException:
+                {
+                    _owner.SetNotice(LocalizedMessage.Get(UiText, "Text recognition stopped."));
+                    break;
+                }
 
-            _owner.Search.Refresh();
-            _owner.InvalidateReading();
-            _owner.SetNotice(
-                run.Closed
-                    ? LocalizedMessage.Get(UiText, "Text recognition stopped because the document was closed.")
-                    : LocalizedMessage
-                .Literal(Describe(run.Recognized, run.AlreadyText, document.PageCount, cancellationToken.IsCancellationRequested)));
-        }
-        catch (OperationCanceledException)
-        {
-            _owner.SetNotice(LocalizedMessage.Get(UiText, "Text recognition stopped."));
-        }
-        catch (InvalidOperationException)
-        {
-            // The engine throws ObjectDisposedException, a kind of InvalidOperationException, once its document is closed.
-            _owner.SetNotice(LocalizedMessage.Get(UiText, "Text recognition stopped because the document was closed."));
-        }
-        finally
-        {
-            if (ReferenceEquals(RecognitionRun, recognition))
-            {
-                RecognitionRun = null;
-            }
+            case InvalidOperationException:
+                {
+                    // The engine throws ObjectDisposedException, a kind of InvalidOperationException, once its document is closed.
+                    _owner.SetNotice(LocalizedMessage.Get(UiText, "Text recognition stopped because the document was closed."));
+                    break;
+                }
 
-            IsRunning = false;
-            IsBusy = false;
-            Progress = 0;
-            ProgressText = string.Empty;
+            default:
+                {
+                    return Signal.Throw<RxVoid>(error);
+                }
         }
+
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Puts the controls back once the recognition run is over.</summary>
+    /// <param name="recognition">The run that ended.</param>
+    private void EndRun(CancellationDisposable recognition)
+    {
+        if (ReferenceEquals(RecognitionRun, recognition))
+        {
+            RecognitionRun = null;
+        }
+
+        IsRunning = false;
+        IsBusy = false;
+        Progress = 0;
+        ProgressText = string.Empty;
+    }
+
+    /// <summary>Recognises the pages one after another and says how it went.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="writer">The document's text layer writer.</param>
+    /// <param name="engine">The recogniser.</param>
+    /// <param name="confirmed">Whether the language was picked, so a poor first page is written anyway.</param>
+    /// <param name="cancellation">Stops before the next page.</param>
+    /// <returns>A cold signal that ends once the pages are done, stopped or refused.</returns>
+    private IObservable<RxVoid> RecognizePages(IDocument document, ITextLayerWriter writer, IOcrEngine engine, bool confirmed, CancellationToken cancellation)
+    {
+        if (!engine.IsAvailable)
+        {
+            _owner.SetNotice(OcrSetup.EngineUnavailableMessage);
+            return Signal.Return(RxVoid.Default);
+        }
+
+        var state = new RecognitionState(!confirmed);
+        return LazySequence.Concat(PageRuns(document, writer, engine, state, cancellation))
+            .TakeWhile(_ => !state.Done)
+            .Count()
+            .Select(_ => Reported(document, state.Run, cancellation));
+    }
+
+    /// <summary>Makes the recognition of each page, one at a time as the caller moves along.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="writer">The document's text layer writer.</param>
+    /// <param name="engine">The recogniser.</param>
+    /// <param name="state">What has been recognised so far.</param>
+    /// <param name="cancellation">Stops before the next page.</param>
+    /// <returns>A cold signal per page.</returns>
+    private IEnumerable<IObservable<RxVoid>> PageRuns(IDocument document, ITextLayerWriter writer, IOcrEngine engine, RecognitionState state, CancellationToken cancellation)
+    {
+        var pageCount = document.PageCount;
+        for (var page = 0; page < pageCount && !cancellation.IsCancellationRequested; page++)
+        {
+            var index = page;
+            yield return Signal.Defer(() => OnePage(document, writer, engine, state, index, pageCount, cancellation));
+        }
+    }
+
+    /// <summary>Prepares a page, recognises it on the pool and writes what was read.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="writer">The document's text layer writer.</param>
+    /// <param name="engine">The recogniser.</param>
+    /// <param name="state">What has been recognised so far.</param>
+    /// <param name="index">The page.</param>
+    /// <param name="pageCount">The number of pages.</param>
+    /// <param name="cancellation">Stops the work.</param>
+    /// <returns>A cold signal that ends once the page is done.</returns>
+    private IObservable<RxVoid> OnePage(IDocument document, ITextLayerWriter writer, IOcrEngine engine, RecognitionState state, int index, int pageCount, CancellationToken cancellation)
+    {
+        Progress = (double)index / pageCount;
+        ProgressText = UiText.Format("Recognising text: page {0} of {1}", index + 1, pageCount);
+        var check = state.CheckFirst;
+
+        return document.PreparePage(index, cancellation)
+            .SwitchMap(_ => Signal.Start(() => RecognizeOne(document, writer, engine, index, state.Words, check, cancellation), TaskPoolSequencer.Default))
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(result => PageDone(state, result, index));
+    }
+
+    /// <summary>Counts a page that was recognised, or ends the run when it cannot go on.</summary>
+    /// <param name="state">What has been recognised so far.</param>
+    /// <param name="result">What happened to the page.</param>
+    /// <param name="index">The page.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid PageDone(RecognitionState state, OcrPageResult result, int index)
+    {
+        switch (result.Status)
+        {
+            case OcrPageStatus.Recognized:
+                {
+                    state.CheckFirst = false;
+                    state.Run = state.Run with { Recognized = state.Run.Recognized + 1 };
+                    LastPageChange = LastPageChange.Next(index);
+                    break;
+                }
+
+            case OcrPageStatus.AlreadyHasText:
+                {
+                    state.Run = state.Run with { AlreadyText = state.Run.AlreadyText + 1 };
+                    break;
+                }
+
+            case OcrPageStatus.NotRendered:
+                {
+                    state.Run = state.Run with { Closed = true };
+                    state.Done = true;
+                    break;
+                }
+
+            case OcrPageStatus.Unsure:
+                {
+                    state.Run = state.Run with { Unsure = true };
+                    state.Done = true;
+                    break;
+                }
+
+            default:
+                {
+                    break;
+                }
+        }
+
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says how the run went, or opens the language bar when the first page read poorly.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="run">What was recognised.</param>
+    /// <param name="cancellation">Tells whether the run was stopped.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Reported(IDocument document, RecognitionRun run, CancellationToken cancellation)
+    {
+        if (run.Unsure)
+        {
+            OpenLanguageBar(
+                UiText.Format("The first scanned page does not read well as {0}, ", OcrLanguagesViewModel.DescribePacks(ChosenPacks()))
+                + UiText.Get("so nothing has been changed yet. Choose the language of this document."));
+            return RxVoid.Default;
+        }
+
+        _owner.Search.Refresh();
+        _owner.InvalidateReading();
+        _owner.SetNotice(
+            run.Closed
+                ? LocalizedMessage.Get(UiText, "Text recognition stopped because the document was closed.")
+                : LocalizedMessage.Literal(Describe(run.Recognized, run.AlreadyText, document.PageCount, cancellation.IsCancellationRequested)));
+        return RxVoid.Default;
     }
 
     /// <summary>Gets the packs of the chosen languages that the catalogue offers.</summary>
@@ -479,62 +648,5 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
 
         IsLanguageBarOpen = false;
         return true;
-    }
-
-    /// <summary>Recognises each page in turn off the UI thread, reporting progress and edits on the UI thread.</summary>
-    /// <param name="document">The document.</param>
-    /// <param name="writer">The document's text layer writer.</param>
-    /// <param name="engine">The recogniser.</param>
-    /// <param name="confirmed">Whether the language was picked, so a poor first page is written anyway.</param>
-    /// <param name="cancellation">Stops before the next page.</param>
-    /// <returns>What happened.</returns>
-    private async Task<RecognitionRun> RecognizePagesAsync(IDocument document, ITextLayerWriter writer, IOcrEngine engine, bool confirmed, CancellationToken cancellation)
-    {
-        var run = default(RecognitionRun);
-        var pageCount = document.PageCount;
-        var checkFirst = !confirmed;
-        List<OcrWord> words = [];
-        for (var page = 0; page < pageCount && !cancellation.IsCancellationRequested; page++)
-        {
-            Progress = (double)page / pageCount;
-            ProgressText = UiText.Format("Recognising text: page {0} of {1}", page + 1, pageCount);
-            await document.PreparePageAsync(page, cancellation).ConfigureAwait(true);
-            var index = page;
-            var check = checkFirst;
-            var result = await Task.Run(() => RecognizeOne(document, writer, engine, index, words, check, cancellation), cancellation).ConfigureAwait(true);
-            switch (result.Status)
-            {
-                case OcrPageStatus.Recognized:
-                    {
-                        checkFirst = false;
-                        run = run with { Recognized = run.Recognized + 1 };
-                        LastPageChange = LastPageChange.Next(index);
-                        break;
-                    }
-
-                case OcrPageStatus.AlreadyHasText:
-                    {
-                        run = run with { AlreadyText = run.AlreadyText + 1 };
-                        break;
-                    }
-
-                case OcrPageStatus.NotRendered:
-                    {
-                        return run with { Closed = true };
-                    }
-
-                case OcrPageStatus.Unsure:
-                    {
-                        return run with { Unsure = true };
-                    }
-
-                default:
-                    {
-                        break;
-                    }
-            }
-        }
-
-        return run;
     }
 }

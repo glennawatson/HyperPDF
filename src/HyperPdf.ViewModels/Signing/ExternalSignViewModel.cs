@@ -235,6 +235,16 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
         exception is InvalidDataException or SigningRefusedException or ArgumentException or NotSupportedException or CryptographicException
             or IOException or UnauthorizedAccessException or HttpRequestException or InvalidOperationException;
 
+    /// <summary>Writes the bytes the signer must sign.</summary>
+    /// <param name="path">Where to save them.</param>
+    /// <param name="bytes">The bytes.</param>
+    /// <returns>The completion value.</returns>
+    private static RxVoid WriteFile(string path, ReadOnlyMemory<byte> bytes)
+    {
+        File.WriteAllBytes(path, bytes.Span);
+        return RxVoid.Default;
+    }
+
     /// <summary>Describes a prepared signature in plain words, with the digest a hash-based signer needs.</summary>
     /// <param name="pending">The prepared signature.</param>
     /// <returns>The description, one point per line.</returns>
@@ -263,14 +273,22 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
     private void Close() => Cancel();
 
     /// <summary>Asks for the signer's certificate files and reads them.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the certificates are read or the choice was given up.</returns>
     [ReactiveCommand]
-    private async Task BrowseAsync()
+    private IObservable<RxVoid> Browse()
     {
         SetError(LocalizedMessage.Literal(null));
-        if (await BrowseInteraction.Handle(RxVoid.Default).ToTask().ConfigureAwait(true) is not { Length: > 0 } paths)
+        return BrowseInteraction.Handle(RxVoid.Default).ToSignal().Select(LoadCertificates);
+    }
+
+    /// <summary>Reads the chosen certificate files.</summary>
+    /// <param name="paths">The files, or <see langword="null"/> when the choice was given up.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid LoadCertificates(string[]? paths)
+    {
+        if (paths is not { Length: > 0 })
         {
-            return;
+            return RxVoid.Default;
         }
 
         try
@@ -296,126 +314,190 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
             SignerText = string.Empty;
             SetError(LocalizedMessage.Format(UiText, "Could not read the certificates: {0}", ex.Message));
         }
+
+        return RxVoid.Default;
     }
 
     /// <summary>Builds the file with room for the signature and works out the bytes the signer must sign.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the file is prepared, refused or stopped.</returns>
     [ReactiveCommand(CanExecute = nameof(_canPrepare))]
-    private async Task PrepareAsync()
+    private IObservable<RxVoid> Prepare()
     {
         if (_loaded is not { } loaded)
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var identity = loaded.Identity with { KeyKind = SelectedKey?.Kind ?? loaded.Identity.KeyKind };
         var request = new SigningRequest(_pageIndex, Reason, Location, TimeProvider.System.GetUtcNow());
         var cancel = Begin(UiText.Get("Preparing the file. This can take a while for long files."));
-        try
-        {
-            var pending = await Task.Run(() => _signer.PrepareAsync(identity, request, _timestamper, cancel.Token).AsTask(), cancel.Token).ConfigureAwait(true);
-            _pending = pending;
-            HasPending = true;
-            PendingText = DescribePending(pending);
-            SetStatusText(LocalizedMessage.Get(UiText, "Prepared. Save the bytes to sign, have your signer sign them, then choose Finish."));
-        }
-        catch (OperationCanceledException)
+
+        // Preparing reads the whole document before the library's first await, so it starts on the pool; the signer is the library's async API.
+        return _signer.Prepare(identity, request, _timestamper)
+            .ThrowWhenCancelled(cancel.Token)
+            .SubscribeOn(TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(ShowPrepared)
+            .Catch<RxVoid, Exception>(PrepareFailed)
+            .Finally(() => End(cancel));
+    }
+
+    /// <summary>Shows the prepared signature.</summary>
+    /// <param name="pending">The prepared signature.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid ShowPrepared(IPendingSignature pending)
+    {
+        _pending = pending;
+        HasPending = true;
+        PendingText = DescribePending(pending);
+        SetStatusText(LocalizedMessage.Get(UiText, "Prepared. Save the bytes to sign, have your signer sign them, then choose Finish."));
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says why nothing was prepared, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> PrepareFailed(Exception error)
+    {
+        if (error is OperationCanceledException)
         {
             SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. Nothing was prepared."));
+            return Signal.Return(RxVoid.Default);
         }
-        catch (Exception ex) when (IsSigningFailure(ex))
+
+        if (!IsSigningFailure(error))
         {
-            SetError(LocalizedMessage.Format(UiText, "Could not prepare the signature: {0}", CopyFailure.Message(ex)));
-            SetStatusText(LocalizedMessage.Get(UiText, "Nothing was prepared."));
+            return Signal.Throw<RxVoid>(error);
         }
-        finally
-        {
-            End(cancel);
-        }
+
+        SetError(LocalizedMessage.Format(UiText, "Could not prepare the signature: {0}", CopyFailure.Message(error)));
+        SetStatusText(LocalizedMessage.Get(UiText, "Nothing was prepared."));
+        return Signal.Return(RxVoid.Default);
     }
 
     /// <summary>Saves the bytes the signer must sign.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the bytes are saved or the choice was given up.</returns>
     [ReactiveCommand(CanExecute = nameof(_canFinish))]
-    private async Task SaveToSignAsync()
+    private IObservable<RxVoid> SaveToSign()
     {
         SetError(LocalizedMessage.Literal(null));
         if (_pending is not { } pending)
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var suggested = $"{Path.GetFileNameWithoutExtension(FileName)}-to-sign.bin";
-        if (await SaveToSignInteraction.Handle(suggested).ToTask().ConfigureAwait(true) is not { Length: > 0 } path)
+        return SaveToSignInteraction.Handle(suggested).ToSignal()
+            .Where(static path => path is { Length: > 0 })
+            .SwitchMap(path => WriteToSign(path!, pending.SignedAttributes));
+    }
+
+    /// <summary>Writes the bytes to sign on the pool.</summary>
+    /// <param name="path">Where to save them.</param>
+    /// <param name="bytes">The bytes.</param>
+    /// <returns>A cold signal that ends once the bytes are saved or could not be.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> WriteToSign(string path, ReadOnlyMemory<byte> bytes) =>
+        Signal.Start(() => WriteFile(path, bytes), TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(_ => SavedToSign(path))
+            .Catch<RxVoid, Exception>(SaveToSignFailed);
+
+    /// <summary>Says the bytes to sign were saved.</summary>
+    /// <param name="path">Where they were saved.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid SavedToSign(string path)
+    {
+        SetStatusText(LocalizedMessage.Format(UiText, "Saved the bytes to sign as {0}.", Path.GetFileName(path)));
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says why the bytes to sign were not saved, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> SaveToSignFailed(Exception error)
+    {
+        if (error is not (IOException or UnauthorizedAccessException))
         {
-            return;
+            return Signal.Throw<RxVoid>(error);
         }
 
-        try
-        {
-            await File.WriteAllBytesAsync(path, pending.SignedAttributes, CancellationToken.None).ConfigureAwait(true);
-            SetStatusText(LocalizedMessage.Format(UiText, "Saved the bytes to sign as {0}.", Path.GetFileName(path)));
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            SetError(LocalizedMessage.Format(UiText, "Could not save the bytes to sign: {0}", ex.Message));
-        }
+        SetError(LocalizedMessage.Format(UiText, "Could not save the bytes to sign: {0}", error.Message));
+        return Signal.Return(RxVoid.Default);
     }
 
     /// <summary>Asks for the signer's answer and for where to save, then finishes the signed copy.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the copy is saved, refused or stopped, or a choice was given up.</returns>
     [ReactiveCommand(CanExecute = nameof(_canFinish))]
-    private async Task FinishAsync()
+    private IObservable<RxVoid> Finish()
     {
         SetError(LocalizedMessage.Literal(null));
-        if (_pending is not { } pending
-            || await OpenSignatureInteraction.Handle(RxVoid.Default).ToTask().ConfigureAwait(true) is not { Length: > 0 } answerPath)
+        if (_pending is not { } pending)
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var suggested = $"{Path.GetFileNameWithoutExtension(FileName)}-signed.pdf";
-        if (await SaveCopyInteraction.Handle(suggested).ToTask().ConfigureAwait(true) is not { Length: > 0 } path)
-        {
-            return;
-        }
+        return OpenSignatureInteraction.Handle(RxVoid.Default).ToSignal()
+            .Where(static path => path is { Length: > 0 })
+            .SwitchMap(answerPath => SaveCopyInteraction.Handle(suggested).ToSignal()
+                .Where(static path => path is { Length: > 0 })
+                .SwitchMap(path => Complete(pending, answerPath!, path!)));
+    }
 
+    /// <summary>Reads the signer's answer, finishes the signature and writes the signed copy.</summary>
+    /// <param name="pending">The prepared signature.</param>
+    /// <param name="answerPath">The file with the signer's answer.</param>
+    /// <param name="path">Where the signed copy goes.</param>
+    /// <returns>A cold signal that ends once the copy is saved, refused or stopped.</returns>
+    private IObservable<RxVoid> Complete(IPendingSignature pending, string answerPath, string path)
+    {
         if (SignedCopyFile.IsSameFile(path, _sourcePath))
         {
             SetError(LocalizedMessage.Get(UiText, "That would replace the file you have open. Choose a different name for the copy."));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var cancel = Begin(UiText.Get("Finishing the signature."));
-        try
-        {
-            var answer = await File.ReadAllBytesAsync(answerPath, cancel.Token).ConfigureAwait(true);
-            var container = ResultKind == ExternalResultKind.Container;
-            var token = cancel.Token;
+        var container = ResultKind == ExternalResultKind.Container;
 
-            // Completing the signature builds the whole file before its first await, so it starts on the pool.
-            var outcome = await Task.Run(
-                () => container
-                    ? _signer.CompleteWithContainerAsync(pending, answer, token)
-                .AsTask()
-                    : _signer.CompleteAsync(pending, answer, token).AsTask(),
-                token).ConfigureAwait(true);
-            await SignedCopyFile.WriteAsync(outcome, path, cancel.Token).ConfigureAwait(true);
-            ShowSaved(outcome, path);
-        }
-        catch (OperationCanceledException)
+        // Completing the signature builds the whole file before its first await, so it starts on the pool; the signer is the library's async API.
+        return Signal.Start(() => File.ReadAllBytes(answerPath), TaskPoolSequencer.Default)
+            .SwitchMap(answer => CompleteSignature(pending, answer, container).ThrowWhenCancelled(cancel.Token))
+            .SwitchMap(outcome => SignedCopyFile.Write(outcome, path).Select(_ => outcome))
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(outcome => ShowSaved(outcome, path))
+            .Catch<RxVoid, Exception>(FinishFailed)
+            .Finally(() => End(cancel));
+    }
+
+    /// <summary>Finishes the signature with the signer's answer.</summary>
+    /// <param name="pending">The prepared signature.</param>
+    /// <param name="answer">The signer's answer.</param>
+    /// <param name="container">Whether the answer is a whole signature container.</param>
+    /// <returns>A cold signal giving the signed file.</returns>
+    private IObservable<SigningOutcome> CompleteSignature(IPendingSignature pending, byte[] answer, bool container) =>
+        container ? _signer.CompleteWithContainer(pending, answer) : _signer.Complete(pending, answer);
+
+    /// <summary>Says why the signature was not finished, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> FinishFailed(Exception error)
+    {
+        if (error is OperationCanceledException)
         {
             SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
+            return Signal.Return(RxVoid.Default);
         }
-        catch (Exception ex) when (IsSigningFailure(ex))
+
+        if (!IsSigningFailure(error))
         {
-            SetError(LocalizedMessage.Format(UiText, "Could not finish the signature: {0}", CopyFailure.Message(ex)));
-            SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
+            return Signal.Throw<RxVoid>(error);
         }
-        finally
-        {
-            End(cancel);
-        }
+
+        SetError(LocalizedMessage.Format(UiText, "Could not finish the signature: {0}", CopyFailure.Message(error)));
+        SetStatusText(LocalizedMessage.Get(UiText, "The copy was not saved."));
+        return Signal.Return(RxVoid.Default);
     }
 
     /// <summary>Forgets the prepared signature, because the choices it was made with changed.</summary>
@@ -454,7 +536,8 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
     /// <summary>Shows a saved copy's summary and opens the copy.</summary>
     /// <param name="outcome">The outcome.</param>
     /// <param name="path">Where the copy was saved.</param>
-    private void ShowSaved(SigningOutcome outcome, string path)
+    /// <returns>The completion value.</returns>
+    private RxVoid ShowSaved(SigningOutcome outcome, string path)
     {
         SavedPath = path;
         ProgressPercent = FullBar;
@@ -463,6 +546,7 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
         RefreshResultText();
         Discard();
         _openCopy?.Invoke(path);
+        return RxVoid.Default;
     }
 
     /// <summary>Rewords the retained report without repeating the operation.</summary>

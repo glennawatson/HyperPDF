@@ -12,6 +12,7 @@ using HyperPdf.Platform.Windows.Audio;
 using HyperPdf.Platform.Windows.Printing;
 using HyperPdf.Platform.Windows.Shell;
 using HyperPdf.Platform.Windows.Theme;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Platform.Windows;
 
@@ -71,14 +72,16 @@ public sealed class WindowsPlatform : IDesktopPlatform
     public string? GetLaunchActivationToken() => null;
 
     /// <inheritdoc/>
-    public Task<bool> TryForwardAsync(OpenRequest request)
-    {
-        // The running window may only take the foreground if this launch, which has it, allows it.
-        _ = NativeMethods.AllowSetForegroundWindow(AnyProcess);
-        return PipeSingleInstance.TryForwardAsync(InstanceName, request);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<bool> TryForward(OpenRequest request) =>
+        Signal.Defer(() =>
+        {
+            // The running window may only take the foreground if this launch, which has it, allows it.
+            _ = NativeMethods.AllowSetForegroundWindow(AnyProcess);
+            return PipeSingleInstance.TryForward(InstanceName, request);
+        });
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<ISingleInstance?> TryClaimSingleInstanceAsync() => Task.FromResult<ISingleInstance?>(PipeSingleInstance.TryStart(InstanceName));
+    public IObservable<ISingleInstance?> TryClaimSingleInstance() => Signal.Defer(static () => Signal.Return<ISingleInstance?>(PipeSingleInstance.TryStart(InstanceName)));
 }

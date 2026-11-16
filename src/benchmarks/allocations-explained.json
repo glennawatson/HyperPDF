@@ -4526,6 +4526,11 @@
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfDictionary",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentObjectCopy.CreateForm",
+    "reason": "The form that paints the copy of an object is a new object of the document, stored by the edit and kept for undo and for saving."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfDictionary",
     "frame": "HyperPdfLibrary.PageObjects.PdfPageContentApplication.CommitToPage",
     "reason": "The page's new dictionary and resource tables are stored in the document by the edit, and kept for undo and for saving."
   },

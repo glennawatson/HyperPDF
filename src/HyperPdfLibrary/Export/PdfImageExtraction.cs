@@ -57,6 +57,19 @@ public static class PdfImageExtraction
         }
     }
 
+    /// <summary>Makes a file from one image object of a page: the stored JPEG, JPEG 2000, JBIG2 or CCITT data as it is, or a PNG of the decoded pixels.</summary>
+    /// <param name="image">The image object.</param>
+    /// <param name="content">The page content the image was read from, whose resources its colour space may name.</param>
+    /// <param name="pageIndex">The zero-based page, for the file's name.</param>
+    /// <returns>The file, or <see langword="null"/> when the image cannot be decoded.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public static PdfExtractedFile? GetImage(PdfImageObject image, PdfPageContent content, int pageIndex)
+    {
+        ArgumentNullException.ThrowIfNull(image);
+        ArgumentNullException.ThrowIfNull(content);
+        return Encode(image, content.Resources) is { } file ? new(pageIndex, Name(pageIndex, 1, file.Extension), PdfExtractedFileKind.Image, file.Data) : null;
+    }
+
     /// <summary>Collects the images of a page.</summary>
     /// <param name="document">The document.</param>
     /// <param name="pageIndex">The page.</param>

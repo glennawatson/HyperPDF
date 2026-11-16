@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using HyperPdf.Core.Attachments;
 using HyperPdf.Core.Documents;
 using HyperPdfLibrary.Document;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -24,13 +25,13 @@ internal sealed class HyperPdfAttachmentEditorService : IAttachmentEditor
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> AddAttachmentAsync(string name, ReadOnlyMemory<byte> data, CancellationToken cancellationToken) =>
-        HyperPdfDocumentEdits.RunAsync(_owner, new AddStep(name, data), HyperPdfEditPrefetch.AttachmentsAsync, Add, cancellationToken);
+    public IObservable<DocumentEditResult> AddAttachment(string name, ReadOnlyMemory<byte> data) =>
+        Signal.FromAsync(token => HyperPdfDocumentEdits.RunAsync(_owner, new AddStep(name, data), HyperPdfEditPrefetch.AttachmentsAsync, Add, token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<DocumentEditResult> RemoveAttachmentAsync(int index, CancellationToken cancellationToken) =>
-        HyperPdfDocumentEdits.RunAsync(_owner, new RemoveStep(index), HyperPdfEditPrefetch.AttachmentsAsync, Remove, cancellationToken);
+    public IObservable<DocumentEditResult> RemoveAttachment(int index) =>
+        Signal.FromAsync(token => HyperPdfDocumentEdits.RunAsync(_owner, new RemoveStep(index), HyperPdfEditPrefetch.AttachmentsAsync, Remove, token).AsTask());
 
     /// <summary>Attaches a file.</summary>
     /// <param name="document">The library document.</param>

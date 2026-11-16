@@ -3,7 +3,6 @@
 #:property IsAotCompatible=false
 #:property PublishAot=false
 #:include ScriptProcess.cs
-
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
@@ -80,6 +79,8 @@ var wayland = args.Contains("--wayland");
 var dump = args.Contains("--dump");
 
 var probe = args.Contains("--probe");
+
+var read = args.Contains("--read");
 
 var appIndex = 0;
 
@@ -205,8 +206,10 @@ try
         root,
         token,
         environment);
-    Start(app, ["--new-instance", pdf]);
+
+    Start(app, [pdf]);
     string? failure = null;
+    var readResult = 0;
     await PollAsync(
         async () =>
         {
@@ -240,6 +243,12 @@ try
                     }
 
                     continue;
+                }
+
+                if (read)
+                {
+                    readResult = await ScriptProcess.RunAsync(Dotnet, [RunCommand, FileOption, check, ArgumentSeparator, "atspi-read", address!, fields[0]], root, token, environment);
+                    return true;
                 }
 
                 if (dump)
@@ -289,7 +298,7 @@ try
             return false;
         },
         token);
-    return 0;
+    return readResult;
 }
 finally
 {

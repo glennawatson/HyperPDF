@@ -4,6 +4,9 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.Core.Documents;
+using HyperPdf.Core.Geometry;
+using HyperPdf.Core.Reading;
 using HyperPdf.Core.Theming;
 using HyperPdf.Presentation.Canvas;
 using HyperPdf.Presentation.Input;
@@ -36,6 +39,9 @@ namespace HyperPdf.Viewer;
 [DebuggerDisplay("ViewerSession: closed {_closed}")]
 public sealed class ViewerSession : IDisposable
 {
+    /// <summary>Half of a length.</summary>
+    private const float Half = 0.5F;
+
     /// <summary>The wait for events that has no limit.</summary>
     private const int NoLimit = -1;
 
@@ -51,11 +57,23 @@ public sealed class ViewerSession : IDisposable
     /// <summary>The window.</summary>
     private readonly IPlatformWindow _window;
 
+    /// <summary>The application services the session was made with.</summary>
+    private readonly AppServices _services;
+
     /// <summary>The context that brings posted work to this thread.</summary>
     private readonly WindowThreadContext _context;
 
     /// <summary>Whether the user asked to close the window.</summary>
     private bool _closed;
+
+    /// <summary>The canvas of the second view of a split document, or <see langword="null"/> when the view is whole.</summary>
+    private ViewerCanvas? _split;
+
+    /// <summary>Whether the keys go to the second view: it was the last one pressed on.</summary>
+    private bool _keysInSecond;
+
+    /// <summary>Whether the pointer was last over the second view.</summary>
+    private bool _pointerInSecond;
 
     /// <summary>Initializes a new instance of the <see cref="ViewerSession"/> class on the thread that pumps the window.</summary>
     /// <param name="window">The window.</param>
@@ -68,6 +86,7 @@ public sealed class ViewerSession : IDisposable
         ArgumentNullException.ThrowIfNull(context);
         _window = window;
         _context = context;
+        _services = services;
         Main = new(services);
 
         // The controls sit over the pages, so they take the events first and pass on what they did not use.
@@ -80,8 +99,9 @@ public sealed class ViewerSession : IDisposable
         _owned.Add(Chrome);
         _owned.Add(Main);
         _owned.Add(window.Events.Where(static e => e.Kind == WindowEventKind.CloseRequested).SubscribeSafe(_ => _closed = true, ErrorTrace.Write));
-        _owned.Add(Chrome.PageEvents.SubscribeSafe(Canvas.Input.OnNext, ErrorTrace.Write));
+        _owned.Add(Chrome.PageEvents.SubscribeSafe(RoutePageEvent, ErrorTrace.Write));
         _owned.Add(Accessibility.Presses.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(PressControl, ErrorTrace.Write));
+        _owned.Add(Accessibility.FocusRequests.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(FocusControl, ErrorTrace.Write));
 
         // Files dropped on the window open as tabs.
         _owned.Add(window.FileDrops.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(Main.Open, ErrorTrace.Write));
@@ -105,6 +125,7 @@ public sealed class ViewerSession : IDisposable
             .SubscribeSafe(static _ => { }, ErrorTrace.Write));
         _owned.Add(services.Theme.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(ShowTheme, ErrorTrace.Write));
         _owned.Add(Main.WhenChanged(static main => main.SelectedTab).SubscribeSafe(ShowTab, ErrorTrace.Write));
+        _owned.Add(Main.WhenChanged(static main => main.SplitTab).SubscribeSafe(ShowSplit, ErrorTrace.Write));
     }
 
     /// <summary>Gets the main view model.</summary>
@@ -134,6 +155,19 @@ public sealed class ViewerSession : IDisposable
         SynchronizationContext.SetSynchronizationContext(context);
         RxSchedulers.MainThreadScheduler = new SynchronizationContextSequencer(context);
         return context;
+    }
+
+    /// <summary>Asks for the language of the viewer when it has never been chosen, and keeps the choice for the next start. Heads call this once, after the window is open.</summary>
+    public void AskForLanguage()
+    {
+        if (!LanguageChoiceViewModel.IsNeeded(_services))
+        {
+            return;
+        }
+
+        // Closing the window without pressing Continue keeps what it showed, so the question is not asked at every start.
+        var choice = new LanguageChoiceViewModel(_services);
+        _owned.Add(Chrome.ShowForm(LanguageForms.For(choice)).SubscribeSafe(static _ => { }, ErrorTrace.Write, choice.Keep));
     }
 
     /// <summary>Opens documents in tabs.</summary>
@@ -177,6 +211,7 @@ public sealed class ViewerSession : IDisposable
     public void Dispose()
     {
         _owned.Dispose();
+        _split?.Dispose();
         _tabStreams.Dispose();
         _turns.Dispose();
     }
@@ -191,6 +226,14 @@ public sealed class ViewerSession : IDisposable
     /// <param name="message">The words, or <see langword="null"/> for nothing.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Announce(string? message) => Accessibility.Announce(message ?? string.Empty);
+
+    /// <summary>Gives the keyboard to the control an assistive technology asked for.</summary>
+    /// <param name="id">The id of the control's node in the accessibility tree.</param>
+    private void FocusControl(int id)
+    {
+        var inOverlay = id >= ViewerNodes.FirstOverlayId;
+        _ = Chrome.FocusControl(inOverlay, id - (inOverlay ? ViewerNodes.FirstOverlayId : ViewerNodes.FirstControlId));
+    }
 
     /// <summary>Presses the control an assistive technology asked for.</summary>
     /// <param name="id">The id of the control's node in the accessibility tree.</param>
@@ -215,12 +258,39 @@ public sealed class ViewerSession : IDisposable
             return;
         }
 
+        // A form field is filled in without a click, so it works wherever the field is, even where the window is too small to show it.
+        if (ActivateFieldItem(id))
+        {
+            return;
+        }
+
         var origin = _window.ScreenOrigin;
         var x = node.Bounds.X - origin.X + (node.Bounds.Width >> 1);
         var y = node.Bounds.Y - origin.Y + (node.Bounds.Height >> 1);
         Canvas.Input.OnNext(new(WindowEventKind.PointerMoved, x, y, 0, 0));
         Canvas.Input.OnNext(new(WindowEventKind.PointerDown, x, y, (uint)ViewerButtons.Left, 0));
         Canvas.Input.OnNext(new(WindowEventKind.PointerUp, x, y, (uint)ViewerButtons.Left, 0));
+    }
+
+    /// <summary>Starts filling in the form field an item of the page stands for.</summary>
+    /// <param name="id">The id of the item's node in the accessibility tree.</param>
+    /// <returns>Whether the item was a form field that took the press.</returns>
+    private bool ActivateFieldItem(int id)
+    {
+        var page = ViewerNodes.PageOfItem(id);
+        var index = ViewerNodes.IndexOfItem(id);
+        if (Main.SelectedTab is not { } tab || DocumentFeature<IPageSemanticSource>.Get(tab.TryGetDocument())?.GetItems(page) is not { } items)
+        {
+            return false;
+        }
+
+        if ((uint)index >= (uint)items.Count || items[index] is not { Kind: PageSemanticKind.FormField } item)
+        {
+            return false;
+        }
+
+        var middle = new PagePoint(item.Bounds.Left + (item.Bounds.Width * Half), item.Bounds.Top + (item.Bounds.Height * Half));
+        return tab.Forms.HitTest(page, middle) is { } field && tab.Forms.Activate(field);
     }
 
     /// <summary>Shows the selected tab on the canvas and its name in the title bar, and follows what the tab asks of the window.</summary>
@@ -299,7 +369,7 @@ public sealed class ViewerSession : IDisposable
             tab.WhenChanged(static t => t.IsPresenting)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Finally(() => _window.SetFullScreen(false))
-                .SubscribeSafe(_window.SetFullScreen, ErrorTrace.Write),
+                .SubscribeSafe(presenting => Present(tab, presenting), ErrorTrace.Write),
             tab.FocusMode.WhenChanged(static focus => focus.IsOn)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .SubscribeSafe(on => ShowFocus(tab, on), ErrorTrace.Write),
@@ -309,6 +379,19 @@ public sealed class ViewerSession : IDisposable
                 .DistinctUntilChanged()
                 .SubscribeSafe(edit => ShowTyping(edit is null ? null : TextBoxTypings.For(forms, marks, edit)), ErrorTrace.Write),
         ];
+    }
+
+    /// <summary>Fills the screen with the page while presenting, and starts the timed turning of pages and the page transitions the document asks for.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="presenting">Whether the tab is presenting.</param>
+    private void Present(DocumentTabViewModel tab, bool presenting)
+    {
+        if (presenting)
+        {
+            _ = tab.PagePresentation;
+        }
+
+        _window.SetFullScreen(presenting);
     }
 
     /// <summary>Shows focus mode in place of the pages while it is on, and the pages again when it is turned off.</summary>
@@ -380,11 +463,87 @@ public sealed class ViewerSession : IDisposable
         return Chrome.Confirm(request).Do(context.SetOutput);
     }
 
+    /// <summary>
+    /// Sends an event of the page area to the view it belongs to. With one view, every event goes to the one canvas. With two, a pointer or
+    /// scroll event goes to the view under it, a press also makes that view the one the keys go to, and a new size goes to both.
+    /// </summary>
+    /// <param name="windowEvent">The event.</param>
+    private void RoutePageEvent(WindowEvent windowEvent)
+    {
+        if (_split is not { } second)
+        {
+            Canvas.Input.OnNext(windowEvent);
+            return;
+        }
+
+        switch (windowEvent.Kind)
+        {
+            case WindowEventKind.Resized:
+                {
+                    Canvas.Input.OnNext(windowEvent);
+                    second.Input.OnNext(windowEvent);
+                    break;
+                }
+
+            case WindowEventKind.Exposed:
+                {
+                    Canvas.Input.OnNext(windowEvent);
+                    break;
+                }
+
+            case WindowEventKind.PointerDown or WindowEventKind.PointerUp or WindowEventKind.PointerMoved:
+                {
+                    _pointerInSecond = windowEvent.X >= second.Bounds.X;
+                    _keysInSecond = windowEvent.Kind == WindowEventKind.PointerDown ? _pointerInSecond : _keysInSecond;
+                    (_pointerInSecond ? second : Canvas).Input.OnNext(windowEvent);
+                    break;
+                }
+
+            case WindowEventKind.Scrolled:
+                {
+                    // A scroll carries amounts, not a place, so it goes to the view the pointer last was over.
+                    (_pointerInSecond ? second : Canvas).Input.OnNext(windowEvent);
+                    break;
+                }
+
+            default:
+                {
+                    (_keysInSecond ? second : Canvas).Input.OnNext(windowEvent);
+                    break;
+                }
+        }
+    }
+
+    /// <summary>Shows the second view of a split document beside the first, or puts it away.</summary>
+    /// <param name="tab">The second view, or <see langword="null"/> when the view is whole.</param>
+    private void ShowSplit(DocumentTabViewModel? tab)
+    {
+        _keysInSecond = false;
+        _pointerInSecond = false;
+        Canvas.Neighbour = null;
+        _split?.Dispose();
+        _split = null;
+        if (tab is not null)
+        {
+            _split = new(_window) { Colors = Canvas.Colors, Chrome = Chrome, Partner = Canvas };
+            Canvas.Neighbour = _split;
+            _split.ShowTab(tab);
+        }
+
+        Canvas.Refit();
+        _split?.Refit();
+    }
+
     /// <summary>Draws with the colours of a theme.</summary>
     /// <param name="theme">The theme.</param>
     private void ShowTheme(ResolvedTheme theme)
     {
         Canvas.Colors = ViewerColors.From(theme.Scheme);
+        if (_split is { } second)
+        {
+            second.Colors = Canvas.Colors;
+        }
+
         Chrome.Theme = ChromeTheme.From(theme.Scheme);
         _window.RequestFrame();
     }

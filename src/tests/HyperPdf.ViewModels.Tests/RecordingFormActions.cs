@@ -4,6 +4,8 @@
 
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -17,36 +19,39 @@ internal sealed class RecordingFormActions(IFormActions inner, IDocument documen
     public IDocument Document => document;
 
     /// <inheritdoc/>
-    public ValueTask<FormActionResult> RunWidgetActionAsync(int pageIndex, int index, IFormActionHost host, CancellationToken cancellationToken) =>
-        inner.RunWidgetActionAsync(pageIndex, index, host, cancellationToken);
+    public IObservable<FormActionResult> RunWidgetAction(int pageIndex, int index, IFormActionHost host) => inner.RunWidgetAction(pageIndex, index, host);
 
     /// <inheritdoc/>
     public bool HasPageActions(int pageIndex) => engine.PagesHaveActions;
 
     /// <inheritdoc/>
-    public async ValueTask<FormActionResult> RunPageOpenedAsync(int pageIndex, IFormActionHost host, CancellationToken cancellationToken)
-    {
-        engine.OpenedPages.Enqueue(pageIndex);
-        engine.PageActions.Enqueue(new(pageIndex, true));
-        if (engine.FormGate is { } gate)
+    public IObservable<FormActionResult> RunPageOpened(int pageIndex, IFormActionHost host) =>
+        Signal.Defer(() =>
         {
-            await gate.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-
-        return await inner.RunPageOpenedAsync(pageIndex, host, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <inheritdoc/>
-    public ValueTask<FormActionResult> RunPageClosedAsync(int pageIndex, IFormActionHost host, CancellationToken cancellationToken)
-    {
-        engine.PageActions.Enqueue(new(pageIndex, false));
-        return inner.RunPageClosedAsync(pageIndex, host, cancellationToken);
-    }
+            engine.OpenedPages.Enqueue(pageIndex);
+            engine.PageActions.Enqueue(new(pageIndex, true));
+            return engine.FormGate is { } gate
+                ? Signal.FromAsync(async token =>
+                    {
+                        await gate.Task.WaitAsync(token).ConfigureAwait(false);
+                        return RxVoid.Default;
+                    }).SwitchMap(_ => inner.RunPageOpened(pageIndex, host))
+                : inner.RunPageOpened(pageIndex, host);
+        });
 
     /// <inheritdoc/>
-    public ValueTask<FormActionResult> RunDocumentEventAsync(FormDocumentEvent documentEvent, IFormActionHost host, CancellationToken cancellationToken)
-    {
-        engine.DocumentEvents.Enqueue(documentEvent);
-        return inner.RunDocumentEventAsync(documentEvent, host, cancellationToken);
-    }
+    public IObservable<FormActionResult> RunPageClosed(int pageIndex, IFormActionHost host) =>
+        Signal.Defer(() =>
+        {
+            engine.PageActions.Enqueue(new(pageIndex, false));
+            return inner.RunPageClosed(pageIndex, host);
+        });
+
+    /// <inheritdoc/>
+    public IObservable<FormActionResult> RunDocumentEvent(FormDocumentEvent documentEvent, IFormActionHost host) =>
+        Signal.Defer(() =>
+        {
+            engine.DocumentEvents.Enqueue(documentEvent);
+            return inner.RunDocumentEvent(documentEvent, host);
+        });
 }

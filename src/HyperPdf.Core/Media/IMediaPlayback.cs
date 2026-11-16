@@ -26,9 +26,8 @@ public interface IMediaPlayback : IDisposable
 
     /// <summary>Opens a file and reads its length, size and captions. Nothing plays.</summary>
     /// <param name="path">The full path of the file.</param>
-    /// <param name="cancellationToken">Stops opening.</param>
-    /// <returns><see langword="true"/> when the file has sound or a picture that can be played.</returns>
-    Task<bool> OpenAsync(string path, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving <see langword="true"/> once when the file has sound or a picture that can be played; unsubscribing stops opening.</returns>
+    IObservable<bool> Open(string path);
 
     /// <summary>Copies the latest picture.</summary>
     /// <param name="destination">Receives blue, green, red and alpha bytes; it must hold at least <c>FrameSize.ByteCount</c> bytes.</param>

@@ -10,6 +10,7 @@ using HyperPdf.Core.Geometry;
 using HyperPdfLibrary;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Tests.Editing;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -107,7 +108,7 @@ public sealed class HyperPdfPageManagerTests
     {
         using var document = Open(EditingTestDocuments.CreateFlat(PageCount));
         var manager = HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document);
-        await manager.ApplyAsync(new(kind, new[] { page }, value), CancellationToken.None);
+        await manager.Apply(new(kind, new[] { page }, value)).ToTask();
         await Assert.That(Texts(document)).IsEqualTo(expected);
         await Assert.That(manager.UndoLabel).IsEqualTo(label);
         await Assert.That(PdfDocumentEditing.GetHistory(document.Document).UndoCount).IsEqualTo(1);
@@ -119,11 +120,11 @@ public sealed class HyperPdfPageManagerTests
             await Assert.That(HyperPdf.Engine.HyperPdfNavigation.GetPageSizes(document)[page].Height).IsEqualTo(PageWidth);
         }
 
-        await Assert.That(await manager.UndoAsync(CancellationToken.None)).IsTrue();
+        await Assert.That(await manager.Undo().ToTask()).IsTrue();
         await Assert.That(Texts(document)).IsEqualTo(OriginalTexts);
         await Assert.That(document.PageCount).IsEqualTo(PageCount);
         await Assert.That(manager.RedoLabel).IsEqualTo(label);
-        await Assert.That(await manager.RedoAsync(CancellationToken.None)).IsTrue();
+        await Assert.That(await manager.Redo().ToTask()).IsTrue();
         await Assert.That(Texts(document)).IsEqualTo(expected);
         await using var saved = new MemoryStream();
         await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.Save(document, saved, null)).IsTrue();
@@ -149,13 +150,13 @@ public sealed class HyperPdfPageManagerTests
             await File.WriteAllBytesAsync(first, CarryTestDocuments.CreateBook());
             await File.WriteAllBytesAsync(second, CarryTestDocuments.CreateBook());
             using var document = Open(EditingTestDocuments.CreateFlat(1));
-            await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).InsertAsync(1, [first, second], CancellationToken.None);
+            await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Insert(1, [first, second]).ToTask();
             await Assert.That(document.PageCount).IsEqualTo(MergedPageCount);
             await Assert.That(HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).UndoLabel).IsEqualTo("Insert pages");
             await Assert.That(PdfDocumentEditing.GetHistory(document.Document).UndoCount).IsEqualTo(1);
-            await Assert.That(await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).UndoAsync(CancellationToken.None)).IsTrue();
+            await Assert.That(await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Undo().ToTask()).IsTrue();
             await Assert.That(document.PageCount).IsEqualTo(1);
-            await Assert.That(await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).RedoAsync(CancellationToken.None)).IsTrue();
+            await Assert.That(await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Redo().ToTask()).IsTrue();
             await using var saved = new MemoryStream();
             await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.Save(document, saved, null)).IsTrue();
             using var reopened = new HyperPdfTestDocument(saved.ToArray());
@@ -178,7 +179,7 @@ public sealed class HyperPdfPageManagerTests
         {
             await File.WriteAllBytesAsync(source, CarryTestDocuments.CreateBook());
             using var document = Open(EditingTestDocuments.CreateFlat(PageCount));
-            await Assert.That(async () => await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).InsertAsync(1, [source, $"{source}.missing"], CancellationToken.None))
+            await Assert.That(async () => await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Insert(1, [source, $"{source}.missing"]).ToTask())
                 .Throws<PdfException>();
             await Assert.That(Texts(document)).IsEqualTo(OriginalTexts);
             await Assert.That(PdfDocumentEditing.GetHistory(document.Document).UndoCount).IsEqualTo(0);
@@ -196,12 +197,12 @@ public sealed class HyperPdfPageManagerTests
     {
         using var document = Open(EditingTestDocuments.CreateFlat(PageCount));
         await using var output = new MemoryStream();
-        await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).ExtractAsync(ExtractionSelection, output, CancellationToken.None);
+        await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Extract(ExtractionSelection, output).ToTask();
         using var extracted = PdfDocumentReader.Open(output.ToArray(), null);
         await Assert.That(string.Join(',', EditingTestDocuments.PageTexts(extracted))).IsEqualTo("Page 3,Page 1");
         using var cancellation = new CancellationTokenSource();
         await cancellation.CancelAsync();
-        await Assert.That(async () => await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).ApplyAsync(new(PageEditKind.Delete, SecondSelection, 0), cancellation.Token))
+        await Assert.That(async () => await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Apply(new(PageEditKind.Delete, SecondSelection, 0)).ToTask(cancellation.Token))
             .Throws<OperationCanceledException>();
         await Assert.That(Texts(document)).IsEqualTo(OriginalTexts);
         await Assert.That(PdfDocumentEditing.GetHistory(document.Document).UndoCount).IsEqualTo(0);
@@ -217,8 +218,8 @@ public sealed class HyperPdfPageManagerTests
         document.Dispose();
         await Assert.That(manager.UndoLabel).IsNull();
         await Assert.That(manager.RedoLabel).IsNull();
-        await Assert.That(async () => await manager.UndoAsync(CancellationToken.None)).Throws<ObjectDisposedException>();
-        await Assert.That(async () => await manager.ApplyAsync(new(PageEditKind.Move, LastSelection, 0), CancellationToken.None))
+        await Assert.That(async () => await manager.Undo().ToTask()).Throws<ObjectDisposedException>();
+        await Assert.That(async () => await manager.Apply(new(PageEditKind.Move, LastSelection, 0)).ToTask())
             .Throws<ObjectDisposedException>();
     }
 
@@ -228,12 +229,11 @@ public sealed class HyperPdfPageManagerTests
     public async Task RejectedDeleteLeavesPagesAndHistoryUntouched()
     {
         using var document = Open(EditingTestDocuments.CreateFlat(PageCount));
-        await Assert.That(async () => await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).ApplyAsync(
+        await Assert.That(async () => await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Apply(
             new(
                 PageEditKind.Delete,
                 AllSelection,
-                0),
-            CancellationToken.None))
+                0)).ToTask())
             .Throws<ArgumentException>();
         await Assert.That(Texts(document)).IsEqualTo(OriginalTexts);
         await Assert.That(document.PageCount).IsEqualTo(PageCount);
@@ -258,11 +258,11 @@ public sealed class HyperPdfPageManagerTests
         await Assert.That(kept).IsGreaterThanOrEqualTo(0);
         await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.SetRemoved(document, 0, removed, true)).IsTrue();
         await AssertNotes(document, "0");
-        await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).ApplyAsync(new(kind, FirstSelection, destination), CancellationToken.None);
+        await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Apply(new(kind, FirstSelection, destination)).ToTask();
         await AssertNotes(document, expected);
-        await Assert.That(await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).UndoAsync(CancellationToken.None)).IsTrue();
+        await Assert.That(await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Undo().ToTask()).IsTrue();
         await AssertNotes(document, "0");
-        await Assert.That(await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).RedoAsync(CancellationToken.None)).IsTrue();
+        await Assert.That(await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Redo().ToTask()).IsTrue();
         await AssertNotes(document, expected);
         await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.GetAuthor(document)).IsEqualTo(Author);
         await Assert.That(HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.SetRemoved(document, destination, removed, false)).IsTrue();
@@ -302,10 +302,10 @@ public sealed class HyperPdfPageManagerTests
             for (var round = 0; round < ConcurrentRounds; round++)
             {
                 await progress.WaitAsync(timeout.Token);
-                await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).ApplyAsync(new(PageEditKind.Delete, LastSelection, 0), timeout.Token);
-                _ = await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).UndoAsync(timeout.Token);
-                await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).ApplyAsync(new(PageEditKind.Move, LastSelection, 0), timeout.Token);
-                _ = await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).UndoAsync(timeout.Token);
+                await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Apply(new(PageEditKind.Delete, LastSelection, 0)).ToTask(timeout.Token);
+                _ = await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Undo().ToTask(timeout.Token);
+                await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Apply(new(PageEditKind.Move, LastSelection, 0)).ToTask(timeout.Token);
+                _ = await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Undo().ToTask(timeout.Token);
             }
         }
         finally

@@ -102,7 +102,7 @@ public sealed class ManagedMediaPlayerTests
         var sound = new SimulatedSound();
         using var player = new ManagedMediaPlayer(() => sound, false);
 
-        await Assert.That(await player.OpenAsync(path, CancellationToken.None)).IsTrue();
+        await Assert.That(await player.Open(path).ToTask()).IsTrue();
 
         await Assert.That(player.Info.HasAudio).IsTrue();
         await Assert.That(player.Info.HasVideo).IsFalse();
@@ -120,7 +120,7 @@ public sealed class ManagedMediaPlayerTests
         var path = folder.WriteFile("tone.wav", MakeWave());
         var sound = new SimulatedSound();
         using var player = new ManagedMediaPlayer(() => sound, false);
-        _ = await player.OpenAsync(path, CancellationToken.None);
+        _ = await player.Open(path).ToTask();
 
         await PlayToTheEndAsync(player);
 
@@ -135,7 +135,7 @@ public sealed class ManagedMediaPlayerTests
     {
         var sound = new SimulatedSound();
         using var player = new ManagedMediaPlayer(() => sound, false);
-        _ = await player.OpenAsync(Fixture("aac-lc-stereo-44100.m4a"), CancellationToken.None);
+        _ = await player.Open(Fixture("aac-lc-stereo-44100.m4a")).ToTask();
 
         await PlayToTheEndAsync(player);
 
@@ -152,7 +152,7 @@ public sealed class ManagedMediaPlayerTests
         var path = folder.WriteFile("noise.bin", new byte[JunkBytes]);
         using var player = new ManagedMediaPlayer(static () => new SimulatedSound(), false);
 
-        var opened = await player.OpenAsync(path, CancellationToken.None);
+        var opened = await player.Open(path).ToTask();
 
         await Assert.That(opened).IsFalse();
         await Assert.That(player.Snapshot.State).IsEqualTo(MediaPlayerState.Failed);
@@ -166,7 +166,7 @@ public sealed class ManagedMediaPlayerTests
     {
         using var player = new ManagedMediaPlayer(static () => new SimulatedSound(), false);
 
-        await Assert.That(await player.OpenAsync(Fixture(VideoFile), CancellationToken.None)).IsTrue();
+        await Assert.That(await player.Open(Fixture(VideoFile)).ToTask()).IsTrue();
 
         await Assert.That(player.Info.HasVideo).IsTrue();
         await Assert.That(player.Info.HasAudio).IsTrue();
@@ -182,7 +182,7 @@ public sealed class ManagedMediaPlayerTests
     public async Task VideoFile_ShowsACaptionAtSomePosition()
     {
         using var player = new ManagedMediaPlayer(static () => new SimulatedSound(), false);
-        _ = await player.OpenAsync(Fixture(VideoFile), CancellationToken.None);
+        _ = await player.Open(Fixture(VideoFile)).ToTask();
         var found = false;
 
         for (var at = 0.0; at < VideoSeconds; at += CaptionStep)
@@ -201,7 +201,7 @@ public sealed class ManagedMediaPlayerTests
     {
         var sound = new SimulatedSound();
         using var player = new ManagedMediaPlayer(() => sound, false);
-        _ = await player.OpenAsync(Fixture(VideoFile), CancellationToken.None);
+        _ = await player.Open(Fixture(VideoFile)).ToTask();
 
         await PlayToTheEndAsync(player);
 
@@ -219,7 +219,7 @@ public sealed class ManagedMediaPlayerTests
     public async Task H265File_PlaysToTheEnd()
     {
         using var player = new ManagedMediaPlayer(static () => new SimulatedSound(), false);
-        _ = await player.OpenAsync(Fixture("h265-b.mp4"), CancellationToken.None);
+        _ = await player.Open(Fixture("h265-b.mp4")).ToTask();
 
         await PlayToTheEndAsync(player);
 
@@ -239,7 +239,7 @@ public sealed class ManagedMediaPlayerTests
     {
         var sound = new SimulatedSound();
         using var player = new ManagedMediaPlayer(() => sound, false);
-        _ = await player.OpenAsync(Fixture(VideoFile), CancellationToken.None);
+        _ = await player.Open(Fixture(VideoFile)).ToTask();
         player.Seek(TimeSpan.FromSeconds(SeekTo));
 
         await PlayToTheEndAsync(player);
@@ -254,7 +254,7 @@ public sealed class ManagedMediaPlayerTests
     public async Task ReducedMotion_ShowsFewPictures()
     {
         using var player = new ManagedMediaPlayer(static () => new SimulatedSound(), true);
-        _ = await player.OpenAsync(Fixture(VideoFile), CancellationToken.None);
+        _ = await player.Open(Fixture(VideoFile)).ToTask();
 
         await PlayToTheEndAsync(player);
 

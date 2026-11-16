@@ -3,9 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
+using HyperPdf.Core.Reactive;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Rendering;
 
@@ -38,8 +43,8 @@ public sealed class NeighbourPagePreparer : IDisposable
     /// <summary>How long the reader must stay on a page before its neighbours are prepared.</summary>
     private readonly TimeSpan _debounce;
 
-    /// <summary>The clock the waits use.</summary>
-    private readonly TimeProvider _time;
+    /// <summary>Times the waits.</summary>
+    private readonly ISequencer _sequencer;
 
     /// <summary>The document being read.</summary>
     private IDocument? _document;
@@ -47,17 +52,14 @@ public sealed class NeighbourPagePreparer : IDisposable
     /// <summary>The page being read, or -1.</summary>
     private int _page = -1;
 
-    /// <summary>Counts the runs started, so a run can tell whether a newer one replaced it.</summary>
-    private long _generation;
-
-    /// <summary>Cancels the current run when the reader moves on or the preparer closes.</summary>
-    private Action? _cancelRun;
+    /// <summary>Ends the current run when the reader moves on or the preparer closes.</summary>
+    private IDisposable? _run;
 
     /// <summary>Cancels the page being prepared when something on screen needs drawing.</summary>
     private Action? _cancelAttempt;
 
-    /// <summary>The task of the latest run.</summary>
-    private Task _latest = Task.CompletedTask;
+    /// <summary>Tells when the latest run has ended.</summary>
+    private IObservable<RxVoid> _latest = Signal.Return(RxVoid.Default);
 
     /// <summary>Whether the preparer is closed.</summary>
     private bool _disposed;
@@ -66,23 +68,23 @@ public sealed class NeighbourPagePreparer : IDisposable
     /// <param name="hasVisibleWork">Tells whether something on screen is queued or rendering.</param>
     /// <param name="underPressure">Tells whether memory is short.</param>
     /// <param name="debounce">How long the reader must stay on a page before its neighbours are prepared.</param>
-    /// <param name="time">The clock the waits use.</param>
-    public NeighbourPagePreparer(Func<bool> hasVisibleWork, Func<bool> underPressure, TimeSpan debounce, TimeProvider time)
+    /// <param name="sequencer">Times the waits and runs the preparation off the interface thread.</param>
+    public NeighbourPagePreparer(Func<bool> hasVisibleWork, Func<bool> underPressure, TimeSpan debounce, ISequencer sequencer)
     {
         ArgumentNullException.ThrowIfNull(hasVisibleWork);
         ArgumentNullException.ThrowIfNull(underPressure);
-        ArgumentNullException.ThrowIfNull(time);
+        ArgumentNullException.ThrowIfNull(sequencer);
         _hasVisibleWork = hasVisibleWork;
         _underPressure = underPressure;
         _debounce = debounce;
-        _time = time;
+        _sequencer = sequencer;
     }
 
     /// <summary>Gets the delay before neighbours are prepared.</summary>
     public static TimeSpan DefaultDebounce { get; } = TimeSpan.FromMilliseconds(DefaultDebounceMilliseconds);
 
-    /// <summary>Gets a task that completes when the latest run has finished or stopped. Meant for tests.</summary>
-    public Task Latest
+    /// <summary>Gets a signal that gives one value when the latest run has finished or stopped, even to a watcher that comes late. Meant for tests.</summary>
+    public IObservable<RxVoid> Latest
     {
         get
         {
@@ -112,11 +114,12 @@ public sealed class NeighbourPagePreparer : IDisposable
             var movedBackward = ReferenceEquals(_document, document) && page < _page;
             _document = document;
             _page = page;
-            _cancelRun?.Invoke();
-            var source = new CancellationTokenSource();
-            _cancelRun = source.Cancel;
-            _generation++;
-            _latest = RunAsync(document, new(page, scale, rotation, 0, 0, flags), movedBackward, source, _generation);
+            _run?.Dispose();
+            var finished = new ReplaySignal<RxVoid>();
+            _latest = finished;
+            _run = Run(document, new(page, scale, rotation, 0, 0, flags), movedBackward)
+                .Finally(() => Finish(finished))
+                .SubscribeSafe(static _ => { }, static _ => { });
         }
     }
 
@@ -134,7 +137,8 @@ public sealed class NeighbourPagePreparer : IDisposable
     {
         lock (_gate)
         {
-            _cancelRun?.Invoke();
+            _run?.Dispose();
+            _run = null;
             _document = null;
             _page = -1;
         }
@@ -151,8 +155,33 @@ public sealed class NeighbourPagePreparer : IDisposable
             }
 
             _disposed = true;
-            _cancelRun?.Invoke();
+            _run?.Dispose();
+            _run = null;
         }
+    }
+
+    /// <summary>Tells a run's watchers that it has ended.</summary>
+    /// <param name="finished">The run's end marker.</param>
+    private static void Finish(ReplaySignal<RxVoid> finished)
+    {
+        finished.OnNext(RxVoid.Default);
+        finished.OnCompleted();
+    }
+
+    /// <summary>Notes a failed run, which is not worth a failure the reader would see.</summary>
+    /// <param name="exception">The failure.</param>
+    /// <param name="page">The page the run was for.</param>
+    /// <returns>A signal that ends, or fails with the same error when it is one that must not be hidden.</returns>
+    private static IObservable<RxVoid> Failed(Exception exception, int page)
+    {
+        if (exception is OutOfMemoryException or AccessViolationException)
+        {
+            return Signal.Throw<RxVoid>(exception);
+        }
+
+        // A damaged page is drawn, and reported, when the reader reaches it.
+        AppLog.Warning(exception, $"Neighbour preparation failed for page {page}.");
+        return Signal.Empty<RxVoid>();
     }
 
     /// <summary>
@@ -167,94 +196,80 @@ public sealed class NeighbourPagePreparer : IDisposable
     /// <param name="document">The document.</param>
     /// <param name="template">The current page's render information; each neighbour reuses its scale, rotation and flags.</param>
     /// <param name="movedBackward">Whether the reader arrived from a later page.</param>
-    /// <param name="source">Cancels the run; the run disposes it.</param>
-    /// <param name="generation">The number of this run.</param>
-    /// <returns>A task that completes when the run ends.</returns>
-    private async Task RunAsync(IDocument document, PageRenderInfo template, bool movedBackward, CancellationTokenSource source, long generation)
+    /// <returns>A cold signal that ends when the run does; unsubscribing, because the reader moved on or the preparer closed, stops it.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Run(IDocument document, PageRenderInfo template, bool movedBackward) =>
+        Signal.Timer(_debounce, _sequencer)
+            .Do(_ => ReadLinks(document, template.PageIndex))
+            .SwitchMap(_ => LazySequence.Concat(Neighbours(document, template, movedBackward)).Count().Select(static _ => RxVoid.Default))
+            .Catch<RxVoid, Exception>(exception => Failed(exception, template.PageIndex));
+
+    /// <summary>Makes the preparation of each neighbour, one at a time as the run moves along, stopping at memory pressure or a closed document.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="template">The current page's render information.</param>
+    /// <param name="movedBackward">Whether the reader arrived from a later page.</param>
+    /// <returns>A cold signal for each neighbour.</returns>
+    private IEnumerable<IObservable<RxVoid>> Neighbours(IDocument document, PageRenderInfo template, bool movedBackward)
     {
-        var token = source.Token;
-        try
+        foreach (var page in NeighbourPages.Order(template.PageIndex, document.PageCount, movedBackward))
         {
-            await Task.Delay(_debounce, _time, token).ConfigureAwait(false);
-            ReadLinks(document, template.PageIndex);
-            foreach (var page in NeighbourPages.Order(template.PageIndex, document.PageCount, movedBackward))
+            if (_underPressure() || document.IsDisposed)
             {
-                if (_underPressure() || document.IsDisposed)
-                {
-                    return;
-                }
-
-                await PrepareOneAsync(document, template with { PageIndex = page }, token).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // The reader moved on, or the preparer closed.
-        }
-        catch (Exception exception) when (exception is not (OutOfMemoryException or AccessViolationException))
-        {
-            // A damaged page is not worth a failure the reader would see; it is drawn, and reported, when they reach it.
-            AppLog.Warning(exception, $"Neighbour preparation failed for page {template.PageIndex}.");
-        }
-        finally
-        {
-            lock (_gate)
-            {
-                if (_generation == generation)
-                {
-                    _cancelRun = null;
-                }
+                yield break;
             }
 
-            source.Dispose();
+            yield return PrepareOne(document, template with { PageIndex = page });
         }
     }
 
     /// <summary>Prepares a page, and when something on screen cuts it short, waits for the screen to be served and tries again.</summary>
     /// <param name="document">The document.</param>
     /// <param name="info">The page to prepare.</param>
-    /// <param name="runToken">Cancels the run.</param>
-    /// <returns>A task that completes when the page is prepared.</returns>
-    private async Task PrepareOneAsync(IDocument document, PageRenderInfo info, CancellationToken runToken)
-    {
-        var prepared = false;
-        while (!prepared)
-        {
-            using var attempt = CancellationTokenSource.CreateLinkedTokenSource(runToken);
-            lock (_gate)
-            {
-                _cancelAttempt = attempt.Cancel;
-            }
+    /// <returns>A cold signal that ends once the page is prepared.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> PrepareOne(IDocument document, PageRenderInfo info) =>
+        Signal.Defer(() => Attempt(document, info))
+            .Catch<RxVoid, OperationCanceledException>(_ => WaitForQuiet().SwitchMap(_ => PrepareOne(document, info)));
 
-            try
-            {
-                await document.PreparePageAsync(info.PageIndex, attempt.Token).ConfigureAwait(false);
-                _ = document.PrepareAhead(info, attempt.Token);
-                ReadLinks(document, info.PageIndex);
-                prepared = true;
-            }
-            catch (OperationCanceledException) when (!runToken.IsCancellationRequested)
-            {
-                await WaitForQuietAsync(runToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                lock (_gate)
-                {
-                    _cancelAttempt = null;
-                }
-            }
+    /// <summary>Makes one attempt at preparing a page, which <see cref="Preempt"/> can cut short.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="info">The page to prepare.</param>
+    /// <returns>A cold signal that ends once the page is prepared, or fails with the cancellation when it was cut short.</returns>
+    private IObservable<RxVoid> Attempt(IDocument document, PageRenderInfo info)
+    {
+        var attempt = new CancellationTokenSource();
+        lock (_gate)
+        {
+            _cancelAttempt = attempt.Cancel;
         }
+
+        var token = attempt.Token;
+        return document.PreparePage(info.PageIndex, token)
+            .Do(prepared =>
+            {
+                _ = document.PrepareAhead(info, token);
+                ReadLinks(document, info.PageIndex);
+            })
+            .Finally(() => EndAttempt(attempt));
+    }
+
+    /// <summary>Forgets an attempt that ended.</summary>
+    /// <param name="attempt">The attempt's cancellation.</param>
+    private void EndAttempt(CancellationTokenSource attempt)
+    {
+        lock (_gate)
+        {
+            _cancelAttempt = null;
+        }
+
+        attempt.Dispose();
     }
 
     /// <summary>Waits until nothing on screen is waiting to be drawn.</summary>
-    /// <param name="runToken">Cancels the wait.</param>
-    /// <returns>A task that completes when the screen is served.</returns>
-    private async Task WaitForQuietAsync(CancellationToken runToken)
-    {
-        while (_hasVisibleWork())
-        {
-            await Task.Delay(QuietCheck, _time, runToken).ConfigureAwait(false);
-        }
-    }
+    /// <returns>A cold signal that ends once the screen is served.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> WaitForQuiet() =>
+        Signal.Defer(() => _hasVisibleWork()
+            ? Signal.Every(QuietCheck, _sequencer).Where(_ => !_hasVisibleWork()).Take(1).Select(static _ => RxVoid.Default)
+            : Signal.Return(RxVoid.Default));
 }

@@ -18,7 +18,6 @@ public interface ICertificateDocumentEngine
     /// <param name="path">The document path.</param>
     /// <param name="certificatePath">The certificate file path.</param>
     /// <param name="certificatePassword">The certificate file password; it is not saved to preferences.</param>
-    /// <param name="cancellationToken">Cancels certificate and document reads.</param>
-    /// <returns>The opened document.</returns>
-    ValueTask<IDocument> OpenWithCertificateAsync(string path, string certificatePath, string certificatePassword, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the opened document once; unsubscribing cancels the certificate and document reads.</returns>
+    IObservable<IDocument> LoadWithCertificate(string path, string certificatePath, string certificatePassword);
 }

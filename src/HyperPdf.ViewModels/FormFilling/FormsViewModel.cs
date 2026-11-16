@@ -188,23 +188,12 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocal
     /// </summary>
     /// <param name="field">The button.</param>
     /// <returns>What happened; <see cref="FormActionResult.None"/> when the document cannot run actions or the button has none.</returns>
-    public async Task<FormActionResult> RunButtonAsync(FormField field)
+    /// <returns>A cold signal giving what happened, then completing.</returns>
+    public IObservable<FormActionResult> RunButton(FormField field)
     {
         ArgumentNullException.ThrowIfNull(field);
-        if (Actions is not
-            {
-            } actions)
-        {
-            return FormActionResult.None;
-        }
-
-        var result = await FinishAsync(actions.RunWidgetActionAsync(field.PageIndex, field.Index, new TabFormActionHost(_owner, true), _owner.LifetimeToken)).ConfigureAwait(true);
-        if ((result & (FormActionResult.Changed | FormActionResult.LayersChanged)) != 0)
-        {
-            Recalculate();
-        }
-
-        return result;
+        return Run(actions => actions.RunWidgetAction(field.PageIndex, field.Index, new TabFormActionHost(_owner, true)))
+            .Do(RecalculateWhenChanged);
     }
 
     /// <inheritdoc/>
@@ -213,32 +202,27 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocal
 
     /// <summary>Runs the actions a page does when it opens.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
-    /// <returns>What happened.</returns>
-    public async Task<FormActionResult> RunPageOpenedAsync(int pageIndex) =>
-        Actions is { } actions ? await FinishAsync(actions.RunPageOpenedAsync(pageIndex, new TabFormActionHost(_owner, false), _owner.LifetimeToken)).ConfigureAwait(true) : FormActionResult.None;
+    /// <returns>A cold signal giving what happened, then completing.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<FormActionResult> RunPageOpened(int pageIndex) =>
+        Run(actions => actions.RunPageOpened(pageIndex, new TabFormActionHost(_owner, false)));
 
     /// <summary>Runs the actions a page does when it closes.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
-    /// <returns>What happened.</returns>
-    public async Task<FormActionResult> RunPageClosedAsync(int pageIndex) =>
-        Actions is { } actions ? await FinishAsync(actions.RunPageClosedAsync(pageIndex, new TabFormActionHost(_owner, false), _owner.LifetimeToken)).ConfigureAwait(true) : FormActionResult.None;
+    /// <returns>A cold signal giving what happened, then completing.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<FormActionResult> RunPageClosed(int pageIndex) =>
+        Run(actions => actions.RunPageClosed(pageIndex, new TabFormActionHost(_owner, false)));
 
     /// <summary>
     /// Runs the document's additional actions for the event the viewer reached. Like a page's actions they run on their
     /// own, so they cannot move the reader, open links or ask questions.
     /// </summary>
     /// <param name="documentEvent">The event.</param>
-    /// <returns>What happened.</returns>
-    public async Task<FormActionResult> RunDocumentEventAsync(FormDocumentEvent documentEvent) =>
-        Actions is { } actions
-            ? await FinishAsync(
-        actions.RunDocumentEventAsync(
-            documentEvent,
-            new TabFormActionHost(
-                _owner,
-                false),
-            _owner.LifetimeToken)).ConfigureAwait(true)
-            : FormActionResult.None;
+    /// <returns>A cold signal giving what happened, then completing.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<FormActionResult> RunDocumentEvent(FormDocumentEvent documentEvent) =>
+        Run(actions => actions.RunDocumentEvent(documentEvent, new TabFormActionHost(_owner, false)));
 
     /// <summary>Picks a choice of a combo or list box.</summary>
     /// <param name="field">The field.</param>
@@ -438,6 +422,12 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocal
     /// <returns>The host to run scripts with.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static IFormScriptHost AsHost(FormsScriptHost? host) => host ?? (IFormScriptHost)EmptyFormScriptHost.Instance;
+
+    /// <summary>Ends the actions quietly when the tab or its document closed under them, and fails otherwise.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal giving nothing happened, or failing with the same error.</returns>
+    private static IObservable<FormActionResult> Closed(Exception error) =>
+        error is OperationCanceledException or InvalidOperationException ? Signal.Return(FormActionResult.None) : Signal.Throw<FormActionResult>(error);
 
     /// <summary>Runs one field's calculate script and writes the result to the field.</summary>
     /// <param name="scripts">The field's scripts.</param>
@@ -702,7 +692,7 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocal
     private bool StartButton(FormField field)
     {
         Focused = field;
-        if (Actions is null || RunButtonCommand is not ICommand command || !command.CanExecute(field))
+        if (Actions is null || RunButtonActionCommand is not ICommand command || !command.CanExecute(field))
         {
             return false;
         }
@@ -713,32 +703,42 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocal
 
     /// <summary>Runs a push button's action.</summary>
     /// <param name="field">The button.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A signal giving what happened.</returns>
     [ReactiveCommand]
-    private async Task RunButton(FormField field) => await RunButtonAsync(field).ConfigureAwait(true);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<FormActionResult> RunButtonAction(FormField field) => RunButton(field);
 
-    /// <summary>Waits for a page action to finish, then redraws the pages it changed.</summary>
-    /// <param name="pending">The running actions.</param>
-    /// <returns>What happened; nothing when the tab or its document closed under the actions.</returns>
-    private async Task<FormActionResult> FinishAsync(ValueTask<FormActionResult> pending)
+    /// <summary>Runs one action call of the document's form actions, then redraws the pages it changed.</summary>
+    /// <param name="run">The library call.</param>
+    /// <returns>A cold signal giving what happened; nothing happened when the tab or its document closed under the actions.</returns>
+    private IObservable<FormActionResult> Run(Func<IFormActions, IObservable<FormActionResult>> run) =>
+        Actions is not { } actions
+            ? Signal.Return(FormActionResult.None)
+
+            : run(actions)
+                .TakeUntil(_owner.LifetimeToken)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Do(RedrawWhenChanged)
+                .Catch<FormActionResult, Exception>(Closed);
+
+    /// <summary>Redraws every page when the actions changed fields or layers.</summary>
+    /// <param name="result">What the actions did.</param>
+    private void RedrawWhenChanged(FormActionResult result)
     {
-        FormActionResult result;
-        try
-        {
-            result = await pending.ConfigureAwait(true);
-        }
-        catch (Exception ex) when (ex is OperationCanceledException or InvalidOperationException)
-        {
-            // The tab was closed, or its document was closed under the action; there is nothing left to redraw.
-            return FormActionResult.None;
-        }
-
         if ((result & (FormActionResult.Changed | FormActionResult.LayersChanged)) != 0)
         {
             RefreshAllPages();
         }
+    }
 
-        return result;
+    /// <summary>Recalculates the fields when the actions changed fields or layers.</summary>
+    /// <param name="result">What the actions did.</param>
+    private void RecalculateWhenChanged(FormActionResult result)
+    {
+        if ((result & (FormActionResult.Changed | FormActionResult.LayersChanged)) != 0)
+        {
+            Recalculate();
+        }
     }
 
     /// <summary>Queues the close actions of the page that was shown and the open actions of the page that is shown now.</summary>
@@ -771,14 +771,21 @@ public sealed partial class FormsViewModel : ReactiveObject, IDisposable, ILocal
 
     /// <summary>Runs the actions of the pages that turned, in the order they turned, until none wait.</summary>
     /// <param name="pageIndex">The zero based page index that started the run; it is already queued.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once no turn waits.</returns>
     [ReactiveCommand]
-    private async Task PageTurned(int pageIndex)
+    private IObservable<RxVoid> PageTurned(int pageIndex)
     {
         _ = pageIndex;
+        return LazySequence.Concat(Turns()).Count().Select(static _ => RxVoid.Default);
+    }
+
+    /// <summary>Makes the run of each waiting turn, one at a time as the caller moves along, so turns queued meanwhile are run too.</summary>
+    /// <returns>A cold signal per turn.</returns>
+    private IEnumerable<IObservable<FormActionResult>> Turns()
+    {
         while (_pendingTurns.TryDequeue(out var turn))
         {
-            _ = turn.Opened ? await RunPageOpenedAsync(turn.Page).ConfigureAwait(true) : await RunPageClosedAsync(turn.Page).ConfigureAwait(true);
+            yield return turn.Opened ? RunPageOpened(turn.Page) : RunPageClosed(turn.Page);
         }
     }
 

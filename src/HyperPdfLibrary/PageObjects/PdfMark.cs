@@ -18,6 +18,9 @@ public sealed record PdfMark(PdfName Tag, PdfDictionary? Properties, PdfName Pro
     /// <summary>1 once scrubbed.</summary>
     private int _scrubbed;
 
+    /// <summary>1 while the sequence is written as an artifact.</summary>
+    private int _artifact;
+
     /// <summary>Gets the value of <see cref="MarkedContentId"/> when the property list has no /MCID.</summary>
     public static int NoMarkedContentId => -1;
 
@@ -27,10 +30,18 @@ public sealed record PdfMark(PdfName Tag, PdfDictionary? Properties, PdfName Pro
     /// <summary>Gets a value indicating whether the sequence's properties carry text that redaction removed from under it (/ActualText, /Alt).</summary>
     public bool IsScrubbed => Volatile.Read(ref _scrubbed) != 0;
 
+    /// <summary>Gets a value indicating whether the regenerated content writes the sequence as an artifact, which leaves its structure link out.</summary>
+    internal bool IsArtifact => Volatile.Read(ref _artifact) != 0;
+
     /// <summary>Gets the bytes of the <c>BMC</c> or <c>BDC</c> operator that opens the sequence.</summary>
     internal ByteRange BeginSource { get; init; }
 
     /// <summary>Makes the regenerated content leave the replacement text (/ActualText and /Alt) out of the sequence's properties.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Scrub() => Volatile.Write(ref _scrubbed, 1);
+
+    /// <summary>Makes the regenerated content write the sequence as an artifact, or as it was.</summary>
+    /// <param name="on">Whether to write it as an artifact.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void SetArtifact(bool on) => Volatile.Write(ref _artifact, on ? 1 : 0);
 }

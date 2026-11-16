@@ -20,7 +20,7 @@ public sealed record PictureDescriptionSetup(
     string ModelDirectory,
     Func<long> MissingBytes,
     Func<IFigureDescriber> CreateDescriber,
-    Func<IProgress<double>, CancellationToken, Task> Download) : IDisposable
+    Func<IProgress<double>, IObservable<RxVoid>> Download) : IDisposable
 {
     /// <summary>Gets the default model folder, <c>~/.local/share/hyperpdf/vision</c> on Linux, beside the voices.</summary>
     public static string DefaultModelDirectory { get; } =
@@ -38,7 +38,7 @@ public sealed record PictureDescriptionSetup(
             DefaultModelDirectory,
             () => SpeechModelDownloader.TotalBytes(downloads.Missing(DistilVitModel.Files, DefaultModelDirectory)),
             static () => new DistilVitCaptioner(DefaultModelDirectory),
-            (progress, cancellationToken) => downloads.DownloadAsync(DistilVitModel.Files, DefaultModelDirectory, progress, cancellationToken)) { Downloads = downloads, };
+            progress => downloads.Download(DistilVitModel.Files, DefaultModelDirectory, progress)) { Downloads = downloads, };
     }
 
     /// <inheritdoc/>

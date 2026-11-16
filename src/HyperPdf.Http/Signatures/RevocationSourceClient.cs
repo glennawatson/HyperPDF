@@ -5,9 +5,13 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Formats.Asn1;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using HyperPdf.Core.Reactive;
 using HyperPdf.Core.Signatures.Signing;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 using Refit;
 
 namespace HyperPdf.Http.Signatures;
@@ -95,57 +99,37 @@ public sealed class RevocationSourceClient : ISignatureRevocationSource, IDispos
     }
 
     /// <inheritdoc/>
-    public async ValueTask<byte[]?> GetOcspResponseAsync(byte[] certificate, byte[] issuer, CancellationToken cancellationToken)
+    public IObservable<byte[]?> GetOcspResponse(byte[] certificate, byte[] issuer)
     {
         ArgumentNullException.ThrowIfNull(certificate);
         ArgumentNullException.ThrowIfNull(issuer);
-        using var subject = X509CertificateLoader.LoadCertificate(certificate);
-        using var authority = X509CertificateLoader.LoadCertificate(issuer);
-        var request = BuildOcspRequest(subject, authority);
-        foreach (var address in OcspAddresses(subject))
-        {
-            using var content = new ByteArrayContent(request);
-            content.Headers.ContentType = new("application/ocsp-request");
-            var reply = await SendAsync(address, content, cancellationToken).ConfigureAwait(false);
-            if (reply is not null && IsSuccessful(reply))
-            {
-                return reply;
-            }
-        }
-
-        return null;
+        return Signal.Using(
+            () => X509CertificateLoader.LoadCertificate(certificate),
+            subject => Signal.Using(
+                () => X509CertificateLoader.LoadCertificate(issuer),
+                authority =>
+                {
+                    var request = BuildOcspRequest(subject, authority);
+                    return FirstUsable(OcspAddresses(subject), address => Send(address, request), IsSuccessful);
+                }));
     }
 
     /// <inheritdoc/>
-    public async ValueTask<byte[]?> GetCrlAsync(byte[] certificate, CancellationToken cancellationToken)
+    public IObservable<byte[]?> GetCrl(byte[] certificate)
     {
         ArgumentNullException.ThrowIfNull(certificate);
-        using var subject = X509CertificateLoader.LoadCertificate(certificate);
-        foreach (var address in CrlAddresses(subject))
-        {
-            if (await SendAsync(address, null, cancellationToken).ConfigureAwait(false) is { } list)
-            {
-                return list;
-            }
-        }
-
-        return null;
+        return Signal.Using(
+            () => X509CertificateLoader.LoadCertificate(certificate),
+            subject => FirstUsable(CrlAddresses(subject), address => Send(address, null), static _ => true));
     }
 
     /// <inheritdoc/>
-    public async ValueTask<byte[]?> GetIssuerAsync(byte[] certificate, CancellationToken cancellationToken)
+    public IObservable<byte[]?> GetIssuer(byte[] certificate)
     {
         ArgumentNullException.ThrowIfNull(certificate);
-        using var subject = X509CertificateLoader.LoadCertificate(certificate);
-        foreach (var address in IssuerAddresses(subject))
-        {
-            if (await SendAsync(address, null, cancellationToken).ConfigureAwait(false) is { } issuer && IsCertificate(issuer))
-            {
-                return issuer;
-            }
-        }
-
-        return null;
+        return Signal.Using(
+            () => X509CertificateLoader.LoadCertificate(certificate),
+            subject => FirstUsable(IssuerAddresses(subject), address => Send(address, null), IsCertificate));
     }
 
     /// <summary>Builds the DER OCSP request for one certificate (RFC 6960, 4.1.1).</summary>
@@ -330,11 +314,41 @@ public sealed class RevocationSourceClient : ISignatureRevocationSource, IDispos
         }
     }
 
+    /// <summary>Asks the addresses one at a time, only asking the next when the one before gave nothing usable.</summary>
+    /// <param name="addresses">The addresses, best first.</param>
+    /// <param name="send">Asks one address.</param>
+    /// <param name="isUsable">Tells whether a reply is what was wanted.</param>
+    /// <returns>A cold signal giving the first usable reply, or <see langword="null"/> when no address gave one, once.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IObservable<byte[]?> FirstUsable(List<Uri> addresses, Func<Uri, IObservable<byte[]?>> send, Func<byte[], bool> isUsable) =>
+        LazySequence.Concat(Requests(addresses, send))
+            .Where(reply => reply is not null && isUsable(reply))
+            .Take(1)
+            .DefaultIfEmpty(null);
+
     /// <summary>Tells whether a failure only means the responder gave no data: it was unreachable, answered badly or timed out.</summary>
     /// <param name="exception">The failure.</param>
     /// <returns><see langword="true"/> when the failure is a gap in the data and not a fault in this program.</returns>
     private static bool IsGap(Exception exception) =>
         exception is HttpRequestException or ApiException or ApiRequestException or TaskCanceledException or TimeoutException;
+
+    /// <summary>Makes the request for each address only when the one before has been used up.</summary>
+    /// <param name="addresses">The addresses, best first.</param>
+    /// <param name="send">Asks one address.</param>
+    /// <returns>The requests, made one at a time as they are asked for.</returns>
+    private static IEnumerable<IObservable<byte[]?>> Requests(List<Uri> addresses, Func<Uri, IObservable<byte[]?>> send)
+    {
+        foreach (var address in addresses)
+        {
+            yield return send(address);
+        }
+    }
+
+    /// <summary>Reads the body of a response, giving no data for a refusal or a reply that is too big.</summary>
+    /// <param name="response">The response.</param>
+    /// <returns>A cold signal giving the body, or <see langword="null"/> when there is none to use, once.</returns>
+    private static IObservable<byte[]?> ReadReply(HttpResponseMessage response) =>
+        response.IsSuccessStatusCode ? Signal.FromAsync(token => ReadLimitedAsync(response, token)) : Signal.Return<byte[]?>(null);
 
     /// <summary>Reads a reply up to the size limit.</summary>
     /// <param name="response">The response.</param>
@@ -369,31 +383,33 @@ public sealed class RevocationSourceClient : ISignatureRevocationSource, IDispos
 
     /// <summary>Sends a request and reads the reply, treating any network or server failure as no data.</summary>
     /// <param name="address">The address.</param>
-    /// <param name="content">The body of an OCSP request, or <see langword="null"/> for a plain fetch.</param>
-    /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The reply, or <see langword="null"/> when none could be had.</returns>
-    private async Task<byte[]?> SendAsync(Uri address, HttpContent? content, CancellationToken cancellationToken)
-    {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+    /// <param name="ocspRequest">The DER OCSP request, or <see langword="null"/> for a plain fetch.</param>
+    /// <returns>A cold signal giving the reply, or <see langword="null"/> when none could be had, once; unsubscribing cancels the request.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<byte[]?> Send(Uri address, byte[]? ocspRequest) =>
+        Signal.Defer(() =>
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
-        // The client is made once for a host, even when requests for it start together.
-        var api = _clients.GetOrAdd(address.GetLeftPart(UriPartial.Authority), static (authority, owner) => new(() => owner.CreateClient(authority)), this).Value;
-        var path = address.PathAndQuery.TrimStart('/');
-        try
-        {
-            using var response = content is null
-                ? await api.FetchAsync(path, cancellationToken).ConfigureAwait(false)
-                : await api.RequestOcspAsync(path, content, cancellationToken).ConfigureAwait(false);
-            return response.IsSuccessStatusCode ? await ReadLimitedAsync(response, cancellationToken).ConfigureAwait(false) : null;
-        }
-        catch (Exception ex) when (IsGap(ex))
-        {
+            // The client is made once for a host, even when requests for it start together.
+            var api = _clients.GetOrAdd(address.GetLeftPart(UriPartial.Authority), static (authority, owner) => new(() => owner.CreateClient(authority)), this).Value;
+            var path = address.PathAndQuery.TrimStart('/');
+            var call = ocspRequest is null
+                ? api.Fetch(path)
+                : Signal.Using(
+                    () => new ByteArrayContent(ocspRequest),
+                    content =>
+                    {
+                        content.Headers.ContentType = new("application/ocsp-request");
+                        return api.RequestOcsp(path, content);
+                    });
+
             // A responder that cannot be reached, or that never answers, leaves a gap in the validation data, which the
-            // caller reports; it is not an error here. A caller that cancelled still sees the cancellation.
-            cancellationToken.ThrowIfCancellationRequested();
-            return null;
-        }
-    }
+            // caller reports; it is not an error here.
+            return call
+                .SwitchMap(response => Signal.Using(() => response, ReadReply))
+                .Catch<byte[]?, Exception>(static error => IsGap(error) ? Signal.Return<byte[]?>(null) : Signal.Throw<byte[]?>(error));
+        });
 
     /// <summary>Creates the client of a host.</summary>
     /// <param name="authority">The scheme and host.</param>

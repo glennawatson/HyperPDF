@@ -4,6 +4,8 @@
 
 using System.Diagnostics;
 using HyperPdf.Http.GitHub;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Http;
 
@@ -64,23 +66,14 @@ public sealed class UpdateChecker
 
     /// <summary>Gets the latest release when it is newer than <paramref name="current"/>.</summary>
     /// <param name="current">The running version.</param>
-    /// <param name="cancellationToken">Cancels the check.</param>
-    /// <returns>The newer release, or <see langword="null"/>.</returns>
-    public async Task<GitHubRelease?> GetNewerReleaseAsync(Version current, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving the newer release once, or <see langword="null"/> when there is none or GitHub could not be reached; unsubscribing cancels the check.</returns>
+    public IObservable<GitHubRelease?> GetNewerRelease(Version current)
     {
         ArgumentNullException.ThrowIfNull(current);
-        try
-        {
-            var release = await _api.GetLatestReleaseAsync(_owner, _repository, cancellationToken).ConfigureAwait(false);
-            return !release.IsPrerelease && TryParseTag(release.TagName, out var latest) && latest > current ? release : null;
-        }
-        catch (HttpRequestException)
-        {
-            return null;
-        }
-        catch (Refit.ApiException)
-        {
-            return null;
-        }
+        return _api.GetLatestRelease(_owner, _repository)
+            .Select(release => !release.IsPrerelease && TryParseTag(release.TagName, out var latest) && latest > current ? release : null)
+            .Catch<GitHubRelease?, Exception>(static error => error is HttpRequestException or Refit.ApiException
+                ? Signal.Return<GitHubRelease?>(null)
+                : Signal.Throw<GitHubRelease?>(error));
     }
 }

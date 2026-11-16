@@ -106,26 +106,25 @@ public sealed partial class TabCopyAction<TRequest> : ReactiveObject, IDisposabl
     }
 
     /// <summary>Shows the command's window for the tab's document.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the window is closed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canRun))]
-    private async Task RunAsync()
-    {
-        if (_spec.CreateRequest(_owner) is not { } request)
-        {
-            return;
-        }
+    private IObservable<RxVoid> Run() =>
+        _spec.CreateRequest(_owner) is not { } request
+            ? Signal.Return(RxVoid.Default)
+            : Signal.Using(
+                () => Open(request),
+                _ => Interaction.Handle(request).ToSignal().Select(static _ => RxVoid.Default));
 
-        using (request)
-        {
-            Volatile.Write(ref _open, request);
-            try
-            {
-                _ = await Interaction.Handle(request).ToTask().ConfigureAwait(true);
-            }
-            finally
-            {
-                Volatile.Write(ref _open, null);
-            }
-        }
+    /// <summary>Remembers the window that is open, and forgets it once it is closed.</summary>
+    /// <param name="request">The window's settings, which are released with the window.</param>
+    /// <returns>What ends the window's life when disposed.</returns>
+    private IDisposable Open(TRequest request)
+    {
+        Volatile.Write(ref _open, request);
+        return Scope.Create(this, static action => action.Close());
     }
+
+    /// <summary>Forgets the window that was open and releases its settings.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void Close() => Interlocked.Exchange(ref _open, null)?.Dispose();
 }

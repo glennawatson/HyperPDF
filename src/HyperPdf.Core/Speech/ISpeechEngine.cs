@@ -20,7 +20,6 @@ public interface ISpeechEngine : IDisposable
     /// <param name="text">The text, normally one sentence.</param>
     /// <param name="voiceId">The voice's id.</param>
     /// <param name="speed">The speed, 1 for normal.</param>
-    /// <param name="cancellationToken">Cancels the work.</param>
-    /// <returns>The audio.</returns>
-    Task<SpeechAudio> SynthesizeAsync(string text, string voiceId, float speed, CancellationToken cancellationToken);
+    /// <returns>A cold signal giving the audio once; unsubscribing cancels the work.</returns>
+    IObservable<SpeechAudio> Synthesize(string text, string voiceId, float speed);
 }

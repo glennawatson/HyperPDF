@@ -83,7 +83,7 @@ public sealed class TagsAndFolderCultureTests
             using var model = new FolderSearchViewModel(test.Services, static (_, _, _) => { });
             model.Folder = "An unselected document folder";
             model.Query = "Words supplied by the reader";
-            await model.SearchAsync();
+            _ = await model.Search().ToTask();
             var results = model.Results;
             InterfaceCulture.Apply(UiText, CultureInfo.GetCultureInfo("fr"));
             LocalisationRefresh.Refresh(model);

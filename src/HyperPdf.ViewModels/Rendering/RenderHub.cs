@@ -54,7 +54,7 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
         Cache = new(cacheBytes);
         _surfaceFactory = head.CreateSurfaceFactory(RequestSoftwareRecovery);
         Scheduler = new(_surfaceFactory, RenderScheduler.DefaultWorkers);
-        Preparer = new(HasVisibleWork, UnderPressure, NeighbourPagePreparer.DefaultDebounce, TimeProvider.System);
+        Preparer = new(HasVisibleWork, UnderPressure, NeighbourPagePreparer.DefaultDebounce, TaskPoolSequencer.Default);
         TilesArrived = this.WhenChanged(static hub => hub.TileVersion).Skip(1).AsSignal();
         PreviewsArrived = this.WhenChanged(static hub => hub.PreviewVersion).Skip(1).AsSignal();
 

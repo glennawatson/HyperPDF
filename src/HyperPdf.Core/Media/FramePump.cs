@@ -61,29 +61,6 @@ public sealed class FramePump(FrameSize size)
         return true;
     }
 
-    /// <summary>Reads pictures from a stream until it ends or reading is cancelled.</summary>
-    /// <param name="source">The stream of raw pictures.</param>
-    /// <param name="shown">Called after each picture is shown.</param>
-    /// <param name="cancellationToken">Stops reading.</param>
-    /// <returns>A task that completes when the stream ends.</returns>
-    public async Task RunAsync(Stream source, Action shown, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(shown);
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            var read = await source.ReadAtLeastAsync(_back.AsMemory(), _back.Length, false, cancellationToken).ConfigureAwait(false);
-            if (read < _back.Length)
-            {
-                // The video ended in the middle of a picture or after the last one.
-                return;
-            }
-
-            Swap();
-            shown();
-        }
-    }
-
     /// <summary>Makes the picture that was written the one views copy.</summary>
     private void Swap()
     {

@@ -15,4 +15,16 @@ internal enum ShapingKind
 
     /// <summary>Consonants, virama and vowel signs form syllables that are reordered, as in Devanagari and its relatives.</summary>
     Indic = 2,
+
+    /// <summary>Khmer: a base with subscript consonants, signs and vowel signs, where the subscript ro and the vowel signs written before the base move to the front.</summary>
+    Khmer = 3,
+
+    /// <summary>Myanmar: a base with a kinzi, stacked consonants, medials and vowel signs, put in a fixed order before the font's features run.</summary>
+    Myanmar = 4,
+
+    /// <summary>Scripts that follow the Universal Shaping Engine model, such as Sinhala and Tibetan, which have no letters that join.</summary>
+    Universal = 5,
+
+    /// <summary>Scripts that follow the Universal Shaping Engine model and also join their letters, as Mongolian does.</summary>
+    UniversalJoining = 6,
 }

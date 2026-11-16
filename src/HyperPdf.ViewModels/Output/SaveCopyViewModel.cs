@@ -6,7 +6,6 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
-using HyperPdf.Core.Platform;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -126,10 +125,10 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
         _lifetime.Add(pdf20);
         _lifetime.Add(flatten);
         _lifetime.Add(Scope.Create(Cancel));
-        _lifetime.Add(optimize.SaveInteraction.RegisterHandler(ForwardSaveAsync));
-        _lifetime.Add(archive.SaveInteraction.RegisterHandler(ForwardSaveAsync));
-        _lifetime.Add(pdf20.SaveInteraction.RegisterHandler(ForwardSaveAsync));
-        _lifetime.Add(flatten.SaveInteraction.RegisterHandler(ForwardSaveAsync));
+        _lifetime.Add(optimize.SaveInteraction.RegisterHandler(ForwardSave));
+        _lifetime.Add(archive.SaveInteraction.RegisterHandler(ForwardSave));
+        _lifetime.Add(pdf20.SaveInteraction.RegisterHandler(ForwardSave));
+        _lifetime.Add(flatten.SaveInteraction.RegisterHandler(ForwardSave));
         WatchSubViewModels();
     }
 
@@ -286,23 +285,20 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
         return string.Equals(Path.GetFullPath(first), Path.GetFullPath(second), comparison);
     }
 
-    /// <summary>Deletes a temporary file, ignoring a failure because the file is only a leftover.</summary>
-    /// <param name="path">The file.</param>
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-            // A leftover temporary file does no harm and a later save replaces it.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Same as above.
-        }
-    }
+    /// <summary>Describes what the editor wrote.</summary>
+    /// <param name="serialized">Whether the editor wrote a complete snapshot.</param>
+    /// <param name="report">What the save found.</param>
+    /// <returns>The save outcome.</returns>
+    private static DocumentSaveOutcome Serialized(bool serialized, DocumentSaveReport report) =>
+        serialized
+            ? new(true, null, report.ClaimRemoved)
+            {
+                ClaimRepaired = report.ClaimRepaired,
+                TrapNetworkWarnings = report.TrapNetworkWarnings,
+                RequirementWarnings = report.RequirementWarnings,
+                RemovedRequirements = report.RemovedRequirements,
+            }
+            : new(false, report.Failure ?? UiText.Get("The document could not be written."));
 
     /// <summary>Builds the plain-words summary for a finished standard PDF copy.</summary>
     /// <param name="path">Where the copy was saved.</param>
@@ -316,9 +312,14 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
 
     /// <summary>Forwards a sub-viewmodel's save picker request to this window's <see cref="SaveInteraction"/>.</summary>
     /// <param name="context">The interaction context holding the suggested file name.</param>
-    /// <returns>A task.</returns>
-    private async Task ForwardSaveAsync(IInteractionContext<string, string?> context) =>
-        context.SetOutput(await SaveInteraction.Handle(context.Input).ToTask().ConfigureAwait(true));
+    /// <returns>A signal that ends once the answer is passed on.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ForwardSave(IInteractionContext<string, string?> context) =>
+        SaveInteraction.Handle(context.Input).ToSignal().Select(path =>
+        {
+            context.SetOutput(path);
+            return RxVoid.Default;
+        });
 
     /// <summary>Subscribes to the format choice and each sub-viewmodel so the window's status and progress stay in sync.</summary>
     private void WatchSubViewModels()
@@ -429,34 +430,37 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     private void Close() => Cancel();
 
     /// <summary>Asks where to save, then writes the copy in the chosen format.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the copy is saved, refused or stopped, or the choice was given up.</returns>
     [ReactiveCommand(CanExecute = nameof(_canSave))]
-    private Task SaveAsync() => Format switch
+    private IObservable<RxVoid> Save() => Format switch
     {
-        SaveCopyFormat.Optimized => Optimize.SaveCommand.Execute().ToTask(),
-        SaveCopyFormat.Archive => Archive.SaveCommand.Execute().ToTask(),
-        SaveCopyFormat.Pdf20 => Pdf20.SaveCommand.Execute().ToTask(),
-        SaveCopyFormat.Flattened => Flatten.SaveCommand.Execute().ToTask(),
-        _ => SaveStandardAsync(),
+        SaveCopyFormat.Optimized => Optimize.SaveCommand.Execute(),
+        SaveCopyFormat.Archive => Archive.SaveCommand.Execute(),
+        SaveCopyFormat.Pdf20 => Pdf20.SaveCommand.Execute(),
+        SaveCopyFormat.Flattened => Flatten.SaveCommand.Execute(),
+        _ => SaveStandard(),
     };
 
     /// <summary>Asks where to save and writes a standard PDF copy.</summary>
-    /// <returns>A task.</returns>
-    private async Task SaveStandardAsync()
+    /// <returns>A cold signal that ends once the copy is saved, refused or stopped, or the choice was given up.</returns>
+    private IObservable<RxVoid> SaveStandard()
     {
         _standardError = LocalizedMessage.Literal(null);
         SyncState();
-        var path = await SaveInteraction.Handle(SuggestedName).ToTask().ConfigureAwait(true);
-        if (string.IsNullOrEmpty(path))
-        {
-            return;
-        }
+        return SaveInteraction.Handle(SuggestedName).ToSignal()
+            .SwitchMap(path => string.IsNullOrEmpty(path) ? Signal.Return(RxVoid.Default) : CopyStandard(path));
+    }
 
+    /// <summary>Writes the standard copy to the chosen place.</summary>
+    /// <param name="path">Where to save.</param>
+    /// <returns>A cold signal that ends once the copy is saved, refused or stopped.</returns>
+    private IObservable<RxVoid> CopyStandard(string path)
+    {
         if (IsSameFile(path, _sourcePath))
         {
             _standardError = LocalizedMessage.Get(UiText, "That would replace the file you have open. Choose a different name for the copy.");
             SyncState();
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var run = new CancellationDisposable();
@@ -466,129 +470,106 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
         _standardDescription = null;
         _standardStatus = LocalizedMessage.Get(UiText, "Saving a standard PDF copy.");
         SyncState();
-        try
-        {
-            var outcome = await WriteStandardAsync(path, run.Token).ConfigureAwait(true);
-            FinishStandardRun(path, outcome);
-        }
-        catch (OperationCanceledException)
+        return WriteStandard(path, run.Token)
+            .Select(outcome => FinishStandard(path, outcome))
+            .Catch<RxVoid, Exception>(StandardFailed)
+            .Finally(() => EndStandard(run));
+    }
+
+    /// <summary>Says why the standard copy was not saved, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> StandardFailed(Exception error)
+    {
+        if (error is OperationCanceledException)
         {
             _standardStatus = LocalizedMessage.Get(UiText, "Cancelled. No file was saved.");
             _standardProgress = 0;
+            return Signal.Return(RxVoid.Default);
         }
-        catch (Exception ex) when (CopyFailure.IsExpected(ex))
-        {
-            _standardError = LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(ex));
-            _standardStatus = LocalizedMessage.Get(UiText, "The copy was not saved.");
-            _standardProgress = 0;
-        }
-        finally
-        {
-            if (ReferenceEquals(Run, run))
-            {
-                Run = null;
-            }
 
-            _standardRunning = false;
-            SyncState();
+        if (!CopyFailure.IsExpected(error))
+        {
+            return Signal.Throw<RxVoid>(error);
         }
+
+        _standardError = LocalizedMessage.Format(UiText, "Could not save the copy: {0}", CopyFailure.Message(error));
+        _standardStatus = LocalizedMessage.Get(UiText, "The copy was not saved.");
+        _standardProgress = 0;
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Puts the controls back once the standard copy run is over.</summary>
+    /// <param name="run">The run that ended.</param>
+    private void EndStandard(CancellationDisposable run)
+    {
+        if (ReferenceEquals(Run, run))
+        {
+            Run = null;
+        }
+
+        _standardRunning = false;
+        SyncState();
     }
 
     /// <summary>Writes the standard copy to a temporary file and moves it into place.</summary>
     /// <param name="path">Where the copy goes.</param>
     /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>The save outcome.</returns>
-    private async Task<DocumentSaveOutcome> WriteStandardAsync(string path, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving the save outcome.</returns>
+    private IObservable<DocumentSaveOutcome> WriteStandard(string path, CancellationToken cancellationToken)
     {
         if (_editor is not { } editor)
         {
-            await CopyRawFileAsync(path, cancellationToken).ConfigureAwait(true);
-            return new(true, null);
+            return CopyFile.WriteBlocking(path, TemporarySuffix, CopyRawFile, static copied => copied, cancellationToken)
+                .Select(static _ => new DocumentSaveOutcome(true, null));
         }
 
         var wasDirty = _source?.HasUnsavedChanges ?? editor.HasUnsavedChanges;
-        var temporary = path + TemporarySuffix;
         var report = new DocumentSaveReport();
-        try
-        {
-            var options = new FileStreamOptions { Mode = FileMode.Create, Access = FileAccess.Write, Share = FileShare.None, Options = FileOptions.Asynchronous };
-            bool serialized;
-            await using (var stream = new FileStream(temporary, options))
-            {
-                serialized = await Task.Run(() => editor.SaveAsync(stream, report, cancellationToken).AsTask(), cancellationToken).ConfigureAwait(true);
-            }
+        return CopyFile.WriteSignal(path, TemporarySuffix, stream => editor.SaveToStream(stream, report), static serialized => serialized).ThrowWhenCancelled(cancellationToken)
+            .Select(serialized => Serialized(serialized, report))
+            .Do(_ => KeepDirty(wasDirty))
+            .Finally(() => KeepDirty(wasDirty));
+    }
 
-            if (!serialized)
-            {
-                TryDelete(temporary);
-                return new(false, report.Failure ?? UiText.Get("The document could not be written."));
-            }
-
-            FileReplacement.Replace(temporary, path);
-            return new(true, null, report.ClaimRemoved)
-            {
-                ClaimRepaired = report.ClaimRepaired,
-                TrapNetworkWarnings = report.TrapNetworkWarnings,
-                RequirementWarnings = report.RequirementWarnings,
-                RemovedRequirements = report.RemovedRequirements,
-            };
-        }
-        catch
+    /// <summary>A copy does not publish the document's edits, so they stay unsaved.</summary>
+    /// <param name="wasDirty">Whether the document had unsaved edits before the copy.</param>
+    private void KeepDirty(bool wasDirty)
+    {
+        if (wasDirty)
         {
-            TryDelete(temporary);
-            throw;
-        }
-        finally
-        {
-            if (wasDirty)
-            {
-                _source?.MarkSaveUnpublished();
-            }
+            _source?.MarkSaveUnpublished();
         }
     }
 
-    /// <summary>Copies the source file to a temporary file and moves it into place when no editor is available.</summary>
-    /// <param name="path">Where the copy goes.</param>
+    /// <summary>Copies the source file into the temporary file when no editor is available; the copy runs on the pool.</summary>
+    /// <param name="output">The temporary file.</param>
     /// <param name="cancellationToken">Stops the copy.</param>
-    /// <returns>A task.</returns>
-    private async Task CopyRawFileAsync(string path, CancellationToken cancellationToken)
+    /// <returns><see langword="true"/> once copied.</returns>
+    private bool CopyRawFile(Stream output, CancellationToken cancellationToken)
     {
-        var temporary = path + TemporarySuffix;
-        try
-        {
-            var readOptions = new FileStreamOptions { Mode = FileMode.Open, Access = FileAccess.Read, Share = FileShare.ReadWrite, Options = FileOptions.Asynchronous };
-            var writeOptions = new FileStreamOptions { Mode = FileMode.Create, Access = FileAccess.Write, Share = FileShare.None, Options = FileOptions.Asynchronous };
-            await using (var input = new FileStream(_sourcePath, readOptions))
-            await using (var output = new FileStream(temporary, writeOptions))
-            {
-                await input.CopyToAsync(output, cancellationToken).ConfigureAwait(true);
-            }
-
-            FileReplacement.Replace(temporary, path);
-        }
-        catch
-        {
-            TryDelete(temporary);
-            throw;
-        }
+        using var input = new FileStream(_sourcePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        return CopyFile.CopyChunks(input, output, cancellationToken);
     }
 
     /// <summary>Applies the outcome of a finished standard copy run.</summary>
     /// <param name="path">Where the copy was to be saved.</param>
     /// <param name="outcome">The outcome.</param>
-    private void FinishStandardRun(string path, in DocumentSaveOutcome outcome)
+    /// <returns>The completion value.</returns>
+    private RxVoid FinishStandard(string path, in DocumentSaveOutcome outcome)
     {
         if (!outcome.Saved)
         {
             _standardError = outcome.Error is { } error ? LocalizedMessage.Format(UiText, "Could not save the copy: {0}", error) : LocalizedMessage.Get(UiText, "Could not save the copy.");
             _standardStatus = LocalizedMessage.Get(UiText, "The copy was not saved.");
             _standardProgress = 0;
-            return;
+            return RxVoid.Default;
         }
 
         _standardSavedPath = path;
         _standardProgress = FullBar;
         _standardStatus = LocalizedMessage.Get(UiText, "Done. The copy is saved.");
         _standardDescription = (path, outcome);
+        return RxVoid.Default;
     }
 }

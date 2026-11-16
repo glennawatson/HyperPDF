@@ -4,13 +4,18 @@
 
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Tests.Fakes;
-using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Tests.Documents;
 
 /// <summary>Tests for <see cref="DocumentPool"/>.</summary>
 public sealed class DocumentPoolTests
 {
+    /// <summary>The path of the document a test opens late.</summary>
+    private const string LatePath = "late.pdf";
+
     /// <summary>The longest a test waits for the clock to move.</summary>
     private static readonly TimeSpan ClockLimit = TimeSpan.FromSeconds(30);
 
@@ -63,50 +68,50 @@ public sealed class DocumentPoolTests
         await Assert.That(engine.Opened.Count).IsEqualTo(expectedOpens);
     }
 
-    /// <summary>A cached async acquire completes inline without managed allocations.</summary>
+    /// <summary>A cached load gives its document at once, without waiting for the engine.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task WarmAsyncAcquireCompletesWithoutAllocating()
+    public async Task WarmLoadCompletesInline()
     {
         using var pool = new DocumentPool(new FakeEngine());
         var source = pool.Create("warm.pdf", null);
-        var first = await source.AcquireAsync(CancellationToken.None);
-        _ = await source.AcquireAsync(CancellationToken.None);
-        const int repetitions = 1000;
-        var completed = true;
-        var attempts = new AllocationAttempts();
-        while (attempts.Next())
-        {
-            for (var index = 0; index < repetitions; index++)
-            {
-                var opening = source.AcquireAsync(CancellationToken.None);
-                completed &= opening.IsCompletedSuccessfully;
-                _ = await opening;
-            }
+        var first = await source.Load(ImmediateSequencer.Instance).ToTask();
 
-            attempts.Stop();
-        }
+        var warm = source.Load(ImmediateSequencer.Instance).ToTask();
 
-        var allocated = attempts.Smallest;
-
-        await Assert.That(completed).IsTrue();
-        await Assert.That(allocated).IsEqualTo(0);
+        await Assert.That(warm.IsCompletedSuccessfully).IsTrue();
+        await Assert.That(await warm).IsSameReferenceAs(first);
         await Assert.That(first).IsSameReferenceAs(source.Acquire());
     }
 
-    /// <summary>A cancelled pending open cannot publish its late document.</summary>
+    /// <summary>Unsubscribing from a pending load cancels the engine's open and publishes nothing.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task CancelledAsyncAcquireDisposesLateOpen()
+    public async Task CancelledLoadPublishesNothing()
     {
         var engine = new DelayedEngine();
         using var pool = new DocumentPool(engine);
-        var source = pool.Create("late.pdf", null);
+        var source = pool.Create(LatePath, null);
         using var cancellation = new CancellationTokenSource();
-        var opening = source.AcquireAsync(cancellation.Token);
+        var opening = source.Load(ImmediateSequencer.Instance).ToTask(cancellation.Token);
         await Assert.That(opening.IsCompleted).IsFalse();
         await cancellation.CancelAsync();
-        var late = new FakeDocument("late.pdf", FakeEngine.A4);
+
+        await Assert.That(async () => await opening).Throws<OperationCanceledException>();
+        await Assert.That(source.IsOpen).IsFalse();
+    }
+
+    /// <summary>A document that finishes opening after its source was closed is disposed, not published.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LoadFinishingAfterCloseDisposesTheDocument()
+    {
+        var engine = new DelayedEngine();
+        using var pool = new DocumentPool(engine);
+        var source = pool.Create(LatePath, null);
+        var opening = source.Load(ImmediateSequencer.Instance).ToTask();
+        source.Close();
+        var late = new FakeDocument(LatePath, FakeEngine.A4);
         engine.Complete(late);
 
         await Assert.That(async () => await opening).Throws<OperationCanceledException>();
@@ -125,7 +130,7 @@ public sealed class DocumentPoolTests
         var source = pool.Create("encrypted.pdf", null);
 
         source.UseCertificate("recipient.pfx", "secret");
-        _ = await source.AcquireAsync(CancellationToken.None);
+        _ = await source.Load(ImmediateSequencer.Instance).ToTask();
         source.Reload();
         _ = source.Acquire();
 
@@ -167,7 +172,8 @@ public sealed class DocumentPoolTests
         public IDocument Open(string path, string? password) => throw new NotSupportedException();
 
         /// <inheritdoc/>
-        public ValueTask<IDocument> OpenAsync(string path, string? password, CancellationToken cancellationToken) => new(_pending.Task);
+        public IObservable<IDocument> Load(string path, string? password) =>
+            Signal.FromAsync(_pending.Task.WaitAsync);
 
         /// <summary>Completes the pending open.</summary>
         /// <param name="document">The opened document.</param>
@@ -203,9 +209,6 @@ public sealed class DocumentPoolTests
         }
 
         /// <inheritdoc/>
-        public ValueTask<IDocument> OpenAsync(string path, string? password, CancellationToken cancellationToken) => new(Open(path, password));
-
-        /// <inheritdoc/>
         public IDocument OpenWithCertificate(string path, string certificatePath, string certificatePassword)
         {
             CertificateOpens++;
@@ -215,7 +218,7 @@ public sealed class DocumentPoolTests
         }
 
         /// <inheritdoc/>
-        public ValueTask<IDocument> OpenWithCertificateAsync(string path, string certificatePath, string certificatePassword, CancellationToken cancellationToken) =>
-            new(OpenWithCertificate(path, certificatePath, certificatePassword));
+        public IObservable<IDocument> LoadWithCertificate(string path, string certificatePath, string certificatePassword) =>
+            Signal.Defer(() => Signal.Return(OpenWithCertificate(path, certificatePath, certificatePassword)));
     }
 }

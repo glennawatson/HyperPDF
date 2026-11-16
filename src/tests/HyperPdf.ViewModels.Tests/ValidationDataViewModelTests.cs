@@ -77,7 +77,7 @@ public sealed class ValidationDataViewModelTests
         using (Assert.Multiple())
         {
             await Assert.That(suggested).IsEqualTo("contract-validation.pdf");
-            await Assert.That(fake.Calls).IsEquivalentTo([nameof(IDocumentSigner.AddValidationDataAsync)]);
+            await Assert.That(fake.Calls).IsEquivalentTo([nameof(IDocumentSigner.AddValidationData)]);
             await Assert.That(fake.IncludedVri).IsEqualTo(includeVri);
             await Assert.That(File.Exists(destination)).IsTrue();
             await Assert.That(File.Exists(destination + TemporarySuffix)).IsFalse();
@@ -105,7 +105,7 @@ public sealed class ValidationDataViewModelTests
 
         using (Assert.Multiple())
         {
-            await Assert.That(fake.Calls).IsEquivalentTo([nameof(IDocumentSigner.AddDocumentTimestampAsync)]);
+            await Assert.That(fake.Calls).IsEquivalentTo([nameof(IDocumentSigner.AddDocumentTimestamp)]);
             await Assert.That(File.Exists(destination)).IsTrue();
             await Assert.That(vm.ResultText).Contains("Saved as stamped.pdf.");
         }
@@ -234,7 +234,7 @@ public sealed class ValidationDataViewModelTests
         _ = await stamping.SaveCommand.Execute().ToTask();
         main.Open([destination]);
         var stamped = main.Tabs.First(t => t.FilePath == destination);
-        await stamped.EnsureLoadedAsync(CancellationToken.None);
+        _ = await stamped.EnsureLoaded().ToTask();
         stamped.Signatures.Refresh();
 
         using (Assert.Multiple())
@@ -278,6 +278,6 @@ public sealed class ValidationDataViewModelTests
         public int EstimatedTokenSize => 0;
 
         /// <inheritdoc/>
-        public ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> hash, SigningDigest digest, CancellationToken cancellationToken) => throw new NotSupportedException("The fake signer never asks.");
+        public IObservable<byte[]> Timestamp(ReadOnlyMemory<byte> hash, SigningDigest digest) => throw new NotSupportedException("The fake signer never asks.");
     }
 }

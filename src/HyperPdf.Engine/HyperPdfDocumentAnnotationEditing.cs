@@ -94,6 +94,22 @@ internal static class HyperPdfDocumentAnnotationEditing
         }
     }
 
+    /// <summary>Adds a link over an area of a page.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="area">The area the link covers, in page space.</param>
+    /// <param name="target">An address, or <c>page:</c> and a page number.</param>
+    /// <returns>The new annotation's index, or -1.</returns>
+    internal static int AddLink(HyperPdfDocument self, int pageIndex, PageRect area, string target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        lock (self.EditGate)
+        {
+            using var access = HyperPdfNavigation.EnterPageWrite(self);
+            return HyperPdfEditing.Added(self, pageIndex, HyperPdfAnnotationLinks.AddLink(HyperPdfAnnotationStateAccess.GetAnnotations(self), pageIndex, area, target));
+        }
+    }
+
     /// <summary>Adds a caret marking where text should be inserted.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="pageIndex">The zero based page index.</param>

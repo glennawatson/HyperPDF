@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Accessibility;
 using HyperPdf.Core.Reading;
 using HyperPdf.Viewer.Chrome;
@@ -32,6 +33,9 @@ internal static class ViewerNodes
     /// <summary>The number of the first form field, link or note of the page shown. They follow the page's own order.</summary>
     internal const int FirstPageItemId = 3_000_000;
 
+    /// <summary>How many numbers each page's form fields, links and notes have between them, so the numbers of one page never meet those of another.</summary>
+    internal const int PageItemStride = 1000;
+
     /// <summary>The most parts the spoken description of a field, a link or a note has.</summary>
     private const int PartCount = 5;
 
@@ -40,6 +44,25 @@ internal static class ViewerNodes
 
     /// <summary>The actions of a control that can be pressed.</summary>
     private static readonly string[] ClickActions = [AccessibleActions.Click];
+
+    /// <summary>Gets the number of a form field, link or note.</summary>
+    /// <param name="page">The page it is on.</param>
+    /// <param name="index">Its place among the page's items.</param>
+    /// <returns>The number of its element.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int PageItemId(int page, int index) => FirstPageItemId + (page * PageItemStride) + (index % PageItemStride);
+
+    /// <summary>Gets the page a form field, link or note is on.</summary>
+    /// <param name="id">The number of its element.</param>
+    /// <returns>The page.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int PageOfItem(int id) => (id - FirstPageItemId) / PageItemStride;
+
+    /// <summary>Gets the place of a form field, link or note among its page's items.</summary>
+    /// <param name="id">The number of its element.</param>
+    /// <returns>The index.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int IndexOfItem(int id) => (id - FirstPageItemId) % PageItemStride;
 
     /// <summary>Makes the application element.</summary>
     /// <param name="children">The numbers of its windows.</param>

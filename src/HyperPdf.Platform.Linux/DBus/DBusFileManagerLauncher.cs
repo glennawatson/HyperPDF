@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Platform;
+using ReactiveUI.Primitives.Signals;
 using Tmds.DBus.Protocol;
 
 namespace HyperPdf.Platform.Linux.DBus;
@@ -20,9 +21,20 @@ public sealed class DBusFileManagerLauncher : IFileManagerLauncher
     private const string FileManagerPath = "/org/freedesktop/FileManager1";
 
     /// <inheritdoc/>
-    public async Task<bool> ShowItemAsync(string filePath, CancellationToken cancellationToken)
+    public IObservable<bool> ShowItem(string filePath)
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);
+
+        // The session bus is an async API from another library, so its call is the one task here.
+        return Signal.FromAsync(token => ShowAsync(filePath, token));
+    }
+
+    /// <summary>Asks the file manager to show the file.</summary>
+    /// <param name="filePath">The file.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns><see langword="true"/> when the file manager accepted the request.</returns>
+    private static async Task<bool> ShowAsync(string filePath, CancellationToken cancellationToken)
+    {
         using var connection = await SessionBus.TryConnectAsync().ConfigureAwait(false);
         if (connection is null)
         {

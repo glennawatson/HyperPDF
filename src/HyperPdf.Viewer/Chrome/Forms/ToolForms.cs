@@ -128,6 +128,87 @@ internal static class ToolForms
         FormSettings.Action<TextPropertiesViewModel>("Use these", static m => m.AcceptCommand),
     ];
 
+    /// <summary>The rows of the window that adds a watermark, a header, a footer, page numbers, Bates numbers, a background or a crop. Each kind shows the rows it needs.</summary>
+    private static readonly FormSetting<PageDecorationViewModel>[] DecorationRows =
+    [
+        FormSettings.Field<PageDecorationViewModel>("Words, with {page}, {pages}, {number} and {date}", static m => m.Text, static (m, text) => m.Text = text)
+            .When(static m => m.IsText),
+        FormSettings.Choice<PageDecorationViewModel>("Look of the letters", PageDecorationViewModel.Families, static m => m.FamilyIndex, static (m, value) => m.FamilyIndex = value)
+            .When(static m => m.IsText),
+        FormSettings.Toggle<PageDecorationViewModel>("Bold", static m => m.IsBold, static (m, on) => m.IsBold = on).When(static m => m.IsText),
+        FormSettings.Toggle<PageDecorationViewModel>("Italic", static m => m.IsItalic, static (m, on) => m.IsItalic = on).When(static m => m.IsText),
+        FormSettings.Field<PageDecorationViewModel>("Size in points", static m => Number(m.FontSize), static (m, text) => m.FontSize = Number(text, m.FontSize))
+            .When(static m => m.IsText),
+        FormSettings.Choice<PageDecorationViewModel>("Colour", PageDecorationViewModel.ColorNames, static m => m.ColorIndex, static (m, value) => m.ColorIndex = value)
+            .When(static m => m.IsText),
+        FormSettings.Choice<PageDecorationViewModel>("How solid", PageDecorationViewModel.OpacityNames, static m => m.OpacityIndex, static (m, value) => m.OpacityIndex = value)
+            .When(static m => m.IsText),
+        FormSettings.Choice<PageDecorationViewModel>("Where on the page", PageDecorationViewModel.AnchorNames, static m => m.AnchorIndex, static (m, value) => m.AnchorIndex = value)
+            .When(static m => m.IsText),
+        FormSettings.Field<PageDecorationViewModel>("Distance from the edge in points", static m => Number(m.Margin), static (m, text) => m.Margin = Number(text, m.Margin))
+            .When(static m => m.IsText),
+        FormSettings.Field<PageDecorationViewModel>("Turn anticlockwise by degrees", static m => Number(m.Rotation), static (m, text) => m.Rotation = Number(text, m.Rotation))
+            .When(static m => m.IsWatermark),
+        FormSettings.Toggle<PageDecorationViewModel>("Draw it behind the page's own content", static m => m.IsBehind, static (m, on) => m.IsBehind = on)
+            .When(static m => m.IsText),
+        FormSettings.Field<PageDecorationViewModel>(
+            "Number the first page starts at",
+            static m => m.FirstNumber.ToString(CultureInfo.CurrentCulture),
+            static (m, text) => m.FirstNumber = WholeNumber(text, m.FirstNumber)).When(static m => m.IsBates),
+        FormSettings.Field<PageDecorationViewModel>(
+            "Digits in the number, with zeros in front",
+            static m => m.Digits.ToString(CultureInfo.CurrentCulture),
+            static (m, text) => m.Digits = WholeNumber(text, m.Digits)).When(static m => m.IsBates),
+        FormSettings.Choice<PageDecorationViewModel>(
+            "Background colour",
+            PageDecorationViewModel.BackgroundNames,
+            static m => m.BackgroundIndex,
+            static (m, value) => m.BackgroundIndex = value).When(static m => m.IsBackground),
+        FormSettings.Field<PageDecorationViewModel>("Take this much off the left, in points", static m => Number(m.CropLeft), static (m, text) => m.CropLeft = Number(text, m.CropLeft))
+            .When(static m => m.IsCrop),
+        FormSettings.Field<PageDecorationViewModel>("Take this much off the top, in points", static m => Number(m.CropTop), static (m, text) => m.CropTop = Number(text, m.CropTop))
+            .When(static m => m.IsCrop),
+        FormSettings.Field<PageDecorationViewModel>("Take this much off the right, in points", static m => Number(m.CropRight), static (m, text) => m.CropRight = Number(text, m.CropRight))
+            .When(static m => m.IsCrop),
+        FormSettings.Field<PageDecorationViewModel>("Take this much off the bottom, in points", static m => Number(m.CropBottom), static (m, text) => m.CropBottom = Number(text, m.CropBottom))
+            .When(static m => m.IsCrop),
+        FormSettings.Note<PageDecorationViewModel>("Leave every margin at 0 to show the whole page again.").When(static m => m.IsCrop),
+        FormSettings.Choice<PageDecorationViewModel>("Pages", PageDecorationViewModel.ScopeNames, static m => m.ScopeIndex, static (m, value) => m.ScopeIndex = value),
+        FormSettings.Field<PageDecorationViewModel>("Page numbers, such as 1-3, 7", static m => m.RangeText, static (m, text) => m.RangeText = text)
+            .When(static m => m.AsksForPages),
+        FormSettings.Action<PageDecorationViewModel>("Add it", static m => m.AcceptCommand),
+    ];
+
+    /// <summary>The rows of the window that lists the pages whose words differ from another document.</summary>
+    private static readonly FormSetting<CompareViewModel>[] CompareRows =
+    [
+        FormSettings.Status<CompareViewModel>(static m => m.Result),
+        FormSettings.Picker<CompareViewModel, ComparedPage>(static m => m.Differences, CompareViewModel.Describe, static (m, page) => m.GoTo(page)),
+    ];
+
+    /// <summary>The rows of the window that takes hidden information out of the document.</summary>
+    private static readonly FormSetting<SanitizeViewModel>[] SanitizeRows =
+    [
+        FormSettings.Note<SanitizeViewModel>("Take out what you do not want to share. Your open file stays as it is until you save; Undo is in the Pages menu."),
+        FormSettings.Toggle<SanitizeViewModel>("Clear the title, author, subject, keywords and the program that made it", static m => m.Metadata, static (m, on) => m.Metadata = on),
+        FormSettings.Toggle<SanitizeViewModel>("Remove scripts", static m => m.Scripts, static (m, on) => m.Scripts = on),
+        FormSettings.Toggle<SanitizeViewModel>("Remove attached files", static m => m.Attachments, static (m, on) => m.Attachments = on),
+        FormSettings.Toggle<SanitizeViewModel>("Remove comments and marks, but keep links and form fields", static m => m.Comments, static (m, on) => m.Comments = on),
+        FormSettings.Action<SanitizeViewModel>("Remove them", static m => m.AcceptCommand),
+    ];
+
+    /// <summary>The rows of the window that numbers a run of pages in a different way.</summary>
+    private static readonly FormSetting<PageLabelsViewModel>[] LabelRows =
+    [
+        FormSettings.Field<PageLabelsViewModel>("From page", static m => m.FromPage, static (m, text) => m.FromPage = text),
+        FormSettings.Field<PageLabelsViewModel>("To page, or leave empty for the end of the document", static m => m.ToPage, static (m, text) => m.ToPage = text),
+        FormSettings.Choice<PageLabelsViewModel>("How the number is written", PageLabelsViewModel.StyleNames, static m => m.StyleIndex, static (m, value) => m.StyleIndex = value),
+        FormSettings.Field<PageLabelsViewModel>("Words before the number, such as A-", static m => m.Prefix, static (m, text) => m.Prefix = text),
+        FormSettings.Field<PageLabelsViewModel>("Number of the first page", static m => m.FirstNumber, static (m, text) => m.FirstNumber = text),
+        FormSettings.Action<PageLabelsViewModel>("Number these pages", static m => m.AcceptCommand),
+        FormSettings.Action<PageLabelsViewModel>("Number every page 1, 2, 3 again", static m => m.ResetCommand),
+    ];
+
     /// <summary>The rows of the window that changes the chosen tag of the document: what it is, what it says, where it sits and what is done with it.</summary>
     private static readonly FormSetting<TagsViewModel>[] TagRows =
     [
@@ -313,6 +394,30 @@ internal static class ToolForms
         PadCleared = model.WhenChanged(static m => m.Drawing).Where(static drawing => drawing is null).AsSignal(),
     };
 
+    /// <summary>Makes the window that adds a watermark, a header, a footer, page numbers, Bates numbers, a background or a crop to the pages. The view model answers when it is accepted.</summary>
+    /// <param name="model">The view model.</param>
+    /// <returns>What the window shows.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormRequest PageDecoration(PageDecorationViewModel model) => FormSettings.Window(model.Title, model, DecorationRows) with { Answered = model.Answered };
+
+    /// <summary>Makes the window that lists the pages whose words differ from another document.</summary>
+    /// <param name="model">The view model.</param>
+    /// <returns>What the window shows.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormRequest Compare(CompareViewModel model) => FormSettings.Window(model.Title, model, CompareRows);
+
+    /// <summary>Makes the window that takes hidden information out of the document. The view model answers when it is accepted.</summary>
+    /// <param name="model">The view model.</param>
+    /// <returns>What the window shows.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormRequest Sanitize(SanitizeViewModel model) => FormSettings.Window(model.Title, model, SanitizeRows) with { Answered = model.Answered };
+
+    /// <summary>Makes the window that numbers a run of pages i, ii, iii or A-1. The view model answers when it is accepted.</summary>
+    /// <param name="model">The view model.</param>
+    /// <returns>What the window shows.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormRequest PageLabels(PageLabelsViewModel model) => FormSettings.Window(model.Title, model, LabelRows) with { Answered = model.Answered };
+
     /// <summary>Makes the window that sets how typed text looks. The view model answers when the look is accepted.</summary>
     /// <param name="model">The view model.</param>
     /// <returns>What the window shows.</returns>
@@ -368,6 +473,13 @@ internal static class ToolForms
     /// <returns>The number.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static decimal Number(string text, decimal current) => decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out var value) ? value : current;
+
+    /// <summary>Reads a whole number as it is typed.</summary>
+    /// <param name="text">The typed text.</param>
+    /// <param name="current">The number kept when the text is not a whole number.</param>
+    /// <returns>The number.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int WholeNumber(string text, int current) => int.TryParse(text, NumberStyles.Integer, CultureInfo.CurrentCulture, out var value) ? value : current;
 
     /// <summary>Makes a setting of a tag that is chosen from a list of words.</summary>
     /// <param name="label">The name in English.</param>

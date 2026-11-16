@@ -106,6 +106,13 @@ internal static class FormSettings
             Command = command,
         };
 
+    /// <summary>Makes a line of words that the view model can change, such as how a download is going.</summary>
+    /// <typeparam name="T">The kind of view model the window shows.</typeparam>
+    /// <param name="text">Reads the words.</param>
+    /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormSetting<T> Status<T>(Func<T, string> text) => Row(FormRowKind.Text, text);
+
     /// <summary>Makes a list to choose from: one line for each item the view model holds, and a press on a line hands its item to the view model.</summary>
     /// <typeparam name="T">The kind of view model the window shows.</typeparam>
     /// <typeparam name="TItem">The kind of item.</typeparam>

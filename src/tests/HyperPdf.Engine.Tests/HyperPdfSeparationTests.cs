@@ -5,6 +5,7 @@
 using HyperPdf.Core.Documents;
 using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -30,7 +31,7 @@ public sealed class HyperPdfSeparationTests
     {
         using var document = Open(SeparationPdf.CreatePreseparated());
         var source = DocumentFeature<ISeparationSource>.Get(document)!;
-        var separations = await source.GetSeparationsAsync(CancellationToken.None);
+        var separations = await source.ReadSeparations().ToTask();
 
         await Assert.That(separations.ProblemCount).IsEqualTo(0);
         await Assert.That(separations.Groups.Length).IsEqualTo(SeparationPdf.PrintedPages);
@@ -57,11 +58,11 @@ public sealed class HyperPdfSeparationTests
         using var document = Open(SeparationPdf.CreatePreseparated());
         var manager = HyperPdfDocumentPageManagement.GetPageManager(document);
         var report = new PageEditReport();
-        await manager.ApplyAsync(new(PageEditKind.Delete, BlackOnly, 0), report, CancellationToken.None);
+        await manager.Apply(new(PageEditKind.Delete, BlackOnly, 0), report).ToTask();
 
         await Assert.That(report.SeparationChanges).IsEquivalentTo([new SeparationChange(1, SeparationPdf.ColorantsPerPage, ThreeKept, 0)]);
         await Assert.That(DocumentFeature<ISeparationSource>.Get(document)!.GetSeparations().Groups[0].Pages.Length).IsEqualTo(ThreeKept);
-        await Assert.That(await manager.UndoAsync(CancellationToken.None)).IsTrue();
+        await Assert.That(await manager.Undo().ToTask()).IsTrue();
         await Assert.That(DocumentFeature<ISeparationSource>.Get(document)!.GetSeparations().Groups[0].Pages.Length).IsEqualTo(SeparationPdf.ColorantsPerPage);
     }
 
@@ -73,7 +74,7 @@ public sealed class HyperPdfSeparationTests
         using var document = Open(SeparationPdf.CreatePreseparated());
         var report = new PageEditReport();
         await using var output = new MemoryStream();
-        await HyperPdfDocumentPageManagement.GetPageManager(document).ExtractAsync(FirstThree, output, report, CancellationToken.None);
+        await HyperPdfDocumentPageManagement.GetPageManager(document).Extract(FirstThree, output, report).ToTask();
         using var extracted = PdfDocumentReader.Open(output.ToArray(), null);
         var info = PdfDocumentSeparations.GetSeparations(extracted);
 

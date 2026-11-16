@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using ReactiveUI.Primitives;
@@ -23,11 +24,67 @@ namespace HyperPdf.ViewModels.FormFilling;
 internal sealed class TabFormActionHost(DocumentTabViewModel owner, bool allowNavigation) : IFormActionHost
 {
     /// <inheritdoc/>
-    public ValueTask<bool> RunNamedAsync(string name, int sourcePage, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<bool> RunNamed(string name, int sourcePage) =>
+        Signal.Defer(() => Signal.Return(RunNamedNow(name, sourcePage)));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<bool> Open(LinkTarget target) =>
+        Signal.Defer(() =>
+        {
+            if (!allowNavigation)
+            {
+                return Signal.Return(false);
+            }
+
+            owner.Navigate(target);
+            return Signal.Return(true);
+        });
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<bool> Submit(FormSubmission submission) =>
+        Signal.Defer(() =>
+        {
+            // Sending needs network plumbing and a consent flow that the viewer does not have, so the action is refused and explained.
+            owner.SetNotice(
+                string.IsNullOrEmpty(submission.Url)
+                    ? LocalizedMessage.Get(UiText, "This form asked to send your answers. HyperPDF does not send form data.")
+                    : LocalizedMessage.Format(UiText, "This form asked to send your answers to {0}. HyperPDF does not send form data.", submission.Url));
+            return Signal.Return(false);
+        });
+
+    /// <inheritdoc/>
+    public IObservable<bool> Import(string? file, IFormDataImporter importer)
+    {
+        ArgumentNullException.ThrowIfNull(importer);
+
+        // A page action that runs by itself, such as a page's open action, may not put questions to the reader.
+        if (!allowNavigation)
+        {
+            return Signal.Return(false);
+        }
+
+        var name = FormDataFiles.DisplayName(file);
+        return owner.Forms.ConfirmImportInteraction.Handle(name).ToSignal()
+            .SwitchMap(confirmed => confirmed
+
+                // The reader picks the file. The path in the document is only shown, so a form cannot read a file of its choosing.
+                ? owner.Forms.ChooseImportFileInteraction.Handle(name).ToSignal()
+                : Signal.Return<string?>(null))
+            .SwitchMap(path => path is { Length: > 0 } ? Imported(path, importer) : Signal.Return(false));
+    }
+
+    /// <summary>Runs a named viewer action once subscribed.</summary>
+    /// <param name="name">The action's name.</param>
+    /// <param name="sourcePage">The page the action came from, or -1.</param>
+    /// <returns><see langword="true"/> when the host ran it.</returns>
+    private bool RunNamedNow(string name, int sourcePage)
     {
         if (!allowNavigation)
         {
-            return ValueTask.FromResult(false);
+            return false;
         }
 
         var page = sourcePage >= 0 ? sourcePage : owner.CurrentPageIndex;
@@ -41,63 +98,25 @@ internal sealed class TabFormActionHost(DocumentTabViewModel owner, bool allowNa
         };
         if (target is not { } index)
         {
-            return ValueTask.FromResult(false);
+            return false;
         }
 
         owner.GoToPage(index);
-        return ValueTask.FromResult(true);
+        return true;
     }
 
-    /// <inheritdoc/>
-    public ValueTask<bool> OpenAsync(LinkTarget target, CancellationToken cancellationToken)
-    {
-        if (!allowNavigation)
-        {
-            return ValueTask.FromResult(false);
-        }
-
-        owner.Navigate(target);
-        return ValueTask.FromResult(true);
-    }
-
-    /// <inheritdoc/>
-    public ValueTask<bool> SubmitAsync(FormSubmission submission, CancellationToken cancellationToken)
-    {
-        // Sending needs network plumbing and a consent flow that the viewer does not have, so the action is refused and explained.
-        owner.SetNotice(
-            string.IsNullOrEmpty(submission.Url)
-                ? LocalizedMessage.Get(UiText, "This form asked to send your answers. HyperPDF does not send form data.")
-                : LocalizedMessage.Format(UiText, "This form asked to send your answers to {0}. HyperPDF does not send form data.", submission.Url));
-        return ValueTask.FromResult(false);
-    }
-
-    /// <inheritdoc/>
-    public async ValueTask<bool> ImportAsync(string? file, IFormDataImporter importer, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(importer);
-
-        // A page action that runs by itself, such as a page's open action, may not put questions to the reader.
-        if (!allowNavigation)
-        {
-            return false;
-        }
-
-        var name = FormDataFiles.DisplayName(file);
-        if (!await owner.Forms.ConfirmImportInteraction.Handle(name).ToTask(cancellationToken).ConfigureAwait(true))
-        {
-            return false;
-        }
-
-        // The reader picks the file. The path in the document is only shown, so a form cannot read a file of its choosing.
-        if (await owner.Forms.ChooseImportFileInteraction.Handle(name).ToTask(cancellationToken).ConfigureAwait(true) is not { Length: > 0 } path)
-        {
-            return false;
-        }
-
-        var chosen = Path.GetFileName(path);
-        var data = await FormDataFiles.ReadAsync(path, cancellationToken).ConfigureAwait(true);
-        var result = data is null ? FormDataImportResult.Failed : importer.Import(data);
-        owner.SetNotice(LocalizedMessage.Literal(FormDataFiles.Describe(chosen, result)));
-        return result.Succeeded;
-    }
+    /// <summary>Reads the chosen file and applies it to the form.</summary>
+    /// <param name="path">The file the reader chose.</param>
+    /// <param name="importer">Applies the data to the form.</param>
+    /// <returns>A cold signal giving <see langword="true"/> once when the data was imported.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<bool> Imported(string path, IFormDataImporter importer) =>
+        FormDataFiles.Read(path)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(data =>
+            {
+                var result = data is null ? FormDataImportResult.Failed : importer.Import(data);
+                owner.SetNotice(LocalizedMessage.Literal(FormDataFiles.Describe(Path.GetFileName(path), result)));
+                return result.Succeeded;
+            });
 }

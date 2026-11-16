@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Signatures.Signing;
 using HyperPdfLibrary.Signing;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine;
 
@@ -23,13 +24,13 @@ internal sealed class RevocationSourceAdapter : IPdfRevocationSource
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<byte[]?> GetOcspResponseAsync(byte[] certificate, byte[] issuer, CancellationToken cancellationToken) =>
-        _source.GetOcspResponseAsync(certificate, issuer, cancellationToken);
+        new(_source.GetOcspResponse(certificate, issuer).ToTask(cancellationToken));
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<byte[]?> GetCrlAsync(byte[] certificate, CancellationToken cancellationToken) => _source.GetCrlAsync(certificate, cancellationToken);
+    public ValueTask<byte[]?> GetCrlAsync(byte[] certificate, CancellationToken cancellationToken) => new(_source.GetCrl(certificate).ToTask(cancellationToken));
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public ValueTask<byte[]?> GetIssuerAsync(byte[] certificate, CancellationToken cancellationToken) => _source.GetIssuerAsync(certificate, cancellationToken);
+    public ValueTask<byte[]?> GetIssuerAsync(byte[] certificate, CancellationToken cancellationToken) => new(_source.GetIssuer(certificate).ToTask(cancellationToken));
 }

@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using HyperPdf.Core.Ocr;
 using HyperPdf.Http;
 using HyperPdf.Http.Ocr;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Ocr;
 
@@ -16,6 +17,15 @@ public sealed class OcrLanguagePackDownloaderTests
 {
     /// <summary>The size of the test pack; several copy buffers, so progress is reported more than once.</summary>
     private const int PackSize = 200_000;
+
+    /// <summary>The seconds to wait for a cancelled copy to clean up.</summary>
+    private const int CleanupSeconds = 10;
+
+    /// <summary>The milliseconds between checks that a cancelled copy cleaned up.</summary>
+    private const int CleanupPollMilliseconds = 10;
+
+    /// <summary>How long a held download thread waits for the test to see the stop.</summary>
+    private static readonly TimeSpan StopWait = TimeSpan.FromSeconds(5);
 
     /// <summary>The host the catalogue's packs come from.</summary>
     private static readonly Uri Host = new("https://raw.githubusercontent.com");
@@ -32,7 +42,7 @@ public sealed class OcrLanguagePackDownloaderTests
         using var handler = new FakeHandler(content);
         var progress = new RecordingProgress();
 
-        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, progress, CancellationToken.None);
+        await downloader.Download(Api(handler), [pack], folder.Path, progress).ToTask();
 
         var path = Path.Combine(folder.Path, pack.FileName);
         await Assert.That(await File.ReadAllBytesAsync(path)).IsEquivalentTo(content);
@@ -54,9 +64,9 @@ public sealed class OcrLanguagePackDownloaderTests
         var content = Content();
         var pack = PackFor(content);
         using var handler = new FakeHandler(content);
-        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
+        await downloader.Download(Api(handler), [pack], folder.Path, new RecordingProgress()).ToTask();
 
-        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
+        await downloader.Download(Api(handler), [pack], folder.Path, new RecordingProgress()).ToTask();
 
         await Assert.That(handler.Requests.Count).IsEqualTo(1);
         await Assert.That(downloader.Missing([pack], folder.Path)).IsEmpty();
@@ -75,14 +85,14 @@ public sealed class OcrLanguagePackDownloaderTests
         damaged[0] ^= 0xFF;
         using var handler = new FakeHandler(damaged);
 
-        var error = await Assert.ThrowsAsync<InvalidDataException>(() => downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None));
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => downloader.Download(Api(handler), [pack], folder.Path, new RecordingProgress()).ToTask());
 
         await Assert.That(error!.Message).Contains("did not download intact");
         await Assert.That(Directory.GetFiles(folder.Path)).IsEmpty();
         await Assert.That(downloader.IsInstalled(pack, folder.Path)).IsFalse();
 
         damaged[0] ^= 0xFF;
-        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
+        await downloader.Download(Api(handler), [pack], folder.Path, new RecordingProgress()).ToTask();
         await Assert.That(downloader.IsInstalled(pack, folder.Path)).IsTrue();
     }
 
@@ -96,7 +106,7 @@ public sealed class OcrLanguagePackDownloaderTests
         var pack = PackFor(Content());
         using var handler = new FakeHandler(null);
 
-        _ = await Assert.ThrowsAsync<HttpRequestException>(() => downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None));
+        _ = await Assert.ThrowsAsync<HttpRequestException>(() => downloader.Download(Api(handler), [pack], folder.Path, new RecordingProgress()).ToTask());
 
         await Assert.That(Directory.GetFiles(folder.Path)).IsEmpty();
     }
@@ -112,12 +122,21 @@ public sealed class OcrLanguagePackDownloaderTests
         var pack = PackFor(content);
         using var handler = new FakeHandler(content);
         using var cancellation = new CancellationTokenSource();
-        var progress = new RecordingProgress(cancellation.Cancel);
 
-        _ = await Assert.ThrowsAsync<OperationCanceledException>(() => downloader.DownloadAsync(Api(handler), [pack], folder.Path, progress, cancellation.Token));
+        // The download thread waits after the cancel until the test has seen it stop, so the stop always lands mid-download.
+        using var stopSeen = new ManualResetEventSlim();
+        var progress = new RecordingProgress(() =>
+        {
+            cancellation.Cancel();
+            _ = stopSeen.Wait(StopWait);
+        });
 
-        await Assert.That(Directory.GetFiles(folder.Path)).IsEmpty();
-        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(() => downloader.Download(Api(handler), [pack], folder.Path, progress).ToTask(cancellation.Token));
+        stopSeen.Set();
+
+        // The copy notices the cancellation on its own thread and deletes the partial file straight afterwards.
+        await Assert.That(await FilesLeft(folder.Path)).IsEmpty();
+        await downloader.Download(Api(handler), [pack], folder.Path, new RecordingProgress()).ToTask();
         await Assert.That(await File.ReadAllBytesAsync(Path.Combine(folder.Path, pack.FileName))).IsEquivalentTo(content);
     }
 
@@ -131,12 +150,28 @@ public sealed class OcrLanguagePackDownloaderTests
         var content = Content();
         var pack = PackFor(content);
         using var handler = new FakeHandler(content);
-        await downloader.DownloadAsync(Api(handler), [pack], folder.Path, new RecordingProgress(), CancellationToken.None);
+        await downloader.Download(Api(handler), [pack], folder.Path, new RecordingProgress()).ToTask();
 
         downloader.Remove(pack, folder.Path);
 
         await Assert.That(Directory.GetFiles(folder.Path)).IsEmpty();
         await Assert.That(downloader.Missing([pack], folder.Path)).IsEquivalentTo([pack]);
+    }
+
+    /// <summary>Waits for the folder to be empty, which follows a cancelled copy cleaning up.</summary>
+    /// <param name="folder">The folder.</param>
+    /// <returns><see langword="true"/> when the folder is empty.</returns>
+    private static async Task<string[]> FilesLeft(string folder)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(CleanupSeconds));
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(CleanupPollMilliseconds));
+        var waiting = Directory.GetFiles(folder).Length > 0;
+        while (waiting)
+        {
+            waiting = await timer.WaitForNextTickAsync(timeout.Token) && Directory.GetFiles(folder).Length > 0;
+        }
+
+        return Directory.GetFiles(folder);
     }
 
     /// <summary>Makes the test pack's bytes.</summary>

@@ -6,6 +6,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using HyperPdf.Http.Signatures;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Core.Tests.Signatures;
 
@@ -59,7 +60,7 @@ public sealed class RevocationSourceClientTests
         var handler = new RecordingHandler(SuccessfulOcsp);
         using var client = new RevocationSourceClient(handler);
 
-        var reply = await client.GetOcspResponseAsync(certificates.Leaf.RawData, certificates.Root.RawData, cancellationToken);
+        var reply = await client.GetOcspResponse(certificates.Leaf.RawData, certificates.Root.RawData).ToTask(cancellationToken);
 
         using (Assert.Multiple())
         {
@@ -81,7 +82,7 @@ public sealed class RevocationSourceClientTests
         using var certificates = new Chain();
         using var client = new RevocationSourceClient(new RecordingHandler(BusyOcsp));
 
-        await Assert.That(await client.GetOcspResponseAsync(certificates.Leaf.RawData, certificates.Root.RawData, cancellationToken)).IsNull();
+        await Assert.That(await client.GetOcspResponse(certificates.Leaf.RawData, certificates.Root.RawData).ToTask(cancellationToken)).IsNull();
     }
 
     /// <summary>The CRL is fetched from the distribution point the certificate names.</summary>
@@ -94,7 +95,7 @@ public sealed class RevocationSourceClientTests
         var handler = new RecordingHandler(CrlBytes);
         using var client = new RevocationSourceClient(handler);
 
-        var reply = await client.GetCrlAsync(certificates.Leaf.RawData, cancellationToken);
+        var reply = await client.GetCrl(certificates.Leaf.RawData).ToTask(cancellationToken);
 
         using (Assert.Multiple())
         {
@@ -113,14 +114,14 @@ public sealed class RevocationSourceClientTests
         using var certificates = new Chain();
         var handler = new RecordingHandler(certificates.Root.RawData);
         using var client = new RevocationSourceClient(handler);
-        var issuer = await client.GetIssuerAsync(certificates.Leaf.RawData, cancellationToken);
+        var issuer = await client.GetIssuer(certificates.Leaf.RawData).ToTask(cancellationToken);
         using var notACertificate = new RevocationSourceClient(new RecordingHandler(CrlBytes));
 
         using (Assert.Multiple())
         {
             await Assert.That(issuer).IsEquivalentTo(certificates.Root.RawData);
             await Assert.That(handler.Uri).IsEqualTo(IssuerAddress);
-            await Assert.That(await notACertificate.GetIssuerAsync(certificates.Leaf.RawData, cancellationToken)).IsNull();
+            await Assert.That(await notACertificate.GetIssuer(certificates.Leaf.RawData).ToTask(cancellationToken)).IsNull();
         }
     }
 
@@ -135,8 +136,8 @@ public sealed class RevocationSourceClientTests
 
         using (Assert.Multiple())
         {
-            await Assert.That(await client.GetCrlAsync(certificates.Leaf.RawData, cancellationToken)).IsNull();
-            await Assert.That(await client.GetOcspResponseAsync(certificates.Leaf.RawData, certificates.Root.RawData, cancellationToken)).IsNull();
+            await Assert.That(await client.GetCrl(certificates.Leaf.RawData).ToTask(cancellationToken)).IsNull();
+            await Assert.That(await client.GetOcspResponse(certificates.Leaf.RawData, certificates.Root.RawData).ToTask(cancellationToken)).IsNull();
         }
     }
 
@@ -151,9 +152,9 @@ public sealed class RevocationSourceClientTests
 
         using (Assert.Multiple())
         {
-            await Assert.That(await client.GetIssuerAsync(certificates.Leaf.RawData, cancellationToken)).IsNull();
-            await Assert.That(await client.GetCrlAsync(certificates.Leaf.RawData, cancellationToken)).IsNull();
-            await Assert.That(await client.GetOcspResponseAsync(certificates.Leaf.RawData, certificates.Root.RawData, cancellationToken)).IsNull();
+            await Assert.That(await client.GetIssuer(certificates.Leaf.RawData).ToTask(cancellationToken)).IsNull();
+            await Assert.That(await client.GetCrl(certificates.Leaf.RawData).ToTask(cancellationToken)).IsNull();
+            await Assert.That(await client.GetOcspResponse(certificates.Leaf.RawData, certificates.Root.RawData).ToTask(cancellationToken)).IsNull();
         }
     }
 
@@ -170,7 +171,7 @@ public sealed class RevocationSourceClientTests
         using var certificates = new Chain();
         using var client = new RevocationSourceClient(new FailingHandler(kind));
 
-        await Assert.That(await client.GetCrlAsync(certificates.Leaf.RawData, cancellationToken)).IsNull();
+        await Assert.That(await client.GetCrl(certificates.Leaf.RawData).ToTask(cancellationToken)).IsNull();
     }
 
     /// <summary>A caller that cancels still sees the cancellation, not an empty result.</summary>
@@ -183,7 +184,7 @@ public sealed class RevocationSourceClientTests
         using var client = new RevocationSourceClient(new HangingHandler());
         using var cancelled = new CancellationTokenSource(ShortTimeout);
 
-        await Assert.That(async () => await client.GetCrlAsync(certificates.Leaf.RawData, cancelled.Token)).Throws<OperationCanceledException>();
+        await Assert.That(async () => await client.GetCrl(certificates.Leaf.RawData).ToTask(cancelled.Token)).Throws<OperationCanceledException>();
         await Assert.That(cancellationToken.IsCancellationRequested).IsFalse();
     }
 
@@ -203,7 +204,7 @@ public sealed class RevocationSourceClientTests
                 async () =>
                 {
                     await start.Task;
-                    return await client.GetCrlAsync(certificates.Leaf.RawData, cancellationToken);
+                    return await client.GetCrl(certificates.Leaf.RawData).ToTask(cancellationToken);
                 },
                 cancellationToken);
         }
@@ -214,7 +215,7 @@ public sealed class RevocationSourceClientTests
         client.Dispose();
 
         await Assert.That(Array.TrueForAll(replies, static reply => reply is not null)).IsTrue();
-        await Assert.That(async () => await client.GetCrlAsync(certificates.Leaf.RawData, cancellationToken)).Throws<ObjectDisposedException>();
+        await Assert.That(async () => await client.GetCrl(certificates.Leaf.RawData).ToTask(cancellationToken)).Throws<ObjectDisposedException>();
     }
 
     /// <summary>A certificate that names no web address gives nothing and sends nothing.</summary>
@@ -229,8 +230,8 @@ public sealed class RevocationSourceClientTests
 
         using (Assert.Multiple())
         {
-            await Assert.That(await client.GetCrlAsync(certificates.Root.RawData, cancellationToken)).IsNull();
-            await Assert.That(await client.GetIssuerAsync(certificates.Root.RawData, cancellationToken)).IsNull();
+            await Assert.That(await client.GetCrl(certificates.Root.RawData).ToTask(cancellationToken)).IsNull();
+            await Assert.That(await client.GetIssuer(certificates.Root.RawData).ToTask(cancellationToken)).IsNull();
             await Assert.That(handler.Uri).IsNull();
         }
     }

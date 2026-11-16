@@ -28,6 +28,36 @@ internal static class ArabicJoining
     /// <summary>The zero width non-joiner, which stops joining.</summary>
     private const int ZeroWidthNonJoiner = 0x200C;
 
+    /// <summary>The first character of the Mongolian block.</summary>
+    private const int MongolianStart = 0x1800;
+
+    /// <summary>The last character of the Mongolian block.</summary>
+    private const int MongolianEnd = 0x18AF;
+
+    /// <summary>The Mongolian vowel separator, which joins nothing.</summary>
+    private const int MongolianVowelSeparator = 0x180E;
+
+    /// <summary>The Sibe syllable boundary marker, which joins both sides.</summary>
+    private const int SibeSyllableBoundary = 0x1807;
+
+    /// <summary>The Mongolian nirugu, which makes the letters beside it join.</summary>
+    private const int Nirugu = 0x180A;
+
+    /// <summary>The first Mongolian letter that joins both sides.</summary>
+    private const int FirstMongolianLetter = 0x1820;
+
+    /// <summary>The last of the first run of Mongolian letters that join both sides.</summary>
+    private const int LastMongolianLetter = 0x1878;
+
+    /// <summary>The first of the second run of Mongolian letters that join both sides.</summary>
+    private const int FirstExtendedLetter = 0x1887;
+
+    /// <summary>The last of the second run of Mongolian letters that join both sides.</summary>
+    private const int LastExtendedLetter = 0x18A8;
+
+    /// <summary>The last Mongolian letter that joins both sides.</summary>
+    private const int LastAliGaliLetter = 0x18AA;
+
     /// <summary>The Arabic Supplement block start.</summary>
     private const int SupplementStart = 0x0750;
 
@@ -54,7 +84,7 @@ internal static class ArabicJoining
     internal static JoiningType TypeOf(int codePoint) => codePoint switch
     {
         Tatweel or ZeroWidthJoiner => JoiningType.Causing,
-        ZeroWidthNonJoiner => JoiningType.None,
+        ZeroWidthNonJoiner or MongolianVowelSeparator => JoiningType.None,
         _ => TypeOfLetter(codePoint),
     };
 
@@ -131,9 +161,17 @@ internal static class ArabicJoining
             return JoiningType.Transparent;
         }
 
-        if (codePoint is >= ArabicStart and <= ArabicEnd)
+        return codePoint is >= ArabicStart and <= ArabicEnd ? OfBlock(codePoint, category) : TypeOfOtherBlock(codePoint);
+    }
+
+    /// <summary>Gets the joining type of a letter outside the Arabic block.</summary>
+    /// <param name="codePoint">The character.</param>
+    /// <returns>The joining type.</returns>
+    private static JoiningType TypeOfOtherBlock(int codePoint)
+    {
+        if (codePoint is >= MongolianStart and <= MongolianEnd)
         {
-            return OfBlock(codePoint, category);
+            return OfMongolian(codePoint);
         }
 
         if (codePoint is >= SupplementStart and <= SupplementEnd)
@@ -143,6 +181,16 @@ internal static class ArabicJoining
 
         return JoiningType.None;
     }
+
+    /// <summary>Gets the joining type of a character of the Mongolian block, from the Unicode joining data.</summary>
+    /// <param name="codePoint">The character.</param>
+    /// <returns>The joining type.</returns>
+    private static JoiningType OfMongolian(int codePoint) => codePoint switch
+    {
+        Nirugu => JoiningType.Causing,
+        SibeSyllableBoundary or >= FirstMongolianLetter and <= LastMongolianLetter or >= FirstExtendedLetter and <= LastExtendedLetter or LastAliGaliLetter => JoiningType.Dual,
+        _ => JoiningType.None,
+    };
 
     /// <summary>Gets the joining type of a character of the Arabic block.</summary>
     /// <param name="codePoint">The character.</param>

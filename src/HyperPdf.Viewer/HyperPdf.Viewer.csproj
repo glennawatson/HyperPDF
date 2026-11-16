@@ -17,6 +17,14 @@
     <ProjectReference Include="..\HyperPdf.Platform.Windows\HyperPdf.Platform.Windows.csproj" />
   </ItemGroup>
 
+  <ItemGroup Label="Reactive namespaces">
+    <Using Include="ReactiveUI" />
+    <Using Include="ReactiveUI.Primitives" />
+    <Using Include="ReactiveUI.Primitives.Concurrency" />
+    <Using Include="ReactiveUI.Primitives.Disposables" />
+    <Using Include="ReactiveUI.Primitives.Signals" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="HyperPdf.Windowing.Tests" />
     <InternalsVisibleTo Include="HyperPdf.CocoaWindowRun" />

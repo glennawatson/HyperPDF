@@ -5,6 +5,7 @@
 using HyperPdf.Core.Documents;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -60,7 +61,7 @@ public sealed class AttachmentAnnotationTests
         var tab = main.SelectedTab!;
         var path = Path.Combine(test.Directory, "saved-notes.txt");
 
-        var saved = await tab.Attachments.SaveToAsync(tab.Attachments.Items[0], path);
+        var saved = await tab.Attachments.SaveTo(tab.Attachments.Items[0], path).ToTask();
 
         await Assert.That(saved).IsTrue();
         await Assert.That(await File.ReadAllTextAsync(path)).IsEqualTo(AttachmentAnnotationSamples.FileText);

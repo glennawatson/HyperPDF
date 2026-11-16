@@ -10,6 +10,7 @@ using HyperPdf.Core.Flattening;
 using HyperPdf.Core.Protection;
 using HyperPdf.Core.Signatures.Signing;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -180,21 +181,21 @@ public sealed class EncryptedCopyLifetimeTests
                 case SnapshotUse.Flatten:
                     {
                         await using var output = new MemoryStream();
-                        _ = await DocumentFeature<IFlattenCopyWriter>.Cast(live)!.WriteFlattenedCopyAsync(output, FlattenCopyOptions.Default, cancellationToken);
+                        _ = await DocumentFeature<IFlattenCopyWriter>.Cast(live)!.WriteFlattenedCopy(output, FlattenCopyOptions.Default).ToTask(cancellationToken);
                         break;
                     }
 
                 case SnapshotUse.Archive:
                     {
                         await using var output = new MemoryStream();
-                        _ = await DocumentFeature<IArchiveCopyWriter>.Cast(live)!.WriteArchiveCopyAsync(output, ArchiveLevel.PdfA2B, cancellationToken);
+                        _ = await DocumentFeature<IArchiveCopyWriter>.Cast(live)!.WriteArchiveCopy(output, ArchiveLevel.PdfA2B).ToTask(cancellationToken);
                         break;
                     }
 
                 case SnapshotUse.Pdf20:
                     {
                         await using var output = new MemoryStream();
-                        _ = await DocumentFeature<IPdf20CopyWriter>.Cast(live)!.WritePdf20CopyAsync(output, cancellationToken);
+                        _ = await DocumentFeature<IPdf20CopyWriter>.Cast(live)!.WritePdf20Copy(output).ToTask(cancellationToken);
                         break;
                     }
 
@@ -206,19 +207,19 @@ public sealed class EncryptedCopyLifetimeTests
 
                 case SnapshotUse.Sign:
                     {
-                        _ = await DocumentFeature<IDocumentSigner>.Get(live)!.SignAsync(Signer, request, null, cancellationToken);
+                        _ = await DocumentFeature<IDocumentSigner>.Get(live)!.Sign(Signer, request, null).ToTask(cancellationToken);
                         break;
                     }
 
                 case SnapshotUse.Prepare:
                     {
-                        _ = await DocumentFeature<IDocumentSigner>.Get(live)!.PrepareAsync(new([Signer.RawData], SigningKeyKind.RsaPkcs1), request, null, cancellationToken);
+                        _ = await DocumentFeature<IDocumentSigner>.Get(live)!.Prepare(new([Signer.RawData], SigningKeyKind.RsaPkcs1), request, null).ToTask(cancellationToken);
                         break;
                     }
 
                 case SnapshotUse.Timestamp:
                     {
-                        _ = await DocumentFeature<IDocumentSigner>.Get(live)!.AddDocumentTimestampAsync(new RefusingTimestamper(), SigningDigest.Sha256, cancellationToken);
+                        _ = await DocumentFeature<IDocumentSigner>.Get(live)!.AddDocumentTimestamp(new RefusingTimestamper(), SigningDigest.Sha256).ToTask(cancellationToken);
                         break;
                     }
             }
@@ -237,7 +238,7 @@ public sealed class EncryptedCopyLifetimeTests
         using var plain = new HyperPdfTestDocument(TestPdf.Create(Pages));
         await using var output = new MemoryStream();
         var request = new ProtectionRequest { Format = ProtectionFormat.Strong, UserPassword = "user-pass", OwnerPassword = OwnerPassword, Permissions = ProtectionPermissions.All };
-        var result = await DocumentFeature<IDocumentProtector>.Cast(plain.Document)!.ProtectAsync(request, output, cancellationToken);
+        var result = await DocumentFeature<IDocumentProtector>.Cast(plain.Document)!.Protect(request, output).ToTask(cancellationToken);
         await Assert.That(result.Written).IsTrue().Because(result.Refusal ?? string.Empty);
         var path = Path.Combine(Path.GetTempPath(), $"hyperpdf-encrypted-copy-{Guid.NewGuid():N}.pdf");
         await File.WriteAllBytesAsync(path, output.ToArray(), cancellationToken);
@@ -251,7 +252,6 @@ public sealed class EncryptedCopyLifetimeTests
         public int EstimatedTokenSize => 0;
 
         /// <inheritdoc/>
-        public ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> hash, SigningDigest digest, CancellationToken cancellationToken) =>
-            throw new NotSupportedException("No timestamp authority.");
+        public IObservable<byte[]> Timestamp(ReadOnlyMemory<byte> hash, SigningDigest digest) => throw new NotSupportedException("No timestamp authority.");
     }
 }

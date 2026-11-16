@@ -12,5 +12,5 @@ public sealed class NullFileManagerLauncher : IFileManagerLauncher
 {
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<bool> ShowItemAsync(string filePath, CancellationToken cancellationToken) => Task.FromResult(false);
+    public IObservable<bool> ShowItem(string filePath) => Signal.Return(false);
 }

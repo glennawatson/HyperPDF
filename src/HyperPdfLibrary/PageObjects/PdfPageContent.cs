@@ -77,6 +77,9 @@ public sealed class PdfPageContent
     /// <summary>Gets the Appended state.</summary>
     internal List<byte> Appended { get; } = [];
 
+    /// <summary>Gets the bytes written before the page's own content, so what they paint lies behind it.</summary>
+    internal List<byte> Prepended { get; } = [];
+
     /// <summary>Gets the Pending state.</summary>
     internal List<PendingResource> Pending { get; } = [];
 

@@ -64,14 +64,24 @@ internal static class SegmentShaper
         {
             var masks = forms.AsSpan(0, codePoints.Length);
             masks.Clear();
-            if (request.Script.Kind == ShapingKind.Arabic)
+            if (request.Script.Kind is ShapingKind.Arabic or ShapingKind.UniversalJoining)
             {
                 ArabicJoining.AssignForms(codePoints, masks);
             }
 
-            for (var i = 0; i < codePoints.Length; i++)
+            var i = 0;
+            while (i < codePoints.Length)
             {
+                // Hangul jamo that make a syllable the font has a glyph for become that syllable, as one glyph for the characters.
+                if (HangulComposition.TryCompose(source, codePoints, i, out var syllable, out var used))
+                {
+                    buffer.Add(MakeRecord(source, definitions, syllable, clusters[i], masks[i]));
+                    i += used;
+                    continue;
+                }
+
                 AddCharacter(buffer, source, definitions, request, codePoints[i], clusters[i], masks[i]);
+                i++;
             }
         }
         finally
@@ -91,14 +101,42 @@ internal static class SegmentShaper
     private static void AddCharacter(GlyphBuffer buffer, PdfFontSource source, OtGdef definitions, in SegmentKind request, int codePoint, int cluster, uint form)
     {
         var character = request.RightToLeft ? MirroredIfPresent(source, codePoint) : codePoint;
-        if (request.Script.Kind == ShapingKind.Indic && source.GetGlyph(character) == 0 && IndicData.TrySplitVowelSign(character, out var first, out var second))
+        if (TrySplitVowel(request.Script, source, character, out var first, out var second))
         {
-            buffer.Add(MakeRecord(source, definitions, first, cluster, 0));
+            AddCharacter(buffer, source, definitions, request, first, cluster, 0);
             buffer.Add(MakeRecord(source, definitions, second, cluster, 0));
             return;
         }
 
+        // A font with no glyph for the sign "am" has it as the mark above the consonant and the long a after it.
+        if (source.GetGlyph(character) == 0 && SaraAm.TrySplit(character, out var mark, out var vowel))
+        {
+            buffer.Add(MakeRecord(source, definitions, mark, cluster, 0));
+            buffer.Add(MakeRecord(source, definitions, vowel, cluster, 0));
+            return;
+        }
+
         buffer.Add(MakeRecord(source, definitions, character, cluster, form));
+    }
+
+    /// <summary>Splits a vowel sign that is written on both sides of its consonant into the part before it and the part after.</summary>
+    /// <param name="script">The script of the text.</param>
+    /// <param name="source">The font.</param>
+    /// <param name="character">The character.</param>
+    /// <param name="first">Receives the part that goes before the consonant, which may split further.</param>
+    /// <param name="second">Receives the part that goes after it.</param>
+    /// <returns><see langword="true"/> when the character is split. Indic scripts split only when the font has no glyph for the sign; Khmer and Sinhala always do.</returns>
+    private static bool TrySplitVowel(ShapingScript script, PdfFontSource source, int character, out int first, out int second)
+    {
+        first = 0;
+        second = 0;
+        return script.Kind switch
+        {
+            ShapingKind.Indic => source.GetGlyph(character) == 0 && IndicData.TrySplitVowelSign(character, out first, out second),
+            ShapingKind.Khmer => KhmerShaper.TrySplitVowel(character, out first, out second),
+            ShapingKind.Universal => IndicData.TrySplitVowelSign(character, out first, out second),
+            _ => false,
+        };
     }
 
     /// <summary>Gets the mirror image of a bracket when the font has a glyph for it.</summary>
@@ -147,6 +185,12 @@ internal static class SegmentShaper
         var buffer = session.Buffer;
         var engine = session.Substitute(layout.Substitution, layout.Definitions, request.RightToLeft);
         var stages = plan.Substitution;
+        if (request.Script.Kind is ShapingKind.Khmer or ShapingKind.Myanmar or ShapingKind.Universal or ShapingKind.UniversalJoining)
+        {
+            SubstituteReordered(buffer, engine, stages, request.Script);
+            return;
+        }
+
         if (request.Script.Kind != ShapingKind.Indic)
         {
             foreach (var stage in stages)
@@ -176,6 +220,46 @@ internal static class SegmentShaper
         }
 
         IndicShaper.MergeClusters(buffer);
+    }
+
+    /// <summary>Runs the first stage of features, puts each syllable's glyphs in the order the script's font expects, then runs the other stages.</summary>
+    /// <param name="buffer">The glyphs.</param>
+    /// <param name="engine">The substitution engine.</param>
+    /// <param name="stages">The stages of features.</param>
+    /// <param name="script">The script of the text.</param>
+    private static void SubstituteReordered(GlyphBuffer buffer, LayoutEngine engine, LookupEntry[][] stages, ShapingScript script)
+    {
+        engine.RunStage(stages[0]);
+        switch (script.Kind)
+        {
+            case ShapingKind.Khmer:
+            {
+                KhmerShaper.Reorder(buffer);
+                break;
+            }
+
+            case ShapingKind.Myanmar:
+            {
+                MyanmarShaper.Reorder(buffer);
+                break;
+            }
+
+            case ShapingKind.Universal when script.Name == "Sinh":
+            {
+                UniversalShaper.ReorderSinhala(buffer);
+                break;
+            }
+
+            default:
+            {
+                break;
+            }
+        }
+
+        for (var s = 1; s < stages.Length; s++)
+        {
+            engine.RunStage(stages[s]);
+        }
     }
 
     /// <summary>Drops the glyphs of invisible characters that substitution did not consume.</summary>

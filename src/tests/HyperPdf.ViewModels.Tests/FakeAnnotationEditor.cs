@@ -5,6 +5,7 @@
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -90,10 +91,11 @@ internal sealed class FakeAnnotationEditor : IAnnotationEditor
     public bool Save(Stream destination) => throw new NotSupportedException();
 
     /// <inheritdoc/>
-    public async ValueTask<bool> SaveAsync(Stream destination, CancellationToken cancellationToken)
-    {
-        ThreadId = Environment.CurrentManagedThreadId;
-        await destination.WriteAsync(Output, cancellationToken).ConfigureAwait(false);
-        return true;
-    }
+    public IObservable<bool> SaveToStream(Stream destination) =>
+        Signal.FromAsync(async token =>
+        {
+            ThreadId = Environment.CurrentManagedThreadId;
+            await destination.WriteAsync(Output, token).ConfigureAwait(false);
+            return true;
+        });
 }

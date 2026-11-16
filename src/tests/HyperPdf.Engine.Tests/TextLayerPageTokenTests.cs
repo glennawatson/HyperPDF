@@ -5,6 +5,7 @@
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Ocr;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -42,7 +43,7 @@ public sealed class TextLayerPageTokenTests
         var writer = DocumentFeature<ITextLayerWriter>.Cast(test.Document)!;
         var token = writer.GetPageToken(Pages - 1);
 
-        await HyperPdfDocumentPageManagement.GetPageManager(test.Document).ApplyAsync(new(PageEditKind.Delete, FirstPage, 0), cancellationToken);
+        await HyperPdfDocumentPageManagement.GetPageManager(test.Document).Apply(new(PageEditKind.Delete, FirstPage, 0)).ToTask(cancellationToken);
         var written = writer.AddTextLayerToPage(token, Words);
 
         await Assert.That(written).IsEqualTo(1);
@@ -60,7 +61,7 @@ public sealed class TextLayerPageTokenTests
         var writer = DocumentFeature<ITextLayerWriter>.Cast(test.Document)!;
         var token = writer.GetPageToken(0);
 
-        await HyperPdfDocumentPageManagement.GetPageManager(test.Document).ApplyAsync(new(PageEditKind.Delete, FirstPage, 0), cancellationToken);
+        await HyperPdfDocumentPageManagement.GetPageManager(test.Document).Apply(new(PageEditKind.Delete, FirstPage, 0)).ToTask(cancellationToken);
 
         await Assert.That(writer.AddTextLayerToPage(token, Words)).IsEqualTo(0);
         await Assert.That(writer.GetPageToken(Pages)).IsEqualTo(0);

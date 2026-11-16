@@ -5,6 +5,7 @@
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Reading;
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 using TUnit.Assertions;
 
 namespace HyperPdf.Engine.Tests;
@@ -52,8 +53,8 @@ public sealed class TaggedPageLeaseTests
             for (var index = 0; index < EditCount; index++)
             {
                 await progress.WaitAsync(timeout.Token);
-                await pageManager.PageManager.ApplyAsync(new(PageEditKind.Duplicate, FirstPage, 1), timeout.Token);
-                _ = await pageManager.PageManager.UndoAsync(timeout.Token);
+                await pageManager.PageManager.Apply(new(PageEditKind.Duplicate, FirstPage, 1)).ToTask(timeout.Token);
+                _ = await pageManager.PageManager.Undo().ToTask(timeout.Token);
 
                 var afterUndo = new List<TaggedBlock>();
                 if (!tagged.GetTaggedBlocks(0, afterUndo) || afterUndo.Count == 0)

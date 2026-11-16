@@ -2,11 +2,13 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Forms;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -24,15 +26,48 @@ internal sealed class HyperPdfFormDesignerService : IFormDesigner
     public IDocument Document => _owner;
 
     /// <inheritdoc/>
-    public async ValueTask<IReadOnlyList<FormFieldInfo>> GetFieldsAsync(CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<IReadOnlyList<FormFieldInfo>> GetFields() => Signal.FromAsync(token => GetFieldsAsync(token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> CreateField(FormFieldDesign design) => Signal.FromAsync(token => CreateFieldAsync(design, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> RemoveField(string name) => Signal.FromAsync(token => RemoveFieldAsync(name, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> RenameField(string name, string newName) => Signal.FromAsync(token => RenameFieldAsync(name, newName, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> RenameFieldPartial(string name, string newPartialName) => Signal.FromAsync(token => RenameFieldPartialAsync(name, newPartialName, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> ChangeField(string name, FormFieldChanges changes) => Signal.FromAsync(token => ChangeFieldAsync(name, changes, token).AsTask());
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<DocumentEditResult> MoveWidget(string name, int widgetIndex, PageRect bounds) => Signal.FromAsync(token => MoveWidgetAsync(name, widgetIndex, bounds, token).AsTask());
+
+    /// <summary>Runs GetFields against the library.</summary>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    internal async ValueTask<IReadOnlyList<FormFieldInfo>> GetFieldsAsync(CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_owner.IsDisposed, _owner);
         await HyperPdfEditPrefetch.PagesAsync(_owner.Document, cancellationToken).ConfigureAwait(false);
         return ReadFields(cancellationToken);
     }
 
-    /// <inheritdoc/>
-    public ValueTask<DocumentEditResult> CreateFieldAsync(FormFieldDesign design, CancellationToken cancellationToken)
+    /// <summary>Runs CreateField against the library.</summary>
+    /// <param name="design">The design.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    internal ValueTask<DocumentEditResult> CreateFieldAsync(FormFieldDesign design, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(design);
         return HyperPdfDocumentEdits.RunCheckedAsync(
@@ -48,8 +83,11 @@ internal sealed class HyperPdfFormDesignerService : IFormDesigner
             cancellationToken);
     }
 
-    /// <inheritdoc/>
-    public ValueTask<DocumentEditResult> RemoveFieldAsync(string name, CancellationToken cancellationToken)
+    /// <summary>Runs RemoveField against the library.</summary>
+    /// <param name="name">The name.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    internal ValueTask<DocumentEditResult> RemoveFieldAsync(string name, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(name);
         return HyperPdfDocumentEdits.RunCheckedAsync(
@@ -70,8 +108,12 @@ internal sealed class HyperPdfFormDesignerService : IFormDesigner
             cancellationToken);
     }
 
-    /// <inheritdoc/>
-    public ValueTask<DocumentEditResult> RenameFieldAsync(string name, string newName, CancellationToken cancellationToken)
+    /// <summary>Runs RenameField against the library.</summary>
+    /// <param name="name">The name.</param>
+    /// <param name="newName">The newName.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    internal ValueTask<DocumentEditResult> RenameFieldAsync(string name, string newName, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(newName);
@@ -88,8 +130,12 @@ internal sealed class HyperPdfFormDesignerService : IFormDesigner
             cancellationToken);
     }
 
-    /// <inheritdoc/>
-    public ValueTask<DocumentEditResult> RenameFieldPartialAsync(string name, string newPartialName, CancellationToken cancellationToken)
+    /// <summary>Runs RenameFieldPartial against the library.</summary>
+    /// <param name="name">The name.</param>
+    /// <param name="newPartialName">The newPartialName.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    internal ValueTask<DocumentEditResult> RenameFieldPartialAsync(string name, string newPartialName, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(newPartialName);
@@ -106,8 +152,12 @@ internal sealed class HyperPdfFormDesignerService : IFormDesigner
             cancellationToken);
     }
 
-    /// <inheritdoc/>
-    public ValueTask<DocumentEditResult> ChangeFieldAsync(string name, FormFieldChanges changes, CancellationToken cancellationToken)
+    /// <summary>Runs ChangeField against the library.</summary>
+    /// <param name="name">The name.</param>
+    /// <param name="changes">The changes.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    internal ValueTask<DocumentEditResult> ChangeFieldAsync(string name, FormFieldChanges changes, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(changes);
@@ -124,8 +174,13 @@ internal sealed class HyperPdfFormDesignerService : IFormDesigner
             cancellationToken);
     }
 
-    /// <inheritdoc/>
-    public ValueTask<DocumentEditResult> MoveWidgetAsync(string name, int widgetIndex, PageRect bounds, CancellationToken cancellationToken)
+    /// <summary>Runs MoveWidget against the library.</summary>
+    /// <param name="name">The name.</param>
+    /// <param name="widgetIndex">The widgetIndex.</param>
+    /// <param name="bounds">The bounds.</param>
+    /// <param name="cancellationToken">Cancels the work.</param>
+    /// <returns>The library's task.</returns>
+    internal ValueTask<DocumentEditResult> MoveWidgetAsync(string name, int widgetIndex, PageRect bounds, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(name);
         return HyperPdfDocumentEdits.RunCheckedAsync(

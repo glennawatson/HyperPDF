@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Signatures.Signing;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -10,11 +11,11 @@ namespace HyperPdf.ViewModels.Tests;
 internal sealed class NoRevocationSource : ISignatureRevocationSource
 {
     /// <inheritdoc/>
-    public ValueTask<byte[]?> GetOcspResponseAsync(byte[] certificate, byte[] issuer, CancellationToken cancellationToken) => ValueTask.FromResult<byte[]?>(null);
+    public IObservable<byte[]?> GetOcspResponse(byte[] certificate, byte[] issuer) => Signal.Return<byte[]?>(null);
 
     /// <inheritdoc/>
-    public ValueTask<byte[]?> GetCrlAsync(byte[] certificate, CancellationToken cancellationToken) => ValueTask.FromResult<byte[]?>(null);
+    public IObservable<byte[]?> GetCrl(byte[] certificate) => Signal.Return<byte[]?>(null);
 
     /// <inheritdoc/>
-    public ValueTask<byte[]?> GetIssuerAsync(byte[] certificate, CancellationToken cancellationToken) => GetCrlAsync(certificate, cancellationToken);
+    public IObservable<byte[]?> GetIssuer(byte[] certificate) => GetCrl(certificate);
 }

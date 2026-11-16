@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Redaction;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -47,7 +48,15 @@ internal sealed class FakeRedactor : IDocumentRedactor
     internal TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <inheritdoc/>
-    public async Task<RedactionReport> ApplyAsync(Stream destination, RedactionSettings settings, CancellationToken cancellationToken)
+    public IObservable<RedactionReport> Apply(Stream destination, RedactionSettings settings) =>
+        Signal.FromAsync(token => ApplyAsync(destination, settings, token));
+
+    /// <summary>Runs Apply as the library's task.</summary>
+    /// <param name="destination">The destination.</param>
+    /// <param name="settings">The settings.</param>
+    /// <param name="cancellationToken">Stops the run.</param>
+    /// <returns>The task.</returns>
+    internal async Task<RedactionReport> ApplyAsync(Stream destination, RedactionSettings settings, CancellationToken cancellationToken)
     {
         Calls++;
         ThreadId = Environment.CurrentManagedThreadId;

@@ -3,21 +3,16 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Annotations;
-using HyperPdfLibrary.Objects;
+using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.PageObjects;
 
-/// <summary>Replaces the text of a text object with new text written in a standard font at the same place, size and colour.</summary>
+/// <summary>Replaces the text of a text object with new text written in a built-in font, or the bundled font of that look for letters it lacks, at the same place, size and colour.</summary>
 public static class PdfPageContentTextReplacement
 {
-    /// <summary>The prefix of the font resource name the new text uses.</summary>
-    private const string FontPrefix = "EdF";
-
-    /// <summary>The longest line, in bytes, that can be written.</summary>
-    private const int LineBytes = 4096;
-
     /// <summary>The components of a gray colour.</summary>
     private const int GrayComponents = 1;
 
@@ -39,9 +34,32 @@ public static class PdfPageContentTextReplacement
     /// <summary>Removes the glyphs of a text object and writes new text where the first glyph was.</summary>
     /// <param name="content">The page content that holds the object.</param>
     /// <param name="text">The text object to replace.</param>
-    /// <param name="replacement">The new text; empty only removes the old text. Characters Windows ANSI cannot hold are written as question marks.</param>
+    /// <param name="replacement">The new text; empty only removes the old text. Letters the built-in fonts cannot show are written with the bundled font of the same look.</param>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-    public static void Replace(PdfPageContent content, PdfTextObject text, string replacement)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Replace(PdfPageContent content, PdfTextObject text, string replacement) =>
+        Replace(content, text, replacement, AppearanceFont.Helvetica, 0F);
+
+    /// <summary>Removes the glyphs of a text object and writes new text where the first glyph was, in a chosen standard font and size.</summary>
+    /// <param name="content">The page content that holds the object.</param>
+    /// <param name="text">The text object to replace.</param>
+    /// <param name="replacement">The new text; empty only removes the old text. Letters the built-in fonts cannot show are written with the bundled font of the same look.</param>
+    /// <param name="font">The standard font to write in.</param>
+    /// <param name="size">The size in user space units, or zero or less to keep the size of the old text.</param>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void Replace(PdfPageContent content, PdfTextObject text, string replacement, AppearanceFont font, float size) =>
+        Replace(content, text, replacement, font, size, null);
+
+    /// <summary>Removes the glyphs of a text object and writes new text where the first glyph was, with a font to use for letters the bundled font lacks.</summary>
+    /// <param name="content">The page content that holds the object.</param>
+    /// <param name="text">The text object to replace.</param>
+    /// <param name="replacement">The new text; empty only removes the old text.</param>
+    /// <param name="font">The look to write in.</param>
+    /// <param name="size">The size in user space units, or zero or less to keep the size of the old text.</param>
+    /// <param name="fallback">A font that has the letters the bundled font of that look lacks, or <see langword="null"/>.</param>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public static void Replace(PdfPageContent content, PdfTextObject text, string replacement, AppearanceFont font, float size, PdfFontSource? fallback)
     {
         ArgumentNullException.ThrowIfNull(content);
         ArgumentNullException.ThrowIfNull(text);
@@ -52,7 +70,7 @@ public static class PdfPageContentTextReplacement
         }
 
         var origin = text.Glyphs[0].Origin;
-        var size = GetUserSize(text);
+        var userSize = size > 0 ? size : GetUserSize(text);
         var fill = text.FillPaint;
         for (var i = 0; i < text.GlyphCount; i++)
         {
@@ -64,7 +82,7 @@ public static class PdfPageContentTextReplacement
             return;
         }
 
-        Write(content, origin, size, fill, replacement);
+        Write(content, origin, userSize, fill, PdfNewTextRun.Create(content, replacement, font, fallback));
     }
 
     /// <summary>Gets the size the text is drawn at in user space.</summary>
@@ -82,25 +100,22 @@ public static class PdfPageContentTextReplacement
     /// <param name="origin">Where the baseline starts, in user space.</param>
     /// <param name="size">The font size.</param>
     /// <param name="fill">The colour to write in.</param>
-    /// <param name="replacement">The text.</param>
-    private static void Write(PdfPageContent content, Vector2 origin, float size, PdfPaint fill, string replacement)
+    /// <param name="run">The text and its font.</param>
+    private static void Write(PdfPageContent content, Vector2 origin, float size, PdfPaint fill, PdfNewTextRun run)
     {
-        var name = PdfPageContentEditing.AllocateName(content, KnownName.Font, FontPrefix);
-        PdfPageContentEditing.AddResource(content, KnownName.Font, name, PdfValue.FromDictionary(AppearanceFontMetrics.CreateFontDictionary(content.Document.Objects, AppearanceFont.Helvetica)));
-        var codes = new byte[Math.Min(replacement.Length, LineBytes)];
-        var count = AppearanceFontMetrics.Encode(replacement.AsSpan(0, codes.Length), codes);
         var builder = default(PdfContentBuilder);
         try
         {
             builder.SaveState();
             SetFill(ref builder, fill);
             builder.BeginText();
-            builder.SetFont(content.Document.Objects.Names.GetSpelling(name), size);
+            run.SelectFont(ref builder, size);
             builder.MoveText(origin.X, origin.Y);
-            builder.ShowText(codes.AsSpan(0, count));
+            run.Show(ref builder, size);
             builder.EndText();
             builder.RestoreState();
             PdfPageContentEditing.Append(content, builder.WrittenSpan);
+            run.Finish();
         }
         finally
         {

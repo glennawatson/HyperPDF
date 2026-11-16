@@ -2,6 +2,7 @@
 #:property TargetFramework=net11.0
 #:property IsAotCompatible=false
 #:property PublishAot=false
+#:include AtSpiReader.cs
 
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
@@ -68,8 +69,45 @@ namespace HyperPdf.Scripts
             ["create-check-pdf", var output] => await CreateCheckPdfAsync(output).ConfigureAwait(false),
             ["atspi-walk", var address, var application, var minimum] when args.Length == WalkArguments + 1 => await WalkAsync(address, application, minimum).ConfigureAwait(false),
             ["atspi-dump", var address, var application] => await DumpAsync(address, application).ConfigureAwait(false),
+            ["atspi-read", var address, var application] => await AtSpiReader.ReadAsync(address, application).ConfigureAwait(false),
             _ => await UsageAsync().ConfigureAwait(false),
         };
+
+        /// <summary>Calls busctl with separately passed arguments.</summary>
+        /// <param name="address">The accessibility bus address.</param>
+        /// <param name="application">The application bus name.</param>
+        /// <param name="command">The busctl operation.</param>
+        /// <param name="path">The accessible object path.</param>
+        /// <param name="member">The property or method name.</param>
+        /// <returns>The reply owned by the caller.</returns>
+        /// <exception cref="InvalidOperationException">busctl fails or returns no reply.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static Task<JsonDocument> CallAsync(string address, string application, string command, string path, string member) =>
+            CallAsync(address, application, command, path, Accessible, member, []);
+
+        /// <summary>Calls busctl on any interface, with arguments.</summary>
+        /// <param name="address">The accessibility bus address.</param>
+        /// <param name="application">The application bus name.</param>
+        /// <param name="command">The busctl operation.</param>
+        /// <param name="path">The accessible object path.</param>
+        /// <param name="interfaceName">The interface.</param>
+        /// <param name="member">The property or method name.</param>
+        /// <param name="arguments">The signature and values of the method's arguments, or none.</param>
+        /// <returns>The reply owned by the caller.</returns>
+        /// <exception cref="InvalidOperationException">busctl fails or returns no reply.</exception>
+        internal static async Task<JsonDocument> CallAsync(string address, string application, string command, string path, string interfaceName, string member, string[] arguments)
+        {
+            string[] busctlArguments = [$"--address={address}", "--json=short", "--timeout=3", command, application, path, interfaceName, member, .. arguments];
+            var result = await Process.RunAndCaptureTextAsync("busctl", busctlArguments).ConfigureAwait(false);
+
+            // A signal or a non-zero exit both mean busctl gave no usable reply.
+            if (result.ExitStatus is not { ExitCode: 0, Signal: null } || string.IsNullOrWhiteSpace(result.StandardOutput) || !string.IsNullOrWhiteSpace(result.StandardError))
+            {
+                throw new InvalidOperationException($"busctl {member} failed: {result.StandardError}");
+            }
+
+            return JsonDocument.Parse(result.StandardOutput);
+        }
 
         /// <summary>Prints how to run the commands.</summary>
         /// <returns>The failure exit code.</returns>
@@ -249,7 +287,7 @@ namespace HyperPdf.Scripts
             }
             else if (Controls.Contains(role))
             {
-                if (spoken.Length == 0 || spoken.StartsWith("Avalonia.", StringComparison.Ordinal))
+                if (spoken.Length == 0)
                 {
                     state.Bad.Add($"{role}: '{spoken}'");
                 }
@@ -258,42 +296,6 @@ namespace HyperPdf.Scripts
                     state.Named++;
                 }
             }
-        }
-
-        /// <summary>Calls busctl with separately passed arguments.</summary>
-        /// <param name="address">The accessibility bus address.</param>
-        /// <param name="application">The application bus name.</param>
-        /// <param name="command">The busctl operation.</param>
-        /// <param name="path">The accessible object path.</param>
-        /// <param name="member">The property or method name.</param>
-        /// <returns>The reply owned by the caller.</returns>
-        /// <exception cref="InvalidOperationException">busctl fails or returns no reply.</exception>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static Task<JsonDocument> CallAsync(string address, string application, string command, string path, string member) =>
-            CallAsync(address, application, command, path, Accessible, member, []);
-
-        /// <summary>Calls busctl on any interface, with arguments.</summary>
-        /// <param name="address">The accessibility bus address.</param>
-        /// <param name="application">The application bus name.</param>
-        /// <param name="command">The busctl operation.</param>
-        /// <param name="path">The accessible object path.</param>
-        /// <param name="interfaceName">The interface.</param>
-        /// <param name="member">The property or method name.</param>
-        /// <param name="arguments">The signature and values of the method's arguments, or none.</param>
-        /// <returns>The reply owned by the caller.</returns>
-        /// <exception cref="InvalidOperationException">busctl fails or returns no reply.</exception>
-        private static async Task<JsonDocument> CallAsync(string address, string application, string command, string path, string interfaceName, string member, string[] arguments)
-        {
-            string[] busctlArguments = [$"--address={address}", "--json=short", "--timeout=3", command, application, path, interfaceName, member, .. arguments];
-            var result = await Process.RunAndCaptureTextAsync("busctl", busctlArguments).ConfigureAwait(false);
-
-            // A signal or a non-zero exit both mean busctl gave no usable reply.
-            if (result.ExitStatus is not { ExitCode: 0, Signal: null } || string.IsNullOrWhiteSpace(result.StandardOutput) || !string.IsNullOrWhiteSpace(result.StandardError))
-            {
-                throw new InvalidOperationException($"busctl {member} failed: {result.StandardError}");
-            }
-
-            return JsonDocument.Parse(result.StandardOutput);
         }
 
         /// <summary>An object still to print, and how deep it is.</summary>

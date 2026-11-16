@@ -76,7 +76,7 @@ public sealed partial class AnnotationsViewModel
 
         if (_readingRegions.Add(page))
         {
-            _ = ReadRegionsAsync(document, page);
+            _subscriptions.Add(ReadRegions(document, page).SubscribeSafe(static _ => { }, ErrorTrace.Write));
         }
 
         return [];
@@ -126,24 +126,38 @@ public sealed partial class AnnotationsViewModel
     /// <summary>Reads a page's places to write off the UI thread, then offers them.</summary>
     /// <param name="document">The document.</param>
     /// <param name="page">The page.</param>
-    /// <returns>A task.</returns>
-    private async Task ReadRegionsAsync(IDocument document, int page)
+    /// <returns>A cold signal that ends once the page's places are offered.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ReadRegions(IDocument document, int page) =>
+        document.PreparePage(page)
+            .SwitchMap(_ => Signal.Start(() => FindRegions(document, page), TaskPoolSequencer.Default))
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(found => RegionsRead(document, page, found));
+
+    /// <summary>Finds the places to write on a page; the read runs once per page, off the UI thread.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="page">The page.</param>
+    /// <returns>The places.</returns>
+    private FormRegion[] FindRegions(IDocument document, int page)
     {
-        await document.PreparePageAsync(page, CancellationToken.None).ConfigureAwait(true);
-        var found = await Task.Run(
-            () =>
+        var output = new List<FormRegion>();
+        _finder.Find(document, page, output);
+        return output.ToArray();
+    }
+
+    /// <summary>Keeps a page's places, unless the document changed meanwhile.</summary>
+    /// <param name="document">The document the places were read from.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="found">The places.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid RegionsRead(IDocument document, int page, FormRegion[] found)
+    {
+        if (ReferenceEquals(document, _regionsDocument))
         {
-            // Captures the finder and the page: the read runs once per page, off the UI thread.
-            var output = new List<FormRegion>();
-            _finder.Find(document, page, output);
-            return output.ToArray();
-        }).ConfigureAwait(true);
-        if (!ReferenceEquals(document, _regionsDocument))
-        {
-            return;
+            _regions[page] = found;
+            RegionsVersion++;
         }
 
-        _regions[page] = found;
-        RegionsVersion++;
+        return RxVoid.Default;
     }
 }

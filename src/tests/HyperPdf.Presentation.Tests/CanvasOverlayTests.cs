@@ -5,6 +5,7 @@
 using HyperPdf.Core.Layout;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels.Tests;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Presentation.Tests;
 
@@ -177,7 +178,7 @@ public sealed class CanvasOverlayTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("overlay-edit.pdf", Pages)]);
         var tab = main.SelectedTab!;
         using var prompt = tab.Annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput("Outline me"));
-        await tab.Annotations.AddNoteAsync(0, new(NoteAt, NoteAt));
+        _ = await tab.Annotations.AddNote(0, new(NoteAt, NoteAt)).ToTask();
         var (_, state) = CanvasUnderTest.Create(tab);
         state.RebuildLayout();
         var note = tab.Annotations.Items[0].Annotation;

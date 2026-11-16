@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Annotations;
 
@@ -57,6 +58,13 @@ public interface IAnnotationEditor : IDocumentFeature
     /// <param name="color">The colour as 0xRRGGBB.</param>
     /// <returns>The new annotation's index, or -1.</returns>
     int AddCaret(int pageIndex, PagePoint location, uint color);
+
+    /// <summary>Adds a link over an area of a page, which sends a reader to a web or mail address or to another page when pressed.</summary>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="area">The area the link covers, in page space.</param>
+    /// <param name="target">An address such as <c>https://example.com</c> or <c>mailto:me@example.com</c>, or <c>page:</c> and a page number counted from one.</param>
+    /// <returns>The new annotation's index, or -1 when the page, the area or the target is not valid or the document cannot add links.</returns>
+    int AddLink(int pageIndex, PageRect area, string target) => -1;
 
     /// <summary>Writes text on the page, or places a typed signature.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
@@ -198,18 +206,12 @@ public interface IAnnotationEditor : IDocumentFeature
 
     /// <summary>Saves the document to a stream with cancellable output I/O.</summary>
     /// <param name="destination">The stream receiving the document.</param>
-    /// <param name="cancellationToken">Cancels preparation and writing.</param>
-    /// <returns>Whether the document was saved.</returns>
-    ValueTask<bool> SaveAsync(Stream destination, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(Save(destination));
-    }
+    /// <returns>A cold signal giving whether the document was saved; unsubscribing cancels preparation and writing.</returns>
+    IObservable<bool> SaveToStream(Stream destination) => Signal.Defer(() => Signal.Return(Save(destination)));
 
     /// <summary>Saves the document to a stream with cancellable output I/O and reports what the user should know.</summary>
     /// <param name="destination">The stream receiving the document.</param>
     /// <param name="report">Receives what the save found.</param>
-    /// <param name="cancellationToken">Cancels preparation and writing.</param>
-    /// <returns>Whether the document was saved.</returns>
-    ValueTask<bool> SaveAsync(Stream destination, DocumentSaveReport report, CancellationToken cancellationToken) => SaveAsync(destination, cancellationToken);
+    /// <returns>A cold signal giving whether the document was saved; unsubscribing cancels preparation and writing.</returns>
+    IObservable<bool> SaveToStream(Stream destination, DocumentSaveReport report) => SaveToStream(destination);
 }

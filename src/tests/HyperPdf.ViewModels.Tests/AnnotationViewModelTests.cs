@@ -40,12 +40,12 @@ public sealed class AnnotationViewModelTests
         tab.SidebarMode = SidebarMode.Annotations;
 
         var marked = annotations.MarkText(AnnotationKind.Highlight, new Dictionary<int, List<PageRect>> { [0] = lines }, AnnotationColors.Sage);
-        await annotations.AddNoteAsync(1, NoteAt);
+        _ = await annotations.AddNote(1, NoteAt).ToTask();
         var afterAdding = annotations.Items.Count;
         var dirty = tab.HasUnsavedChanges;
         _ = await annotations.UndoCommand.Execute().ToTask();
         var afterUndo = annotations.Items.Count;
-        var saved = await tab.SaveAsync(path, CancellationToken.None);
+        var saved = await tab.SaveTo(path).ToTask();
 
         await Assert.That(marked).IsTrue();
         await Assert.That(afterAdding).IsEqualTo(Two);
@@ -95,11 +95,11 @@ public sealed class AnnotationViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("replace.pdf", Pages)]);
         var tab = main.SelectedTab!;
         using var prompt = tab.Annotations.PromptInteraction.RegisterHandler(static context => context.SetOutput("Keep this"));
-        await tab.Annotations.AddNoteAsync(0, NoteAt);
+        _ = await tab.Annotations.AddNote(0, NoteAt).ToTask();
         var destination = Path.Combine(test.Directory, "destination");
         _ = System.IO.Directory.CreateDirectory(destination);
 
-        var saved = await tab.SaveAsync(destination, CancellationToken.None);
+        var saved = await tab.SaveTo(destination).ToTask();
 
         await Assert.That(saved).IsFalse();
         await Assert.That(tab.HasUnsavedChanges).IsTrue();
@@ -110,7 +110,7 @@ public sealed class AnnotationViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("other.pdf", 1)]);
         await Assert.That(tab.Source.IsOpen).IsTrue();
 
-        var retried = await tab.SaveAsync(tab.FilePath, CancellationToken.None);
+        var retried = await tab.SaveTo(tab.FilePath).ToTask();
         await Assert.That(retried).IsTrue();
         await Assert.That(tab.Source.HasUnsavedChanges).IsFalse();
     }

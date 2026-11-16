@@ -11,6 +11,7 @@ using HyperPdf.TestAssets;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Structure.Tagged;
 using HyperPdfLibrary.Text;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine.Tests;
 
@@ -138,7 +139,7 @@ public sealed class EditCacheScopeTests
         var editor = DocumentFeature<IOutlineEditor>.Cast(test.Document)!;
         var before = Read(test);
 
-        var result = await editor.AddBookmarkAsync(0, -1, "Start", 0, cancellationToken);
+        var result = await editor.AddBookmark(0, -1, "Start", 0).ToTask(cancellationToken);
 
         await Assert.That(result.Succeeded).IsTrue();
         await AssertKept(before, Read(test));
@@ -154,7 +155,7 @@ public sealed class EditCacheScopeTests
         var editor = DocumentFeature<IAttachmentEditor>.Cast(test.Document)!;
         var before = Read(test);
 
-        var result = await editor.AddAttachmentAsync("note.txt", AttachedBytes, cancellationToken);
+        var result = await editor.AddAttachment("note.txt", AttachedBytes).ToTask(cancellationToken);
 
         await Assert.That(result.Succeeded).IsTrue();
         await AssertKept(before, Read(test));
@@ -170,8 +171,8 @@ public sealed class EditCacheScopeTests
         var designer = DocumentFeature<IFormDesigner>.Cast(test.Document)!;
         var before = Read(test);
 
-        var changed = await designer.ChangeFieldAsync(FieldName, new() { Value = ImportedName }, cancellationToken);
-        var renamed = await designer.RenameFieldAsync(FieldName, RenamedFieldName, cancellationToken);
+        var changed = await designer.ChangeField(FieldName, new() { Value = ImportedName }).ToTask(cancellationToken);
+        var renamed = await designer.RenameField(FieldName, RenamedFieldName).ToTask(cancellationToken);
 
         await Assert.That(changed.Succeeded).IsTrue();
         await Assert.That(renamed.Succeeded).IsTrue();
@@ -188,7 +189,7 @@ public sealed class EditCacheScopeTests
         var designer = DocumentFeature<IFormDesigner>.Cast(test.Document)!;
         var before = Read(test);
 
-        var created = await designer.CreateFieldAsync(new(FormFieldKind.Text, AddedFieldName, [new(0, new PageRect(Left, Top, Width, Height))]), cancellationToken);
+        var created = await designer.CreateField(new(FormFieldKind.Text, AddedFieldName, [new(0, new PageRect(Left, Top, Width, Height))])).ToTask(cancellationToken);
         var after = Read(test);
 
         await Assert.That(created.Succeeded).IsTrue();
@@ -207,7 +208,7 @@ public sealed class EditCacheScopeTests
         var designer = DocumentFeature<IFormDesigner>.Cast(test.Document)!;
         var before = Read(test);
 
-        var removed = await designer.RemoveFieldAsync(FieldName, cancellationToken);
+        var removed = await designer.RemoveField(FieldName).ToTask(cancellationToken);
         var after = Read(test);
 
         await Assert.That(removed.Succeeded).IsTrue();
@@ -225,7 +226,7 @@ public sealed class EditCacheScopeTests
         using var test = new HyperPdfTestDocument(Sample());
         var before = Read(test);
 
-        await HyperPdfDocumentPageManagement.GetPageManager(test.Document).ApplyAsync(new(PageEditKind.Move, SecondPage, 0), cancellationToken);
+        await HyperPdfDocumentPageManagement.GetPageManager(test.Document).Apply(new(PageEditKind.Move, SecondPage, 0)).ToTask(cancellationToken);
         var after = Read(test);
 
         await Assert.That(after.Text).IsNotSameReferenceAs(before.Text);

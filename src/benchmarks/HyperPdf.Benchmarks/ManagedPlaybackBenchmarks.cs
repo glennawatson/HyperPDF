@@ -32,14 +32,14 @@ public sealed class ManagedPlaybackBenchmarks : IDisposable
     /// <returns>A task that completes with the width of the picture.</returns>
     [Benchmark]
     public async Task<int> OpenClip() =>
-        await _player.OpenAsync(_clip, CancellationToken.None).ConfigureAwait(false) ? _player.FrameSize.Width : 0;
+        await _player.Open(_clip).ToTask().ConfigureAwait(false) ? _player.FrameSize.Width : 0;
 
     /// <summary>Plays the clip to its end, counting the pictures shown.</summary>
     /// <returns>A task that completes with the number of pictures shown.</returns>
     [Benchmark]
     public async Task<int> PlayClip()
     {
-        if (!await _player.OpenAsync(_clip, CancellationToken.None).ConfigureAwait(false))
+        if (!await _player.Open(_clip).ToTask().ConfigureAwait(false))
         {
             return 0;
         }

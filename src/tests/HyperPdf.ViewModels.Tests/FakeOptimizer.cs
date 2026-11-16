@@ -4,6 +4,7 @@
 
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Optimizing;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -41,7 +42,16 @@ internal sealed class FakeOptimizer : IDocumentOptimizer
     internal TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     /// <inheritdoc/>
-    public async Task<OptimizeReport> OptimizeAsync(Stream destination, OptimizeSettings settings, IProgress<OptimizeProgress>? progress, CancellationToken cancellationToken)
+    public IObservable<OptimizeReport> Optimize(Stream destination, OptimizeSettings settings, IProgress<OptimizeProgress>? progress) =>
+        Signal.FromAsync(token => OptimizeAsync(destination, settings, progress, token));
+
+    /// <summary>Runs Optimize as the library's task.</summary>
+    /// <param name="destination">The destination.</param>
+    /// <param name="settings">The settings.</param>
+    /// <param name="progress">The progress.</param>
+    /// <param name="cancellationToken">Stops the run.</param>
+    /// <returns>The task.</returns>
+    internal async Task<OptimizeReport> OptimizeAsync(Stream destination, OptimizeSettings settings, IProgress<OptimizeProgress>? progress, CancellationToken cancellationToken)
     {
         Calls++;
         Received = settings;

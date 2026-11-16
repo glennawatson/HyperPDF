@@ -41,9 +41,9 @@ public sealed class FallbackPlatform : IDesktopPlatform
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<bool> TryForwardAsync(OpenRequest request) => Task.FromResult(false);
+    public IObservable<bool> TryForward(OpenRequest request) => Signal.Return(false);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<ISingleInstance?> TryClaimSingleInstanceAsync() => Task.FromResult<ISingleInstance?>(null);
+    public IObservable<ISingleInstance?> TryClaimSingleInstance() => Signal.Return<ISingleInstance?>(null);
 }

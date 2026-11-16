@@ -37,6 +37,9 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable, ILoca
     /// <summary>Cancels the running search.</summary>
     private CancellationTokenSource? _search;
 
+    /// <summary>The running search's subscription, which ends the search when disposed.</summary>
+    private IDisposable? _run;
+
     /// <summary>Whether a tab switch stopped a search before it finished.</summary>
     private bool _interrupted;
 
@@ -158,7 +161,11 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable, ILoca
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _subscriptions.Dispose();
+    public void Dispose()
+    {
+        _run?.Dispose();
+        _subscriptions.Dispose();
+    }
 
     /// <inheritdoc/>
     void ILocalisationChildren.Refresh(HashSet<object> visited)
@@ -222,6 +229,8 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable, ILoca
     /// <summary>Cancels the running search.</summary>
     private void Cancel()
     {
+        _run?.Dispose();
+        _run = null;
         _search?.Cancel();
         _search?.Dispose();
         _search = null;
@@ -253,7 +262,7 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable, ILoca
 
         var options = SearchOptionChoices.Of(MatchCase, WholeWord, IgnoreDiacritics, FoldCompatibility);
         _search = new();
-        _ = RunSearchAsync(document, Query, options, _owner.CurrentPageIndex, _search.Token);
+        _run = RunSearch(document, Query, options, _owner.CurrentPageIndex, _search.Token).SubscribeSafe(static _ => { }, ErrorTrace.Write);
     }
 
     /// <summary>Runs a search, adding results on the UI thread as pages complete.</summary>
@@ -262,51 +271,58 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable, ILoca
     /// <param name="options">The options.</param>
     /// <param name="startPage">The page to start from.</param>
     /// <param name="cancellationToken">Cancels the search.</param>
-    /// <returns>A task.</returns>
-    private async Task RunSearchAsync(IDocument document, string query, SearchOptions options, int startPage, CancellationToken cancellationToken)
+    /// <returns>A cold signal that ends when the search does; unsubscribing stops it.</returns>
+    private IObservable<RxVoid> RunSearch(IDocument document, string query, SearchOptions options, int startPage, CancellationToken cancellationToken)
     {
         IsSearching = true;
         Status = UiText.Get("Searching…");
-        try
+
+        return DocumentSearch.Search(document, query, options, Math.Max(0, startPage))
+            .TakeUntil(cancellationToken)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+
+            // A page read before a newer search cancelled this one still arrives; the results now belong to the newer search.
+            .Where(_ => !cancellationToken.IsCancellationRequested)
+            .Do(page => AddPage(document, page))
+            .Count()
+            .Select(_ => SearchEnded(cancellationToken));
+    }
+
+    /// <summary>Adds the hits of a searched page to the results.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="page">The page's hits.</param>
+    private void AddPage(IDocument document, SearchPageResult page)
+    {
+        var list = new List<SearchHit>(page.Hits.Count);
+        foreach (var hit in page.Hits)
         {
-            await foreach (var page in DocumentSearch.SearchAsync(document, query, options, Math.Max(0, startPage), cancellationToken))
-            {
-                // A page read before a newer search cancelled this one still arrives; the results now belong to the newer search.
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                var list = new List<SearchHit>(page.Hits.Count);
-                foreach (var hit in page.Hits)
-                {
-                    list.Add(hit);
-                    Results.Add(new(Results.Count, page.PageIndex, hit, GetContext(document, hit.Match)));
-                }
-
-                _hitsByPage[page.PageIndex] = list;
-                if (CurrentIndex < 0)
-                {
-                    MoveTo(0);
-                }
-
-                UpdateStatus();
-                HighlightVersion++;
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            return;
+            list.Add(hit);
+            Results.Add(new(Results.Count, page.PageIndex, hit, GetContext(document, hit.Match)));
         }
 
-        // The last page can finish just as a newer search starts; the busy flag and status now belong to the newer one.
-        if (cancellationToken.IsCancellationRequested)
+        _hitsByPage[page.PageIndex] = list;
+        if (CurrentIndex < 0)
         {
-            return;
+            MoveTo(0);
         }
 
-        IsSearching = false;
         UpdateStatus();
+        HighlightVersion++;
+    }
+
+    /// <summary>Shows the search is over, unless a newer search has taken over.</summary>
+    /// <param name="cancellationToken">Tells whether this search was cancelled.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid SearchEnded(CancellationToken cancellationToken)
+    {
+        // The last page can finish just as a newer search starts; the busy flag and status now belong to the newer one.
+        if (!cancellationToken.IsCancellationRequested)
+        {
+            IsSearching = false;
+            UpdateStatus();
+        }
+
+        return RxVoid.Default;
     }
 
     /// <summary>Updates the status text.</summary>

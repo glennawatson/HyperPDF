@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using HyperPdf.Core.Accessibility;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Layout;
@@ -31,6 +30,9 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
 
     /// <summary>Carries the controls an assistive technology asked to press, from the bridge's thread.</summary>
     private readonly Signal<int> _presses = new();
+
+    /// <summary>Carries the controls an assistive technology asked to give the keyboard to, from the bridge's thread.</summary>
+    private readonly Signal<int> _focusRequests = new();
 
     /// <summary>Carries each place in the page a screen reader asked to put the caret.</summary>
     private readonly Signal<CharacterPosition> _caretRequests = new();
@@ -82,6 +84,9 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
     /// <summary>Gets the ids of the controls an assistive technology asked to press. They arrive on the bridge's thread, so the window brings them to its own.</summary>
     public IObservable<int> Presses => _presses;
 
+    /// <summary>Gets the ids of the controls an assistive technology asked to give the keyboard to. They arrive on the bridge's thread, so the window brings them to its own.</summary>
+    public IObservable<int> FocusRequests => _focusRequests;
+
     /// <summary>Gets the places in the page a screen reader asked to put the caret. Whoever follows them moves the caret on the window thread.</summary>
     public IObservable<CharacterPosition> CaretRequests => _caretRequests;
 
@@ -113,8 +118,22 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
     }
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool Focus(int id) => id == ViewerNodes.DocumentId;
+    public bool Focus(int id)
+    {
+        if (id == ViewerNodes.DocumentId)
+        {
+            return true;
+        }
+
+        // A control takes the keyboard on the window thread; the answer says whether the control can take it.
+        if (id is < ViewerNodes.FirstControlId or >= ViewerNodes.FirstPageItemId || Volatile.Read(ref _current).Nodes.GetValueOrDefault(id) is null)
+        {
+            return false;
+        }
+
+        _focusRequests.OnNext(id);
+        return true;
+    }
 
     /// <inheritdoc/>
     public bool SetCaret(int id, int offset)
@@ -136,6 +155,7 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
     {
         _changes.Dispose();
         _presses.Dispose();
+        _focusRequests.Dispose();
         _caretRequests.Dispose();
     }
 
@@ -407,7 +427,7 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
                 continue;
             }
 
-            var id = ViewerNodes.FirstPageItemId + i;
+            var id = ViewerNodes.PageItemId(page, i);
             nodes[id] = ViewerNodes.CreatePageItem(id, item, ToScreen(canvas.State.GetCanvasRect(page, item.Bounds), offset, scale, origin));
             added.Add(id);
         }

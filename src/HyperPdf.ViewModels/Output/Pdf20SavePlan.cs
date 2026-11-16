@@ -17,27 +17,25 @@ internal static class Pdf20SavePlan
     /// <param name="document">The open document.</param>
     /// <param name="hasChanges">Whether the document has unsaved changes; an unchanged document is not rewritten.</param>
     /// <param name="confirm">Asks the person to agree when signatures or protection must go.</param>
-    /// <param name="cancellationToken">Cancels waiting for the answer.</param>
-    /// <returns>The upgrade to make, or <see langword="null"/> to save in the file's own version.</returns>
-    internal static async Task<Pdf20Upgrade?> PlanAsync(IDocument document, bool hasChanges, Interaction<ConfirmRequest, bool> confirm, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving the upgrade to make, or <see langword="null"/> to save in the file's own version; unsubscribing stops waiting for the answer.</returns>
+    internal static IObservable<Pdf20Upgrade?> Plan(IDocument document, bool hasChanges, Interaction<ConfirmRequest, bool> confirm)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(confirm);
         if (!hasChanges || DocumentFeature<IPdf20CopyWriter>.Get(document) is not { } writer)
         {
-            return null;
+            return Signal.Return<Pdf20Upgrade?>(null);
         }
 
         var signed = HoldsSignature(DocumentFeature<ISignatureSource>.Get(document));
         var protectedFile = document.GetMetadata().IsEncrypted;
         if (!signed && !protectedFile)
         {
-            return new(writer, default);
+            return Signal.Return<Pdf20Upgrade?>(new(writer, default));
         }
 
         var request = new ConfirmRequest(UiText.Get("Save as PDF 2.0?"), Describe(signed, protectedFile), UiText.Get("Save as PDF 2.0"));
-        var agreed = await confirm.Handle(request).ToTask(cancellationToken).ConfigureAwait(true);
-        return agreed ? new(writer, new(signed, protectedFile)) : null;
+        return confirm.Handle(request).ToSignal().Select<bool, Pdf20Upgrade?>(agreed => agreed ? new(writer, new(signed, protectedFile)) : null);
     }
 
     /// <summary>Tells whether a document holds a signature that has been made, as opposed to an empty signature field.</summary>

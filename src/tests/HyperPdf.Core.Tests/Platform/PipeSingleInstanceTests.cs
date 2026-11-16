@@ -31,12 +31,13 @@ public sealed class PipeSingleInstanceTests
     {
         var name = $"HyperPdfTest-{Guid.NewGuid():N}";
         using var first = PipeSingleInstance.TryStart(name);
-        var received = new TaskCompletionSource<OpenRequest>(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var subscription = first!.OpenRequests.SubscribeSafe(request => received.TrySetResult(request), static _ => { });
+
+        // Waiting starts before anything is forwarded, because the requests are only given to whoever is already listening.
+        var received = first!.OpenRequests.Take(1).Timeout(Wait).ToTask(cancellationToken);
 
         var second = PipeSingleInstance.TryStart(name);
-        var forwarded = await PipeSingleInstance.TryForwardAsync(name, new(["documents/a.pdf", "https://example.com/b.pdf"], "token"));
-        var request = await received.Task.WaitAsync(Wait, cancellationToken);
+        var forwarded = await PipeSingleInstance.TryForward(name, new(["documents/a.pdf", "https://example.com/b.pdf"], "token")).ToTask(cancellationToken);
+        var request = await received;
 
         await Assert.That(second).IsNull();
         await Assert.That(forwarded).IsTrue();
@@ -48,7 +49,7 @@ public sealed class PipeSingleInstanceTests
     /// <returns>A task.</returns>
     [Test]
     public async Task ReportsWhenNothingIsRunning() =>
-        await Assert.That(await PipeSingleInstance.TryForwardAsync($"HyperPdfTest-{Guid.NewGuid():N}", new([], null))).IsFalse();
+        await Assert.That(await PipeSingleInstance.TryForward($"HyperPdfTest-{Guid.NewGuid():N}", new([], null)).ToTask()).IsFalse();
 
     /// <summary>A long name still makes a socket path macOS accepts, and the same name always maps to the same pipe.</summary>
     /// <returns>A task.</returns>

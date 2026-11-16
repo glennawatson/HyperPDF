@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Archiving;
 using HyperPdf.Core.Documents;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -23,6 +24,6 @@ internal sealed class HyperPdfArchiveCopyWriterService : IArchiveCopyWriter
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<ArchiveCopyResult> WriteArchiveCopyAsync(Stream destination, ArchiveLevel level, CancellationToken cancellationToken) =>
-        HyperPdfDocumentArchiveCopy.WriteAsync(_owner, destination, level, cancellationToken);
+    public IObservable<ArchiveCopyResult> WriteArchiveCopy(Stream destination, ArchiveLevel level) =>
+        Signal.FromAsync(token => HyperPdfDocumentArchiveCopy.WriteAsync(_owner, destination, level, token));
 }

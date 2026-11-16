@@ -76,7 +76,7 @@ public sealed class ExternalSignViewModelTests
         _ = await vm.FinishCommand.Execute().ToTask();
         main.Open([destination]);
         var opened = main.Tabs.First(t => t.FilePath == destination);
-        await opened.EnsureLoadedAsync(CancellationToken.None);
+        _ = await opened.EnsureLoaded().ToTask();
         opened.Signatures.Refresh();
 
         using (Assert.Multiple())

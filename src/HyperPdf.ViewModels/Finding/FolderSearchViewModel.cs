@@ -94,10 +94,10 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable,
     /// <summary>Gets what the search is doing or found, such as "12 matches in 3 of 40 files".</summary>
     public string Status => _status.Value ?? string.Empty;
 
-    /// <summary>Runs a search to the end, for tests and callers that wait.</summary>
-    /// <returns>A task.</returns>
+    /// <summary>Runs a search that ends when every file was searched or the search was stopped.</summary>
+    /// <returns>A signal that completes when the search ends.</returns>
     [ReactiveCommand]
-    public Task SearchAsync()
+    public IObservable<RxVoid> Search()
     {
         Stop();
 
@@ -108,12 +108,12 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable,
         {
             SetStatus(LocalizedMessage.Get(UiText, "Choose a folder and the words to find."));
             IsSearching = false;
-            return Task.CompletedTask;
+            return Signal.Return(RxVoid.Default);
         }
 
         var cancellation = new CancellationTokenSource();
         _running = cancellation;
-        return RunAsync(Folder, Query.Trim(), Options(), IncludeSubfolders, new(_version, cancellation.Token));
+        return Run(Folder, Query.Trim(), Options(), IncludeSubfolders, new(_version, cancellation.Token));
     }
 
     /// <summary>Stops the running search; the results so far stay.</summary>
@@ -165,56 +165,106 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable,
     /// <param name="options">The options.</param>
     /// <param name="subfolders">Whether to search subfolders.</param>
     /// <param name="run">Stops the search, and says which search it is.</param>
-    /// <returns>A task.</returns>
-    private async Task RunAsync(string folder, string query, SearchOptions options, bool subfolders, FolderSearchRun run)
+    /// <returns>A signal that completes when the search ends.</returns>
+    private IObservable<RxVoid> Run(string folder, string query, SearchOptions options, bool subfolders, FolderSearchRun run)
     {
-        IsSearching = true;
+        var progress = new FolderSearchProgress();
+        return Signal.Defer(() =>
+            {
+                IsSearching = true;
+                return Signal.Start(() => FolderSearch.FindFiles(folder, subfolders), TaskPoolSequencer.Default).ObserveOn(RxSchedulers.MainThreadScheduler);
+            })
+            .SwitchMap(files => SearchFiles(files, query, options, run, progress))
+            .Catch<RxVoid, OperationCanceledException>(_ => Cancelled(run, progress))
+            .Finally(() => EndSearch(run));
+    }
+
+    /// <summary>Searches the files one after another and adds each file's results as it finishes.</summary>
+    /// <param name="files">The files.</param>
+    /// <param name="query">The words.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="run">Stops the search, and says which search it is.</param>
+    /// <param name="progress">The counts so far.</param>
+    /// <returns>A signal that completes once the files are done or the search was stopped.</returns>
+    private IObservable<RxVoid> SearchFiles(List<string> files, string query, SearchOptions options, FolderSearchRun run, FolderSearchProgress progress)
+    {
+        progress.Total = files.Count;
         var token = run.Token;
-        var matches = 0;
-        var withMatches = 0;
-        try
-        {
-            var files = await Task.Run(() => FolderSearch.FindFiles(folder, subfolders), token).ConfigureAwait(true);
-            for (var i = 0; i < files.Count && !token.IsCancellationRequested; i++)
-            {
-                var path = files[i];
-                var found = await FolderSearch.SearchFileAsync(_services.Engine, path, query, options, MaxMatchesPerFile, token).ConfigureAwait(true);
+        return LazySequence.Concat(FileSearches(files, query, options))
+            .TakeUntil(token)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
 
-                // A file that finished just as the search was stopped or replaced must not add old matches to the results.
-                if (token.IsCancellationRequested)
-                {
-                    break;
-                }
+            // A file that finished just as the search was stopped or replaced must not add old matches to the results.
+            .TakeWhile(_ => !token.IsCancellationRequested)
+            .Do(found => Record(found, progress))
+            .Count()
+            .Select(_ => Finish(run, progress));
+    }
 
-                Add(found);
-                matches += found.Matches.Count;
-                withMatches += found.Matches.Count > 0 ? 1 : 0;
-                SetStatus(LocalizedMessage.Format(UiText, "{0}; searched {1} of {2}", Summary(matches, withMatches), i + 1, files.Count));
-            }
+    /// <summary>Makes the search of each file, one at a time as the caller moves along.</summary>
+    /// <param name="files">The files.</param>
+    /// <param name="query">The words.</param>
+    /// <param name="options">The options.</param>
+    /// <returns>A cold signal per file.</returns>
+    private IEnumerable<IObservable<FolderSearchFile>> FileSearches(List<string> files, string query, SearchOptions options)
+    {
+        foreach (var path in files)
+        {
+            yield return FolderSearch.Search(_services.Engine, path, query, options, MaxMatchesPerFile);
+        }
+    }
 
-            // A newer search owns the status and the busy flag, so an older one that unwinds late leaves them alone.
-            if (run.Version == _version)
-            {
-                var stopped = token.IsCancellationRequested ? LocalizedMessage.Get(UiText, ", stopped") : LocalizedMessage.Literal(string.Empty);
-                SetStatus(files.Count == 0
-                    ? LocalizedMessage.Get(UiText, "There are no PDF files in this folder.")
-                    : LocalizedMessage.Format(UiText, "{0} of {1}{2}", Summary(matches, withMatches), files.Count, stopped));
-            }
-        }
-        catch (OperationCanceledException) when (run.Version == _version)
+    /// <summary>Adds a finished file to the results and the counts, and says how far the search is.</summary>
+    /// <param name="found">What was found in the file.</param>
+    /// <param name="progress">The counts so far.</param>
+    private void Record(FolderSearchFile found, FolderSearchProgress progress)
+    {
+        Add(found);
+        progress.Matches += found.Matches.Count;
+        progress.WithMatches += found.Matches.Count > 0 ? 1 : 0;
+        progress.Searched++;
+        SetStatus(LocalizedMessage.Format(UiText, "{0}; searched {1} of {2}", Summary(progress.Matches, progress.WithMatches), progress.Searched, progress.Total));
+    }
+
+    /// <summary>Says how the search ended, unless a newer search owns the status.</summary>
+    /// <param name="run">Which search it is.</param>
+    /// <param name="progress">The counts.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Finish(FolderSearchRun run, FolderSearchProgress progress)
+    {
+        if (run.Version == _version)
         {
-            SetStatus(LocalizedMessage.Format(UiText, "{0}, stopped", Matches(matches)));
+            var stopped = run.Token.IsCancellationRequested ? LocalizedMessage.Get(UiText, ", stopped") : LocalizedMessage.Literal(string.Empty);
+            SetStatus(progress.Total == 0
+                ? LocalizedMessage.Get(UiText, "There are no PDF files in this folder.")
+                : LocalizedMessage.Format(UiText, "{0} of {1}{2}", Summary(progress.Matches, progress.WithMatches), progress.Total, stopped));
         }
-        catch (OperationCanceledException)
+
+        return RxVoid.Default;
+    }
+
+    /// <summary>Handles a search that was stopped part way through a file.</summary>
+    /// <param name="run">Which search it is.</param>
+    /// <param name="progress">The counts.</param>
+    /// <returns>A signal that completes at once.</returns>
+    private IObservable<RxVoid> Cancelled(FolderSearchRun run, FolderSearchProgress progress)
+    {
+        // A newer search replaced this one when its version has moved on, and owns the status.
+        if (run.Version == _version)
         {
-            // A newer search replaced this one.
+            SetStatus(LocalizedMessage.Format(UiText, "{0}, stopped", Matches(progress.Matches)));
         }
-        finally
+
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Clears the busy flag, unless a newer search owns it.</summary>
+    /// <param name="run">Which search it is.</param>
+    private void EndSearch(FolderSearchRun run)
+    {
+        if (run.Version == _version)
         {
-            if (run.Version == _version)
-            {
-                IsSearching = false;
-            }
+            IsSearching = false;
         }
     }
 
@@ -254,16 +304,17 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable,
     private SearchOptions Options() => SearchOptionChoices.Of(MatchCase, WholeWord, IgnoreDiacritics, FoldCompatibility);
 
     /// <summary>Asks for a folder.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once a folder is chosen or the choice was given up.</returns>
     [ReactiveCommand]
-    private async Task ChooseFolderAsync()
-    {
-        var folder = await ChooseFolderInteraction.Handle(RxVoid.Default).ToTask().ConfigureAwait(true);
-        if (!string.IsNullOrEmpty(folder))
-        {
-            Folder = folder;
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ChooseFolder() =>
+        ChooseFolderInteraction.Handle(RxVoid.Default).ToSignal()
+            .Where(static folder => !string.IsNullOrEmpty(folder))
+            .Select(folder =>
+            {
+                Folder = folder!;
+                return RxVoid.Default;
+            });
 
     /// <summary>Opens a result at its page.</summary>
     /// <param name="result">The result.</param>

@@ -12,8 +12,7 @@ public interface IRemoteDocumentApi
 {
     /// <summary>Downloads a document.</summary>
     /// <param name="path">The path and query relative to the base address.</param>
-    /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The response; the caller disposes it.</returns>
+    /// <returns>A cold signal giving the response once, which the subscriber disposes; unsubscribing cancels the request.</returns>
     [Get("/{**path}")]
-    Task<HttpResponseMessage> DownloadAsync(string path, CancellationToken cancellationToken);
+    IObservable<HttpResponseMessage> Download(string path);
 }

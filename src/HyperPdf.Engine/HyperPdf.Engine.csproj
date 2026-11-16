@@ -10,6 +10,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="ScriptFonts\*.ttf.z" LogicalName="HyperPdf.Engine.ScriptFonts.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="ScriptFonts\LICENSE.txt" LogicalName="HyperPdf.Engine.ScriptFonts.LICENSE.txt" />
+    <None Include="ScriptFonts\LICENSE.txt" Pack="true" PackagePath="ScriptFonts-LICENSE.txt" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="HyperPdf.Engine.Tests" />
     <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
   </ItemGroup>

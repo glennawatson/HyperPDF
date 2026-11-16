@@ -112,7 +112,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
             _subscriptions.Add(subscription);
         }
 
-        _ = LoadFontFamiliesAsync();
+        _subscriptions.Add(LoadFontFamilies().SubscribeSafe(static _ => { }, ErrorTrace.Write));
     }
 
     /// <summary>Gets the stamps offered, in menu order.</summary>
@@ -391,6 +391,14 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
         return EditorForChange() is { } editor && Added(page, editor.AddInk(page, points, strokeLengths, color, width, kind));
     }
 
+    /// <summary>Adds a link over an area of a page.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="area">The area the link covers.</param>
+    /// <param name="target">A web or mail address, or <c>page:</c> and a page number.</param>
+    /// <returns><see langword="true"/> when added; <see langword="false"/> when the target is not an address or a page of the document.</returns>
+    public bool AddLink(int page, PageRect area, string target) =>
+        EditorForChange() is { } editor && Added(page, editor.AddLink(page, area, target));
+
     /// <summary>Marks a place where text should be inserted, in the deeper tone of the chosen colour.</summary>
     /// <param name="page">The page.</param>
     /// <param name="location">The place: the caret hangs below this point with its tip on it.</param>
@@ -432,57 +440,74 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
     /// <summary>Asks for a note and adds it at a point.</summary>
     /// <param name="page">The page.</param>
     /// <param name="location">Where the note icon goes.</param>
-    /// <returns>A task.</returns>
-    public async Task AddNoteAsync(int page, PagePoint location)
-    {
-        var text = await PromptInteraction.Handle(new(
-            LocalizedMessage.Get(UiText, "Add Note"),
-            LocalizedMessage.Get(UiText, "Note"),
-            string.Empty,
-            LocalizedMessage.Get(UiText, "Add Note"),
-            true)).ToTask().ConfigureAwait(true);
-        if (!string.IsNullOrWhiteSpace(text) && EditorForChange() is { } editor)
-        {
-            _ = Added(page, editor.AddNote(page, location, text, Color));
-        }
-    }
+    /// <returns>A cold signal that ends once the note is added or the question was given up.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<RxVoid> AddNote(int page, PagePoint location) =>
+        Ask(
+            new(
+                LocalizedMessage.Get(UiText, "Add Note"),
+                LocalizedMessage.Get(UiText, "Note"),
+                string.Empty,
+                LocalizedMessage.Get(UiText, "Add Note"),
+                true),
+            text =>
+            {
+                if (EditorForChange() is { } editor)
+                {
+                    _ = Added(page, editor.AddNote(page, location, text, Color));
+                }
+            });
 
     /// <summary>Asks for text and writes it at a point, at the chosen size, in the deeper tone of the chosen colour.</summary>
     /// <param name="page">The page.</param>
     /// <param name="location">The top-left corner of the text.</param>
-    /// <returns>A task.</returns>
-    public async Task AddTextAsync(int page, PagePoint location)
-    {
-        var text = await PromptInteraction.Handle(new(
-            LocalizedMessage.Get(UiText, "Add Text"),
-            LocalizedMessage.Get(UiText, "Text to write on the page"),
-            string.Empty,
-            LocalizedMessage.Get(UiText, "Add Text"),
-            true)).ToTask().ConfigureAwait(true);
-        if (!string.IsNullOrWhiteSpace(text) && EditorForChange() is { } editor)
-        {
-            _ = Added(page, editor.AddText(page, location, text, FontSize, AnnotationColors.Deep(Color), AnnotationKind.TextBox));
-        }
-    }
+    /// <returns>A cold signal that ends once the text is added or the question was given up.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<RxVoid> AddText(int page, PagePoint location) =>
+        Ask(
+            new(
+                LocalizedMessage.Get(UiText, "Add Text"),
+                LocalizedMessage.Get(UiText, "Text to write on the page"),
+                string.Empty,
+                LocalizedMessage.Get(UiText, "Add Text"),
+                true),
+            text =>
+            {
+                if (EditorForChange() is { } editor)
+                {
+                    _ = Added(page, editor.AddText(page, location, text, FontSize, AnnotationColors.Deep(Color), AnnotationKind.TextBox));
+                }
+            });
 
     /// <summary>Asks for text and writes it as a callout pointing at a point.</summary>
     /// <param name="page">The page.</param>
     /// <param name="target">What the callout points at.</param>
     /// <param name="location">The top-left corner of the text.</param>
-    /// <returns>A task.</returns>
-    public async Task AddCalloutAsync(int page, PagePoint target, PagePoint location)
-    {
-        var text = await PromptInteraction.Handle(new(
-            LocalizedMessage.Get(UiText, "Add Callout"),
-            LocalizedMessage.Get(UiText, "Text of the callout"),
-            string.Empty,
-            LocalizedMessage.Get(UiText, "Add Callout"),
-            true)).ToTask().ConfigureAwait(true);
-        if (!string.IsNullOrWhiteSpace(text) && EditorForChange() is { } editor)
-        {
-            _ = Added(page, editor.AddCallout(page, target, location, text, FontSize, AnnotationColors.Deep(Color)));
-        }
-    }
+    /// <returns>A cold signal that ends once the callout is added or the question was given up.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<RxVoid> AddCallout(int page, PagePoint target, PagePoint location) =>
+        Ask(
+            new(
+                LocalizedMessage.Get(UiText, "Add Callout"),
+                LocalizedMessage.Get(UiText, "Text of the callout"),
+                string.Empty,
+                LocalizedMessage.Get(UiText, "Add Callout"),
+                true),
+            text =>
+            {
+                if (EditorForChange() is { } editor)
+                {
+                    _ = Added(page, editor.AddCallout(page, target, location, text, FontSize, AnnotationColors.Deep(Color)));
+                }
+            });
+
+    /// <summary>Asks for text and writes it as a callout where the page was dragged; the question ends with the view model.</summary>
+    /// <param name="page">The page.</param>
+    /// <param name="target">What the callout points at.</param>
+    /// <param name="location">The top-left corner of the text.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void PlaceCallout(int page, PagePoint target, PagePoint location) =>
+        _subscriptions.Add(AddCallout(page, target, location).SubscribeSafe(static _ => { }, ErrorTrace.Write));
 
     /// <summary>Writes a signature or initials mark into its bounds as a removable signature annotation, then picks it.</summary>
     /// <param name="page">The page.</param>
@@ -682,6 +707,20 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
         return UiText.Format("{0:0.#} pt", value);
     }
 
+    /// <summary>Makes the change the words ask for, when any were typed.</summary>
+    /// <param name="text">The words typed, or <see langword="null"/> when the question was given up.</param>
+    /// <param name="add">Makes the change from the words typed.</param>
+    /// <returns>The completion value.</returns>
+    private static RxVoid Typed(string? text, Action<string> add)
+    {
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            add(text);
+        }
+
+        return RxVoid.Default;
+    }
+
     /// <summary>Turns a tool on, or back to selecting when it is turned off.</summary>
     /// <param name="on">Whether the tool is being turned on.</param>
     /// <param name="tool">The tool.</param>
@@ -718,49 +757,63 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
     }
 
     /// <summary>Asks for the person's own words for a stamp, then chooses the stamp tool.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the stamp tool is chosen or the question was given up.</returns>
     [ReactiveCommand]
-    private async Task CustomStampAsync()
-    {
-        var text = await PromptInteraction.Handle(new(
-            LocalizedMessage.Get(UiText, "Custom Stamp"),
-            LocalizedMessage.Get(UiText, "Words on the stamp"),
-            string.Empty,
-            LocalizedMessage.Get(UiText, "Use Stamp"),
-            false)).ToTask().ConfigureAwait(true);
-        if (!string.IsNullOrWhiteSpace(text))
-        {
-            SetStamp(text);
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> CustomStamp() =>
+        Ask(
+            new(
+                LocalizedMessage.Get(UiText, "Custom Stamp"),
+                LocalizedMessage.Get(UiText, "Words on the stamp"),
+                string.Empty,
+                LocalizedMessage.Get(UiText, "Use Stamp"),
+                false),
+            SetStamp);
 
-    /// <summary>Asks for a picture, reads it, and chooses the stamp tool to place it.</summary>
-    /// <returns>A task.</returns>
+    /// <summary>Asks for a picture, reads it on the pool, and chooses the stamp tool to place it.</summary>
+    /// <returns>A signal that ends once the picture is read or the choice was given up.</returns>
     [ReactiveCommand]
-    private async Task PictureStampAsync()
-    {
-        if (await ChoosePictureInteraction.Handle(RxVoid.Default).ToTask().ConfigureAwait(true) is not { Length: > 0 } path)
-        {
-            return;
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> PictureStamp() =>
+        ChoosePictureInteraction.Handle(RxVoid.Default).ToSignal()
+            .Where(static path => path is { Length: > 0 })
+            .SwitchMap(path => LoadPicture(path!));
 
+    /// <summary>Reads a picture on the pool and chooses it for the stamp tool on the interface thread.</summary>
+    /// <param name="path">The picture file.</param>
+    /// <returns>A cold signal that ends once the picture is chosen or refused.</returns>
+    private IObservable<RxVoid> LoadPicture(string path)
+    {
         var head = _owner.Services.Head;
-        UsePicture(await Task.Run(() => head.LoadImage(path)).ConfigureAwait(true));
+        return Signal.Start(() => head.LoadImage(path), TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(UsePicture);
     }
+
+    /// <summary>Asks a question and, when words are typed, makes the change they ask for.</summary>
+    /// <param name="prompt">The question.</param>
+    /// <param name="add">Makes the change from the words typed.</param>
+    /// <returns>A cold signal that ends once the change is made or the question was given up.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Ask(TextPrompt prompt, Action<string> add) =>
+        PromptInteraction.Handle(prompt).ToSignal()
+            .Select(text => Typed(text, add));
 
     /// <summary>Chooses a picture for the stamp tool.</summary>
     /// <param name="picture">The decoded picture, or <see langword="null"/> when it could not be read.</param>
-    private void UsePicture(DecodedImage? picture)
+    /// <returns>The completion value.</returns>
+    private RxVoid UsePicture(DecodedImage? picture)
     {
         if (picture is null || picture.Width <= 0 || picture.Height <= 0)
         {
             _owner.SetNotice(LocalizedMessage.Get(UiText, "That picture could not be read. Choose a PNG, JPEG, BMP or WebP file."));
-            return;
+            return RxVoid.Default;
         }
 
         _picture = picture;
         StampLabel = PictureStampLabel;
         Tool = AnnotationTool.Stamp;
+        return RxVoid.Default;
     }
 
     /// <summary>Shows the tools; Fill &amp; Sign is put away so only one tool row is ever shown.</summary>
@@ -790,17 +843,17 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
 
     /// <summary>Asks for a note and adds it where the page was clicked.</summary>
     /// <param name="location">The page and point.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the note is added or the question was given up.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task AddNoteHere(PageLocation location) => AddNoteAsync(location.Page, location.Point);
+    private IObservable<RxVoid> AddNoteHere(PageLocation location) => AddNote(location.Page, location.Point);
 
     /// <summary>Asks for text and writes it where the page was clicked.</summary>
     /// <param name="location">The page and point.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the text is added or the question was given up.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task AddTextHere(PageLocation location) => AddTextAsync(location.Page, location.Point);
+    private IObservable<RxVoid> AddTextHere(PageLocation location) => AddText(location.Page, location.Point);
 
     /// <summary>Scrolls to an annotation and picks it.</summary>
     /// <param name="item">The sidebar item.</param>

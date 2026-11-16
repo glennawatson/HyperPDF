@@ -8,6 +8,8 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using HyperPdf.Core.Signatures.Signing;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Http.Signatures;
 
@@ -78,24 +80,37 @@ public sealed class TimestampAuthorityClient : ISignatureTimestamper
     /// <summary>Asks the authority for a token over a hash and checks the reply matches the request.</summary>
     /// <param name="hash">The hash to stamp.</param>
     /// <param name="digest">The digest that made the hash.</param>
-    /// <param name="cancellationToken">Stops waiting for the authority.</param>
-    /// <returns>The DER-encoded token.</returns>
-    /// <exception cref="CryptographicException">The authority refused the request or answered with something other than a matching token.</exception>
-    public async ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> hash, SigningDigest digest, CancellationToken cancellationToken)
-    {
-        var nonce = RandomNumberGenerator.GetBytes(NonceLength);
-        nonce[0] &= PositiveMask;
-        var request = Rfc3161TimestampRequest.CreateFromHash(hash, new Oid(OidOf(digest)), null, nonce, true);
-        using var content = new ByteArrayContent(request.Encode());
-        content.Headers.ContentType = new("application/timestamp-query");
-        using var response = await _api.StampAsync(_address.PathAndQuery.TrimStart('/'), content, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode)
+    /// <returns>
+    /// A cold signal giving the DER-encoded token once; unsubscribing stops waiting for the authority. It fails with
+    /// <see cref="CryptographicException"/> when the authority refused the request or answered with something other than a matching token.
+    /// </returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<byte[]> Timestamp(ReadOnlyMemory<byte> hash, SigningDigest digest) =>
+        Signal.Defer(() =>
         {
-            throw new CryptographicException($"The timestamp server answered {(int)response.StatusCode} {response.ReasonPhrase}.");
-        }
+            var nonce = RandomNumberGenerator.GetBytes(NonceLength);
+            nonce[0] &= PositiveMask;
+            var request = Rfc3161TimestampRequest.CreateFromHash(hash, new Oid(OidOf(digest)), null, nonce, true);
+            return Signal.Using(
+                () => new ByteArrayContent(request.Encode()),
+                content =>
+                {
+                    content.Headers.ContentType = new("application/timestamp-query");
+                    return _api.Stamp(_address.PathAndQuery.TrimStart('/'), content)
+                        .SwitchMap(response => Signal.Using(() => response, reply => ReadToken(reply, request)));
+                });
+        });
 
-        var reply = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-        return request.ProcessResponse(reply, out _).AsSignedCms().Encode();
+    /// <summary>Reads the reply of the authority and checks it matches the request.</summary>
+    /// <param name="response">The authority's response.</param>
+    /// <param name="request">The request that was sent.</param>
+    /// <returns>A cold signal giving the DER-encoded token once.</returns>
+    private static IObservable<byte[]> ReadToken(HttpResponseMessage response, Rfc3161TimestampRequest request)
+    {
+        // Reading the body of an HTTP response is the framework's own async API.
+        return response.IsSuccessStatusCode
+            ? Signal.FromAsync(token => response.Content.ReadAsByteArrayAsync(token)).Select(reply => request.ProcessResponse(reply, out _).AsSignedCms().Encode())
+            : Signal.Throw<byte[]>(new CryptographicException($"The timestamp server answered {(int)response.StatusCode} {response.ReasonPhrase}."));
     }
 
     /// <summary>Makes the client of an authority.</summary>

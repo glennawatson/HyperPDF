@@ -13,8 +13,7 @@ public interface ITimestampAuthorityApi
     /// <summary>Sends a timestamp query.</summary>
     /// <param name="path">The path and query relative to the base address.</param>
     /// <param name="query">The DER query, sent as <c>application/timestamp-query</c>.</param>
-    /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The response; the caller disposes it.</returns>
+    /// <returns>A cold signal giving the response once; the caller disposes it, and unsubscribing cancels the request.</returns>
     [Post("/{**path}")]
-    Task<HttpResponseMessage> StampAsync(string path, [Body] HttpContent query, CancellationToken cancellationToken);
+    IObservable<HttpResponseMessage> Stamp(string path, [Body] HttpContent query);
 }

@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
+using HyperPdf.ViewModels.Markup;
 using HyperPdf.ViewModels.Rendering;
 using HyperPdfLibrary;
 using ReactiveUI;
@@ -65,6 +66,15 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Whether an edit can be redone.</summary>
     private readonly IObservable<bool> _canRedo;
+
+    /// <summary>The page number settings, made when first asked for.</summary>
+    private PageLabelsViewModel? _labels;
+
+    /// <summary>The settings that take hidden information out of the document, made when first asked for.</summary>
+    private SanitizeViewModel? _sanitize;
+
+    /// <summary>The comparison with another document, made when first asked for.</summary>
+    private CompareViewModel? _compare;
 
     /// <summary>Initializes a new instance of the <see cref="PageManagementViewModel"/> class.</summary>
     /// <param name="owner">The tab holding the document.</param>
@@ -153,6 +163,15 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <summary>Gets the interaction asking which picture files to add as pages.</summary>
     public Interaction<RxVoid, string[]> InsertImagesInteraction { get; } = new();
 
+    /// <summary>Gets the settings that number a run of pages a different way, such as i, ii, iii for the front matter.</summary>
+    public PageLabelsViewModel Labels => _labels ??= new PageLabelsViewModel(_owner);
+
+    /// <summary>Gets the settings that take hidden information out of the document before it is shared.</summary>
+    public SanitizeViewModel Sanitize => _sanitize ??= new SanitizeViewModel(_owner);
+
+    /// <summary>Gets the comparison of the open document with another file.</summary>
+    public CompareViewModel Compare => _compare ??= new CompareViewModel(_owner, _owner.Services);
+
     /// <summary>Gets the interaction asking where to save the selected pages.</summary>
     public Interaction<string, string?> ExtractInteraction { get; } = new();
 
@@ -208,19 +227,21 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Moves the selected pages to an index in the document after removing the selection.</summary>
     /// <param name="destination">The destination index after removal.</param>
-    /// <returns>A task completing after the move.</returns>
-    public Task MoveAsync(int destination) => SelectedPages.Count == 0 || (uint)destination > (uint)(_owner
-        .PageCount - SelectedPages.Count)
-        ? Task.CompletedTask
-        : RunEditAsync(
-        static (manager, request, report, token) => manager
-        .ApplyAsync(request, report, token),
-        new(PageEditKind.Move, CopySelectedPages(), destination),
-        UiText.Get("Could not move pages."));
+    /// <returns>A cold signal that ends after the move.</returns>
+    public IObservable<RxVoid> Move(int destination) => SelectedPages.Count == 0 || (uint)destination > (uint)(_owner.PageCount - SelectedPages.Count)
+        ? Signal.Return(RxVoid.Default)
+        : RunEdit(
+            static (manager, request, report) => manager.Apply(request, report),
+            new(PageEditKind.Move, CopySelectedPages(), destination),
+            UiText.Get("Could not move pages."));
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _subscriptions.Dispose();
+
+    /// <summary>Tells the tab that the pages' sizes or order changed by an edit made outside this view model, so it reads the page structure again.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void NotifyStructureChanged() => StructureVersion++;
 
     /// <inheritdoc/>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
@@ -238,22 +259,6 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     {
         var comparison = OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
         return string.Equals(Path.GetFullPath(first), Path.GetFullPath(second), comparison);
-    }
-
-    /// <summary>Removes a partial extraction, ignoring errors because the destination is still safe.</summary>
-    /// <param name="path">The temporary file.</param>
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
     }
 
     /// <summary>Compares two page-index selections without an iterator allocation.</summary>
@@ -405,195 +410,132 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     }
 
     /// <summary>Deletes the selected pages.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the pages are deleted or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canDelete))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task DeleteAsync() => RunSelectedEditAsync(PageEditKind.Delete, 0, UiText.Get("Could not delete pages."));
+    private IObservable<RxVoid> Delete() => RunSelectedEdit(PageEditKind.Delete, 0, UiText.Get("Could not delete pages."));
 
     /// <summary>Turns the selected pages clockwise by 90 degrees.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the pages are turned or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canEditSelection))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task RotateClockwiseAsync() => RunSelectedEditAsync(PageEditKind.Rotate, ClockwiseDegrees, UiText.Get("Could not rotate pages."));
+    private IObservable<RxVoid> RotateClockwise() => RunSelectedEdit(PageEditKind.Rotate, ClockwiseDegrees, UiText.Get("Could not rotate pages."));
 
     /// <summary>Turns the selected pages counterclockwise by 90 degrees.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the pages are turned or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canEditSelection))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task RotateCounterclockwiseAsync() => RunSelectedEditAsync(PageEditKind.Rotate, CounterclockwiseDegrees, UiText.Get("Could not rotate pages."));
+    private IObservable<RxVoid> RotateCounterclockwise() => RunSelectedEdit(PageEditKind.Rotate, CounterclockwiseDegrees, UiText.Get("Could not rotate pages."));
 
     /// <summary>Copies the selected pages after the last selected page.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the pages are copied or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canEditSelection))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task DuplicateAsync() => RunSelectedEditAsync(PageEditKind.Duplicate, SelectedPages[^1] + 1, UiText.Get("Could not duplicate pages."));
+    private IObservable<RxVoid> Duplicate() => RunSelectedEdit(PageEditKind.Duplicate, SelectedPages[^1] + 1, UiText.Get("Could not duplicate pages."));
 
-    /// <summary>Moves the selected pages one position earlier.</summary>
-    /// <returns>A task.</returns>
-    [ReactiveCommand(CanExecute = nameof(_canMoveEarlier))]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task MoveEarlierAsync() => MoveAsync(SelectedPages[0] - 1);
-
-    /// <summary>Moves the selected pages one position later.</summary>
-    /// <returns>A task.</returns>
-    [ReactiveCommand(CanExecute = nameof(_canMoveLater))]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task MoveLaterAsync() => MoveAsync(SelectedPages[0] + 1);
-
-    /// <summary>Asks for PDF files and inserts them after the selected pages or current page.</summary>
-    /// <returns>A task.</returns>
-    [ReactiveCommand(CanExecute = nameof(_canEdit))]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task InsertFilesAsync() => RunAsync(
-        async (manager, token) =>
-{
-    var paths = await InsertInteraction.Handle(RxVoid.Default).ToTask(token).WaitAsync(token).ConfigureAwait(true);
-    if (paths.Length > 0)
+    /// <summary>Selects every page of the document.</summary>
+    [ReactiveCommand]
+    private void SelectAll()
     {
-        var index = SelectedPages.Count > 0 ? SelectedPages[0] : Math.Clamp(_owner.CurrentPageIndex, 0, _owner.PageCount);
-        var previousCount = _owner.PageCount;
-        var report = new PageEditReport();
+        var pages = new int[_owner.PageCount];
+        for (var i = 0; i < pages.Length; i++)
+        {
+            pages[i] = i;
+        }
 
-        // The library reads and rewrites the pages before its first await, so the app starts it on the pool.
-        await Task.Run(() => manager.InsertAsync(index, paths, report, token).AsTask(), token).ConfigureAwait(true);
-        ShowSeparationNotice(report);
-        return new(true, () => CopyRange(index, Math.Max(0, _owner.PageCount - previousCount)));
+        SelectPages(pages);
     }
 
-    return default;
-    },
+    /// <summary>Adds the page being read to the pages selected, so several pages can be changed at once.</summary>
+    [ReactiveCommand]
+    private void AddCurrentToSelection()
+    {
+        var current = _owner.CurrentPageIndex;
+        var pages = new List<int>(SelectedPages);
+        if (pages.BinarySearch(current) >= 0)
+        {
+            return;
+        }
+
+        pages.Add(current);
+        pages.Sort();
+        SelectPages(pages);
+    }
+
+    /// <summary>Moves the selected pages one position earlier.</summary>
+    /// <returns>A signal that ends once the pages are moved or the edit failed.</returns>
+    [ReactiveCommand(CanExecute = nameof(_canMoveEarlier))]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> MoveEarlier() => Move(SelectedPages[0] - 1);
+
+    /// <summary>Moves the selected pages one position later.</summary>
+    /// <returns>A signal that ends once the pages are moved or the edit failed.</returns>
+    [ReactiveCommand(CanExecute = nameof(_canMoveLater))]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> MoveLater() => Move(SelectedPages[0] + 1);
+
+    /// <summary>Asks for PDF files and inserts them after the selected pages or current page.</summary>
+    /// <returns>A signal that ends once the files are inserted, the choice was given up or the edit failed.</returns>
+    [ReactiveCommand(CanExecute = nameof(_canEdit))]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> InsertFiles() => Run(
+        manager => InsertInteraction.Handle(RxVoid.Default).ToSignal()
+            .SwitchMap(paths => paths.Length > 0
+                ? InsertPaths(manager, paths, SelectedPages.Count > 0 ? SelectedPages[0] : Math.Clamp(_owner.CurrentPageIndex, 0, _owner.PageCount))
+                : Signal.Return(default(PageManagementOperationResult))),
         UiText.Get("Could not insert pages."),
         true);
 
     /// <summary>Asks for picture files and inserts each as a page after the selected pages or current page.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the pictures are inserted, the choice was given up or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canEdit))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task InsertImagesAsync() => RunAsync(
-        async (manager, token) =>
-{
-    var paths = await InsertImagesInteraction.Handle(RxVoid.Default).ToTask(token).WaitAsync(token).ConfigureAwait(true);
-    if (paths.Length == 0)
-    {
-        return default;
-    }
-
-    var head = _owner.Services.Head;
-    var images = await Task.Run(() => ReadImages(head, paths, token), token).ConfigureAwait(true);
-    if (images.Length == 0)
-    {
-        _owner.SetNotice(LocalizedMessage.Get(UiText, "None of the chosen files could be read as pictures."));
-        return default;
-    }
-
-    var index = SelectedPages.Count > 0 ? SelectedPages[^1] + 1 : Math.Clamp(_owner.CurrentPageIndex + 1, 0, _owner.PageCount);
-    await Task.Run(() => manager.InsertImagesAsync(index, images, token).AsTask(), token).ConfigureAwait(true);
-    if (images.Length < paths.Length)
-    {
-        _owner.SetNotice(LocalizedMessage.Get(UiText, "Some of the chosen files could not be read as pictures and were skipped."));
-    }
-
-    return new(true, () => CopyRange(index, images.Length));
-    },
+    private IObservable<RxVoid> InsertImages() => Run(
+        manager => InsertImagesInteraction.Handle(RxVoid.Default).ToSignal()
+            .SwitchMap(paths => paths.Length == 0 ? Signal.Return(default(PageManagementOperationResult)) : InsertPictures(manager, paths)),
         UiText.Get("Could not add pictures as pages."),
         true);
 
     /// <summary>Asks for PDF files and appends every page to the document.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the files are merged, the choice was given up or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canEdit))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task MergeFilesAsync() => RunAsync(
-        async (manager, token) =>
-{
-    var paths = await MergeFilesInteraction.Handle(RxVoid.Default).ToTask(token).WaitAsync(token).ConfigureAwait(true);
-    if (paths.Length > 0)
-    {
-        var index = _owner.PageCount;
-        var previousCount = _owner.PageCount;
-        var report = new PageEditReport();
-        await Task.Run(() => manager.InsertAsync(index, paths, report, token).AsTask(), token).ConfigureAwait(true);
-        ShowSeparationNotice(report);
-        return new(true, () => CopyRange(index, Math.Max(0, _owner.PageCount - previousCount)));
-    }
-
-    return default;
-    },
+    private IObservable<RxVoid> MergeFiles() => Run(
+        manager => MergeFilesInteraction.Handle(RxVoid.Default).ToSignal()
+            .SwitchMap(paths => paths.Length > 0 ? InsertPaths(manager, paths, _owner.PageCount) : Signal.Return(default(PageManagementOperationResult))),
         UiText.Get("Could not merge pages."),
         true);
 
     /// <summary>Asks where to save the selected pages, then writes them as a new PDF.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the pages are written, the choice was given up or the edit failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canEditSelection))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task ExtractAsync() => RunAsync(
-        async (manager, token) =>
-{
-    var suggestedName = Path.GetFileNameWithoutExtension(_owner.FileName) + ExtractedPagesSuffix;
-    var destination = await ExtractInteraction.Handle(suggestedName).ToTask(token).WaitAsync(token).ConfigureAwait(true);
-    if (string.IsNullOrWhiteSpace(destination))
-    {
-        return default;
-    }
-
-    if (SamePath(destination, _owner.FilePath))
-    {
-        _owner.SetNotice(LocalizedMessage.Get(UiText, "Choose a different file so the open document is not replaced."));
-        return default;
-    }
-
-    var temporary = destination + TemporarySuffix + Guid.NewGuid().ToString("N");
-    try
-    {
-        var report = new PageEditReport();
-        await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, FileBufferSize, FileOptions.Asynchronous))
-        {
-            var pages = CopySelectedPages();
-            await Task.Run(() => manager.ExtractAsync(pages, stream, report, token).AsTask(), token).ConfigureAwait(true);
-        }
-
-        File.Move(temporary, destination, true);
-        _owner.SetNotice(
-                CopyNotice(report) is { } separations
-                    ? LocalizedMessage.Format(
-                        UiText,
-                        "Extracted {0} pages. {1}",
-                        SelectedPages.Count,
-                        separations)
-                    : LocalizedMessage.Format(UiText, "Extracted {0} pages.", SelectedPages.Count));
-        return default;
-    }
-    finally
-    {
-        TryDelete(temporary);
-    }
-    },
+    private IObservable<RxVoid> Extract() => Run(
+        manager => ExtractInteraction.Handle(Path.GetFileNameWithoutExtension(_owner.FileName) + ExtractedPagesSuffix).ToSignal()
+            .SwitchMap(destination => ExtractTo(manager, destination)),
         UiText.Get("Could not extract pages."),
         false);
 
     /// <summary>Reverts the latest page edit.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the edit is reverted or failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canUndo))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task UndoAsync() => RunHistoryAsync(true);
+    private IObservable<RxVoid> Undo() => RunHistory(true);
 
     /// <summary>Reapplies the latest undone page edit.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the edit is reapplied or failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canRedo))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task RedoAsync() => RunHistoryAsync(false);
+    private IObservable<RxVoid> Redo() => RunHistory(false);
 
     /// <summary>Applies an operation to the current selection.</summary>
     /// <param name="kind">The edit to apply.</param>
     /// <param name="value">The rotation or insertion destination.</param>
     /// <param name="failureMessage">The notice shown when the operation fails.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A cold signal that ends once the edit is made or failed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task RunSelectedEditAsync(PageEditKind kind, int value, string failureMessage) => RunEditAsync(
-        static (
-            manager,
-            request,
-            report,
-            token) => manager.ApplyAsync(request, report, token),
+    private IObservable<RxVoid> RunSelectedEdit(PageEditKind kind, int value, string failureMessage) => RunEdit(
+        static (manager, request, report) => manager.Apply(request, report),
         new(kind, CopySelectedPages(), value),
         failureMessage);
 
@@ -601,76 +543,228 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <param name="edit">The edit operation.</param>
     /// <param name="request">The selected pages and operation.</param>
     /// <param name="failureMessage">The notice shown when the operation fails.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A cold signal that ends once the edit is made or failed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task RunEditAsync(
-        Func<IPageManager, PageEditRequest, PageEditReport, CancellationToken, ValueTask> edit,
+    private IObservable<RxVoid> RunEdit(
+        Func<IPageManager, PageEditRequest, PageEditReport, IObservable<RxVoid>> edit,
         PageEditRequest request,
         string failureMessage) =>
-        RunAsync(
-        async (manager, token) =>
-{
-    var oldSelection = CopyPages(request.Pages);
-    var report = new PageEditReport();
-    await Task.Run(() => edit(manager, request, report, token).AsTask(), token).ConfigureAwait(true);
-    ShowSeparationNotice(report);
-    return new(true, () => SelectionAfterEdit(request.Kind, oldSelection, request.Value) ?? Array.Empty<int>());
-    },
-        failureMessage,
-        true);
+        Run(
+            manager =>
+            {
+                var oldSelection = CopyPages(request.Pages);
+                var report = new PageEditReport();
+                return OnPool(edit(manager, request, report))
+                    .Select(_ => Edited(report, request, oldSelection));
+            },
+            failureMessage,
+            true);
+
+    /// <summary>Says what an edit could not keep, and how the selection follows it.</summary>
+    /// <param name="report">The edit's report.</param>
+    /// <param name="request">The selected pages and operation.</param>
+    /// <param name="oldSelection">The pages selected before the edit.</param>
+    /// <returns>The result of the operation.</returns>
+    private PageManagementOperationResult Edited(PageEditReport report, PageEditRequest request, int[] oldSelection)
+    {
+        ShowSeparationNotice(report);
+        return new(true, () => SelectionAfterEdit(request.Kind, oldSelection, request.Value) ?? Array.Empty<int>());
+    }
 
     /// <summary>Runs an undo or redo operation.</summary>
     /// <param name="undo">Whether to undo rather than redo.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A cold signal that ends once the edit is reverted or failed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task RunHistoryAsync(bool undo) => RunAsync(
-        async (manager, token) =>
-{
-    var changed = await Task.Run(() => undo ? manager.UndoAsync(token).AsTask() : manager.RedoAsync(token).AsTask(), token).ConfigureAwait(true);
-    return new(changed, () => SelectedPages);
-    },
+    private IObservable<RxVoid> RunHistory(bool undo) => Run(
+        manager => OnPool(undo ? manager.Undo() : manager.Redo())
+            .Select(changed => new PageManagementOperationResult(changed, () => SelectedPages)),
         undo ? UiText.Get("Could not undo the page edit.") : UiText.Get("Could not redo the page edit."),
         true);
 
-    /// <summary>Runs one backend operation and keeps the UI state on the caller's context.</summary>
+    /// <summary>Inserts PDF files at a page and selects the pages they added.</summary>
+    /// <param name="manager">The page manager.</param>
+    /// <param name="paths">The files.</param>
+    /// <param name="index">Where the pages go.</param>
+    /// <returns>A cold signal giving the result of the operation.</returns>
+    private IObservable<PageManagementOperationResult> InsertPaths(IPageManager manager, string[] paths, int index)
+    {
+        var previousCount = _owner.PageCount;
+        var report = new PageEditReport();
+
+        // The library reads and rewrites the pages before its first await, so the call starts on the pool.
+        return OnPool(manager.Insert(index, paths, report))
+            .Select(_ => Inserted(report, index, previousCount));
+    }
+
+    /// <summary>Says what an insert could not keep, and selects the pages it added.</summary>
+    /// <param name="report">The edit's report.</param>
+    /// <param name="index">Where the pages went.</param>
+    /// <param name="previousCount">The number of pages before the insert.</param>
+    /// <returns>The result of the operation.</returns>
+    private PageManagementOperationResult Inserted(PageEditReport report, int index, int previousCount)
+    {
+        ShowSeparationNotice(report);
+        return new(true, () => CopyRange(index, Math.Max(0, _owner.PageCount - previousCount)));
+    }
+
+    /// <summary>Reads picture files on the pool and inserts each as a page.</summary>
+    /// <param name="manager">The page manager.</param>
+    /// <param name="paths">The picture files.</param>
+    /// <returns>A cold signal giving the result of the operation.</returns>
+    private IObservable<PageManagementOperationResult> InsertPictures(IPageManager manager, string[] paths)
+    {
+        var head = _owner.Services.Head;
+        return Signal.Start(() => ReadImages(head, paths, _lifetime), TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .SwitchMap(images => images.Length == 0 ? NoPictures() : InsertReadPictures(manager, images, paths.Length));
+    }
+
+    /// <summary>Says none of the chosen files could be read as pictures.</summary>
+    /// <returns>A signal giving an operation that changed nothing.</returns>
+    private IObservable<PageManagementOperationResult> NoPictures()
+    {
+        _owner.SetNotice(LocalizedMessage.Get(UiText, "None of the chosen files could be read as pictures."));
+        return Signal.Return(default(PageManagementOperationResult));
+    }
+
+    /// <summary>Inserts pictures that were read, one page each.</summary>
+    /// <param name="manager">The page manager.</param>
+    /// <param name="images">The pictures that were read.</param>
+    /// <param name="chosen">How many files were chosen.</param>
+    /// <returns>A cold signal giving the result of the operation.</returns>
+    private IObservable<PageManagementOperationResult> InsertReadPictures(IPageManager manager, PageImageSource[] images, int chosen)
+    {
+        var index = SelectedPages.Count > 0 ? SelectedPages[^1] + 1 : Math.Clamp(_owner.CurrentPageIndex + 1, 0, _owner.PageCount);
+        return OnPool(manager.InsertImages(index, images))
+            .Select(_ => InsertedPictures(index, images.Length, chosen));
+    }
+
+    /// <summary>Says when some chosen files were skipped, and selects the pages the pictures added.</summary>
+    /// <param name="index">Where the pages went.</param>
+    /// <param name="inserted">How many pictures were inserted.</param>
+    /// <param name="chosen">How many files were chosen.</param>
+    /// <returns>The result of the operation.</returns>
+    private PageManagementOperationResult InsertedPictures(int index, int inserted, int chosen)
+    {
+        if (inserted < chosen)
+        {
+            _owner.SetNotice(LocalizedMessage.Get(UiText, "Some of the chosen files could not be read as pictures and were skipped."));
+        }
+
+        return new(true, () => CopyRange(index, inserted));
+    }
+
+    /// <summary>Writes the selected pages as a new PDF.</summary>
+    /// <param name="manager">The page manager.</param>
+    /// <param name="destination">Where to save, or empty when the choice was given up.</param>
+    /// <returns>A cold signal giving an operation that changed nothing in the open document.</returns>
+    private IObservable<PageManagementOperationResult> ExtractTo(IPageManager manager, string? destination)
+    {
+        if (string.IsNullOrWhiteSpace(destination))
+        {
+            return Signal.Return(default(PageManagementOperationResult));
+        }
+
+        if (SamePath(destination, _owner.FilePath))
+        {
+            _owner.SetNotice(LocalizedMessage.Get(UiText, "Choose a different file so the open document is not replaced."));
+            return Signal.Return(default(PageManagementOperationResult));
+        }
+
+        var report = new PageEditReport();
+        var pages = CopySelectedPages();
+        return CopyFile.WriteSignal(destination, TemporarySuffix, stream => manager.Extract(pages, stream, report).Select(static _ => true), static written => written)
+            .TakeUntil(_lifetime)
+            .Select(_ => Extracted(report));
+    }
+
+    /// <summary>Says how many pages were extracted.</summary>
+    /// <param name="report">The edit's report.</param>
+    /// <returns>An operation that changed nothing in the open document.</returns>
+    private PageManagementOperationResult Extracted(PageEditReport report)
+    {
+        _owner.SetNotice(
+            CopyNotice(report) is { } separations
+                ? LocalizedMessage.Format(UiText, "Extracted {0} pages. {1}", SelectedPages.Count, separations)
+                : LocalizedMessage.Format(UiText, "Extracted {0} pages.", SelectedPages.Count));
+        return default;
+    }
+
+    /// <summary>Runs a page manager call on the pool, gives it up when the tab closes, and brings the answer back to the interface thread.</summary>
+    /// <typeparam name="TResult">What the call gives.</typeparam>
+    /// <param name="call">The page manager's signal.</param>
+    /// <returns>A cold signal giving the answer.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<TResult> OnPool<TResult>(IObservable<TResult> call) =>
+        call
+            .TakeUntil(_lifetime)
+            .SubscribeOn(TaskPoolSequencer.Default)
+            .ObserveOn(RxSchedulers.MainThreadScheduler);
+
+    /// <summary>Runs one backend operation and keeps the UI state on the interface thread.</summary>
     /// <param name="operation">The operation.</param>
     /// <param name="failureMessage">The notice shown for expected file or parser failures.</param>
     /// <param name="refreshDocument">Whether a successful operation changed the open document.</param>
-    /// <returns>A task.</returns>
-    private async Task RunAsync(Func<IPageManager, CancellationToken, Task<PageManagementOperationResult>> operation, string failureMessage, bool refreshDocument)
+    /// <returns>A cold signal that ends once the operation is done or failed.</returns>
+    private IObservable<RxVoid> Run(Func<IPageManager, IObservable<PageManagementOperationResult>> operation, string failureMessage, bool refreshDocument)
     {
         if (IsBusy || GetManager() is not { } manager)
         {
             RefreshState();
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         IsBusy = true;
         RefreshState();
-        try
+        return operation(manager)
+            .Select(result => Applied(result, refreshDocument))
+            .Catch<RxVoid, Exception>(error => Failed(error, failureMessage))
+            .Finally(EndBusy);
+    }
+
+    /// <summary>Selects the pages an operation asks for, once the document changed.</summary>
+    /// <param name="result">The result of the operation.</param>
+    /// <param name="refreshDocument">Whether a successful operation changed the open document.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Applied(PageManagementOperationResult result, bool refreshDocument)
+    {
+        if (result.Changed && refreshDocument)
         {
-            var result = await operation(manager, _lifetime).ConfigureAwait(true);
-            if (result.Changed && refreshDocument)
+            StructureVersion++;
+            if (result.SelectionAfterRefresh is { } selection)
             {
-                StructureVersion++;
-                if (result.SelectionAfterRefresh is { } selection)
-                {
-                    SelectPages(selection());
-                }
+                SelectPages(selection());
             }
         }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says why the operation failed, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <param name="failureMessage">The notice shown for expected file or parser failures.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> Failed(Exception error, string failureMessage)
+    {
+        if (error is OperationCanceledException && _lifetime.IsCancellationRequested)
         {
+            return Signal.Return(RxVoid.Default);
         }
-        catch (Exception ex) when (IsExpectedFailure(ex))
+
+        if (!IsExpectedFailure(error))
         {
-            _owner.SetNotice(LocalizedMessage.Literal($"{failureMessage} {ex.Message}"));
+            return Signal.Throw<RxVoid>(error);
         }
-        finally
-        {
-            IsBusy = false;
-            RefreshState();
-        }
+
+        _owner.SetNotice(LocalizedMessage.Literal($"{failureMessage} {error.Message}"));
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Lets the view model take another operation, once one is over.</summary>
+    private void EndBusy()
+    {
+        IsBusy = false;
+        RefreshState();
     }
 
     /// <summary>Tells the reader when an edit could not keep the colour separations of a printed page together.</summary>

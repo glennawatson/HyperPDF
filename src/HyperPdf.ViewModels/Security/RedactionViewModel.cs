@@ -4,7 +4,6 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using HyperPdf.Core.Platform;
 using HyperPdf.Core.Redaction;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -222,24 +221,6 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
         return string.Equals(Path.GetFullPath(first), Path.GetFullPath(second), comparison);
     }
 
-    /// <summary>Deletes a temporary file, ignoring a failure because the file is only a leftover.</summary>
-    /// <param name="path">The file.</param>
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-            // A leftover temporary file does no harm and a later save replaces it.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Same as above.
-        }
-    }
-
     /// <summary>Stops the run in progress.</summary>
     [ReactiveCommand(CanExecute = nameof(_canCancel))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -251,27 +232,34 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
     private void Close() => Cancel();
 
     /// <summary>Asks where to save, then applies the redactions and writes the copy there.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the copy is saved, refused, stopped or the choice was given up.</returns>
     [ReactiveCommand(CanExecute = nameof(_canApply))]
-    private async Task ApplyAsync()
+    private IObservable<RxVoid> Apply()
     {
         SetError(LocalizedMessage.Literal(null));
         if (AreaCount == 0)
         {
             SetError(LocalizedMessage.Get(UiText, "Nothing is marked, so there is nothing to redact."));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
-        var path = await SaveInteraction.Handle(SuggestedName).ToTask().ConfigureAwait(true);
+        return SaveInteraction.Handle(SuggestedName).ToSignal().SwitchMap(Copy);
+    }
+
+    /// <summary>Writes the redacted copy to the chosen place.</summary>
+    /// <param name="path">Where to save, or empty when the choice was given up.</param>
+    /// <returns>A signal that ends when the copy is saved, refused or stopped.</returns>
+    private IObservable<RxVoid> Copy(string? path)
+    {
         if (string.IsNullOrEmpty(path))
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         if (IsSameFile(path, _sourcePath))
         {
             SetError(LocalizedMessage.Get(UiText, "That would replace the file you have open. Choose a different name for the redacted copy."));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var run = new CancellationDisposable();
@@ -280,68 +268,60 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
         _resultDescription = null;
         ResultText = string.Empty;
         SetStatusText(LocalizedMessage.Get(UiText, "Removing the marked content…"));
-        try
-        {
-            var report = await WriteAsync(path, run.Token).ConfigureAwait(true);
-            ShowResult(report, path);
-        }
-        catch (OperationCanceledException)
-        {
-            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
-        }
-        catch (Exception ex) when (CopyFailure.IsExpected(ex))
-        {
-            SetError(LocalizedMessage.Format(UiText, "Could not save the redacted copy: {0}", CopyFailure.Message(ex)));
-            SetStatusText(LocalizedMessage.Get(UiText, "The redacted copy was not saved."));
-        }
-        finally
-        {
-            if (ReferenceEquals(Run, run))
-            {
-                Run = null;
-            }
+        var settings = Settings;
 
-            IsRunning = false;
-        }
+        // Redaction rewrites the pages before its first await, so the write starts on the pool to keep Cancel alive.
+        return CopyFile.WriteSignal(path, TemporarySuffix, stream => _redactor.Apply(stream, settings), static _ => true).ThrowWhenCancelled(run.Token)
+            .Select(report => ShowResult(report, path))
+            .Catch<RxVoid, Exception>(Failed)
+            .Finally(() => EndRun(run));
     }
 
-    /// <summary>Writes the copy to a temporary file, then moves it into place.</summary>
-    /// <param name="path">Where the copy goes.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>The report.</returns>
-    private async Task<RedactionReport> WriteAsync(string path, CancellationToken cancellationToken)
+    /// <summary>Says why the copy was not saved, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> Failed(Exception error)
     {
-        var temporary = path + TemporarySuffix;
-        var settings = Settings;
-        try
+        if (error is OperationCanceledException)
         {
-            RedactionReport report;
-            await using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 1, FileOptions.Asynchronous))
-            {
-                // Redaction rewrites the pages before its first await, so the app starts it on the pool to keep Cancel alive.
-                report = await Task.Run(() => _redactor.ApplyAsync(stream, settings, cancellationToken), cancellationToken).ConfigureAwait(true);
-            }
+            SetStatusText(LocalizedMessage.Get(UiText, "Cancelled. No file was saved."));
+            return Signal.Return(RxVoid.Default);
+        }
 
-            FileReplacement.Replace(temporary, path);
-            return report;
-        }
-        catch
+        if (!CopyFailure.IsExpected(error))
         {
-            TryDelete(temporary);
-            throw;
+            return Signal.Throw<RxVoid>(error);
         }
+
+        SetError(LocalizedMessage.Format(UiText, "Could not save the redacted copy: {0}", CopyFailure.Message(error)));
+        SetStatusText(LocalizedMessage.Get(UiText, "The redacted copy was not saved."));
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Puts the controls back once the run is over.</summary>
+    /// <param name="run">The run that ended.</param>
+    private void EndRun(CancellationDisposable run)
+    {
+        if (ReferenceEquals(Run, run))
+        {
+            Run = null;
+        }
+
+        IsRunning = false;
     }
 
     /// <summary>Shows a finished run's summary.</summary>
     /// <param name="report">The report.</param>
     /// <param name="path">Where the copy was saved.</param>
-    private void ShowResult(RedactionReport report, string path)
+    /// <returns>The completion value.</returns>
+    private RxVoid ShowResult(RedactionReport report, string path)
     {
         Report = report;
         SavedPath = path;
         SetStatusText(LocalizedMessage.Get(UiText, "Done. The redacted copy is saved."));
         _resultDescription = (report, path);
         RefreshResultText();
+        return RxVoid.Default;
     }
 
     /// <summary>Rewords the retained report without repeating the operation.</summary>

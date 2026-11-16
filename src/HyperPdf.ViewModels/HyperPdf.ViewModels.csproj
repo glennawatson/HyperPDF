@@ -28,6 +28,15 @@
     <InternalsVisibleTo Include="HyperPdf.Benchmarks" />
   </ItemGroup>
 
+  <ItemGroup Label="Reactive namespaces">
+    <Using Include="ReactiveUI" />
+    <Using Include="ReactiveUI.Primitives" />
+    <Using Include="ReactiveUI.Primitives.Concurrency" />
+    <Using Include="ReactiveUI.Primitives.Disposables" />
+    <Using Include="ReactiveUI.Primitives.Signals" />
+    <Using Include="HyperPdf.Core.Reactive" />
+  </ItemGroup>
+
   <ItemGroup Label="View model namespaces">
     <Using Include="HyperPdf.ViewModels.Dialogs" />
     <Using Include="HyperPdf.ViewModels.Finding" />

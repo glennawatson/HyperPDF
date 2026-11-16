@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Protection;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Engine;
 
@@ -27,11 +28,11 @@ internal sealed class HyperPdfDocumentProtectorService : IDocumentProtector
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<ProtectionResult> ProtectAsync(ProtectionRequest request, Stream destination, CancellationToken cancellationToken) =>
-        HyperPdfDocumentProtection.ProtectAsync(_owner, request, destination, cancellationToken);
+    public IObservable<ProtectionResult> Protect(ProtectionRequest request, Stream destination) =>
+        Signal.FromAsync(token => HyperPdfDocumentProtection.ProtectAsync(_owner, request, destination, token));
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<ProtectionResult> RemoveProtectionAsync(string? ownerPassword, Stream destination, CancellationToken cancellationToken) =>
-        HyperPdfDocumentProtection.RemoveAsync(_owner, ownerPassword, destination, cancellationToken);
+    public IObservable<ProtectionResult> RemoveProtection(string? ownerPassword, Stream destination) =>
+        Signal.FromAsync(token => HyperPdfDocumentProtection.RemoveAsync(_owner, ownerPassword, destination, token));
 }

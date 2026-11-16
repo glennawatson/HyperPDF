@@ -8,6 +8,8 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using HyperPdf.Core.Diagnostics;
+using HyperPdf.Core.Reactive;
+using HyperPdf.ViewModels.Services;
 using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Viewer.Services;
@@ -34,28 +36,22 @@ public sealed class SingleInstance : IDisposable
     /// <summary>The pipe's name.</summary>
     private readonly string _name;
 
-    /// <summary>Ends the wait for a second launch.</summary>
-    private readonly CancellationTokenSource _stop = new();
-
     /// <summary>Carries each file a second launch handed over.</summary>
     private readonly Signal<string> _requests = new();
 
     /// <summary>The wait for second launches, which runs until the viewer ends.</summary>
-    private readonly Task _listening;
+    private readonly IDisposable _listening;
 
     /// <summary>Initializes a new instance of the <see cref="SingleInstance"/> class.</summary>
     /// <param name="name">The pipe's name.</param>
     private SingleInstance(string name)
     {
         _name = name;
-        _listening = ListenAsync(_stop.Token);
+        _listening = Listen().SubscribeSafe(static _ => { }, ErrorTrace.Write);
     }
 
     /// <summary>Gets the files that second launches handed over, one value for each file.</summary>
     public IObservable<string> Requests => _requests;
-
-    /// <summary>Gets the task that waits for second launches.</summary>
-    internal Task Listening => _listening;
 
     /// <summary>Hands the files to the viewer that is already running, or becomes the viewer that runs.</summary>
     /// <param name="paths">The files or addresses named on the command line.</param>
@@ -66,8 +62,7 @@ public sealed class SingleInstance : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        _stop.Cancel();
-        _stop.Dispose();
+        _listening.Dispose();
         _requests.Dispose();
     }
 
@@ -115,31 +110,59 @@ public sealed class SingleInstance : IDisposable
         }
     }
 
-    /// <summary>Takes the files of each second launch until the viewer ends.</summary>
-    /// <param name="token">Ends the wait.</param>
-    /// <returns>A task that ends with the viewer.</returns>
-    private async Task ListenAsync(CancellationToken token)
+    /// <summary>Waits for a launch to connect and reads the files it writes.</summary>
+    /// <param name="server">The pipe.</param>
+    /// <param name="token">Ends the wait, which closes the pipe so the blocked call ends.</param>
+    /// <returns>The files, one for each line.</returns>
+    private static List<string> ReadFiles(NamedPipeServerStream server, CancellationToken token)
     {
-        try
+        using var stop = token.UnsafeRegister(static state => ((NamedPipeServerStream)state!).Dispose(), server);
+        server.WaitForConnection();
+        using var reader = new StreamReader(server, Encoding.UTF8);
+        var files = new List<string>();
+        while (reader.ReadLine() is { Length: > 0 } line)
         {
-            while (!token.IsCancellationRequested)
+            files.Add(line);
+        }
+
+        return files;
+    }
+
+    /// <summary>Takes the files of each second launch; the repeat ends when the subscription is disposed with the viewer.</summary>
+    /// <returns>A signal that serves one second launch after another.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Listen() =>
+        AcceptOne()
+            .Repeat()
+            .Catch<RxVoid, Exception>(static error =>
             {
-                await using var server = new NamedPipeServerStream(_name, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-                await server.WaitForConnectionAsync(token).ConfigureAwait(false);
-                using var reader = new StreamReader(server, Encoding.UTF8);
-                while (await reader.ReadLineAsync(token).ConfigureAwait(false) is { Length: > 0 } line)
+                if (error is not (IOException or ObjectDisposedException))
                 {
-                    _requests.OnNext(line);
+                    return Signal.Throw<RxVoid>(error);
                 }
-            }
-        }
-        catch (OperationCanceledException)
+
+                AppLog.Error(error, "The wait for a second launch ended.");
+                return Signal.Empty<RxVoid>();
+            });
+
+    /// <summary>Waits for one second launch and passes on the files it handed over.</summary>
+    /// <returns>A cold signal that ends once the launch has been served.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> AcceptOne() =>
+        // Waiting for a launch blocks, so it gets a thread of its own, which unsubscribing ends.
+        Signal.Using(
+            () => new NamedPipeServerStream(_name, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly),
+            server => DedicatedThread.Run("HyperPdf single instance", token => ReadFiles(server, token))
+                .Do(PassOn)
+                .Select(static _ => RxVoid.Default));
+
+    /// <summary>Hands each file to the listeners of <see cref="Requests"/>.</summary>
+    /// <param name="files">The files read.</param>
+    private void PassOn(List<string> files)
+    {
+        foreach (var file in files)
         {
-            // The viewer is ending.
-        }
-        catch (Exception error) when (error is IOException or ObjectDisposedException)
-        {
-            AppLog.Error(error, "The wait for a second launch ended.");
+            _requests.OnNext(file);
         }
     }
 }

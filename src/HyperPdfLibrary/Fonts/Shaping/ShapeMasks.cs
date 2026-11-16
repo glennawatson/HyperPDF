@@ -27,4 +27,19 @@ internal static class ShapeMasks
 
     /// <summary>A consonant of an Indic syllable that comes before its base, which may take a half form (half).</summary>
     internal const uint PreBase = 1 << 6;
+
+    /// <summary>Marks the pre-base form of a subscript consonant of a Khmer syllable (feature pref).</summary>
+    internal const uint Pref = 1 << 7;
+
+    /// <summary>Marks the glyphs of a Khmer syllable that take below-base forms (feature blwf).</summary>
+    internal const uint Blwf = 1 << 8;
+
+    /// <summary>Marks the glyphs of a Khmer syllable that take above-base forms (feature abvf).</summary>
+    internal const uint Abvf = 1 << 9;
+
+    /// <summary>Marks the glyphs of a Khmer syllable that take post-base forms (feature pstf).</summary>
+    internal const uint Pstf = 1 << 10;
+
+    /// <summary>Marks the glyphs that follow the pre-base subscript ro of a Khmer syllable (feature cfar).</summary>
+    internal const uint Cfar = 1 << 11;
 }

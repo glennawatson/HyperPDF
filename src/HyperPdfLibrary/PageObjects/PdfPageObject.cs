@@ -20,6 +20,15 @@ public abstract class PdfPageObject
     /// <summary>The marked-content sequences of an object outside any.</summary>
     private static readonly PdfMark[] NoMarks = [];
 
+    /// <summary>The line style set by <see cref="SetLineStyle"/>, or null while the content's own applies.</summary>
+    private PdfLineStyle? _lineStyle;
+
+    /// <summary>The opacity set by <see cref="SetOpacity"/>, or null while the content's own applies.</summary>
+    private float? _opacity;
+
+    /// <summary>The crop set by <see cref="SetCrop"/> as the shares of the object's frame cut off, or null while the whole object shows.</summary>
+    private CropShares? _crop;
+
     /// <summary>The paint set by <see cref="SetFillPaint"/>, or null while the content's own fill applies.</summary>
     private PdfPaint? _fill;
 
@@ -82,8 +91,11 @@ public abstract class PdfPageObject
     /// <summary>Gets a value indicating whether the object's fill or stroke colour was changed.</summary>
     public bool IsRecoloured => _fill is not null || _stroke is not null;
 
+    /// <summary>Gets a value indicating whether the object's line style, opacity or crop was changed.</summary>
+    public bool IsRestyled => _lineStyle is not null || _opacity is not null || _crop is not null;
+
     /// <summary>Gets a value indicating whether the object has any change to write.</summary>
-    public virtual bool IsModified => IsDeleted || IsTransformed || IsRecoloured;
+    public virtual bool IsModified => IsDeleted || IsTransformed || IsRecoloured || IsRestyled;
 
     /// <summary>Gets the unbounded rectangle used for objects with no clip.</summary>
     internal static PdfRectangle Unbounded { get; } = new(float.NegativeInfinity, float.NegativeInfinity, float.PositiveInfinity, float.PositiveInfinity);
@@ -108,6 +120,15 @@ public abstract class PdfPageObject
 
     /// <summary>Gets the colour to write for stroking, or null to leave the content's own.</summary>
     internal PdfPaint? ChangedStroke => _stroke;
+
+    /// <summary>Gets the line style to write, or null to leave the content's own.</summary>
+    internal PdfLineStyle? ChangedLineStyle => _lineStyle;
+
+    /// <summary>Gets the opacity to write, or null to leave the content's own.</summary>
+    internal float? ChangedOpacity => _opacity;
+
+    /// <summary>Gets the crop to write, or null when the whole object shows.</summary>
+    internal CropShares? ChangedCrop => _crop;
 
     /// <summary>Deletes the object. The regenerated content leaves it out and keeps everything else in place.</summary>
     public void Delete() => IsDeleted = true;
@@ -136,6 +157,59 @@ public abstract class PdfPageObject
     {
         ArgumentNullException.ThrowIfNull(paint);
         _fill = ReferenceEquals(paint, OriginalFillPaint) ? null : paint;
+    }
+
+    /// <summary>Changes how the object's lines look: the shape of their ends and corners and their dashes. Text and inline images ignore it.</summary>
+    /// <param name="style">The style.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="style"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A dash length is negative or not a finite number, or every dash length is zero.</exception>
+    public void SetLineStyle(PdfLineStyle style)
+    {
+        ArgumentNullException.ThrowIfNull(style);
+        ArgumentNullException.ThrowIfNull(style.Dash);
+        var total = 0F;
+        foreach (var length in style.Dash)
+        {
+            if (!float.IsFinite(length) || length < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(style), "A dash length must be a number that is not negative.");
+            }
+
+            total += length;
+        }
+
+        if (style.Dash.Length > 0 && total <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(style), "A dash pattern needs at least one length above zero.");
+        }
+
+        _lineStyle = style;
+    }
+
+    /// <summary>
+    /// Crops the object to part of its frame, without changing what is stored: the part outside is clipped away when the page is drawn. It
+    /// is meant for pictures and forms, which are drawn in a frame of their own. Another crop cuts the part that is left.
+    /// </summary>
+    /// <param name="left">The share of the width cut off the left, from 0 up to but not including 1.</param>
+    /// <param name="top">The share of the height cut off the top.</param>
+    /// <param name="right">The share of the width cut off the right.</param>
+    /// <param name="bottom">The share of the height cut off the bottom.</param>
+    /// <exception cref="ArgumentOutOfRangeException">A share is negative or not a finite number, or the shares leave nothing.</exception>
+    public void SetCrop(float left, float top, float right, float bottom)
+    {
+        var shares = new CropShares(left, top, right, bottom);
+        shares.Validate();
+        _crop = _crop is { } before ? before.Then(shares) : shares;
+    }
+
+    /// <summary>Changes how solid the object is, for its fill and its stroke alike (ISO 32000-2, 11.6.4, the <c>ca</c> and <c>CA</c> entries).</summary>
+    /// <param name="opacity">1 for solid down to 0 for invisible.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="opacity"/> is not from 0 to 1.</exception>
+    public void SetOpacity(float opacity)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(opacity);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(opacity, 1F);
+        _opacity = opacity;
     }
 
     /// <summary>Changes the stroke colour.</summary>

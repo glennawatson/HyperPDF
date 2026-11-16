@@ -13,8 +13,7 @@ public interface IGitHubReleasesApi
     /// <summary>Gets the latest published release.</summary>
     /// <param name="owner">The repository owner.</param>
     /// <param name="repository">The repository name.</param>
-    /// <param name="cancellationToken">Cancels the request.</param>
-    /// <returns>The release.</returns>
+    /// <returns>A cold signal giving the release once; unsubscribing cancels the request.</returns>
     [Get("/repos/{owner}/{repository}/releases/latest")]
-    Task<GitHubRelease> GetLatestReleaseAsync(string owner, string repository, CancellationToken cancellationToken);
+    IObservable<GitHubRelease> GetLatestRelease(string owner, string repository);
 }

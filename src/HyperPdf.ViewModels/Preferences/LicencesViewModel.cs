@@ -302,17 +302,19 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable, ILo
     }
 
     /// <summary>Puts the chosen licence text on the clipboard.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the text is on the clipboard.</returns>
     [ReactiveCommand]
-    private async Task CopyAsync()
-    {
-        if (SelectedNode?.Entry is not { } entry)
-        {
-            return;
-        }
+    private IObservable<RxVoid> Copy() =>
+        SelectedNode?.Entry is not { } entry
+            ? Signal.Return(RxVoid.Default)
+            : CopyInteraction.Handle(entry.Text).ToSignal().Select(_ => Copied());
 
-        _ = await CopyInteraction.Handle(entry.Text).ToTask().ConfigureAwait(true);
+    /// <summary>Says the text was copied.</summary>
+    /// <returns>The completion value.</returns>
+    private RxVoid Copied()
+    {
         Status = CopiedMessage;
+        return RxVoid.Default;
     }
 
     /// <summary>Rebuilds the rows for the search and keeps the chosen component when it still matches.</summary>

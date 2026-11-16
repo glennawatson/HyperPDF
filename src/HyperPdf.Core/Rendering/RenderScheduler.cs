@@ -566,7 +566,8 @@ public sealed class RenderScheduler : IDisposable
                 var prepare = Prepare(request, WorkToken(request));
                 if (!prepare.IsCompletedSuccessfully)
                 {
-                    _ = PrepareAndRequeueAsync(prepare, request, epoch);
+                    // The wait ends by itself, or when the scheduler stops, so nothing needs to hold the subscription.
+                    _ = PrepareAndRequeue(prepare, request, epoch, token).SubscribeSafe(static _ => { }, static error => AppLog.Error(error, "Page preparation ended with an unexpected failure."));
                     continue;
                 }
 
@@ -607,33 +608,68 @@ public sealed class RenderScheduler : IDisposable
     /// <param name="prepare">The resource preparation.</param>
     /// <param name="request">The request waiting for resources.</param>
     /// <param name="epoch">The invalidation epoch the preparation started under.</param>
-    /// <returns>A task completing when the request is requeued or dropped.</returns>
-    private async Task PrepareAndRequeueAsync(ValueTask prepare, RenderRequest request, long epoch)
+    /// <param name="shutdown">Ends the wait when the scheduler stops.</param>
+    /// <returns>A cold signal that ends when the request is requeued or dropped; unsubscribing stops waiting.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> PrepareAndRequeue(ValueTask prepare, in RenderRequest request, long epoch, CancellationToken shutdown)
     {
-        try
-        {
-            await prepare.ConfigureAwait(false);
-            lock (_gate)
-            {
-                if (Volatile.Read(ref _disposed) != 0 || request.CancellationToken.IsCancellationRequested
-                    || !_pending.TryGetValue(request.Key, out var pending) || IsInvalidated(request.Key, epoch))
-                {
-                    return;
-                }
+        // A request cannot be captured by reference, so what the wait needs is taken from it here.
+        var key = request.Key;
+        var requestToken = request.CancellationToken;
 
-                var sequence = _sequence;
-                _sequence = sequence + 1;
-                var stamp = ((long)pending.Latest.Priority << PriorityShift) | sequence;
-                _pending[request.Key] = pending with { Started = false, Stamp = stamp };
-                _queue.Enqueue(new(request.Key, stamp));
-                _ = _signal.Release();
-            }
-        }
-        catch (Exception exception) when (IsRecoverable(exception))
+        // Preparing a page is the PDF library's own async call, which is the one task here.
+        return Signal.FromAsync(
+                async () =>
+                {
+                    await prepare.ConfigureAwait(false);
+                    return RxVoid.Default;
+                })
+            .Select(_ => Requeue(key, epoch, requestToken))
+            .Catch<RxVoid, Exception>(exception => PreparationFailed(exception, key, epoch))
+            .TakeUntil(shutdown);
+    }
+
+    /// <summary>Puts a request whose page is now prepared back in the queue, when it is still wanted.</summary>
+    /// <param name="key">The tile of the request that waited.</param>
+    /// <param name="epoch">The invalidation epoch the preparation started under.</param>
+    /// <param name="requestToken">Cancels the request.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Requeue(TileKey key, long epoch, CancellationToken requestToken)
+    {
+        lock (_gate)
         {
-            AppLog.Warning(exception, $"Page preparation failed for {request.Key}.");
-            Forget(request.Key, epoch);
+            if (Volatile.Read(ref _disposed) != 0 || requestToken.IsCancellationRequested
+                || !_pending.TryGetValue(key, out var pending) || IsInvalidated(key, epoch))
+            {
+                return RxVoid.Default;
+            }
+
+            var sequence = _sequence;
+            _sequence = sequence + 1;
+            var stamp = ((long)pending.Latest.Priority << PriorityShift) | sequence;
+            _pending[key] = pending with { Started = false, Stamp = stamp };
+            _queue.Enqueue(new(key, stamp));
+            _ = _signal.Release();
         }
+
+        return RxVoid.Default;
+    }
+
+    /// <summary>Drops a request whose page could not be prepared, unless the failure means the process is failing.</summary>
+    /// <param name="exception">The failure.</param>
+    /// <param name="key">The tile of the request that waited.</param>
+    /// <param name="epoch">The invalidation epoch the preparation started under.</param>
+    /// <returns>A signal that ends, or fails with the same error when it must not be hidden.</returns>
+    private IObservable<RxVoid> PreparationFailed(Exception exception, TileKey key, long epoch)
+    {
+        if (!IsRecoverable(exception))
+        {
+            return Signal.Throw<RxVoid>(exception);
+        }
+
+        AppLog.Warning(exception, $"Page preparation failed for {key}.");
+        Forget(key, epoch);
+        return Signal.Empty<RxVoid>();
     }
 
     /// <summary>Dequeues the latest request for the next live key, discarding stale and superseded entries.</summary>

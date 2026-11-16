@@ -8,6 +8,7 @@ using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdfLibrary.Forms;
 using HyperPdfLibrary.Navigation;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.Engine;
 
@@ -20,13 +21,13 @@ internal sealed class FormActionHostAdapter(HyperPdfDocument owner, IFormActionH
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<bool> RunNamedAsync(string name, int sourcePage, CancellationToken cancellationToken) =>
-        host.RunNamedAsync(name, sourcePage, cancellationToken);
+        new(host.RunNamed(name, sourcePage).ToTask(cancellationToken));
 
     /// <inheritdoc/>
     public ValueTask<bool> NavigateAsync(PdfAction action, int sourcePage, CancellationToken cancellationToken)
     {
         var target = LinkTargets.From(owner.Document, action, sourcePage);
-        return target.Kind == LinkTargetKind.None ? ValueTask.FromResult(false) : host.OpenAsync(target, cancellationToken);
+        return target.Kind == LinkTargetKind.None ? ValueTask.FromResult(false) : new(host.Open(target).ToTask(cancellationToken));
     }
 
     /// <inheritdoc/>
@@ -38,11 +39,11 @@ internal sealed class FormActionHostAdapter(HyperPdfDocument owner, IFormActionH
             fields[i] = new(submission.Fields[i].Name, submission.Fields[i].Value);
         }
 
-        return host.SubmitAsync(new(submission.Url, fields), cancellationToken);
+        return new(host.Submit(new(submission.Url, fields)).ToTask(cancellationToken));
     }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<bool> ImportDataAsync(ImportDataAction action, CancellationToken cancellationToken) =>
-        host.ImportAsync(action.File, new HyperPdfFormDataImporter(owner), cancellationToken);
+        new(host.Import(action.File, new HyperPdfFormDataImporter(owner)).ToTask(cancellationToken));
 }

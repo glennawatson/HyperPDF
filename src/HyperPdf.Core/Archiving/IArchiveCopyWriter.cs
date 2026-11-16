@@ -15,9 +15,8 @@ public interface IArchiveCopyWriter : IDocumentFeature
     /// </summary>
     /// <param name="destination">The writable stream that receives the copy.</param>
     /// <param name="level">The level the copy must meet.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>What was changed, or why the copy could not be made.</returns>
+    /// <returns>A cold signal giving what was changed, or why the copy could not be made once; unsubscribing cancels the work.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
     /// <exception cref="InvalidDataException">The document cannot be read or written.</exception>
-    Task<ArchiveCopyResult> WriteArchiveCopyAsync(Stream destination, ArchiveLevel level, CancellationToken cancellationToken);
+    IObservable<ArchiveCopyResult> WriteArchiveCopy(Stream destination, ArchiveLevel level);
 }

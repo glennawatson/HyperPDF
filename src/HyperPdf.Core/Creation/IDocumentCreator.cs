@@ -9,14 +9,13 @@ public interface IDocumentCreator
 {
     /// <summary>
     /// Creates a document and writes it to a stream. To add the pages to an open document, write the result to a file and
-    /// insert it with <see cref="Documents.IPageManager.InsertAsync(int, string[], CancellationToken)"/>.
+    /// insert it with <see cref="Documents.IPageManager.Insert(int, string[])"/>.
     /// </summary>
     /// <param name="request">The content and description of the new document.</param>
     /// <param name="destination">The stream receiving the PDF.</param>
-    /// <param name="cancellationToken">Cancels reading source files, laying out pages and writing.</param>
-    /// <returns>What the document contains and what it could not promise.</returns>
+    /// <returns>A cold signal giving what the document contains and what it could not promise once; unsubscribing cancels the work.</returns>
     /// <exception cref="ArgumentException">The request is not usable, for example a font file that cannot be embedded or an image whose pixels do not fill its size.</exception>
     /// <exception cref="Documents.DocumentOpenException">A source PDF cannot be opened.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    ValueTask<DocumentCreationResult> CreateAsync(DocumentCreationRequest request, Stream destination, CancellationToken cancellationToken);
+    IObservable<DocumentCreationResult> Create(DocumentCreationRequest request, Stream destination);
 }

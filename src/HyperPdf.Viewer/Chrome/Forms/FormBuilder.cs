@@ -15,6 +15,9 @@ namespace HyperPdf.Viewer.Chrome.Forms;
 [DebuggerDisplay("FormBuilder: {Rows.Count} rows")]
 internal sealed class FormBuilder
 {
+    /// <summary>Marks the target of a field row whose text is secret, so the dialog shows it as dots.</summary>
+    internal static readonly object MaskedField = new();
+
     /// <summary>The number of a row that cannot change.</summary>
     private const int NoId = -1;
 
@@ -64,6 +67,13 @@ internal sealed class FormBuilder
     /// <param name="id">The row's number.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Field(string label, string value, int id) => Rows.Add(new(FormRowKind.Field, label, value, [], 0, true, id, null));
+
+    /// <summary>Adds a setting typed as text that is secret, such as a key. The dialog shows dots in place of the letters.</summary>
+    /// <param name="label">The setting's name.</param>
+    /// <param name="value">The text now.</param>
+    /// <param name="id">The row's number.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Secret(string label, string value, int id) => Rows.Add(new(FormRowKind.Field, label, value, [], 0, true, id, MaskedField));
 
     /// <summary>Adds something to do.</summary>
     /// <param name="label">What it does.</param>

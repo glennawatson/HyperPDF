@@ -146,47 +146,31 @@ public sealed partial class AnnotationsViewModel
 
     /// <summary>Asks for new note text for an annotation.</summary>
     /// <param name="annotation">The annotation.</param>
-    /// <returns>A task.</returns>
-    public async Task EditNoteAsync(PageAnnotation? annotation)
-    {
-        if (annotation is null)
-        {
-            return;
-        }
-
-        var text = await PromptInteraction.Handle(new(
-            LocalizedMessage.Get(UiText, "Edit Note"),
-            LocalizedMessage.Get(UiText, "Note"),
-            annotation.Contents,
-            LocalizedMessage.Get(UiText, "Save Note"),
-            true)).ToTask().ConfigureAwait(true);
-        if (text is not null && !string.Equals(text, annotation.Contents, StringComparison.Ordinal) && EditorForChange()?.SetContents(annotation.PageIndex, annotation.Index, text) == true)
-        {
-            Record(new AnnotationContentsChanged(annotation.PageIndex, annotation.Index, annotation.Contents, text));
-        }
-    }
+    /// <returns>A cold signal that ends once the note is changed or the question was given up.</returns>
+    public IObservable<RxVoid> EditNote(PageAnnotation? annotation) =>
+        annotation is null
+            ? Signal.Return(RxVoid.Default)
+            : PromptInteraction.Handle(new(
+                LocalizedMessage.Get(UiText, "Edit Note"),
+                LocalizedMessage.Get(UiText, "Note"),
+                annotation.Contents,
+                LocalizedMessage.Get(UiText, "Save Note"),
+                true)).ToSignal()
+                .Select(text => NoteEdited(annotation, text));
 
     /// <summary>Asks for a reply to a comment and adds it.</summary>
     /// <param name="annotation">The comment.</param>
-    /// <returns>A task.</returns>
-    public async Task ReplyAsync(PageAnnotation? annotation)
-    {
-        if (annotation is null)
-        {
-            return;
-        }
-
-        var text = await PromptInteraction.Handle(new(
-            LocalizedMessage.Get(UiText, ReplyKey),
-            LocalizedMessage.Get(UiText, ReplyKey),
-            string.Empty,
-            LocalizedMessage.Get(UiText, ReplyKey),
-            true)).ToTask().ConfigureAwait(true);
-        if (!string.IsNullOrWhiteSpace(text) && EditorForChange() is { } editor)
-        {
-            _ = Added(annotation.PageIndex, editor.AddReply(annotation.PageIndex, annotation.Index, text, ReviewState.None));
-        }
-    }
+    /// <returns>A cold signal that ends once the reply is added or the question was given up.</returns>
+    public IObservable<RxVoid> Reply(PageAnnotation? annotation) =>
+        annotation is null
+            ? Signal.Return(RxVoid.Default)
+            : PromptInteraction.Handle(new(
+                LocalizedMessage.Get(UiText, ReplyKey),
+                LocalizedMessage.Get(UiText, ReplyKey),
+                string.Empty,
+                LocalizedMessage.Get(UiText, ReplyKey),
+                true)).ToSignal()
+                .Select(text => Replied(annotation, text));
 
     /// <summary>Records a review status for a comment.</summary>
     /// <param name="annotation">The comment.</param>
@@ -196,6 +180,34 @@ public sealed partial class AnnotationsViewModel
     {
         ArgumentNullException.ThrowIfNull(annotation);
         return EditorForChange() is { } editor && Added(annotation.PageIndex, editor.AddReply(annotation.PageIndex, annotation.Index, string.Empty, state));
+    }
+
+    /// <summary>Applies the new note text, and records the change.</summary>
+    /// <param name="annotation">The annotation.</param>
+    /// <param name="text">The text typed, or <see langword="null"/> when the question was given up.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid NoteEdited(PageAnnotation annotation, string? text)
+    {
+        if (text is not null && !string.Equals(text, annotation.Contents, StringComparison.Ordinal) && EditorForChange()?.SetContents(annotation.PageIndex, annotation.Index, text) == true)
+        {
+            Record(new AnnotationContentsChanged(annotation.PageIndex, annotation.Index, annotation.Contents, text));
+        }
+
+        return RxVoid.Default;
+    }
+
+    /// <summary>Adds the reply typed.</summary>
+    /// <param name="annotation">The comment.</param>
+    /// <param name="text">The reply typed, or <see langword="null"/> when the question was given up.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Replied(PageAnnotation annotation, string? text)
+    {
+        if (!string.IsNullOrWhiteSpace(text) && EditorForChange() is { } editor)
+        {
+            _ = Added(annotation.PageIndex, editor.AddReply(annotation.PageIndex, annotation.Index, text, ReviewState.None));
+        }
+
+        return RxVoid.Default;
     }
 
     /// <summary>
@@ -358,17 +370,17 @@ public sealed partial class AnnotationsViewModel
 
     /// <summary>Edits an annotation's note; null edits the selected one.</summary>
     /// <param name="item">The sidebar item.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the note is changed or the question was given up.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task EditNote(AnnotationItemViewModel? item) => EditNoteAsync(item?.Annotation ?? Selected);
+    private IObservable<RxVoid> EditNote(AnnotationItemViewModel? item) => EditNote(item?.Annotation ?? Selected);
 
     /// <summary>Asks for a reply to an annotation; null replies to the selected one.</summary>
     /// <param name="item">The sidebar item.</param>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the reply is added or the question was given up.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task Reply(AnnotationItemViewModel? item) => ReplyAsync(item?.Annotation ?? Selected);
+    private IObservable<RxVoid> Reply(AnnotationItemViewModel? item) => Reply(item?.Annotation ?? Selected);
 
     /// <summary>Changes an annotation's colour.</summary>
     /// <param name="choice">The annotation and its new colour.</param>

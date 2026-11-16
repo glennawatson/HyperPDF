@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Media;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Tests.Media;
 
@@ -53,10 +54,10 @@ public sealed class MediaPlayerDisposeTests
         public void PublishNow() => Publish();
 
         /// <inheritdoc />
-        public override Task<bool> OpenAsync(string path, CancellationToken cancellationToken) => Task.FromResult(false);
+        public override IObservable<bool> Open(string path) => Signal.Return(false);
 
         /// <inheritdoc />
-        protected override Task<string?> PlayAsync(string path, TimeSpan start, MediaInfo info, FramePump? pump, CancellationToken cancellationToken) =>
-            Task.FromResult<string?>(null);
+        protected override IObservable<string?> PlayFile(string path, TimeSpan start, MediaInfo info, FramePump? pump) =>
+            Signal.Return<string?>(null);
     }
 }

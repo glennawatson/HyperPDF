@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using HyperPdf.Core.Signatures.Signing;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.TestAssets;
 
@@ -102,9 +103,17 @@ public sealed class TestTimestampAuthority : ISignatureTimestamper, IDisposable
     public ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken) =>
         Stamp(Imprint(data.Span), ImprintOid, cancellationToken);
 
-    /// <inheritdoc/>
+    /// <summary>Gets a token over a hash, for the library's own tests that await it.</summary>
+    /// <param name="hash">The hash to stamp.</param>
+    /// <param name="digest">The digest that made the hash.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    /// <returns>The DER token.</returns>
     public ValueTask<byte[]> TimestampAsync(ReadOnlyMemory<byte> hash, SigningDigest digest, CancellationToken cancellationToken) =>
         Stamp(hash.ToArray(), DigestOid(digest), cancellationToken);
+
+    /// <inheritdoc/>
+    public IObservable<byte[]> Timestamp(ReadOnlyMemory<byte> hash, SigningDigest digest) =>
+        Signal.FromAsync(token => TimestampAsync(hash, digest, token).AsTask());
 
     /// <inheritdoc/>
     public void Dispose() => Certificate.Dispose();

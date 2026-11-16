@@ -157,7 +157,7 @@ public sealed class Win32WindowTests
 
         using var bridge = new UiaAccessibilityBridge();
         using var window = new Win32Window(RenderBackendPreference.Gpu, bridge);
-        bridge.Attach(new FakeAccessibleTree());
+        bridge.Attach(new FakeAccessibleTree(window.WindowHandle));
         window.Show();
         window.PumpEvents(WaitMilliseconds);
 

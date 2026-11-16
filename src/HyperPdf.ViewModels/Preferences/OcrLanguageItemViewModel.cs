@@ -80,10 +80,10 @@ public sealed partial class OcrLanguageItemViewModel : ReactiveObject, ILocalisa
     }
 
     /// <summary>Downloads this language's pack.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that completes when the download is over.</returns>
     [ReactiveCommand(CanExecute = nameof(_canDownload))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task DownloadAsync() => _owner.DownloadAsync([Pack]);
+    private IObservable<RxVoid> Download() => _owner.Download([Pack]);
 
     /// <summary>Deletes this language's downloaded pack.</summary>
     [ReactiveCommand(CanExecute = nameof(_canRemove))]

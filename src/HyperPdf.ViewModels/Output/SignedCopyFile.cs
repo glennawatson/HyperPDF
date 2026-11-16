@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using HyperPdf.Core.Platform;
 using HyperPdf.Core.Signatures.Signing;
 
 namespace HyperPdf.ViewModels.Output;
@@ -26,22 +25,11 @@ internal static class SignedCopyFile
     /// <summary>Writes the outcome's file to a temporary file, then moves it over the destination.</summary>
     /// <param name="outcome">The outcome.</param>
     /// <param name="path">Where the copy goes.</param>
-    /// <param name="cancellationToken">Stops the write.</param>
-    /// <returns>A task.</returns>
-    internal static async Task WriteAsync(SigningOutcome outcome, string path, CancellationToken cancellationToken)
+    /// <returns>A cold signal that completes once the file is in place; unsubscribing stops the write and deletes the temporary file.</returns>
+    internal static IObservable<bool> Write(SigningOutcome outcome, string path)
     {
         ArgumentNullException.ThrowIfNull(outcome);
-        var temporary = path + TemporarySuffix;
-        try
-        {
-            await File.WriteAllBytesAsync(temporary, outcome.Bytes, cancellationToken).ConfigureAwait(false);
-            FileReplacement.Replace(temporary, path);
-        }
-        catch
-        {
-            TryDelete(temporary);
-            throw;
-        }
+        return CopyFile.WriteBlocking(path, TemporarySuffix, (stream, _) => WriteBytes(outcome, stream), static written => written, CancellationToken.None);
     }
 
     /// <summary>Describes a finished run, one point per line: where the copy is saved, then each note the signer gave.</summary>
@@ -70,21 +58,13 @@ internal static class SignedCopyFile
         return outcome.Notes.Count == 0 ? string.Empty : $" {string.Join(' ', outcome.Notes)}";
     }
 
-    /// <summary>Deletes a temporary file, ignoring a failure because the file is only a leftover.</summary>
-    /// <param name="path">The file.</param>
-    private static void TryDelete(string path)
+    /// <summary>Writes the signed bytes; the write runs on the pool.</summary>
+    /// <param name="outcome">The outcome.</param>
+    /// <param name="stream">The temporary file.</param>
+    /// <returns><see langword="true"/> once the bytes are written.</returns>
+    private static bool WriteBytes(SigningOutcome outcome, Stream stream)
     {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-            // A leftover temporary file does no harm and a later save replaces it.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Same as above.
-        }
+        stream.Write(outcome.Bytes);
+        return true;
     }
 }

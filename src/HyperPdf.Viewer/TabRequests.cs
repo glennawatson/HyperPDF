@@ -86,11 +86,18 @@ internal static class TabRequests
             return chrome.ShowForm(ToolForms.SignatureMark(context.Input)).Do(context.SetOutput).Finally(browsing.Dispose);
         }),
         tab.Annotations.TextPropertiesInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.TextProperties(context.Input)).Do(context.SetOutput)),
+        tab.Decorations.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.PageDecoration(context.Input)).Do(context.SetOutput)),
+        tab.TextRecognition.ManageLanguagesInteraction.RegisterHandler(context => chrome.ShowForm(OcrLanguageForms.For(context.Input)).Do(context.SetOutput)),
+        tab.Pages.Compare.ChooseFileInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Select(static files => files.Count > 0 ? files[0] : null).Do(context.SetOutput)),
+        tab.Pages.Compare.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.Compare(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
+        tab.Pages.Sanitize.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.Sanitize(context.Input)).Do(context.SetOutput)),
+        tab.Pages.Labels.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.PageLabels(context.Input)).Do(context.SetOutput)),
         tab.Copies.ExternalSign.Interaction.RegisterHandler(context => SignOutside(chrome, tab, context)),
 
         // Questions.
         tab.Copies.Pdf20SaveInteraction.RegisterHandler(context => chrome.Confirm(context.Input).Do(context.SetOutput)),
         tab.OutlineEditing.PromptInteraction.RegisterHandler(context => chrome.Prompt(PromptOf(context.Input)).Do(context.SetOutput)),
+        tab.ContentEdit.LinkPromptInteraction.RegisterHandler(context => chrome.Prompt(PromptOf(context.Input)).Do(context.SetOutput)),
     ];
 
     /// <summary>Answers the questions of the window itself.</summary>

@@ -7,6 +7,8 @@ using System.Runtime.CompilerServices;
 using HyperPdf.Core.Platform;
 using HyperPdf.Platform.Cups;
 using HyperPdf.Platform.Linux.DBus;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Platform.Linux;
 
@@ -22,17 +24,17 @@ public sealed class LinuxPrintService : IPrintService
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task<bool> PrintAsync(string filePath, string title, CancellationToken cancellationToken) => _portal.PrintAsync(filePath, title, cancellationToken);
+    public IObservable<bool> Print(string filePath, string title) => _portal.Print(filePath, title);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IReadOnlyList<PrinterInfo> GetPrinters() => CupsPrinting.GetPrinters();
 
     /// <inheritdoc/>
-    public Task<PrintOutcome> SubmitAsync(string filePath, string title, PrintJobOptions options, CancellationToken cancellationToken)
+    public IObservable<PrintOutcome> Submit(string filePath, string title, PrintJobOptions options)
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(title);
-        return Task.Run(() => CupsPrinting.Submit(filePath, title, options), cancellationToken);
+        return Signal.Start(() => CupsPrinting.Submit(filePath, title, options), TaskPoolSequencer.Default);
     }
 }

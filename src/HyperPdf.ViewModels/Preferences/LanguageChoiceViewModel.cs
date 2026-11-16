@@ -40,6 +40,9 @@ public sealed partial class LanguageChoiceViewModel : ReactiveObject
         return !services.Settings.InterfaceLanguageAsked && services.Settings.InterfaceLanguage.Length == 0;
     }
 
+    /// <summary>Keeps the chosen language for the next launch, as pressing Continue does. A dialog that is put away without Continue calls this too.</summary>
+    public void Keep() => _ = Continue();
+
     /// <summary>Keeps the chosen language for the next launch and closes the dialog.</summary>
     /// <returns>Always <see langword="true"/>.</returns>
     [ReactiveCommand]
