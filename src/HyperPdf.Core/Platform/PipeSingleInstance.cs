@@ -4,9 +4,11 @@
 
 using System.Diagnostics;
 using System.IO.Pipes;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using HyperPdf.Core.Diagnostics;
+using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Advanced;
 using ReactiveUI.Primitives.Signals;
 
@@ -41,8 +43,8 @@ public sealed class PipeSingleInstance : ISingleInstance
     /// <summary>The ownership claim.</summary>
     private readonly Mutex _claim;
 
-    /// <summary>Stops listening.</summary>
-    private readonly CancellationTokenSource _stop = new();
+    /// <summary>The wait for launches, which ends when disposed.</summary>
+    private readonly IDisposable _listening;
 
     /// <summary>Requests received from other launches.</summary>
     private readonly Signal<OpenRequest> _openRequests = new();
@@ -58,11 +60,9 @@ public sealed class PipeSingleInstance : ISingleInstance
         _name = name;
         _claim = claim;
 
-        // The first pipe exists before the claim is returned, so a launch straight after finds it. The token is taken
-        // here because a quick Dispose would otherwise dispose its source before the listener reads it.
+        // The first pipe exists before the claim is returned, so a launch straight after finds it.
         var first = CreateServer(name);
-        var token = _stop.Token;
-        _ = Task.Run(() => ListenAsync(first, token));
+        _listening = Listen(first).SubscribeSafe(static _ => { }, static error => AppLog.Warning(error, "Single instance listener failed."));
         OpenRequests = new(_openRequests);
     }
 
@@ -190,8 +190,7 @@ public sealed class PipeSingleInstance : ISingleInstance
             return;
         }
 
-        _stop.Cancel();
-        _stop.Dispose();
+        _listening.Dispose();
         _claim.Dispose();
         _openRequests.Dispose();
     }
@@ -220,64 +219,44 @@ public sealed class PipeSingleInstance : ISingleInstance
     private static NamedPipeServerStream CreateServer(string name) =>
         new(PipeNameFor(name), PipeDirection.In, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
 
-    /// <summary>Creates the next pipe after a failed connection.</summary>
-    /// <param name="name">The claim name.</param>
-    /// <returns>The pipe, or <see langword="null"/> when the pipe cannot be created again.</returns>
-    private static NamedPipeServerStream? TryCreateServer(string name)
+    /// <summary>Reads the message a launch writes once it connects.</summary>
+    /// <param name="server">The pipe.</param>
+    /// <param name="token">Stops the wait.</param>
+    /// <returns>The message.</returns>
+    private static async Task<string> ReadMessageAsync(NamedPipeServerStream server, CancellationToken token)
     {
-        try
-        {
-            return CreateServer(name);
-        }
-        catch (IOException ex)
-        {
-            AppLog.Warning(ex, "Single instance pipe could not be recreated.");
-            return null;
-        }
+        await server.WaitForConnectionAsync(token).ConfigureAwait(false);
+        using var reader = new StreamReader(server, Encoding.UTF8);
+        return await reader.ReadToEndAsync(token).ConfigureAwait(false);
     }
 
-    /// <summary>Accepts one connection after another until disposed.</summary>
-    /// <param name="first">The first pipe, already created.</param>
-    /// <param name="token">Stops listening.</param>
-    /// <returns>A task.</returns>
-    private async Task ListenAsync(NamedPipeServerStream first, CancellationToken token)
-    {
-        var server = first;
-        while (!token.IsCancellationRequested)
-        {
-            try
+    /// <summary>Accepts one connection after another; the repeat ends when the subscription is disposed.</summary>
+    /// <param name="first">The first pipe, already created, so a launch straight after the claim finds it.</param>
+    /// <returns>A signal that serves one launch after another.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Listen(NamedPipeServerStream first) =>
+        Accept(first)
+            .Concat(Signal.Defer(() => Accept(CreateServer(_name))).Repeat())
+            .Catch<RxVoid, Exception>(static error =>
             {
-                await using (server.ConfigureAwait(false))
+                if (error is not (IOException or ObjectDisposedException or OperationCanceledException))
                 {
-                    await server.WaitForConnectionAsync(token).ConfigureAwait(false);
-                    using var reader = new StreamReader(server, Encoding.UTF8);
-                    var message = await reader.ReadToEndAsync(token).ConfigureAwait(false);
-                    _openRequests.OnNext(Decode(message));
+                    return Signal.Throw<RxVoid>(error);
                 }
 
-                server = CreateServer(_name);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-            catch (ObjectDisposedException)
-            {
-                return;
-            }
-            catch (IOException ex)
-            {
-                AppLog.Warning(ex, "Single instance pipe failed.");
-                if (TryCreateServer(_name) is not { } replacement)
-                {
-                    // Later launches open their own window rather than reaching this one.
-                    return;
-                }
+                // Later launches open their own window rather than reaching this one.
+                AppLog.Warning(error, "Single instance pipe failed.");
+                return Signal.Empty<RxVoid>();
+            });
 
-                server = replacement;
-            }
-        }
-
-        await server.DisposeAsync().ConfigureAwait(false);
-    }
+    /// <summary>Waits on a pipe for one launch and passes on its request.</summary>
+    /// <param name="server">The pipe, which is disposed once the launch is served.</param>
+    /// <returns>A cold signal that ends once the launch was served.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Accept(NamedPipeServerStream server) =>
+        Signal.Using(
+            () => server,
+            pipe => Signal.FromAsync(token => ReadMessageAsync(pipe, token)) // The pipe is the operating system's async stream, so reading it is the one task here.
+                .Do(message => _openRequests.OnNext(Decode(message)))
+                .Select(static _ => RxVoid.Default));
 }
