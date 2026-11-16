@@ -63,19 +63,16 @@ public sealed partial class PageLabelsViewModel : ReactiveObject
     public partial string FirstNumber { get; set; } = "1";
 
     /// <summary>Shows the window and applies the settings when they are accepted.</summary>
-    /// <returns>A task that ends when the window is closed and any change is made.</returns>
+    /// <returns>A signal that ends when the window is closed and any change is made.</returns>
     [ReactiveCommand]
-    public async Task ShowAsync()
+    public IObservable<RxVoid> Show()
     {
         FromPage = (Math.Max(0, _owner.CurrentPageIndex) + 1).ToString(CultureInfo.InvariantCulture);
         ToPage = string.Empty;
         StyleIndex = (int)PageLabelStyle.Decimal;
         Prefix = string.Empty;
         FirstNumber = "1";
-        if (await ShowInteraction.Handle(this).ToTask().ConfigureAwait(true))
-        {
-            Apply();
-        }
+        return ShowInteraction.Handle(this).ToSignal().Do(ApplyIfAccepted).Select(static _ => RxVoid.Default);
     }
 
     /// <summary>Gives up without changing the pages.</summary>
@@ -89,6 +86,16 @@ public sealed partial class PageLabelsViewModel : ReactiveObject
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool Accept() => true;
+
+    /// <summary>Takes the chosen things out when the window was accepted.</summary>
+    /// <param name="accepted">Whether the window was accepted.</param>
+    private void ApplyIfAccepted(bool accepted)
+    {
+        if (accepted)
+        {
+            Apply();
+        }
+    }
 
     /// <summary>Numbers every page 1, 2, 3 again.</summary>
     [ReactiveCommand]

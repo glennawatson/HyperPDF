@@ -179,6 +179,13 @@ internal static class ToolForms
         FormSettings.Action<PageDecorationViewModel>("Add it", static m => m.AcceptCommand),
     ];
 
+    /// <summary>The rows of the window that lists the pages whose words differ from another document.</summary>
+    private static readonly FormSetting<CompareViewModel>[] CompareRows =
+    [
+        FormSettings.Status<CompareViewModel>(static m => m.Result),
+        FormSettings.Picker<CompareViewModel, ComparedPage>(static m => m.Differences, CompareViewModel.Describe, static (m, page) => m.GoTo(page)),
+    ];
+
     /// <summary>The rows of the window that takes hidden information out of the document.</summary>
     private static readonly FormSetting<SanitizeViewModel>[] SanitizeRows =
     [
@@ -392,6 +399,12 @@ internal static class ToolForms
     /// <returns>What the window shows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static FormRequest PageDecoration(PageDecorationViewModel model) => FormSettings.Window(model.Title, model, DecorationRows) with { Answered = model.Answered };
+
+    /// <summary>Makes the window that lists the pages whose words differ from another document.</summary>
+    /// <param name="model">The view model.</param>
+    /// <returns>What the window shows.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormRequest Compare(CompareViewModel model) => FormSettings.Window(model.Title, model, CompareRows);
 
     /// <summary>Makes the window that takes hidden information out of the document. The view model answers when it is accepted.</summary>
     /// <param name="model">The view model.</param>

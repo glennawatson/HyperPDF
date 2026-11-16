@@ -103,7 +103,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
         this.RaisePropertyChanged(nameof(Items));
         if (item.IsSelected && item.CanDownload)
         {
-            _ = DownloadAsync([item.Pack]);
+            _subscriptions.Add(Signal.FromAsync(() => DownloadOneAsync(item.Pack)).SubscribeSafe(static _ => { }, ErrorTrace.Write));
         }
     }
 
@@ -224,6 +224,15 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
         }
 
         return onComputer ? UiText.Get("On this computer") : UiText.Format("Not downloaded, {0}", OcrLanguageCatalog.DescribeSize(pack.Bytes));
+    }
+
+    /// <summary>Downloads one language pack.</summary>
+    /// <param name="pack">The pack.</param>
+    /// <returns>A task that ends when the download is over.</returns>
+    private async Task<RxVoid> DownloadOneAsync(OcrLanguagePack pack)
+    {
+        await DownloadAsync([pack]).ConfigureAwait(true);
+        return RxVoid.Default;
     }
 
     /// <summary>Deletes the downloaded packs of languages that are not ticked, to free the space they take.</summary>

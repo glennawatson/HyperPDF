@@ -7,6 +7,9 @@ using System.Runtime.CompilerServices;
 using HyperPdf.Core.Attachments;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
+using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
+using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.ViewModels.Viewing;
@@ -142,22 +145,13 @@ public sealed partial class TabNoticesViewModel : ReactiveObject, ILocalisationC
     /// <summary>Checks the whole document on a background thread, a page at a time so pages keep drawing meanwhile.</summary>
     /// <param name="document">The document.</param>
     /// <param name="attachments">The number of attached files.</param>
-    /// <returns>A task.</returns>
-    internal async Task CheckContentAsync(IDocument document, int attachments)
-    {
-        if (DocumentFeature<IContentCheck>.Get(document) is not { } check)
-        {
-            return;
-        }
-
-        // Task.Run has no state-passing form, so the check reads the values it needs from this closure.
-        var found = await Task.Run(() => Check(check, document, attachments)).ConfigureAwait(true);
-        UnsupportedContent = found;
-        ContentWarning = ContentWarnings.Describe(found);
-
-        // The scan above read every page's annotations, which may have shown damage the open did not.
-        CheckRepairs(document);
-    }
+    /// <returns>A cold signal that scans on the pool, shows the notices on the interface thread and completes.</returns>
+    internal IObservable<RxVoid> CheckContent(IDocument document, int attachments) =>
+        DocumentFeature<IContentCheck>.Get(document) is not { } check
+            ? Signal.Return(RxVoid.Default)
+            : Signal.Start(() => Check(check, document, attachments), TaskPoolSequencer.Default)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Select(found => ShowContent(document, found));
 
     /// <summary>Shows the repair notice the first time the document reports that it was repaired.</summary>
     /// <param name="document">The document.</param>
@@ -198,6 +192,20 @@ public sealed partial class TabNoticesViewModel : ReactiveObject, ILocalisationC
         }
 
         return content;
+    }
+
+    /// <summary>Shows what the scan found.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="found">What cannot be shown or run.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid ShowContent(IDocument document, UnsupportedContent found)
+    {
+        UnsupportedContent = found;
+        ContentWarning = ContentWarnings.Describe(found);
+
+        // The scan read every page's annotations, which may have shown damage the open did not.
+        CheckRepairs(document);
+        return RxVoid.Default;
     }
 
     /// <summary>Puts the integrity notice away.</summary>

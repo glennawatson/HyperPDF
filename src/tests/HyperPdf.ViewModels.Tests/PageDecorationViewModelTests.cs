@@ -9,6 +9,7 @@ using HyperPdf.TestAssets;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Markup;
 using HyperPdf.ViewModels.Viewing;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -47,7 +48,7 @@ public sealed class PageDecorationViewModelTests
         var tab = main.SelectedTab!;
         using var answer = tab.Decorations.ShowInteraction.RegisterHandler(static context => context.SetOutput(true));
 
-        await tab.Decorations.ShowAsync(PageDecorationKind.PageNumbers);
+        _ = await tab.Decorations.Show(PageDecorationKind.PageNumbers).ToTask();
 
         await Assert.That(TextOf(tab, 1)).Contains("Page 2 of 3");
     }
@@ -63,7 +64,7 @@ public sealed class PageDecorationViewModelTests
         var tab = main.SelectedTab!;
         using var answer = tab.Decorations.ShowInteraction.RegisterHandler(static context => context.SetOutput(false));
 
-        await tab.Decorations.ShowAsync(PageDecorationKind.PageNumbers);
+        _ = await tab.Decorations.Show(PageDecorationKind.PageNumbers).ToTask();
 
         await Assert.That(TextOf(tab, 1)).DoesNotContain("Page 2 of 3");
     }
@@ -84,7 +85,7 @@ public sealed class PageDecorationViewModelTests
             context.SetOutput(true);
         });
 
-        await tab.Decorations.ShowAsync(PageDecorationKind.Watermark);
+        _ = await tab.Decorations.Show(PageDecorationKind.Watermark).ToTask();
 
         await Assert.That(tab.Notice).Contains("not in the document");
         await Assert.That(TextOf(tab, 0)).DoesNotContain("CONFIDENTIAL");
@@ -110,7 +111,7 @@ public sealed class PageDecorationViewModelTests
             context.SetOutput(true);
         });
 
-        await tab.Decorations.ShowAsync(PageDecorationKind.Crop);
+        _ = await tab.Decorations.Show(PageDecorationKind.Crop).ToTask();
 
         var after = tab.Source.PageSizes[0];
         await Assert.That(after.Width).IsBetween(before.Width - Both - Tolerance, before.Width - Both + Tolerance);

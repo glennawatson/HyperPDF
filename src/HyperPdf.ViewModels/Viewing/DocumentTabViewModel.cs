@@ -1156,7 +1156,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         if (!IsSecondaryView)
         {
             _services.RecentDocuments.Add(FilePath);
-            _ = Notices.CheckContentAsync(document, Attachments.Items.Count);
+            _subscriptions.Add(Notices.CheckContent(document, Attachments.Items.Count).SubscribeSafe(static _ => { }, ErrorTrace.Write));
             Notices.CheckRepairs(document);
             Notices.CheckIntegrity(Source.Metadata);
             _fileWatch.Start(FilePath);

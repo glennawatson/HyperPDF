@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.TestAssets;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -26,7 +27,7 @@ public sealed class SanitizeViewModelTests
         var tab = main.SelectedTab!;
         using var answer = tab.Pages.Sanitize.ShowInteraction.RegisterHandler(static context => context.SetOutput(true));
 
-        await tab.Pages.Sanitize.ShowAsync();
+        _ = await tab.Pages.Sanitize.ShowCommand.Execute().ToTask();
 
         await Assert.That(tab.Notice).Contains("Removed");
     }
@@ -42,7 +43,7 @@ public sealed class SanitizeViewModelTests
         var tab = main.SelectedTab!;
         using var answer = tab.Pages.Sanitize.ShowInteraction.RegisterHandler(static context => context.SetOutput(false));
 
-        await tab.Pages.Sanitize.ShowAsync();
+        _ = await tab.Pages.Sanitize.ShowCommand.Execute().ToTask();
 
         await Assert.That(tab.Notice ?? string.Empty).DoesNotContain("Removed");
     }

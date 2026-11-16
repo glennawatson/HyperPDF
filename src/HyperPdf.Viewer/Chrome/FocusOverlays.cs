@@ -71,7 +71,7 @@ internal static class FocusOverlays
                 Signal.Merge(keys.Select(key => LinesOf(state.Value, key.Key)), input.SelectScrollRows().Select(static rows => rows * WheelLines))
                     .Where(static lines => lines != 0)
                     .SubscribeSafe(lines => edits.OnNext(current => current with { First = current.First + lines }), ErrorTrace.Write),
-                loads.SelectMany(static page => Signal.FromAsync(() => LoadAsync(page))).SubscribeSafe(static _ => { }, ErrorTrace.Write)));
+                loads.SelectMany(static page => page.Load()).SubscribeSafe(static _ => { }, ErrorTrace.Write)));
     }
 
     /// <summary>Follows the text of every page, which arrives when a page is first read.</summary>
@@ -86,15 +86,6 @@ internal static class FocusOverlays
         }
 
         return Signal.Merge(changes).StartWith(RxVoid.Default);
-    }
-
-    /// <summary>Reads the text of a page.</summary>
-    /// <param name="page">The page.</param>
-    /// <returns>A task that ends when the text has arrived.</returns>
-    private static async Task<RxVoid> LoadAsync(FocusPageViewModel page)
-    {
-        await page.LoadAsync().ConfigureAwait(true);
-        return RxVoid.Default;
     }
 
     /// <summary>Tells what kind of line a paragraph starts with: a heading is drawn bold.</summary>

@@ -9,6 +9,7 @@ using HyperPdf.Core.Printing;
 using HyperPdf.ViewModels.Viewing;
 using ReactiveUI;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.Signals;
 using ReactiveUI.SourceGenerators;
@@ -227,14 +228,11 @@ public sealed partial class PageDecorationViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Shows the window for one kind of decoration, and applies the settings when they are accepted.</summary>
     /// <param name="kind">What to add.</param>
-    /// <returns>A task that ends when the window is closed and any change is made.</returns>
-    public async Task ShowAsync(PageDecorationKind kind)
+    /// <returns>A signal that ends when the window is closed and any change is made.</returns>
+    public IObservable<RxVoid> Show(PageDecorationKind kind)
     {
         Begin(kind);
-        if (await ShowInteraction.Handle(this).ToTask().ConfigureAwait(true))
-        {
-            await ApplyAsync().ConfigureAwait(true);
-        }
+        return ShowInteraction.Handle(this).ToSignal().SwitchMap(accepted => accepted ? Apply() : Signal.Return(RxVoid.Default));
     }
 
     /// <summary>Gives up without changing the pages.</summary>
@@ -281,46 +279,46 @@ public sealed partial class PageDecorationViewModel : ReactiveObject, IDisposabl
     }
 
     /// <summary>Shows the window for a watermark.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is closed.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task ShowWatermarkAsync() => ShowAsync(PageDecorationKind.Watermark);
+    private IObservable<RxVoid> ShowWatermark() => Show(PageDecorationKind.Watermark);
 
     /// <summary>Shows the window for a header.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is closed.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task ShowHeaderAsync() => ShowAsync(PageDecorationKind.Header);
+    private IObservable<RxVoid> ShowHeader() => Show(PageDecorationKind.Header);
 
     /// <summary>Shows the window for a footer.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is closed.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task ShowFooterAsync() => ShowAsync(PageDecorationKind.Footer);
+    private IObservable<RxVoid> ShowFooter() => Show(PageDecorationKind.Footer);
 
     /// <summary>Shows the window for page numbers.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is closed.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task ShowPageNumbersAsync() => ShowAsync(PageDecorationKind.PageNumbers);
+    private IObservable<RxVoid> ShowPageNumbers() => Show(PageDecorationKind.PageNumbers);
 
     /// <summary>Shows the window for Bates numbers.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is closed.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task ShowBatesAsync() => ShowAsync(PageDecorationKind.Bates);
+    private IObservable<RxVoid> ShowBates() => Show(PageDecorationKind.Bates);
 
     /// <summary>Shows the window for a background colour.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is closed.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task ShowBackgroundAsync() => ShowAsync(PageDecorationKind.Background);
+    private IObservable<RxVoid> ShowBackground() => Show(PageDecorationKind.Background);
 
     /// <summary>Shows the window for a crop.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is closed.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task ShowCropAsync() => ShowAsync(PageDecorationKind.Crop);
+    private IObservable<RxVoid> ShowCrop() => Show(PageDecorationKind.Crop);
 
     /// <summary>Gets the pages the settings apply to.</summary>
     /// <returns>The zero based pages, or <see langword="null"/> when the pages typed are not in the document.</returns>
@@ -364,58 +362,97 @@ public sealed partial class PageDecorationViewModel : ReactiveObject, IDisposabl
     { FirstNumber = FirstNumber, Digits = Digits };
 
     /// <summary>Makes the change the settings ask for, in one undo step.</summary>
-    /// <returns>A task that ends when the pages have changed or the notice says why they could not.</returns>
-    private async Task ApplyAsync()
+    /// <returns>A signal that ends when the pages have changed or the notice says why they could not.</returns>
+    private IObservable<RxVoid> Apply()
     {
         if (DocumentFeature<IPageDecorator>.Get(_owner.TryGetDocument()) is not { } decorator)
         {
-            _owner.SetNotice(LocalizedMessage.Literal(UiText.Get("This document cannot be changed in this way.")));
-            return;
+            return Refuse("This document cannot be changed in this way.");
         }
 
         if (ChosenPages() is not { Length: > 0 } pages)
         {
-            _owner.SetNotice(LocalizedMessage.Literal(UiText.Get("Those page numbers are not in the document.")));
-            return;
+            return Refuse("Those page numbers are not in the document.");
         }
 
-        if (IsText && string.IsNullOrWhiteSpace(Text))
+        // The library reads the whole document before its first await, so the subscription starts on the pool and the result comes back to the UI thread.
+        return IsText && string.IsNullOrWhiteSpace(Text)
+            ? Refuse("Type the words to add first.")
+            : Signal.FromAsync(token => RunAsync(decorator, pages, token), _lifetime.Token)
+                .SubscribeOn(TaskPoolSequencer.Default)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Do(_ => Done(pages))
+                .Catch<RxVoid, Exception>(Fail);
+    }
+
+    /// <summary>Says why the pages could not be changed, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends at once for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> Fail(Exception error)
+    {
+        var expected = error is ArgumentException or InvalidOperationException or NotSupportedException or IOException;
+        if (expected)
         {
-            _owner.SetNotice(LocalizedMessage.Literal(UiText.Get("Type the words to add first.")));
-            return;
+            _owner.SetNotice(LocalizedMessage.Literal($"{UiText.Get("Could not change the pages.")} {error.Message}"));
         }
 
-        try
+        return expected ? Signal.Return(RxVoid.Default) : Signal.Throw<RxVoid>(error);
+    }
+
+    /// <summary>Tells the user why nothing was changed.</summary>
+    /// <param name="reason">The reason, as a resource key.</param>
+    /// <returns>A signal that ends at once.</returns>
+    private IObservable<RxVoid> Refuse(string reason)
+    {
+        _owner.SetNotice(LocalizedMessage.Literal(UiText.Get(reason)));
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Reports the pages that changed and says how many.</summary>
+    /// <param name="pages">The zero based pages.</param>
+    private void Done(int[] pages)
+    {
+        if (Kind == PageDecorationKind.Crop)
         {
-            var token = _lifetime.Token;
-            await Task.Run(() => RunAsync(decorator, pages, token), token).ConfigureAwait(true);
-            if (Kind == PageDecorationKind.Crop)
-            {
-                _owner.Pages.NotifyStructureChanged();
-            }
-
-            foreach (var page in pages)
-            {
-                _owner.ReportPageChange(page);
-            }
-
-            _owner.SetNotice(LocalizedMessage.Literal(UiText.Format("Changed {0} pages. Undo is in the Pages menu.", pages.Length)));
+            _owner.Pages.NotifyStructureChanged();
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or NotSupportedException or IOException)
+
+        foreach (var page in pages)
         {
-            _owner.SetNotice(LocalizedMessage.Literal($"{UiText.Get("Could not change the pages.")} {ex.Message}"));
+            _owner.ReportPageChange(page);
         }
+
+        _owner.SetNotice(LocalizedMessage.Literal(UiText.Format("Changed {0} pages. Undo is in the Pages menu.", pages.Length)));
     }
 
     /// <summary>Calls the feature for the kind being added.</summary>
     /// <param name="decorator">The feature.</param>
     /// <param name="pages">The zero based pages.</param>
     /// <param name="token">Stops the work.</param>
-    /// <returns>A task.</returns>
-    private Task RunAsync(IPageDecorator decorator, int[] pages, CancellationToken token) => Kind switch
+    /// <returns>A task that ends when the library is done.</returns>
+    private async Task<RxVoid> RunAsync(IPageDecorator decorator, int[] pages, CancellationToken token)
     {
-        PageDecorationKind.Background => decorator.FillBackgroundAsync(pages, BackgroundColors[Math.Clamp(BackgroundIndex, 0, BackgroundColors.Length - 1)], token).AsTask(),
-        PageDecorationKind.Crop => decorator.CropAsync(pages, new((float)CropLeft, (float)CropTop, (float)CropRight, (float)CropBottom), token).AsTask(),
-        _ => decorator.StampTextAsync(pages, MakeStamp(), token).AsTask(),
-    };
+        switch (Kind)
+        {
+            case PageDecorationKind.Background:
+            {
+                await decorator.FillBackgroundAsync(pages, BackgroundColors[Math.Clamp(BackgroundIndex, 0, BackgroundColors.Length - 1)], token).ConfigureAwait(false);
+                break;
+            }
+
+            case PageDecorationKind.Crop:
+            {
+                await decorator.CropAsync(pages, new((float)CropLeft, (float)CropTop, (float)CropRight, (float)CropBottom), token).ConfigureAwait(false);
+                break;
+            }
+
+            default:
+            {
+                await decorator.StampTextAsync(pages, MakeStamp(), token).ConfigureAwait(false);
+                break;
+            }
+        }
+
+        return RxVoid.Default;
+    }
 }

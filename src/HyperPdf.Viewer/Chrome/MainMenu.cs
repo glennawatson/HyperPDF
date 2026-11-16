@@ -42,6 +42,7 @@ internal static class MainMenu
         entries.Add(MenuEntry.Item(UiText.Get("_Print…"), "Ctrl+P", tab.Printing.PrintCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Item(UiText.Get("Print with the System _Dialog…"), null, tab.Printing.PrintWithSystemDialogCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Item(UiText.Get("Document Propert_ies…"), null, main.PropertiesCommand, null, tab.IsLoaded));
+        entries.Add(MenuEntry.Item(UiText.Get("_Compare with Another Document…"), null, tab.Pages.Compare.CompareCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Item(UiText.Get("Remove _Hidden Information…"), null, tab.Pages.Sanitize.ShowCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Separator());
         entries.Add(MenuEntry.Submenu(UiText.Get("_View"), tab.IsLoaded, View(main, tab)));

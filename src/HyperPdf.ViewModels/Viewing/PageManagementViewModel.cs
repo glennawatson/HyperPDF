@@ -73,6 +73,9 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <summary>The settings that take hidden information out of the document, made when first asked for.</summary>
     private SanitizeViewModel? _sanitize;
 
+    /// <summary>The comparison with another document, made when first asked for.</summary>
+    private CompareViewModel? _compare;
+
     /// <summary>Initializes a new instance of the <see cref="PageManagementViewModel"/> class.</summary>
     /// <param name="owner">The tab holding the document.</param>
     public PageManagementViewModel(DocumentTabViewModel owner)
@@ -165,6 +168,9 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Gets the settings that take hidden information out of the document before it is shared.</summary>
     public SanitizeViewModel Sanitize => _sanitize ??= new SanitizeViewModel(_owner);
+
+    /// <summary>Gets the comparison of the open document with another file.</summary>
+    public CompareViewModel Compare => _compare ??= new CompareViewModel(_owner, _owner.Services);
 
     /// <summary>Gets the interaction asking where to save the selected pages.</summary>
     public Interaction<string, string?> ExtractInteraction { get; } = new();

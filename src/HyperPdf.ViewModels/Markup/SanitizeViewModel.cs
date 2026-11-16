@@ -55,15 +55,10 @@ public sealed partial class SanitizeViewModel : ReactiveObject
     public partial bool Comments { get; set; }
 
     /// <summary>Shows the window and cleans the document when the settings are accepted.</summary>
-    /// <returns>A task that ends when the window is closed and any change is made.</returns>
+    /// <returns>A signal that ends when the window is closed and any change is made.</returns>
     [ReactiveCommand]
-    public async Task ShowAsync()
-    {
-        if (await ShowInteraction.Handle(this).ToTask().ConfigureAwait(true))
-        {
-            Apply();
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<RxVoid> Show() => ShowInteraction.Handle(this).ToSignal().Do(ApplyIfAccepted).Select(static _ => RxVoid.Default);
 
     /// <summary>Gives up without changing the document.</summary>
     /// <returns>Always <see langword="false"/>.</returns>
@@ -88,6 +83,16 @@ public sealed partial class SanitizeViewModel : ReactiveObject
             summary.Attachments,
             summary.Comments,
             summary.MetadataCleared ? UiText.Get("yes") : UiText.Get("no"));
+
+    /// <summary>Takes the chosen things out when the window was accepted.</summary>
+    /// <param name="accepted">Whether the window was accepted.</param>
+    private void ApplyIfAccepted(bool accepted)
+    {
+        if (accepted)
+        {
+            Apply();
+        }
+    }
 
     /// <summary>Takes the chosen things out of the document and says what was taken out.</summary>
     private void Apply()

@@ -247,12 +247,12 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     private Task RecognizeAsync() => RunAsync(false);
 
     /// <summary>Opens the window that lists the languages text can be recognised in, to tick them, download them and remove the ones that are not used.</summary>
-    /// <returns>A task that ends when the window is closed.</returns>
+    /// <returns>A signal that ends when the window is closed.</returns>
     [ReactiveCommand]
-    private async Task ManageLanguagesAsync()
+    private IObservable<RxVoid> ManageLanguages()
     {
-        using var languages = new OcrLanguagesViewModel(_services);
-        _ = await ManageLanguagesInteraction.Handle(languages).ToTask().ConfigureAwait(true);
+        var languages = new OcrLanguagesViewModel(_services);
+        return ManageLanguagesInteraction.Handle(languages).ToSignal().Select(static _ => RxVoid.Default).Finally(languages.Dispose);
     }
 
     /// <summary>Opens the language bar so a language can be picked before recognising.</summary>

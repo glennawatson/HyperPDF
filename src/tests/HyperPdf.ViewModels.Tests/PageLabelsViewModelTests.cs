@@ -5,6 +5,7 @@
 using HyperPdf.Core.Documents;
 using HyperPdf.TestAssets;
 using HyperPdf.ViewModels.Markup;
+using ReactiveUI.Primitives;
 
 namespace HyperPdf.ViewModels.Tests;
 
@@ -96,7 +97,7 @@ public sealed class PageLabelsViewModelTests
             context.SetOutput(true);
         });
 
-        await tab.Pages.Labels.ShowAsync();
+        _ = await tab.Pages.Labels.ShowCommand.Execute().ToTask();
         var ranges = DocumentFeature<IPageLabeler>.Get(tab.TryGetDocument())!.GetRanges();
 
         await Assert.That(ranges.Count).IsEqualTo(TwoRanges);
@@ -119,7 +120,7 @@ public sealed class PageLabelsViewModelTests
             context.SetOutput(true);
         });
 
-        await tab.Pages.Labels.ShowAsync();
+        _ = await tab.Pages.Labels.ShowCommand.Execute().ToTask();
 
         await Assert.That(DocumentFeature<IPageLabeler>.Get(tab.TryGetDocument())!.GetRanges().Count).IsEqualTo(0);
     }
