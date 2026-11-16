@@ -6,7 +6,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Exporting;
-using HyperPdf.Core.Platform;
 using HyperPdf.Core.Printing;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -227,24 +226,6 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
         return string.Equals(Path.GetFullPath(first), Path.GetFullPath(second), comparison);
     }
 
-    /// <summary>Deletes a temporary file, ignoring a failure because the file is only a leftover.</summary>
-    /// <param name="path">The file.</param>
-    private static void TryDelete(string path)
-    {
-        try
-        {
-            File.Delete(path);
-        }
-        catch (IOException)
-        {
-            // A leftover temporary file does no harm and a later export replaces it.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Same as above.
-        }
-    }
-
     /// <summary>Sets the displayed message while retaining its resource identity.</summary>
     /// <param name="message">The retained message.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -266,38 +247,33 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
     private void Close() => Cancel();
 
     /// <summary>Asks where to save, then writes the pages there.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the pages are written, refused, stopped or the choice was given up.</returns>
     [ReactiveCommand(CanExecute = nameof(_canSave))]
-    private async Task SaveAsync()
+    private IObservable<RxVoid> Save()
     {
         Error = null;
         var pages = new List<int>();
         if (!TryGetPages(pages))
         {
             SetError(LocalizedMessage.Format(UiText, "Type pages between 1 and {0}, such as 1-3, 7.", _pageCount));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         if (SelectedFormat.IsRaster && (Dpi < PageFileExportOptions.MinimumDpi || Dpi > PageFileExportOptions.MaximumDpi))
         {
             SetError(LocalizedMessage.Format(UiText, "Choose a resolution between {0} and {1} dots to the inch.", PageFileExportOptions.MinimumDpi, PageFileExportOptions.MaximumDpi));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
-        var path = await SaveInteraction.Handle(SuggestedName).ToTask().ConfigureAwait(true);
-        if (string.IsNullOrEmpty(path))
-        {
-            return;
-        }
-
-        await RunAsync(path, pages).ConfigureAwait(true);
+        return SaveInteraction.Handle(SuggestedName).ToSignal()
+            .SwitchMap(path => string.IsNullOrEmpty(path) ? Signal.Return(RxVoid.Default) : Export(path, pages));
     }
 
     /// <summary>Writes the chosen pages, showing progress and how the run ended.</summary>
     /// <param name="path">The path the person chose.</param>
     /// <param name="pages">The zero based pages.</param>
-    /// <returns>A task.</returns>
-    private async Task RunAsync(string path, List<int> pages)
+    /// <returns>A signal that ends when the pages are written, refused or stopped.</returns>
+    private IObservable<RxVoid> Export(string path, List<int> pages)
     {
         var run = new CancellationDisposable();
         Run = run;
@@ -306,117 +282,135 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
         _summary = null;
         ResultText = string.Empty;
         SetStatus(LocalizedMessage.Get(UiText, "Exporting. This can take a while for long files."));
-        try
-        {
-            ShowResult(await ExportAllAsync(path, pages, run.Token).ConfigureAwait(true));
-        }
-        catch (OperationCanceledException)
+        return ExportAll(path, pages, run.Token)
+            .Select(ShowResult)
+            .Catch<RxVoid, Exception>(Failed)
+            .Finally(() => EndRun(run));
+    }
+
+    /// <summary>Says why the export did not finish, or passes on a failure that is not expected.</summary>
+    /// <param name="error">The failure.</param>
+    /// <returns>A signal that ends for an expected failure, or fails with the same error.</returns>
+    private IObservable<RxVoid> Failed(Exception error)
+    {
+        if (error is OperationCanceledException)
         {
             SetStatus(LocalizedMessage.Get(UiText, "Cancelled. Files finished before you cancelled stay saved."));
+            return Signal.Return(RxVoid.Default);
         }
-        catch (Exception ex) when (CopyFailure.IsExpected(ex) || ex is ArgumentException)
-        {
-            SetError(LocalizedMessage.Format(UiText, "Could not export: {0}", CopyFailure.Message(ex)));
-            SetStatus(LocalizedMessage.Get(UiText, "The export did not finish."));
-        }
-        finally
-        {
-            if (ReferenceEquals(Run, run))
-            {
-                Run = null;
-            }
 
-            IsRunning = false;
+        if (!CopyFailure.IsExpected(error) && error is not ArgumentException)
+        {
+            return Signal.Throw<RxVoid>(error);
         }
+
+        SetError(LocalizedMessage.Format(UiText, "Could not export: {0}", CopyFailure.Message(error)));
+        SetStatus(LocalizedMessage.Get(UiText, "The export did not finish."));
+        return Signal.Return(RxVoid.Default);
+    }
+
+    /// <summary>Puts the controls back once the run is over.</summary>
+    /// <param name="run">The run that ended.</param>
+    private void EndRun(CancellationDisposable run)
+    {
+        if (ReferenceEquals(Run, run))
+        {
+            Run = null;
+        }
+
+        IsRunning = false;
     }
 
     /// <summary>Writes one file, or a numbered file for each page when the format holds one page.</summary>
     /// <param name="path">The path the person chose.</param>
     /// <param name="pages">The zero based pages.</param>
     /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>What the files hold.</returns>
-    private async Task<ExportPagesSummary> ExportAllAsync(string path, List<int> pages, CancellationToken cancellationToken)
+    /// <returns>A cold signal giving what the files hold once every file is written or one was refused.</returns>
+    private IObservable<ExportPagesSummary> ExportAll(string path, List<int> pages, CancellationToken cancellationToken)
     {
-        var format = SelectedFormat;
-        var options = new PageFileExportOptions(Dpi, IncludeMarkup);
-        var perPage = !format.AllowsSeveralPages && pages.Count > 1;
+        var perPage = !SelectedFormat.AllowsSeveralPages && pages.Count > 1;
         var jobs = perPage ? pages.Count : 1;
-        var skipped = 0;
-        var approximated = 0;
+        var totals = new ExportTotals();
+
+        // Each file is written after the one before; the first one that is refused ends the rest.
+        return Signal.Concat(Files(path, pages, perPage, totals, cancellationToken))
+            .TakeWhile(static written => written)
+            .Count()
+            .Select(_ => totals.Refusal ?? new(jobs, totals.Skipped, totals.Approximated, path, null));
+    }
+
+    /// <summary>Makes the write of each file, one at a time as the caller moves along.</summary>
+    /// <param name="path">The path the person chose.</param>
+    /// <param name="pages">The zero based pages.</param>
+    /// <param name="perPage">Whether each page goes to its own numbered file.</param>
+    /// <param name="totals">What the files hold so far.</param>
+    /// <param name="cancellationToken">Stops the run.</param>
+    /// <returns>A cold signal per file, giving <see langword="true"/> when it was written.</returns>
+    private IEnumerable<IObservable<bool>> Files(string path, List<int> pages, bool perPage, ExportTotals totals, CancellationToken cancellationToken)
+    {
+        var format = SelectedFormat.Format;
+        var options = new PageFileExportOptions(Dpi, IncludeMarkup);
+        var jobs = perPage ? pages.Count : 1;
         for (var job = 0; job < jobs; job++)
         {
             var target = perPage ? NumberedPath(path, pages[job]) : path;
             if (IsSameFile(target, _sourcePath))
             {
-                return ExportPagesSummary.Refused(LocalizedMessage.Get(UiText, OverwriteMessage));
+                totals.Refusal = ExportPagesSummary.Refused(LocalizedMessage.Get(UiText, OverwriteMessage));
+                yield return Signal.Return(false);
+                yield break;
             }
 
             var chosen = perPage ? pages.GetRange(job, 1) : pages;
-            var result = await WriteAsync(target, format.Format, chosen, options, cancellationToken).ConfigureAwait(true);
-            if (!result.Written)
-            {
-                return ExportPagesSummary.Refused(result.Problem is { } problem ? LocalizedMessage.Literal(problem) : LocalizedMessage.Get(UiText, "The file could not be written."));
-            }
+            var number = job + 1;
 
-            skipped += result.Skipped;
-            approximated += result.Approximated;
-            ProgressPercent = FullBar * (job + 1) / jobs;
+            // Drawing a page reads and renders before the first await, so the write starts on the pool to keep the window responsive.
+            yield return CopyFile.Write(
+                    target,
+                    TemporarySuffix,
+                    (stream, token) => _exporter.ExportAsync(chosen, format, options, stream, token).AsTask(),
+                    static result => result.Written,
+                    cancellationToken)
+                .Select(result => Written(result, totals, number, jobs));
         }
-
-        return new(jobs, skipped, approximated, path, null);
     }
 
-    /// <summary>Writes one file to a temporary name, then moves it into place when it was made.</summary>
-    /// <param name="path">Where the file goes.</param>
-    /// <param name="format">The format.</param>
-    /// <param name="pages">The zero based pages in the file.</param>
-    /// <param name="options">How to write them.</param>
-    /// <param name="cancellationToken">Stops the run.</param>
-    /// <returns>What the export did.</returns>
-    private async Task<PageFileExportResult> WriteAsync(string path, PageFileFormat format, List<int> pages, PageFileExportOptions options, CancellationToken cancellationToken)
+    /// <summary>Counts a written file, or records why it was refused.</summary>
+    /// <param name="result">What the export did.</param>
+    /// <param name="totals">What the files hold so far.</param>
+    /// <param name="number">How many files are done including this one.</param>
+    /// <param name="jobs">How many files there are.</param>
+    /// <returns><see langword="true"/> when the file was written.</returns>
+    private bool Written(PageFileExportResult result, ExportTotals totals, int number, int jobs)
     {
-        var temporary = path + TemporarySuffix;
-        try
+        if (!result.Written)
         {
-            PageFileExportResult result;
-            await using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 1, FileOptions.Asynchronous))
-            {
-                // Drawing a page reads and renders before the first await, so it starts on the pool to keep the window responsive.
-                result = await Task.Run(() => _exporter.ExportAsync(pages, format, options, stream, cancellationToken).AsTask(), cancellationToken).ConfigureAwait(true);
-            }
-
-            if (result.Written)
-            {
-                FileReplacement.Replace(temporary, path);
-            }
-            else
-            {
-                TryDelete(temporary);
-            }
-
-            return result;
+            totals.Refusal = ExportPagesSummary.Refused(result.Problem is { } problem ? LocalizedMessage.Literal(problem) : LocalizedMessage.Get(UiText, "The file could not be written."));
+            return false;
         }
-        catch
-        {
-            TryDelete(temporary);
-            throw;
-        }
+
+        totals.Skipped += result.Skipped;
+        totals.Approximated += result.Approximated;
+        ProgressPercent = FullBar * number / jobs;
+        return true;
     }
 
     /// <summary>Shows a finished run's summary.</summary>
     /// <param name="summary">What the run did.</param>
-    private void ShowResult(ExportPagesSummary summary)
+    /// <returns>The completion value.</returns>
+    private RxVoid ShowResult(ExportPagesSummary summary)
     {
         _summary = summary;
         if (summary.Problem is not null)
         {
             SetError(summary.ProblemMessage);
             SetStatus(LocalizedMessage.Get(UiText, "The export did not finish."));
-            return;
+            return RxVoid.Default;
         }
 
         ProgressPercent = FullBar;
         SetStatus(LocalizedMessage.Get(UiText, "Done. The export is saved."));
         ResultText = ExportPagesText.Describe(summary);
+        return RxVoid.Default;
     }
 }
