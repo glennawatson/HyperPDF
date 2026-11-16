@@ -333,205 +333,218 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     }
 
     /// <summary>Shows the window where the chosen tag is changed, and ends when it is put away.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends when the window is put away.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private async Task EditAsync() => _ = await EditInteraction.Handle(this).ToTask().ConfigureAwait(true);
+    private IObservable<RxVoid> Edit() => EditInteraction.Handle(this).ToSignal().Select(static _ => RxVoid.Default);
 
-    /// <summary>Runs the accessibility check and lists what it found.</summary>
-    /// <returns>A task.</returns>
+    /// <summary>Runs the accessibility check on the pool and lists what it found.</summary>
+    /// <returns>A signal that ends once the problems are listed.</returns>
     [ReactiveCommand]
-    private async Task CheckAsync()
-    {
-        if (DocumentFeature<ITagEditor>.Get(_owner.TryGetDocument()) is not { } editor)
-        {
-            return;
-        }
+    private IObservable<RxVoid> Check() =>
+        DocumentFeature<ITagEditor>.Get(_owner.TryGetDocument()) is not { } editor
+            ? Signal.Return(RxVoid.Default)
+            : Signal.Start(() => editor.GetProblems(_lifetime), TaskPoolSequencer.Default)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Select(ShowProblems)
+                .Catch<RxVoid, OperationCanceledException>(Cancelled);
 
-        try
+    /// <summary>Lists the problems the check found.</summary>
+    /// <param name="found">The problems.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid ShowProblems(IReadOnlyList<DocumentTagProblem> found)
+    {
+        Problems = TagProblemItem.Create(found);
+        _problemSummary = found.Count switch
         {
-            var found = await Task.Run(() => editor.GetProblems(_lifetime), _lifetime).ConfigureAwait(true);
-            Problems = TagProblemItem.Create(found);
-            _problemSummary = found.Count switch
-            {
-                0 => LocalizedMessage.Get(UiText, "No problems found. A person should still read the document with a screen reader."),
-                1 => LocalizedMessage.Get(UiText, "1 thing to look at."),
-                _ => LocalizedMessage.Format(UiText, "{0} things to look at.", found.Count),
-            };
-            this.RaisePropertyChanged(nameof(ProblemSummary));
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-        }
+            0 => LocalizedMessage.Get(UiText, "No problems found. A person should still read the document with a screen reader."),
+            1 => LocalizedMessage.Get(UiText, "1 thing to look at."),
+            _ => LocalizedMessage.Format(UiText, "{0} things to look at.", found.Count),
+        };
+        this.RaisePropertyChanged(nameof(ProblemSummary));
+        return RxVoid.Default;
     }
 
+    /// <summary>Ends quietly when the check was cancelled because the tab closed, and fails otherwise.</summary>
+    /// <param name="error">The cancellation.</param>
+    /// <returns>A signal that ends at once, or fails with the same error.</returns>
+    private IObservable<RxVoid> Cancelled(OperationCanceledException error) =>
+        _lifetime.IsCancellationRequested ? Signal.Return(RxVoid.Default) : Signal.Throw<RxVoid>(error);
+
     /// <summary>Applies the form to the chosen tag: its type and any text that differs.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the changes are made or one was refused.</returns>
     [ReactiveCommand(CanExecute = nameof(_canChange))]
-    private async Task ApplyAsync()
+    private IObservable<RxVoid> Apply()
     {
         if (SelectedItem is not { } item)
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var tag = item.Tag;
-        var changed = 0;
+        var run = new TagEditRun();
+
+        // Each change runs after the one before; the first one the document refuses ends the rest.
+        return Changes(tag, run)
+            .TakeWhile(static changed => changed)
+            .Count()
+            .Select(_ => Applied(tag, run));
+    }
+
+    /// <summary>Says what the form changed, unless a change was refused.</summary>
+    /// <param name="tag">The chosen tag.</param>
+    /// <param name="run">What was changed or refused.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Applied(DocumentTag tag, TagEditRun run)
+    {
+        if (!run.Refused)
+        {
+            var done = run.Changed == 0
+                ? LocalizedMessage.Get(UiText, "Nothing was different, so nothing changed.")
+                : LocalizedMessage.Format(UiText, "Saved the changes to {0}. Undo takes them back.", TagText.Message(SelectedType ?? tag.Type));
+            Finish(tag.Id, done, run.Changed > 0);
+        }
+
+        return RxVoid.Default;
+    }
+
+    /// <summary>Makes the changes in the form's type, scope, spans, numbering, placement and texts in that order.</summary>
+    /// <param name="tag">The chosen tag.</param>
+    /// <param name="run">Counts what was changed or refused.</param>
+    /// <returns>A cold signal that gives <see langword="true"/> for each change the document accepted.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<bool> Changes(DocumentTag tag, TagEditRun run) =>
+        Signal.Concat(Signal.Concat(TypeChanges(tag, run)), Signal.Concat(SpanChanges(tag, run)), Signal.Concat(AttributeChanges(tag, run)));
+
+    /// <summary>Makes the type and header scope changes in the form that differ from the tag's.</summary>
+    /// <param name="tag">The chosen tag.</param>
+    /// <param name="run">Counts what was changed or refused.</param>
+    /// <returns>A cold signal for each change, giving <see langword="true"/> when the document changed.</returns>
+    private IEnumerable<IObservable<bool>> TypeChanges(DocumentTag tag, TagEditRun run)
+    {
         if (SelectedType is { Length: > 0 } type && !string.Equals(type, tag.Type, StringComparison.Ordinal))
         {
-            if (!await RunAsync((editor, token) => editor.SetTypeAsync(tag.Id, type, token)).ConfigureAwait(true))
-            {
-                return;
-            }
-
-            changed++;
+            yield return Counted(run, (editor, token) => editor.SetTypeAsync(tag.Id, type, token));
         }
 
-        var others = await ApplyAttributesAsync(tag).ConfigureAwait(true);
-        if (others < 0)
-        {
-            return;
-        }
-
-        changed += others;
-        var done = changed == 0
-            ? LocalizedMessage.Get(UiText, "Nothing was different, so nothing changed.")
-            : LocalizedMessage
-            .Format(UiText, "Saved the changes to {0}. Undo takes them back.", TagText.Message(SelectedType ?? tag.Type));
-        Finish(tag.Id, done, changed > 0);
-    }
-
-    /// <summary>Applies the scope, numbering and texts in the form that differ from the tag's.</summary>
-    /// <param name="tag">The chosen tag.</param>
-    /// <returns>A task whose result is how many changes were made, or -1 when one was refused.</returns>
-    private async Task<int> ApplyAttributesAsync(DocumentTag tag)
-    {
-        var changed = await ApplyCellAsync(tag).ConfigureAwait(true);
-        if (changed < 0)
-        {
-            return -1;
-        }
-
-        if (NumberingChange(tag) is { } numbering)
-        {
-            if (!await RunAsync((editor, token) => editor.SetListNumberingAsync(tag.Id, numbering.Length == 0 ? null : numbering, token)).ConfigureAwait(true))
-            {
-                return -1;
-            }
-
-            changed++;
-        }
-
-        if (PlacementChange(tag) is { } placement)
-        {
-            if (!await RunAsync((editor, token) => editor.SetPlacementAsync(tag.Id, placement.Length == 0 ? null : placement, token)).ConfigureAwait(true))
-            {
-                return -1;
-            }
-
-            changed++;
-        }
-
-        foreach (var (field, text) in TextChanges(tag))
-        {
-            if (!await RunAsync((editor, token) => editor.SetTextAsync(tag.Id, field, text, token)).ConfigureAwait(true))
-            {
-                return -1;
-            }
-
-            changed++;
-        }
-
-        return changed;
-    }
-
-    /// <summary>Applies the header scope and the cell spans in the form that differ from the tag's.</summary>
-    /// <param name="tag">The chosen tag.</param>
-    /// <returns>A task whose result is how many changes were made, or -1 when one was refused.</returns>
-    private async Task<int> ApplyCellAsync(DocumentTag tag)
-    {
-        var changed = 0;
         if (ScopeChange(tag) is { } scope)
         {
-            if (!await RunAsync((editor, token) => editor.SetTableScopeAsync(tag.Id, scope, token)).ConfigureAwait(true))
-            {
-                return -1;
-            }
-
-            changed++;
+            yield return Counted(run, (editor, token) => editor.SetTableScopeAsync(tag.Id, scope, token));
         }
-
-        var spans = await ApplySpansAsync(tag).ConfigureAwait(true);
-        return spans < 0 ? -1 : changed + spans;
     }
 
-    /// <summary>Applies the cell spans in the form when they differ from the tag's.</summary>
+    /// <summary>Makes the cell span change in the form when it differs from the tag's.</summary>
     /// <param name="tag">The chosen tag.</param>
-    /// <returns>A task whose result is 1 when the spans changed, 0 when nothing differed, or -1 when they were refused.</returns>
-    private async Task<int> ApplySpansAsync(DocumentTag tag)
+    /// <param name="run">Counts what was changed or refused.</param>
+    /// <returns>A cold signal for the change, giving <see langword="true"/> when the document changed; a span that is not a whole number is refused.</returns>
+    private IEnumerable<IObservable<bool>> SpanChanges(DocumentTag tag, TagEditRun run)
     {
         if (!tag.IsCell)
         {
-            return 0;
+            yield break;
         }
 
         if (!int.TryParse(RowSpanText.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var rows) || rows < 1
             || !int.TryParse(ColumnSpanText.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var columns) || columns < 1)
         {
             SetStatus(LocalizedMessage.Get(UiText, "A span is a whole number of 1 or more."));
-            return -1;
+            run.Refused = true;
+            yield return Signal.Return(false);
+            yield break;
         }
 
-        if (rows == tag.RowSpan && columns == tag.ColumnSpan)
+        if (rows != tag.RowSpan || columns != tag.ColumnSpan)
         {
-            return 0;
+            yield return Counted(run, (editor, token) => editor.SetCellSpansAsync(tag.Id, rows, columns, token));
         }
-
-        return await RunAsync((editor, token) => editor.SetCellSpansAsync(tag.Id, rows, columns, token)).ConfigureAwait(true) ? 1 : -1;
     }
 
+    /// <summary>Makes the numbering, placement and text changes in the form that differ from the tag's.</summary>
+    /// <param name="tag">The chosen tag.</param>
+    /// <param name="run">Counts what was changed or refused.</param>
+    /// <returns>A cold signal for each change, giving <see langword="true"/> when the document changed.</returns>
+    private IEnumerable<IObservable<bool>> AttributeChanges(DocumentTag tag, TagEditRun run)
+    {
+        if (NumberingChange(tag) is { } numbering)
+        {
+            yield return Counted(run, (editor, token) => editor.SetListNumberingAsync(tag.Id, numbering.Length == 0 ? null : numbering, token));
+        }
+
+        if (PlacementChange(tag) is { } placement)
+        {
+            yield return Counted(run, (editor, token) => editor.SetPlacementAsync(tag.Id, placement.Length == 0 ? null : placement, token));
+        }
+
+        foreach (var (field, text) in TextChanges(tag))
+        {
+            yield return Counted(run, (editor, token) => editor.SetTextAsync(tag.Id, field, text, token));
+        }
+    }
+
+    /// <summary>Makes one change and counts it when the document changed, or records the refusal.</summary>
+    /// <param name="run">Counts what was changed or refused.</param>
+    /// <param name="edit">The library call.</param>
+    /// <returns>A cold signal giving <see langword="true"/> when the document changed.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<bool> Counted(TagEditRun run, Func<ITagEditor, CancellationToken, ValueTask<DocumentEditResult>> edit) =>
+        Run(edit).Do(run.Record);
+
     /// <summary>Adds a custom tag type and says which standard type it stands for.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the mapping is added or refused.</returns>
     [ReactiveCommand]
-    private async Task AddRoleMappingAsync()
+    private IObservable<RxVoid> AddRoleMapping()
     {
         var type = NewRoleType.Trim();
         if (type.Length == 0 || NewRoleTarget is not { Length: > 0 } target)
         {
             SetStatus(LocalizedMessage.Get(UiText, "Type a name for the custom tag and choose the standard tag it stands for."));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
-        if (!await RunAsync((editor, token) => editor.SetRoleMappingAsync(type, target, token)).ConfigureAwait(true))
-        {
-            return;
-        }
+        return Run((editor, token) => editor.SetRoleMappingAsync(type, target, token))
+            .Where(static changed => changed)
+            .Select(_ => RoleMappingAdded(type, target));
+    }
 
+    /// <summary>Says the custom tag type was added.</summary>
+    /// <param name="type">The custom type.</param>
+    /// <param name="target">The standard type it stands for.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid RoleMappingAdded(string type, string target)
+    {
         NewRoleType = string.Empty;
         Finish(
             SelectedItem?.Id ?? 0,
             LocalizedMessage.Format(UiText, "Custom tag {0} now stands for {1}. Undo takes it back.", type, TagText.Message(target, true)),
             true);
+        return RxVoid.Default;
     }
 
     /// <summary>Removes the chosen custom tag type's mapping, when no tag uses the type.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the mapping is removed or refused.</returns>
     [ReactiveCommand]
-    private async Task RemoveRoleMappingAsync()
+    private IObservable<RxVoid> RemoveRoleMapping()
     {
         if ((uint)RoleMappingIndex >= (uint)_roleTypes.Length)
         {
             SetStatus(LocalizedMessage.Get(UiText, "Choose a custom tag type in the list first."));
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var type = _roleTypes[RoleMappingIndex];
-        if (!await RunAsync((editor, token) => editor.RemoveRoleMappingAsync(type, token)).ConfigureAwait(true))
-        {
-            return;
-        }
+        return Run((editor, token) => editor.RemoveRoleMappingAsync(type, token))
+            .Where(static changed => changed)
+            .Select(_ => Done(SelectedItem?.Id ?? 0, LocalizedMessage.Format(UiText, "Removed the mapping for custom tag {0}. Undo puts it back.", type)));
+    }
 
-        Finish(SelectedItem?.Id ?? 0, LocalizedMessage.Format(UiText, "Removed the mapping for custom tag {0}. Undo puts it back.", type), true);
+    /// <summary>Lists the tags again after a change and says what happened.</summary>
+    /// <param name="selectId">The tag to choose afterwards, or 0 for none.</param>
+    /// <param name="done">What to say.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid Done(int selectId, in LocalizedMessage done)
+    {
+        Finish(selectId, done, true);
+        return RxVoid.Default;
     }
 
     /// <summary>Lists the custom tag types again.</summary>
@@ -554,147 +567,125 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     }
 
     /// <summary>Moves the chosen tag earlier among its siblings, which changes the reading order.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the tag moved or the document refused.</returns>
     [ReactiveCommand(CanExecute = nameof(_canMoveUp))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task MoveUpAsync() => MoveAsync(-1, LocalizedMessage.Get(UiText, "up"));
+    private IObservable<RxVoid> MoveUp() => Move(-1, LocalizedMessage.Get(UiText, "up"));
 
     /// <summary>Moves the chosen tag later among its siblings, which changes the reading order.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the tag moved or the document refused.</returns>
     [ReactiveCommand(CanExecute = nameof(_canMoveDown))]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private Task MoveDownAsync() => MoveAsync(1, LocalizedMessage.Get(UiText, "down"));
+    private IObservable<RxVoid> MoveDown() => Move(1, LocalizedMessage.Get(UiText, "down"));
 
     /// <summary>Puts the chosen tag inside the tag above it, so a screen reader reads it as part of that tag.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the tag is nested or the document refused.</returns>
     [ReactiveCommand(CanExecute = nameof(_canNest))]
-    private async Task NestAsync()
+    private IObservable<RxVoid> Nest()
     {
         if (SelectedItem is not { } item)
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var above = TagText.Message(SiblingAboveType(IndexOf(item)), true);
-        if (!await RunAsync((editor, token) => editor.NestAsync(item.Id, token)).ConfigureAwait(true))
-        {
-            return;
-        }
-
-        var name = TagText.Message(item.Tag.Type, true);
-        Finish(
-            item.Id,
-            LocalizedMessage.Format(UiText, "Put the {0} tag inside the {1} tag above it. It is now one level deeper.", name, above),
-            true);
+        return Run((editor, token) => editor.NestAsync(item.Id, token))
+            .Where(static changed => changed)
+            .Select(_ => Done(
+                item.Id,
+                LocalizedMessage.Format(UiText, "Put the {0} tag inside the {1} tag above it. It is now one level deeper.", TagText.Message(item.Tag.Type, true), above)));
     }
 
     /// <summary>Moves the chosen tag into the tag picked in the move list, as its last child.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the tag moved or the document refused.</returns>
     [ReactiveCommand(CanExecute = nameof(_canMoveInto))]
-    private async Task MoveIntoAsync()
+    private IObservable<RxVoid> MoveInto()
     {
         if (SelectedItem is not { } item || (uint)MoveTargetIndex >= (uint)_moveTargetIds.Length)
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var target = _moveTargetIds[MoveTargetIndex];
-        var targetTag = FindItem(target)?.Tag;
-        if (targetTag is null)
+        if (FindItem(target)?.Tag is not { } targetTag)
         {
-            return;
+            return Signal.Return(RxVoid.Default);
         }
 
         var targetName = new TagRowMessage(targetTag);
-        if (await RunAsync((editor, token) => editor.MoveIntoAsync(item.Id, target, token)).ConfigureAwait(true))
-        {
-            Finish(
+        return Run((editor, token) => editor.MoveIntoAsync(item.Id, target, token))
+            .Where(static changed => changed)
+            .Select(_ => Done(
                 item.Id,
-                LocalizedMessage.Format(UiText, "Moved the {0} tag inside {1}. Undo takes it back.", TagText.Message(item.Tag.Type, true), targetName),
-                true);
-        }
+                LocalizedMessage.Format(UiText, "Moved the {0} tag inside {1}. Undo takes it back.", TagText.Message(item.Tag.Type, true), targetName)));
     }
 
     /// <summary>Moves the chosen tag out of its parent, to just after the parent.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the tag moved or the document refused.</returns>
     [ReactiveCommand(CanExecute = nameof(_canUnnest))]
-    private async Task UnnestAsync()
-    {
-        if (SelectedItem is not { } item)
-        {
-            return;
-        }
-
-        if (await RunAsync((editor, token) => editor.UnnestAsync(item.Id, token)).ConfigureAwait(true))
-        {
-            Finish(
-                item.Id,
-                LocalizedMessage.Format(UiText, "Moved the {0} tag out of its parent. It is now one level higher.", TagText.Message(item.Tag.Type, true)),
-                true);
-        }
-    }
+    private IObservable<RxVoid> Unnest() =>
+        SelectedItem is not { } item
+            ? Signal.Return(RxVoid.Default)
+            : Run((editor, token) => editor.UnnestAsync(item.Id, token))
+                .Where(static changed => changed)
+                .Select(_ => Done(
+                    item.Id,
+                    LocalizedMessage.Format(UiText, "Moved the {0} tag out of its parent. It is now one level higher.", TagText.Message(item.Tag.Type, true))));
 
     /// <summary>Removes the chosen tag, which holds no page content, and lifts the tags inside it. Undo puts it back.</summary>
-    /// <returns>A task.</returns>
+    /// <returns>A signal that ends once the tag is removed or the document refused.</returns>
     [ReactiveCommand(CanExecute = nameof(_canRemove))]
-    private async Task RemoveAsync()
-    {
-        if (SelectedItem is not { } item)
-        {
-            return;
-        }
-
-        if (await RunAsync((editor, token) => editor.RemoveAsync(item.Id, token)).ConfigureAwait(true))
-        {
-            Finish(0, LocalizedMessage.Format(UiText, "Removed the {0} tag. Undo puts it back.", TagText.Message(item.Tag.Type, true)), true);
-        }
-    }
+    private IObservable<RxVoid> Remove() =>
+        SelectedItem is not { } item
+            ? Signal.Return(RxVoid.Default)
+            : Run((editor, token) => editor.RemoveAsync(item.Id, token))
+                .Where(static changed => changed)
+                .Select(_ => Done(0, LocalizedMessage.Format(UiText, "Removed the {0} tag. Undo puts it back.", TagText.Message(item.Tag.Type, true))));
 
     /// <summary>Moves the chosen tag.</summary>
     /// <param name="offset">How far, and which way.</param>
     /// <param name="direction">The direction in words.</param>
-    /// <returns>A task.</returns>
-    private async Task MoveAsync(int offset, LocalizedMessage direction)
-    {
-        if (SelectedItem is not { } item)
-        {
-            return;
-        }
-
-        if (await RunAsync((editor, token) => editor.MoveAsync(item.Id, offset, token)).ConfigureAwait(true))
-        {
-            Finish(
-                item.Id,
-                LocalizedMessage.Format(UiText, "Moved the {0} tag {1}. Screen readers now read it in the new order.", TagText.Message(item.Tag.Type, true), direction),
-                true);
-        }
-    }
+    /// <returns>A signal that ends once the tag moved or the document refused.</returns>
+    private IObservable<RxVoid> Move(int offset, LocalizedMessage direction) =>
+        SelectedItem is not { } item
+            ? Signal.Return(RxVoid.Default)
+            : Run((editor, token) => editor.MoveAsync(item.Id, offset, token))
+                .Where(static changed => changed)
+                .Select(_ => Done(
+                    item.Id,
+                    LocalizedMessage.Format(UiText, "Moved the {0} tag {1}. Screen readers now read it in the new order.", TagText.Message(item.Tag.Type, true), direction)));
 
     /// <summary>Runs one change; a refusal is written in the status.</summary>
     /// <param name="edit">The change.</param>
-    /// <returns>A task whose result is <see langword="true"/> when the document changed.</returns>
-    private async Task<bool> RunAsync(Func<ITagEditor, CancellationToken, ValueTask<DocumentEditResult>> edit)
+    /// <returns>A cold signal giving <see langword="true"/> when the document changed.</returns>
+    private IObservable<bool> Run(Func<ITagEditor, CancellationToken, ValueTask<DocumentEditResult>> edit) =>
+        DocumentFeature<ITagEditor>.Get(_owner.TryGetDocument()) is not { } editor
+            ? Signal.Return(false)
+
+            // The tag editor is the PDF library's async editing API, so its call is the one task here.
+            : Signal.FromAsync(token => edit(editor, token).AsTask(), _lifetime)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Select(Reported)
+                .Catch<bool, OperationCanceledException>(Stopped);
+
+    /// <summary>Writes a refusal in the status.</summary>
+    /// <param name="result">What the library said.</param>
+    /// <returns><see langword="true"/> when the document changed.</returns>
+    private bool Reported(DocumentEditResult result)
     {
-        if (DocumentFeature<ITagEditor>.Get(_owner.TryGetDocument()) is not { } editor)
+        if (!result.Succeeded)
         {
-            return false;
+            SetStatus(result.Problem is { } problem ? LocalizedMessage.Literal(problem) : LocalizedMessage.Get(UiText, "The tags could not be changed."));
         }
 
-        try
-        {
-            var result = await edit(editor, _lifetime).ConfigureAwait(true);
-            if (!result.Succeeded)
-            {
-                SetStatus(result.Problem is { } problem ? LocalizedMessage.Literal(problem) : LocalizedMessage.Get(UiText, "The tags could not be changed."));
-            }
-
-            return result.Succeeded;
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
-            return false;
-        }
+        return result.Succeeded;
     }
+
+    /// <summary>Gives up quietly when the tab closed, and fails otherwise.</summary>
+    /// <param name="error">The cancellation.</param>
+    /// <returns>A signal giving <see langword="false"/>, or failing with the same error.</returns>
+    private IObservable<bool> Stopped(OperationCanceledException error) =>
+        _lifetime.IsCancellationRequested ? Signal.Return(false) : Signal.Throw<bool>(error);
 
     /// <summary>Lists the tags again after a change and says what happened.</summary>
     /// <param name="selectId">The tag to choose afterwards, or 0 for none.</param>
