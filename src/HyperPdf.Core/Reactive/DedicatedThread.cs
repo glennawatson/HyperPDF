@@ -80,13 +80,13 @@ public static class DedicatedThread
                     _observer.OnCompleted();
                 }
             }
-            catch (OperationCanceledException)
+            catch (Exception error)
             {
-                // Unsubscribing stops the work, which is the end of it.
-            }
-            catch (Exception error) when (!_token.IsCancellationRequested)
-            {
-                _observer.OnError(error);
+                // Unsubscribing stops the work, often by closing what it blocks on, so a failure after that is the end of it, not a fault.
+                if (!_token.IsCancellationRequested && error is not OperationCanceledException)
+                {
+                    _observer.OnError(error);
+                }
             }
         }
     }

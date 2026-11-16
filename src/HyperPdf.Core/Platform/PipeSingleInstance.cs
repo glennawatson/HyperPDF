@@ -8,8 +8,10 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using HyperPdf.Core.Diagnostics;
+using HyperPdf.Core.Reactive;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Advanced;
+using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Core.Platform;
@@ -131,10 +133,8 @@ public sealed class PipeSingleInstance : ISingleInstance
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentNullException.ThrowIfNull(request);
 
-        // The pipe is the operating system's async stream, so writing to it is the one task here.
-        return Signal.FromAsync(token => SendAsync(name, request, token))
-            .Timeout(ConnectTimeout)
-            .Catch<bool, Exception>(static error => error is TimeoutException or OperationCanceledException or IOException or UnauthorizedAccessException
+        return Signal.Start(() => Send(name, request), TaskPoolSequencer.Default)
+            .Catch<bool, Exception>(static error => error is TimeoutException or IOException or UnauthorizedAccessException
                 ? Signal.Return(false)
                 : Signal.Throw<bool>(error));
     }
@@ -207,26 +207,26 @@ public sealed class PipeSingleInstance : ISingleInstance
     /// <summary>Writes a request down the pipe of the running instance.</summary>
     /// <param name="name">The pipe name.</param>
     /// <param name="request">The documents and activation token.</param>
-    /// <param name="token">Stops the write.</param>
     /// <returns><see langword="true"/> once the request is written.</returns>
-    private static async Task<bool> SendAsync(string name, OpenRequest request, CancellationToken token)
+    private static bool Send(string name, OpenRequest request)
     {
-        await using var client = new NamedPipeClientStream(".", PipeNameFor(name), PipeDirection.Out, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-        await client.ConnectAsync(token).ConfigureAwait(false);
-        await client.WriteAsync(Encoding.UTF8.GetBytes(Encode(request)), token).ConfigureAwait(false);
-        await client.FlushAsync(token).ConfigureAwait(false);
+        using var client = new NamedPipeClientStream(".", PipeNameFor(name), PipeDirection.Out, PipeOptions.CurrentUserOnly);
+        client.Connect((int)ConnectTimeout.TotalMilliseconds);
+        client.Write(Encoding.UTF8.GetBytes(Encode(request)));
+        client.Flush();
         return true;
     }
 
-    /// <summary>Reads the message a launch writes once it connects.</summary>
+    /// <summary>Waits for a launch to connect and reads the message it writes.</summary>
     /// <param name="server">The pipe.</param>
-    /// <param name="token">Stops the wait.</param>
+    /// <param name="token">Stops the wait, which closes the pipe so the blocked call ends.</param>
     /// <returns>The message.</returns>
-    private static async Task<string> ReadMessageAsync(NamedPipeServerStream server, CancellationToken token)
+    private static string ReadMessage(NamedPipeServerStream server, CancellationToken token)
     {
-        await server.WaitForConnectionAsync(token).ConfigureAwait(false);
+        using var stop = token.UnsafeRegister(static state => ((NamedPipeServerStream)state!).Dispose(), server);
+        server.WaitForConnection();
         using var reader = new StreamReader(server, Encoding.UTF8);
-        return await reader.ReadToEndAsync(token).ConfigureAwait(false);
+        return reader.ReadToEnd();
     }
 
     /// <summary>Accepts one connection after another; the repeat ends when the subscription is disposed.</summary>
@@ -253,9 +253,10 @@ public sealed class PipeSingleInstance : ISingleInstance
     /// <returns>A cold signal that ends once the launch was served.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> Accept(NamedPipeServerStream server) =>
+        // Waiting for a launch blocks, so it gets a thread of its own, which unsubscribing ends.
         Signal.Using(
             () => server,
-            pipe => Signal.FromAsync(token => ReadMessageAsync(pipe, token)) // The pipe is the operating system's async stream, so reading it is the one task here.
+            pipe => DedicatedThread.Run("HyperPdf single instance", token => ReadMessage(pipe, token))
                 .Do(message => _openRequests.OnNext(Decode(message)))
                 .Select(static _ => RxVoid.Default));
 }
