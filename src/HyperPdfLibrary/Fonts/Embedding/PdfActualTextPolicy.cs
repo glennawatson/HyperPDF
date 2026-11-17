@@ -18,4 +18,9 @@ public enum PdfActualTextPolicy
 
     /// <summary>As <see cref="WhenNeeded"/>, and also for ligatures, where one glyph shows several characters.</summary>
     Ligatures = 2,
+
+    /// <summary>
+    /// As <see cref="WhenNeeded"/>, but when any cluster of a run needs it the whole run is wrapped once, so the run stays one show of text and a page reads it back as one text.
+    /// </summary>
+    WholeRun = 3,
 }

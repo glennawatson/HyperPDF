@@ -18,6 +18,9 @@ internal static class CidWidths
     /// <summary>The entries of a <c>/W</c> array before it grows.</summary>
     private const int InitialEntries = 8;
 
+    /// <summary>The most widths whose counts are found by scanning, as scanning grows with the square of their number.</summary>
+    private const int MostCountedByScan = 256;
+
     /// <summary>How far apart two widths may be and still count as equal, in thousandths of an em.</summary>
     private const float Tolerance = 0.0005F;
 
@@ -31,23 +34,8 @@ internal static class CidWidths
             return StandardDefault;
         }
 
-        var counts = new Dictionary<float, int>();
-        var best = widths[0];
-        var bestCount = 0;
-        foreach (var width in widths)
-        {
-            var count = counts.GetValueOrDefault(width) + 1;
-            counts[width] = count;
-            if (count < bestCount || (count == bestCount && !Same(width, StandardDefault)))
-            {
-                continue;
-            }
-
-            best = width;
-            bestCount = count;
-        }
-
-        return best;
+        // A font that shows a page of text has a few hundred glyphs at most, for which counting each width against those before it is quicker than a table of counts and makes none.
+        return widths.Length <= MostCountedByScan ? ChooseByScan(widths) : ChooseByTable(widths);
     }
 
     /// <summary>Creates the <c>/W</c> array for the CIDs whose width is not the default.</summary>
@@ -89,6 +77,57 @@ internal static class CidWidths
     /// <param name="b">The second width.</param>
     /// <returns><see langword="true"/> when they differ by less than the tolerance.</returns>
     internal static bool Same(float a, float b) => MathF.Abs(a - b) < Tolerance;
+
+    /// <summary>Chooses the default width by counting each width against the ones before it, which makes no allocation.</summary>
+    /// <param name="widths">The widths of the CIDs shown, which are not empty.</param>
+    /// <returns>The most common width.</returns>
+    private static float ChooseByScan(ReadOnlySpan<float> widths)
+    {
+        var best = widths[0];
+        var bestCount = 0;
+        for (var i = 0; i < widths.Length; i++)
+        {
+            var count = 1;
+            for (var before = 0; before < i; before++)
+            {
+                count += Same(widths[before], widths[i]) ? 1 : 0;
+            }
+
+            if (count < bestCount || (count == bestCount && !Same(widths[i], StandardDefault)))
+            {
+                continue;
+            }
+
+            best = widths[i];
+            bestCount = count;
+        }
+
+        return best;
+    }
+
+    /// <summary>Chooses the default width with a table of counts, for a font that shows many glyphs.</summary>
+    /// <param name="widths">The widths of the CIDs shown, which are not empty.</param>
+    /// <returns>The most common width.</returns>
+    private static float ChooseByTable(ReadOnlySpan<float> widths)
+    {
+        var counts = new Dictionary<float, int>();
+        var best = widths[0];
+        var bestCount = 0;
+        foreach (var width in widths)
+        {
+            var count = counts.GetValueOrDefault(width) + 1;
+            counts[width] = count;
+            if (count < bestCount || (count == bestCount && !Same(width, StandardDefault)))
+            {
+                continue;
+            }
+
+            best = width;
+            bestCount = count;
+        }
+
+        return best;
+    }
 
     /// <summary>Counts the consecutive CIDs from a start that share one width.</summary>
     /// <param name="cids">The CIDs.</param>

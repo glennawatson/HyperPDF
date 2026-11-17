@@ -866,6 +866,19 @@
       "licence": "CC BY-SA 4.0: py-pdf sample files; see ATTRIBUTION.md"
     },
     {
+      "id": "unaa-udhr-arabic",
+      "source": "UN Association of Australia, hosting the United Nations Universal Declaration of Human Rights in Arabic",
+      "url": "https://www.unaa.org.au/wp-content/uploads/2015/07/UDHR-Arabic-Version.pdf",
+      "sha256": "0444935928d4ccb14df72a5701690f29852bd7289bd4b01d70a8968563c0b9ad",
+      "bytes": 530683,
+      "tags": [
+        "rtl",
+        "justified",
+        "arabic"
+      ],
+      "licence": "United Nations text; reuse terms not confirmed. Fetched from the source by URL for tests only, never copied into this repository; see ATTRIBUTION.md"
+    },
+    {
       "id": "commons-apna-aap",
       "source": "Wikimedia Commons, from the Internet Archive; mirrored in this repository's reference-pdfs-1 release",
       "url": "https://github.com/glennawatson/HyperPDF/releases/download/reference-pdfs-1/commons-apna-aap.pdf",

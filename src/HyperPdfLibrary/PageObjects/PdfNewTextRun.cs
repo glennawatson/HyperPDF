@@ -2,10 +2,12 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdfLibrary.Annotations;
+using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.Writing;
@@ -33,6 +35,9 @@ public sealed class PdfNewTextRun
 
     /// <summary>The number of looks each family of built-in fonts has.</summary>
     private const int LooksPerFamily = 4;
+
+    /// <summary>How an embedded line is written: a line that needs replacement text is wrapped once as a whole, so a page reads it back as one text and not as one for each cluster.</summary>
+    private static readonly PdfEmbeddedFontOptions WholeLine = new() { ActualText = PdfActualTextPolicy.WholeRun };
 
     /// <summary>The page content the run is written into.</summary>
     private readonly PdfPageContent _content;
@@ -95,8 +100,7 @@ public sealed class PdfNewTextRun
             return new(content, text, name, null);
         }
 
-        var source = fallback is not null && !BundledCovers(text, font) ? fallback : OpenBundled(font);
-        var embedded = PdfEmbeddedFont.Create(content.Document.Objects, source);
+        var embedded = PdfEmbeddedFont.Create(content.Document.Objects, SourceFor(content.Document.Objects, text, font, fallback)!, WholeLine);
         PdfPageContentEditing.AddResource(content, KnownName.Font, name, embedded.Resource);
         return new(content, text, name, embedded);
     }
@@ -114,16 +118,7 @@ public sealed class PdfNewTextRun
     public static bool BundledCovers(string text, AppearanceFont font)
     {
         ArgumentNullException.ThrowIfNull(text);
-        var source = OpenBundled(font);
-        foreach (var rune in text.EnumerateRunes())
-        {
-            if (!Rune.IsWhiteSpace(rune) && !Rune.IsControl(rune) && !source.HasGlyph(rune.Value))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return Covers(OpenBundled(font), text);
     }
 
     /// <summary>Tells whether the built-in fonts cannot show every letter of a line.</summary>
@@ -152,29 +147,112 @@ public sealed class PdfNewTextRun
     /// <summary>Writes the line in a text object whose font was selected and whose matrix was set.</summary>
     /// <param name="builder">The content, inside a text object.</param>
     /// <param name="size">The size in points, as selected.</param>
-    public void Show(ref PdfContentBuilder builder, float size)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Show(ref PdfContentBuilder builder, float size) => Show(ref builder, size, 0F);
+
+    /// <summary>Writes the line in a text object whose font was selected and whose matrix was set, with each space made wider.</summary>
+    /// <param name="builder">The content, inside a text object.</param>
+    /// <param name="size">The size in points, as selected.</param>
+    /// <param name="spaceExtra">The room to add to each space in an embedded font, in user space units.</param>
+    public void Show(ref PdfContentBuilder builder, float size, float spaceExtra)
     {
         if (_embedded is { } font)
         {
-            font.ShowText(ref builder, _text, size);
+            font.ShowText(ref builder, _text, size, spaceExtra);
             return;
         }
 
-        var codes = new byte[Math.Min(_text.Length, LineBytes)];
-        var count = AppearanceFontMetrics.Encode(_text.AsSpan(0, codes.Length), codes);
-        builder.ShowText(codes.AsSpan(0, count));
+        var codes = ArrayPool<byte>.Shared.Rent(Math.Min(_text.Length, LineBytes));
+        try
+        {
+            var count = AppearanceFontMetrics.Encode(_text.AsSpan(0, Math.Min(_text.Length, LineBytes)), codes);
+            builder.ShowText(codes.AsSpan(0, count));
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(codes);
+        }
     }
 
     /// <summary>Writes the objects of an embedded font once the line is written. A built-in font has none.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Finish() => _embedded?.Finish();
 
-    /// <summary>Opens the bundled font of a look.</summary>
+    /// <summary>Finds the font a text is embedded with, opened once for the document and shared by every line.</summary>
+    /// <param name="store">The document's objects, whose font resources keep the bundled fonts that are open.</param>
+    /// <param name="text">The text.</param>
+    /// <param name="font">The look of the text.</param>
+    /// <param name="fallback">A font that has the letters the bundled font of that look lacks, or <see langword="null"/>.</param>
+    /// <returns>The bundled font of the look, or the fallback when the bundled font lacks a letter; <see langword="null"/> when the built-in font shows every letter.</returns>
+    internal static PdfFontSource? SourceFor(PdfObjectStore store, string text, AppearanceFont font, PdfFontSource? fallback)
+    {
+        if (!NeedsEmbedding(text))
+        {
+            return null;
+        }
+
+        var bundled = OpenBundled(store, font);
+        return fallback is not null && !Covers(bundled, text) ? fallback : bundled;
+    }
+
+    /// <summary>Chooses the font for a line of a paragraph, sharing the embedded font and its resource with the line before when both lines are written with the same font file.</summary>
+    /// <param name="content">The page content the line goes into.</param>
+    /// <param name="text">The line.</param>
+    /// <param name="font">The look of the line.</param>
+    /// <param name="fallback">A font that has the letters the bundled font of that look lacks, or <see langword="null"/>.</param>
+    /// <param name="shared">The latest line that is embedded, or <see langword="null"/> when none is yet.</param>
+    /// <returns>The run. The font is finished once, after the last line that shares it is written.</returns>
+    internal static PdfNewTextRun Create(PdfPageContent content, string text, AppearanceFont font, PdfFontSource? fallback, PdfNewTextRun? shared) =>
+        shared?._embedded is { } sharedFont && ReferenceEquals(SourceFor(content.Document.Objects, text, font, fallback), sharedFont.Source)
+            ? new(content, text, shared._name, sharedFont)
+            : Create(content, text, font, fallback);
+
+    /// <summary>Tells whether this line is written with the same embedded font as another.</summary>
+    /// <param name="other">The other line, or <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when both are embedded in one font.</returns>
+    internal bool Shares(PdfNewTextRun? other) => other is not null && _embedded is not null && ReferenceEquals(_embedded, other._embedded);
+
+    /// <summary>Measures how wide the line is as it is written, with the advances of the glyphs it shows.</summary>
+    /// <param name="font">The look of the line.</param>
+    /// <param name="size">The font size.</param>
+    /// <param name="glyphs">A list the shaper fills, which can be reused; it is only used for a line that is embedded.</param>
+    /// <returns>The width in user space units.</returns>
+    internal float Measure(AppearanceFont font, float size, List<PdfShapedGlyph>? glyphs) =>
+        _embedded is { } embedded && glyphs is not null ? PdfNewTextMeasure.Shaped(embedded.Source, _text, size, glyphs) : PdfNewTextMeasure.Builtin(font, _text, size);
+
+    /// <summary>Tells whether a font has a glyph for every letter of a line.</summary>
+    /// <param name="source">The font.</param>
+    /// <param name="text">The line.</param>
+    /// <returns><see langword="true"/> when it has them all.</returns>
+    private static bool Covers(PdfFontSource source, string text)
+    {
+        foreach (var rune in text.EnumerateRunes())
+        {
+            if (!Rune.IsWhiteSpace(rune) && !Rune.IsControl(rune) && !source.HasGlyph(rune.Value))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Opens the bundled font of a look without keeping it.</summary>
     /// <param name="font">The look.</param>
     /// <returns>The font.</returns>
     private static PdfFontSource OpenBundled(AppearanceFont font)
     {
         var index = (int)font;
         return PdfBundledFonts.OpenOrThrow((PdfBundledFontFamily)(index / LooksPerFamily), (index & BoldBit) != 0, (index & ItalicBit) != 0);
+    }
+
+    /// <summary>Opens the bundled font of a look from the font resources of the document, which keep it for the next line.</summary>
+    /// <param name="store">The document's objects.</param>
+    /// <param name="font">The look.</param>
+    /// <returns>The font.</returns>
+    private static PdfFontSource OpenBundled(PdfObjectStore store, AppearanceFont font)
+    {
+        var index = (int)font;
+        return PdfFontOpenResult.SourceOrThrow(PdfBundledFonts.Open(PdfFontResources.For(store), (PdfBundledFontFamily)(index / LooksPerFamily), (index & BoldBit) != 0, (index & ItalicBit) != 0));
     }
 }

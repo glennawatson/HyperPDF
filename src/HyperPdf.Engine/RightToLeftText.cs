@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdfLibrary.Document;
+using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.PageObjects;
 
 namespace HyperPdf.Engine;
@@ -32,15 +34,24 @@ internal static class RightToLeftText
     /// The words in typed order: for text with right-to-left letters, what the page's text layer reads in the object's area when it has the same letters, which also puts mixed
     /// directions in order, and otherwise the words reversed when the whole line is right-to-left. Text with none is returned as it is.
     /// </returns>
-    internal static string Typed(PdfDocument document, int pageIndex, PdfTextObject run)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Typed(PdfDocument document, int pageIndex, PdfTextObject run) => Typed(document, pageIndex, run.Text, run.Bounds);
+
+    /// <summary>Gets the words of a text in the order they were typed, for a text drawn in pieces whose words and area are those of all its pieces.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="pageIndex">The zero based index of the page the text is on.</param>
+    /// <param name="drawn">The words in the order they are drawn.</param>
+    /// <param name="area">The area the text covers.</param>
+    /// <returns>The words in typed order, as for a single text object.</returns>
+    internal static string Typed(PdfDocument document, int pageIndex, string drawn, PdfRectangle area)
     {
-        if (!HasRightToLeftLetter(run.Text))
+        if (!HasRightToLeftLetter(drawn))
         {
-            return run.Text;
+            return drawn;
         }
 
-        var fromPage = PdfDocumentText.GetTextPage(document, pageIndex).GetTextInRectangle(run.Bounds).Trim();
-        return SameLetters(fromPage, run.Text) ? fromPage : ToTyped(run.Text);
+        var fromPage = PdfDocumentText.GetTextPage(document, pageIndex).GetTextInRectangle(area).Trim();
+        return SameLetters(fromPage, drawn) ? fromPage : ToTyped(drawn);
     }
 
     /// <summary>Gets the typed order of a text object's words when it is a line of right-to-left letters, with spaces, digits and punctuation.</summary>

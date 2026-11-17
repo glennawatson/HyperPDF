@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Text;
 
 namespace HyperPdfLibrary.Fonts.Embedding;
@@ -27,21 +28,50 @@ internal static class RunPlanner
             return;
         }
 
-        var starts = IsAscending(glyphs, text.Length) ? null : SortedStarts(glyphs, text.Length);
-        var first = 0;
-        while (first < glyphs.Length)
+        // A run whose clusters go backwards, as a right-to-left run's do, needs its cluster starts sorted; they are held in borrowed room, not a new array for each run.
+        var ascending = IsAscending(glyphs, text.Length);
+        var room = ascending ? null : ArrayPool<int>.Shared.Rent(glyphs.Length);
+        try
         {
-            var cluster = Math.Clamp(glyphs[first].Cluster, 0, text.Length);
-            var end = first + 1;
-            while (end < glyphs.Length && glyphs[end].Cluster == glyphs[first].Cluster)
+            var starts = room is null ? default : SortedStarts(glyphs, text.Length, room);
+            var first = 0;
+            while (first < glyphs.Length)
             {
-                end++;
-            }
+                var cluster = Math.Clamp(glyphs[first].Cluster, 0, text.Length);
+                var end = first + 1;
+                while (end < glyphs.Length && glyphs[end].Cluster == glyphs[first].Cluster)
+                {
+                    end++;
+                }
 
-            var textEnd = starts is null ? FollowingCluster(glyphs, end, text.Length) : NextStart(starts, cluster, text.Length);
-            groups.Add(PlanGroup(glyphs, first, end - first, text.Slice(cluster, Math.Max(textEnd - cluster, 0)), cluster, policy, use));
-            first = end;
+                var textEnd = ascending ? FollowingCluster(glyphs, end, text.Length) : NextStart(starts, cluster, text.Length);
+                groups.Add(PlanGroup(glyphs, first, end - first, text.Slice(cluster, Math.Max(textEnd - cluster, 0)), cluster, policy, use));
+                first = end;
+            }
         }
+        finally
+        {
+            if (room is not null)
+            {
+                ArrayPool<int>.Shared.Return(room);
+            }
+        }
+    }
+
+    /// <summary>Determines whether any group of a plan needs <c>/ActualText</c>.</summary>
+    /// <param name="groups">The groups.</param>
+    /// <returns><see langword="true"/> when a group is marked.</returns>
+    internal static bool AnyMarked(List<ClusterGroup> groups)
+    {
+        for (var i = 0; i < groups.Count; i++)
+        {
+            if (groups[i].Mark)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Determines whether the clusters of a run never go backwards and stay inside the text.</summary>
@@ -75,16 +105,17 @@ internal static class RunPlanner
     /// <summary>Lists the distinct cluster starts of a run in ascending order.</summary>
     /// <param name="glyphs">The glyphs.</param>
     /// <param name="length">The text's length.</param>
-    /// <returns>The starts.</returns>
-    private static int[] SortedStarts(ReadOnlySpan<PdfShapedGlyph> glyphs, int length)
+    /// <param name="room">Room for the starts, at least as long as the glyphs.</param>
+    /// <returns>The starts, in the first part of the room.</returns>
+    private static Span<int> SortedStarts(ReadOnlySpan<PdfShapedGlyph> glyphs, int length, int[] room)
     {
-        var starts = new int[glyphs.Length];
+        var starts = room.AsSpan(0, glyphs.Length);
         for (var i = 0; i < starts.Length; i++)
         {
             starts[i] = Math.Clamp(glyphs[i].Cluster, 0, length);
         }
 
-        Array.Sort(starts);
+        starts.Sort();
         return starts;
     }
 
@@ -93,9 +124,9 @@ internal static class RunPlanner
     /// <param name="cluster">The cluster's start.</param>
     /// <param name="length">The text's length, which the last cluster runs to.</param>
     /// <returns>The index after the cluster's last character.</returns>
-    private static int NextStart(int[] starts, int cluster, int length)
+    private static int NextStart(ReadOnlySpan<int> starts, int cluster, int length)
     {
-        var index = Array.BinarySearch(starts, cluster);
+        var index = starts.BinarySearch(cluster);
         while (index < starts.Length && starts[index] <= cluster)
         {
             index++;

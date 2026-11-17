@@ -55,6 +55,19 @@ internal static class RunWriter
         }
     }
 
+    /// <summary>Writes a run as one show inside one <c>Span</c> that holds the whole of its text.</summary>
+    /// <param name="builder">The content stream.</param>
+    /// <param name="context">The font the run is shown in.</param>
+    /// <param name="text">The text in logical order.</param>
+    /// <param name="glyphs">The glyphs in drawing order.</param>
+    /// <param name="fontSize">The font size in text space units, which scales the text rise.</param>
+    internal static void WriteWhole(ref PdfContentBuilder builder, in RunContext context, ReadOnlySpan<char> text, ReadOnlySpan<PdfShapedGlyph> glyphs, float fontSize)
+    {
+        BeginActualText(ref builder, context.Sink, text);
+        WriteGroup(ref builder, context, glyphs, fontSize);
+        builder.EndMarkedContent();
+    }
+
     /// <summary>Starts a <c>Span</c> with the text the glyphs stand for.</summary>
     /// <param name="builder">The content stream.</param>
     /// <param name="sink">The document.</param>

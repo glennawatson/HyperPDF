@@ -72,6 +72,18 @@ public sealed class PageContentEditViewModelTests
     /// <summary>The lines the paragraphs of the retyping tests have before they are retyped.</summary>
     private const int ListLines = 3;
 
+    /// <summary>The words of the three lines of a paragraph, as one text.</summary>
+    private const string ThreeLineText = "The quick brown fox jumps over the lazy dog and runs away";
+
+    /// <summary>How far across the page a line that is slanted thirty degrees up reads, for a unit step.</summary>
+    private const float SlantAcross = 0.866F;
+
+    /// <summary>How far up the page a line that is slanted thirty degrees up reads, for a unit step.</summary>
+    private const float SlantUp = 0.5F;
+
+    /// <summary>How far the direction of a slanted line may be from the slant it was written at.</summary>
+    private const float SlantTolerance = 0.02F;
+
     /// <summary>A text that takes more lines than the paragraphs of the retyping tests have.</summary>
     private const string LongerText = "The quick brown fox jumps over the lazy dog and runs away from the farm and keeps running through the fields until night";
 
@@ -128,7 +140,7 @@ public sealed class PageContentEditViewModelTests
         using (Assert.Multiple())
         {
             await Assert.That(begun).IsTrue();
-            await Assert.That(together).IsEqualTo("The quick brown fox jumps over the lazy dog and runs away");
+            await Assert.That(together).IsEqualTo(ThreeLineText);
             await Assert.That(changed).IsTrue();
             await Assert.That(after.Count(static o => o.Kind == PageObjectKind.Text && o.Text.Length > 0)).IsGreaterThan(before.Length);
         }
@@ -165,10 +177,28 @@ public sealed class PageContentEditViewModelTests
         using (Assert.Multiple())
         {
             await Assert.That(retyped.Begun).IsTrue();
-            await Assert.That(retyped.Together).IsEqualTo("The quick brown fox jumps over the lazy dog and runs away");
+            await Assert.That(retyped.Together).IsEqualTo(ThreeLineText);
             await Assert.That(retyped.Changed).IsTrue();
             await Assert.That(lines.Length).IsGreaterThan(ListLines);
-            await Assert.That(Array.TrueForAll(lines, static o => o.Flow == TextFlow.Up)).IsTrue();
+            await Assert.That(Array.TrueForAll(lines, static o => !o.Reading.IsUpright && o.Reading.DirectionY < 0F)).IsTrue();
+        }
+    }
+
+    /// <summary>A paragraph set at a slant that is no quarter turn is found, retyped as one text and written on at the same angle.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ASlantedParagraphIsRetypedAndStaysSlanted()
+    {
+        var retyped = await RetypeAsync("BT /F1 12 Tf 0.866 0.5 -0.5 0.866 20 30 Tm (The quick brown fox jumps) Tj 0 -14 Td (over the lazy dog and) Tj 0 -14 Td (runs away) Tj ET", "over", LongerText);
+        var lines = retyped.After.Where(static o => o.Kind == PageObjectKind.Text && o.Text.Length > 0).ToArray();
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(retyped.Begun).IsTrue();
+            await Assert.That(retyped.Together).IsEqualTo(ThreeLineText);
+            await Assert.That(retyped.Changed).IsTrue();
+            await Assert.That(lines.Length).IsGreaterThan(ListLines);
+            await Assert.That(Array.TrueForAll(lines, static o => Math.Abs(o.Reading.DirectionX - SlantAcross) < SlantTolerance && Math.Abs(o.Reading.DirectionY + SlantUp) < SlantTolerance)).IsTrue();
         }
     }
 

@@ -219,13 +219,28 @@ public sealed class PdfEmbeddedFont
     /// <param name="text">The text in logical order, without line breaks.</param>
     /// <param name="fontSize">The font size selected with <c>Tf</c>.</param>
     /// <exception cref="InvalidOperationException">The font is finished and the text needs a glyph that was not used before.</exception>
-    public void ShowText(ref PdfContentBuilder builder, ReadOnlySpan<char> text, float fontSize)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void ShowText(ref PdfContentBuilder builder, ReadOnlySpan<char> text, float fontSize) => ShowText(ref builder, text, fontSize, 0F);
+
+    /// <summary>Shapes text and writes it into a content stream with each space made wider, as justified text needs.</summary>
+    /// <param name="builder">The content stream, inside a text object with this font selected.</param>
+    /// <param name="text">The text in logical order, without line breaks.</param>
+    /// <param name="fontSize">The font size selected with <c>Tf</c>.</param>
+    /// <param name="spaceExtra">The room added to the advance of each space, in text space units.</param>
+    /// <exception cref="InvalidOperationException">The font is finished and the text needs a glyph that was not used before.</exception>
+    public void ShowText(ref PdfContentBuilder builder, ReadOnlySpan<char> text, float fontSize, float spaceExtra)
     {
         var glyphs = ScratchList<PdfShapedGlyph>.Rent(ref _embedding.Glyphs, text.Length);
         try
         {
             _ = Shape(text, glyphs);
-            ShowGlyphs(ref builder, text, CollectionsMarshal.AsSpan(glyphs), fontSize);
+            var shaped = CollectionsMarshal.AsSpan(glyphs);
+            if (spaceExtra != 0F && fontSize > 0F)
+            {
+                WidenSpaces(text, shaped, spaceExtra / fontSize);
+            }
+
+            ShowGlyphs(ref builder, text, shaped, fontSize);
         }
         finally
         {
@@ -245,7 +260,14 @@ public sealed class PdfEmbeddedFont
         try
         {
             RunPlanner.Plan(text, glyphs, _options.ActualText, _use, groups);
-            RunWriter.Write(ref builder, new(_sink, Source, _use, _options.WritingMode), text, glyphs, groups, fontSize);
+            var context = new RunContext(_sink, Source, _use, _options.WritingMode);
+            if (_options.ActualText == PdfActualTextPolicy.WholeRun && RunPlanner.AnyMarked(groups))
+            {
+                RunWriter.WriteWhole(ref builder, context, text, glyphs, fontSize);
+                return;
+            }
+
+            RunWriter.Write(ref builder, context, text, glyphs, groups, fontSize);
         }
         finally
         {
@@ -266,6 +288,21 @@ public sealed class PdfEmbeddedFont
             var parts = Plan(_use.Freeze());
             _sink.Set(Id, PdfValue.FromDictionary(EmbeddedFontWriter.Write(_sink, parts)));
             _finished = true;
+        }
+    }
+
+    /// <summary>Adds room to the advance of every glyph that shows a space.</summary>
+    /// <param name="text">The text the glyphs were shaped from.</param>
+    /// <param name="glyphs">The glyphs, which are changed.</param>
+    /// <param name="extra">The room to add, in ems.</param>
+    private static void WidenSpaces(ReadOnlySpan<char> text, Span<PdfShapedGlyph> glyphs, float extra)
+    {
+        for (var i = 0; i < glyphs.Length; i++)
+        {
+            if ((uint)glyphs[i].Cluster < (uint)text.Length && text[glyphs[i].Cluster] == ' ')
+            {
+                glyphs[i] = glyphs[i] with { Advance = glyphs[i].Advance + extra };
+            }
         }
     }
 

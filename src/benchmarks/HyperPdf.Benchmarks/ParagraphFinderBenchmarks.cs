@@ -7,7 +7,7 @@ using HyperPdf.Core.Documents;
 
 namespace HyperPdf.Benchmarks;
 
-/// <summary>Measures finding the lines of a paragraph in a page of forty-eight lines of text: left aligned lines, centred lines, and a list item whose bullet is a text of its own.</summary>
+/// <summary>Measures finding the lines of a paragraph in a page of forty-eight lines: left aligned, centred, set at a slant, and a list item with a bullet of its own.</summary>
 public class ParagraphFinderBenchmarks
 {
     /// <summary>The lines on the page.</summary>
@@ -46,6 +46,18 @@ public class ParagraphFinderBenchmarks
     /// <summary>One half.</summary>
     private const float Half = 0.5F;
 
+    /// <summary>The angle of the slanted lines, anticlockwise from reading to the right.</summary>
+    private const float SlantDegrees = 30F;
+
+    /// <summary>The number of degrees in a half turn.</summary>
+    private const float HalfTurnDegrees = 180F;
+
+    /// <summary>The angle of the slanted lines in radians.</summary>
+    private const float SlantRadians = SlantDegrees * (MathF.PI / HalfTurnDegrees);
+
+    /// <summary>Where the middle of the first slanted line is, across and down the page.</summary>
+    private const float SlantedCentre = 400F;
+
     /// <summary>The words of every line.</summary>
     private const string LineText = "The quick brown fox jumps over the lazy dog";
 
@@ -57,6 +69,9 @@ public class ParagraphFinderBenchmarks
 
     /// <summary>The page of list items with bullets of their own.</summary>
     private PageObjectInfo[] _list = [];
+
+    /// <summary>The page of lines set at thirty degrees.</summary>
+    private PageObjectInfo[] _slanted = [];
 
     /// <summary>Builds the pages.</summary>
     [GlobalSetup]
@@ -84,6 +99,11 @@ public class ParagraphFinderBenchmarks
         }
 
         _list = [.. objects];
+        _slanted = new PageObjectInfo[Lines];
+        for (var i = 0; i < Lines; i++)
+        {
+            _slanted[i] = Slanted(i);
+        }
     }
 
     /// <summary>Finds the lines of a paragraph of left aligned lines, which is every line of the page.</summary>
@@ -100,4 +120,25 @@ public class ParagraphFinderBenchmarks
     /// <returns>The number of lines found.</returns>
     [Benchmark]
     public int FindListItem() => ParagraphFinder.Find(_list, _list[Middle + 1]).Length;
+
+    /// <summary>Finds the lines of a paragraph whose lines are set at thirty degrees, which is every line of the page.</summary>
+    /// <returns>The number of lines found.</returns>
+    [Benchmark]
+    public int FindSlanted() => ParagraphFinder.Find(_slanted, _slanted[Middle]).Length;
+
+    /// <summary>Makes a line of text set at thirty degrees, with the box round it that a page gives it.</summary>
+    /// <param name="row">How many lines on from the first line it is.</param>
+    /// <returns>The line.</returns>
+    private static PageObjectInfo Slanted(int row)
+    {
+        var directionX = MathF.Cos(SlantRadians);
+        var directionY = -MathF.Sin(SlantRadians);
+
+        // The next line is a quarter turn clockwise from the way a line reads.
+        var middleX = SlantedCentre - (directionY * row * Step);
+        var middleY = SlantedCentre + (directionX * row * Step);
+        var reachX = ((MathF.Abs(directionX) * Widest) + (MathF.Abs(directionY) * LineHeight)) * Half;
+        var reachY = ((MathF.Abs(directionY) * Widest) + (MathF.Abs(directionX) * LineHeight)) * Half;
+        return new(row, PageObjectKind.Text, new(middleX - reachX, middleY - reachY, reachX / Half, reachY / Half), LineText) { Reading = new(directionX, directionY, Widest, LineHeight) };
+    }
 }

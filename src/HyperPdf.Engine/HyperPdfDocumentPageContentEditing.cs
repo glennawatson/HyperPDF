@@ -4,6 +4,7 @@
 
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Geometry;
 using HyperPdfLibrary.Annotations;
@@ -108,7 +109,7 @@ internal static class HyperPdfDocumentPageContentEditing
         var count = 0;
         for (var i = 0; i < items.Count; i++)
         {
-            count += IsListed(items[i]) ? 1 : 0;
+            count += IsListed(items[i]) && !TextPieces.IsFollower(page, items, i) ? 1 : 0;
         }
 
         var objects = new PageObjectInfo[count];
@@ -116,15 +117,26 @@ internal static class HyperPdfDocumentPageContentEditing
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            if (!IsListed(item))
+            if (!IsListed(item) || TextPieces.IsFollower(page, items, i))
             {
                 continue;
             }
 
             var area = LinkTargets.ToPageRect(page.ToPhysicalRectangle(item.Bounds));
-            objects[next] = item is PdfTextObject run
-                ? new(item.Index, ToKind(item.Kind), area, RightToLeftText.Typed(self.Document, pageIndex, run)) { Flow = PageObjectFlows.Of(page, run) }
-                : new(item.Index, ToKind(item.Kind), area, string.Empty);
+            if (item is not PdfTextObject run)
+            {
+                objects[next] = new(item.Index, ToKind(item.Kind), area, string.Empty);
+            }
+            else if (TextPieces.IsFollower(page, items, i + 1))
+            {
+                objects[next] = ReadPieces(self, new(page, pageIndex), run, TextPieces.Followers(page, items, run));
+            }
+            else
+            {
+                // Nearly every text is drawn in one piece, which needs no list of pieces and no joined words.
+                objects[next] = new(item.Index, ToKind(item.Kind), area, RightToLeftText.Typed(self.Document, pageIndex, run)) { Reading = PageObjectReadings.Of(page, run) };
+            }
+
             next++;
         }
 
@@ -416,6 +428,29 @@ internal static class HyperPdfDocumentPageContentEditing
     internal static ValueTask RestyleTextAsync(HyperPdfDocument self, int pageIndex, int objectIndex, PageTextStyle style, CancellationToken cancellationToken) =>
         EditAsync(self, pageIndex, new(ObjectEditKind.Restyle, objectIndex, default, null, default, default, style) { Fonts = self.FontState }, cancellationToken);
 
+    /// <summary>Reads a text of the page that is drawn in pieces.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="where">The page and its number.</param>
+    /// <param name="run">The text object, which is the first piece.</param>
+    /// <param name="followers">The pieces after it.</param>
+    /// <returns>The text, with the box, the words and the way it reads of all its pieces.</returns>
+    private static PageObjectInfo ReadPieces(HyperPdfDocument self, in PageAt where, PdfTextObject run, List<PdfTextObject> followers)
+    {
+        var (page, pageIndex) = where;
+        var bounds = run.Bounds;
+        var drawn = new StringBuilder(run.Text);
+        foreach (var piece in followers)
+        {
+            bounds = bounds.Union(piece.Bounds);
+            _ = drawn.Append(piece.Text);
+        }
+
+        // A text drawn in pieces carries its own words, in the order they were typed, which the glyphs of its pieces do not give for letters that joined or reordered.
+        var words = followers.Count > 0 && TextPieces.ReplacementText(run) is { Length: > 0 } typed ? typed : RightToLeftText.Typed(self.Document, pageIndex, drawn.ToString(), bounds);
+        var reading = PageObjectReadings.Of(page, run, followers.Count == 0 ? run : followers[^1]);
+        return new(run.Index, ToKind(run.Kind), LinkTargets.ToPageRect(page.ToPhysicalRectangle(bounds)), words) { Reading = reading };
+    }
+
     /// <summary>Tells whether an object has a place on the page that can be picked.</summary>
     /// <param name="item">The object.</param>
     /// <returns><see langword="true"/> for an object that is not removed, has a finite box and, for text, has words.</returns>
@@ -509,6 +544,26 @@ internal static class HyperPdfDocumentPageContentEditing
     private static void Apply(PdfPageContent content, in ObjectEdit edit)
     {
         var item = Find(content, edit.ObjectIndex);
+
+        // A text drawn in pieces is one object to the caller, so a change that is not a retype reaches every piece.
+        if (edit.Kind is ObjectEditKind.Move or ObjectEditKind.Delete or ObjectEditKind.Transform or ObjectEditKind.Colors && item is PdfTextObject)
+        {
+            foreach (var piece in TextPieces.Followers(content.Page!, content.Objects, item))
+            {
+                ApplyTo(content, piece, edit);
+            }
+        }
+
+        ApplyTo(content, item, edit);
+    }
+
+    /// <summary>Makes one change to one object of a page's content.</summary>
+    /// <param name="content">The page content.</param>
+    /// <param name="item">The object.</param>
+    /// <param name="edit">The change.</param>
+    /// <exception cref="InvalidOperationException">The object to retype is not text.</exception>
+    private static void ApplyTo(PdfPageContent content, PdfPageObject item, in ObjectEdit edit)
+    {
         switch (edit.Kind)
         {
             case ObjectEditKind.Move:
@@ -581,7 +636,11 @@ internal static class HyperPdfDocumentPageContentEditing
         var lines = new List<PdfTextObject>(edit.Lines.Length);
         foreach (var index in edit.Lines)
         {
-            lines.Add(Find(content, index) as PdfTextObject ?? throw new InvalidOperationException("The object is not text."));
+            var line = Find(content, index) as PdfTextObject ?? throw new InvalidOperationException("The object is not text.");
+            lines.Add(line);
+
+            // A line drawn in pieces is retyped whole.
+            lines.AddRange(TextPieces.Followers(content.Page!, content.Objects, line));
         }
 
         var words = edit.Text ?? string.Empty;
@@ -604,7 +663,18 @@ internal static class HyperPdfDocumentPageContentEditing
         var run = item as PdfTextObject ?? throw new InvalidOperationException("The object is not text.");
         var restyle = edit.Kind == ObjectEditKind.Restyle;
         var font = restyle ? HyperPdfDocumentPageContentAdding.FontOf(edit.Style.Family, edit.Style.Bold, edit.Style.Italic) : AppearanceFont.Helvetica;
+
+        // The pieces of a text drawn in pieces give up their glyphs and the first piece is written again whole.
         var words = restyle ? run.GetRemainingText() : edit.Text ?? string.Empty;
+        foreach (var piece in TextPieces.Followers(content.Page!, content.Objects, run))
+        {
+            words = restyle ? words + piece.GetRemainingText() : words;
+            for (var i = 0; i < piece.GlyphCount; i++)
+            {
+                _ = piece.RemoveGlyph(i);
+            }
+        }
+
         PdfPageContentTextReplacement.Replace(content, run, words, font, restyle ? edit.Style.FontSize : 0F, FallbackFor(edit, words, font));
     }
 
@@ -869,4 +939,9 @@ internal static class HyperPdfDocumentPageContentEditing
         /// <summary>Gets the numbers of the text objects that are the lines of a paragraph, for a reflow.</summary>
         internal int[] Lines { get; init; } = [];
     }
+
+    /// <summary>A page and its number.</summary>
+    /// <param name="Page">The page.</param>
+    /// <param name="Index">The zero based page index.</param>
+    private readonly record struct PageAt(PdfPage Page, int Index);
 }

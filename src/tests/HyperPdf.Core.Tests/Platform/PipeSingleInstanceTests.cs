@@ -29,8 +29,15 @@ public sealed class PipeSingleInstanceTests
     [Timeout(TimeoutMilliseconds)]
     public async Task ForwardsToTheRunningInstance(CancellationToken cancellationToken)
     {
+        // A locked down machine, such as a build sandbox, may refuse a named mutex, which the single window is claimed with.
+        if (!CanNameAMutex())
+        {
+            Skip.Test("This machine does not allow a named mutex, which the single window is claimed with.");
+        }
+
         var name = $"HyperPdfTest-{Guid.NewGuid():N}";
         using var first = PipeSingleInstance.TryStart(name);
+        await Assert.That(first).IsNotNull();
 
         // Waiting starts before anything is forwarded, because the requests are only given to whoever is already listening.
         var received = first!.OpenRequests.Take(1).Timeout(Wait).ToTask(cancellationToken);
@@ -77,5 +84,24 @@ public sealed class PipeSingleInstanceTests
         await Assert.That(decoded.Uris).IsEquivalentTo(["a.pdf", "c d.pdf"]);
         await Assert.That(decoded.ActivationToken).IsNull();
         await Assert.That(PipeSingleInstance.NameFor("App")).StartsWith("App-");
+    }
+
+    /// <summary>Tells whether this machine lets a process make a named mutex.</summary>
+    /// <returns><see langword="false"/> when the operating system refuses one, as a sandbox with no shared memory does.</returns>
+    private static bool CanNameAMutex()
+    {
+        try
+        {
+            using var probe = new Mutex(false, $"HyperPdfProbe-{Guid.NewGuid():N}");
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 }

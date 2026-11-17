@@ -20,6 +20,12 @@ internal static class EmbeddedFontWriter
     /// <summary>The entries of a font descriptor.</summary>
     private const int DescriptorEntries = 12;
 
+    /// <summary>The bytes of the registry name <c>Adobe</c>, shared by every font that has no character collection of its own.</summary>
+    private static readonly byte[] AdobeBytes = "Adobe"u8.ToArray();
+
+    /// <summary>The bytes of the ordering name <c>Identity</c>, shared by every font that has no character collection of its own.</summary>
+    private static readonly byte[] IdentityBytes = "Identity"u8.ToArray();
+
     /// <summary>Gets the key of a TrueType font file's uncompressed length.</summary>
     private static ReadOnlySpan<byte> Length1 => "Length1"u8;
 
@@ -126,11 +132,21 @@ internal static class EmbeddedFontWriter
     private static PdfDictionary CreateSystemInfo(IPdfObjectSink sink, in EmbeddedFontParts parts)
     {
         var info = new PdfDictionary(sink.Owner, FontEntries);
-        info.Set(KnownName.Registry, PdfValue.FromString(Encoding.ASCII.GetBytes(parts.Registry)));
-        info.Set(KnownName.Ordering, PdfValue.FromString(Encoding.ASCII.GetBytes(parts.Ordering)));
+        info.Set(KnownName.Registry, PdfValue.FromString(AsciiOf(parts.Registry)));
+        info.Set(KnownName.Ordering, PdfValue.FromString(AsciiOf(parts.Ordering)));
         info.Set(KnownName.Supplement, PdfValue.FromInteger(parts.Supplement));
         return info;
     }
+
+    /// <summary>Gets the bytes of a registry or ordering name, shared when it is one of the two that fonts without a character collection use.</summary>
+    /// <param name="name">The name.</param>
+    /// <returns>The ASCII bytes of the name, which are never changed.</returns>
+    private static byte[] AsciiOf(string name) => name switch
+    {
+        "Adobe" => AdobeBytes,
+        "Identity" => IdentityBytes,
+        _ => Encoding.ASCII.GetBytes(name),
+    };
 
     /// <summary>Creates the font descriptor and adds the font file.</summary>
     /// <param name="sink">The document.</param>

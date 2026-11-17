@@ -157,6 +157,11 @@ internal sealed class PdfFontResources
     /// <returns>The resources.</returns>
     internal static PdfFontResources For(PdfDictionary dictionary) => dictionary.Owner?.Context?.DrawingServices.FontResources ?? new();
 
+    /// <summary>Gets resources owned by a document's object store, or detached resources.</summary>
+    /// <param name="store">The store.</param>
+    /// <returns>The resources.</returns>
+    internal static PdfFontResources For(PdfObjectStore store) => store.Context?.DrawingServices.FontResources ?? new();
+
     /// <summary>Closes any client created while preparing a detached font.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void CloseDownloadClient() => Volatile.Read(ref _data)?.CloseDownloadClient();
