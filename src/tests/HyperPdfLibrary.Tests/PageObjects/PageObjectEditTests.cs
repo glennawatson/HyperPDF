@@ -10,6 +10,7 @@ using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Fonts.Embedding;
 using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.PageObjects;
+using HyperPdfLibrary.Tests.Fonts.Shaping;
 using HyperPdfLibrary.Tests.Rendering;
 using HyperPdfLibrary.Tests.Writing;
 using HyperPdfLibrary.Writing;
@@ -133,6 +134,63 @@ public sealed class PageObjectEditTests
     /// <summary>The text the lined up paragraphs are replaced with; it takes more lines than they had.</summary>
     private const string LongParagraph = "The quick brown fox jumps over the lazy dog and runs away from the farm and keeps running through the fields";
 
+    /// <summary>How far across the page a unit step along a slant of thirty degrees goes.</summary>
+    private const float SlantAcross = 0.8660254F;
+
+    /// <summary>How far up the page a unit step along a slant of thirty degrees goes.</summary>
+    private const float SlantUp = 0.5F;
+
+    /// <summary>Where the first line of the slanted paragraph starts, across the page.</summary>
+    private const float SlantStartX = 40F;
+
+    /// <summary>Where the first line of the slanted paragraph starts, up the page.</summary>
+    private const float SlantStartY = 60F;
+
+    /// <summary>How far along the slant from the start the lines of the slanted paragraph end.</summary>
+    private const float SlantReach = 160F;
+
+    /// <summary>Where the lines of the slanted paragraph end, along the slant from the page's corner.</summary>
+    private const float SlantEdge = (SlantStartX * SlantAcross) + (SlantStartY * SlantUp) + SlantReach;
+
+    /// <summary>The start of the content of a paragraph set in Helvetica at twelve points.</summary>
+    private const string ParagraphStart = "BT /F1 12 Tf ";
+
+    /// <summary>Arabic words made of beh, alef and lam, which join, for a font that has only those letters.</summary>
+    private const string JoinedLetters = "ببب ببا بلب لبب ابل بلا ببلب لبلب ببابل بلبلب ببل";
+
+    /// <summary>The code of the Arabic letter beh.</summary>
+    private const int BehCode = 0x0628;
+
+    /// <summary>The code of the Arabic letter alef.</summary>
+    private const int AlefCode = 0x0627;
+
+    /// <summary>The code of the Arabic letter lam.</summary>
+    private const int LamCode = 0x0644;
+
+    /// <summary>The code of the tatweel.</summary>
+    private const int TatweelCode = 0x0640;
+
+    /// <summary>How many tatweels are as wide as a letter.</summary>
+    private const int TatweelShare = 2;
+
+    /// <summary>The width under which a line of the right-to-left justified paragraph is its short last line.</summary>
+    private const float ShortLine = 60F;
+
+    /// <summary>How far in from the left edge the short last line of the right-to-left justified paragraph starts, so that it ends at the right edge.</summary>
+    private const float ShortLineStart = 130F;
+
+    /// <summary>How far a line stretched with tatweels may be from an edge: less than one tatweel is left over.</summary>
+    private const float KashidaTolerance = 5F;
+
+    /// <summary>The words of a paragraph of one line.</summary>
+    private const string OneLine = "Some words on one line";
+
+    /// <summary>A text in Cyrillic, which the built-in fonts lack, that wraps to several lines.</summary>
+    private const string LongCyrillic = "Быстрая коричневая лиса прыгает через ленивую собаку и убегает с фермы и продолжает бежать через все поля";
+
+    /// <summary>A text in Arabic, which reads right to left, that wraps to several lines.</summary>
+    private const string LongArabic = "الثعلب البني السريع يقفز فوق الكلب الكسول ويهرب من المزرعة ويستمر في الركض عبر الحقول الواسعة";
+
     /// <summary>The index of the second glyph removed from "Hello".</summary>
     private const int SecondGlyph = 2;
 
@@ -165,6 +223,15 @@ public sealed class PageObjectEditTests
 
     /// <summary>The page with a red and a blue rectangle.</summary>
     private const string TwoRectangles = "1 0 0 rg 20 20 60 40 re f 0 0 1 rg 120 120 40 40 re f";
+
+    /// <summary>The lines of a paragraph that lines up on one edge or around one middle.</summary>
+    private static readonly string[] RaggedLines = ["The quick brown fox", "jumps over the", "lazy dog and runs away"];
+
+    /// <summary>The lines of a justified paragraph, which are stretched to one width except the short last line.</summary>
+    private static readonly string[] JustifiedLines = ["The quick brown fox jumps", "over the lazy dog and runs", "away from the farm and keeps", "fields"];
+
+    /// <summary>The two texts each of the three lines of a paragraph drawn in pieces is drawn as.</summary>
+    private static readonly string[][] TextHalves = [["The quick brown", "fox jumps over"], ["the lazy dog and", "runs away"], ["from the farm", "and keeps going"]];
 
     /// <summary>A copy of an object of a tagged page is written without structure links: its marked content is an artifact and holds no /MCID.</summary>
     /// <returns>A task.</returns>
@@ -525,7 +592,7 @@ public sealed class PageObjectEditTests
     [Test]
     public async Task RightAlignedParagraphKeepsItsRightEdge()
     {
-        var pdf = PageObjectSamples.Page(LinesAt(["The quick brown fox", "jumps over the", "lazy dog and runs away"], static width => RightEdge - width, 0F));
+        var pdf = PageObjectSamples.Page(LinesAt(RaggedLines, static width => RightEdge - width, 0F));
         var lines = ReadLines(ReplaceParagraph(pdf, LongParagraph));
 
         await Assert.That(lines.Count).IsGreaterThan(ThreeLines);
@@ -533,6 +600,174 @@ public sealed class PageObjectEditTests
         {
             await Assert.That(line.Right).IsEqualTo(RightEdge).Within(EdgeTolerance);
         }
+    }
+
+    /// <summary>A right aligned paragraph retyped in a script the built-in fonts lack still ends at its right edge, as the lines are measured as they are written.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RightAlignedParagraphInCyrillicKeepsItsRightEdge()
+    {
+        var pdf = PageObjectSamples.Page(LinesAt(RaggedLines, static width => RightEdge - width, 0F));
+        var lines = ReadLines(ReplaceParagraph(pdf, LongCyrillic));
+
+        await Assert.That(lines.Count).IsGreaterThan(ThreeLines);
+        foreach (var line in lines)
+        {
+            await Assert.That(line.Right).IsEqualTo(RightEdge).Within(EdgeTolerance);
+        }
+    }
+
+    /// <summary>The lines of a reflowed paragraph in an embedded font share that font, so the file holds one subset and not one for each line.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task EmbeddedLinesOfAParagraphShareOneFont()
+    {
+        var edited = ReplaceParagraph(PageObjectSamples.Page(LinesAt(RaggedLines, static _ => StartOfLines, 0F)), LongCyrillic);
+        using var document = PdfDocumentReader.Open(edited, null);
+        var source = System.Text.Encoding.ASCII.GetString(PdfDocumentPageContent.GetPageContent(document, 0).Source);
+        var fonts = new HashSet<string>(source.Split("/EdF").Skip(1).Select(static part => new string([.. part.TakeWhile(char.IsAsciiDigit)])));
+
+        await Assert.That(ReadLines(edited).Count).IsGreaterThan(ThreeLines);
+        await Assert.That(fonts.Count).IsEqualTo(1);
+    }
+
+    /// <summary>One line of left to right text retyped with right-to-left text lines up on the right, where right-to-left text starts, and stays inside the old width.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RightToLeftTextLinesUpOnTheRight()
+    {
+        var pdf = PageObjectSamples.Page(LinesAt([OneLine], static width => RightEdge - width, 0F));
+        var lines = ReadLines(ReplaceParagraph(pdf, LongArabic));
+
+        await Assert.That(lines.Count).IsGreaterThan(1);
+        foreach (var line in lines)
+        {
+            await Assert.That(line.Right).IsEqualTo(RightEdge).Within(EdgeTolerance);
+            await Assert.That(line.Left).IsGreaterThanOrEqualTo(RightEdge - WidthOf(OneLine) - EdgeTolerance);
+        }
+    }
+
+    /// <summary>A justified paragraph retyped in Arabic keeps both edges on every line but the last, filled out with tatweels, which are the strokes that join Arabic letters.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task JustifiedArabicParagraphIsFilledOutWithTatweels()
+    {
+        var old = JustifiedLines;
+        var widest = 0F;
+        for (var i = 0; i < old.Length - 1; i++)
+        {
+            widest = Math.Max(widest, WidthOf(old[i]));
+        }
+
+        // The lines that are stretched start together, and the last starts where it must to end at the right edge, as a right-to-left paragraph does.
+        var pdf = PageObjectSamples.Page(LinesAt(old, static width => width > ShortLine ? StartOfLines : StartOfLines + ShortLineStart, widest));
+        var lines = ReadLines(ReplaceParagraph(pdf, $"{JoinedLetters} {JoinedLetters} {JoinedLetters} {JoinedLetters}", ArabicFontWithTatweel()));
+        var right = StartOfLines + widest;
+
+        await Assert.That(lines.Count).IsGreaterThan(old.Length);
+        for (var i = 0; i < lines.Count - 1; i++)
+        {
+            await Assert.That(lines[i].Right).IsEqualTo(right).Within(KashidaTolerance);
+            await Assert.That(lines[i].Left).IsEqualTo(StartOfLines).Within(KashidaTolerance);
+        }
+
+        await Assert.That(lines.Take(lines.Count - 1).Any(static line => line.Text.Contains('ـ', StringComparison.Ordinal))).IsTrue();
+        await Assert.That(lines[^1].Right).IsEqualTo(right).Within(KashidaTolerance);
+    }
+
+    /// <summary>A paragraph whose lines are each drawn as two texts is retyped as lines that are as far apart as the rows were, and not as close as the texts are numerous.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LinesDrawnAsSeveralTextsAreOneRowEach()
+    {
+        var content = new System.Text.StringBuilder(ParagraphStart);
+        for (var row = 0; row < TextHalves.Length; row++)
+        {
+            var first = TextHalves[row][0];
+            var split = StartOfLines + WidthOf($"{first} ");
+            var baseline = ParagraphTop - (row * ParagraphLeading);
+            _ = content.Append(System.Globalization.CultureInfo.InvariantCulture, $"1 0 0 1 {StartOfLines} {baseline} Tm ({first}) Tj 1 0 0 1 {split} {baseline} Tm ({TextHalves[row][1]}) Tj ");
+        }
+
+        var lines = ReadLines(ReplaceParagraph(PageObjectSamples.Page(content.Append("ET").ToString()), LongParagraph));
+
+        await Assert.That(lines.Count).IsGreaterThan(ThreeLines);
+        await Assert.That(lines[0].Top - lines[1].Top).IsEqualTo(ParagraphLeading).Within(EdgeTolerance);
+        await Assert.That(lines[0].Left).IsEqualTo(StartOfLines).Within(EdgeTolerance);
+    }
+
+    /// <summary>A justified Arabic paragraph in a font with no tatweel keeps both edges by widening its spaces.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task JustifiedArabicParagraphWithoutTatweelIsFilledOutBySpaces()
+    {
+        var old = JustifiedLines;
+        var widest = 0F;
+        for (var i = 0; i < old.Length - 1; i++)
+        {
+            widest = Math.Max(widest, WidthOf(old[i]));
+        }
+
+        var pdf = PageObjectSamples.Page(LinesAt(old, static width => width > ShortLine ? StartOfLines : StartOfLines + ShortLineStart, widest));
+        var lines = ReadLines(ReplaceParagraph(pdf, $"{JoinedLetters} {JoinedLetters} {JoinedLetters} {JoinedLetters}", ArabicFont(false)));
+        var right = StartOfLines + widest;
+
+        await Assert.That(lines.Count).IsGreaterThan(old.Length);
+        for (var i = 0; i < lines.Count - 1; i++)
+        {
+            await Assert.That(lines[i].Right).IsEqualTo(right).Within(KashidaTolerance);
+            await Assert.That(lines[i].Left).IsEqualTo(StartOfLines).Within(KashidaTolerance);
+        }
+    }
+
+    /// <summary>A line of a justified Arabic paragraph that has no space and no tatweel to fill it out is drawn wider, so it still reaches both edges.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task JustifiedArabicLineOfOneWordIsDrawnWiderToBothEdges()
+    {
+        const int LettersOfAWord = 20;
+        var old = JustifiedLines;
+        var widest = 0F;
+        for (var i = 0; i < old.Length - 1; i++)
+        {
+            widest = Math.Max(widest, WidthOf(old[i]));
+        }
+
+        var word = new string((char)BehCode, LettersOfAWord);
+        var pdf = PageObjectSamples.Page(LinesAt(old, static width => width > ShortLine ? StartOfLines : StartOfLines + ShortLineStart, widest));
+        var lines = ReadLines(ReplaceParagraph(pdf, $"{word} {word} {word}", ArabicFont(false)));
+        var right = StartOfLines + widest;
+
+        await Assert.That(lines.Count).IsEqualTo(ThreeLines);
+        for (var i = 0; i < lines.Count - 1; i++)
+        {
+            await Assert.That(lines[i].Right).IsEqualTo(right).Within(EdgeTolerance);
+            await Assert.That(lines[i].Left).IsEqualTo(StartOfLines).Within(EdgeTolerance);
+        }
+    }
+
+    /// <summary>Text that mixes both directions reads the way most of its letters do, and the first letter decides when they are even.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="expected">Whether it reads right to left.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments("iPhone ‏مرحبا بالعالم الجميل", true)]
+    [Arguments("Hello world مرحبا", false)]
+    [Arguments("مرحبا abcde", true)]
+    [Arguments("abcde مرحبا", false)]
+    [Arguments("12 (3)", false)]
+    public async Task MixedTextReadsTheWayMostOfItDoes(string text, bool expected) =>
+        await Assert.That(PdfNewTextMeasure.ReadsRightToLeft(text)).IsEqualTo(expected);
+
+    /// <summary>One line of left to right text retyped with left to right text stays lined up on the left.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task LeftToRightTextOfOneLineStaysOnTheLeft()
+    {
+        var pdf = PageObjectSamples.Page(LinesAt([OneLine], static width => RightEdge - width, 0F));
+        var lines = ReadLines(ReplaceParagraph(pdf, LongParagraph));
+
+        await Assert.That(lines[0].Left).IsEqualTo(RightEdge - WidthOf(OneLine)).Within(EdgeTolerance);
     }
 
     /// <summary>A centred paragraph stays centred on the same middle when the text is replaced with a longer one.</summary>
@@ -555,7 +790,7 @@ public sealed class PageObjectEditTests
     [Test]
     public async Task JustifiedParagraphKeepsBothEdges()
     {
-        string[] old = ["The quick brown fox jumps", "over the lazy dog and runs", "away from the farm and keeps", "fields"];
+        var old = JustifiedLines;
         var widest = 0F;
         for (var i = 0; i < old.Length - 1; i++)
         {
@@ -581,7 +816,7 @@ public sealed class PageObjectEditTests
     public async Task TurnedParagraphKeepsItsDirection()
     {
         string[] old = ["The quick brown fox", "jumps over the lazy", "dog and runs away"];
-        var content = new System.Text.StringBuilder("BT /F1 12 Tf ");
+        var content = new System.Text.StringBuilder(ParagraphStart);
         for (var i = 0; i < old.Length; i++)
         {
             _ = content.Append(System.Globalization.CultureInfo.InvariantCulture, $"0 1 -1 0 {TurnedAcross + (i * ParagraphLeading)} {StartOfLines} Tm ({old[i]}) Tj ");
@@ -608,6 +843,21 @@ public sealed class PageObjectEditTests
 
         await Assert.That(string.Join(' ', words)).IsEqualTo(LongParagraph);
         await Assert.That(after[^1].Left).IsGreaterThan(after[0].Left);
+    }
+
+    /// <summary>A right aligned paragraph set at a slant that is no quarter turn keeps its right edge, which is found along the slant and not from the boxes round the letters.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SlantedRightAlignedParagraphKeepsItsRightEdge()
+    {
+        var pdf = PageObjectSamples.Page(SlantedLines(RaggedLines));
+        var runs = SlantedEnds(ReplaceParagraph(pdf, LongParagraph));
+
+        await Assert.That(runs.Count).IsGreaterThan(ThreeLines);
+        foreach (var end in runs)
+        {
+            await Assert.That(end).IsEqualTo(SlantEdge).Within(EdgeTolerance);
+        }
     }
 
     /// <summary>Replacing one turned line writes the new text in the same direction.</summary>
@@ -884,7 +1134,14 @@ public sealed class PageObjectEditTests
     /// <param name="pdf">The PDF bytes.</param>
     /// <param name="text">The new text.</param>
     /// <returns>The edited PDF bytes.</returns>
-    private static byte[] ReplaceParagraph(byte[] pdf, string text) => PageObjectSamples.Edit(pdf, content =>
+    private static byte[] ReplaceParagraph(byte[] pdf, string text) => ReplaceParagraph(pdf, text, null);
+
+    /// <summary>Replaces the paragraph made of every text object of the first page, with a font for the letters the bundled fonts lack.</summary>
+    /// <param name="pdf">The PDF bytes.</param>
+    /// <param name="text">The new text.</param>
+    /// <param name="fallback">The font for letters the bundled font lacks, or <see langword="null"/>.</param>
+    /// <returns>The edited PDF bytes.</returns>
+    private static byte[] ReplaceParagraph(byte[] pdf, string text, PdfFontSource? fallback) => PageObjectSamples.Edit(pdf, content =>
     {
         var lines = new List<PdfTextObject>();
         foreach (var item in content.Objects)
@@ -895,8 +1152,30 @@ public sealed class PageObjectEditTests
             }
         }
 
-        PdfPageContentTextReplacement.ReplaceParagraph(content, lines, text, AppearanceFont.Helvetica, 0F, null);
+        PdfPageContentTextReplacement.ReplaceParagraph(content, lines, text, AppearanceFont.Helvetica, 0F, fallback);
     });
+
+    /// <summary>Makes a font that has the Arabic letters of <see cref="JoinedLetters"/>, a space and the tatweel, each half an em wide except the tatweel, which is a quarter.</summary>
+    /// <returns>The font.</returns>
+    private static PdfFontSource ArabicFontWithTatweel() => ArabicFont(true);
+
+    /// <summary>Makes a font that has the Arabic letters of <see cref="JoinedLetters"/> and a space.</summary>
+    /// <param name="withTatweel">Whether the font has the tatweel too.</param>
+    /// <returns>The font.</returns>
+    private static PdfFontSource ArabicFont(bool withTatweel)
+    {
+        var fixture = new ShapingFixture();
+        _ = fixture.AddMapped('b', BehCode, ShapingFixture.Advance);
+        _ = fixture.AddMapped('a', AlefCode, ShapingFixture.Advance);
+        _ = fixture.AddMapped('l', LamCode, ShapingFixture.Advance);
+        if (withTatweel)
+        {
+            _ = fixture.AddMapped('t', TatweelCode, ShapingFixture.Advance / TatweelShare);
+        }
+
+        _ = fixture.Add(' ');
+        return PdfFontSource.OpenOrThrow(fixture.Build());
+    }
 
     /// <summary>Measures a line of text in the font and size of the lined up paragraphs.</summary>
     /// <param name="text">The text.</param>
@@ -910,7 +1189,7 @@ public sealed class PageObjectEditTests
     /// <returns>The page content.</returns>
     private static string LinesAt(string[] lines, Func<float, float> startOf, float stretchTo)
     {
-        var content = new System.Text.StringBuilder("BT /F1 12 Tf ");
+        var content = new System.Text.StringBuilder(ParagraphStart);
         for (var i = 0; i < lines.Length; i++)
         {
             var width = WidthOf(lines[i]);
@@ -920,6 +1199,45 @@ public sealed class PageObjectEditTests
         }
 
         return content.Append("ET").ToString();
+    }
+
+    /// <summary>Builds the content of a paragraph set at thirty degrees whose lines all end the same distance along the slant.</summary>
+    /// <param name="lines">The words of each line.</param>
+    /// <returns>The page content.</returns>
+    private static string SlantedLines(string[] lines)
+    {
+        var content = new System.Text.StringBuilder(ParagraphStart);
+        for (var i = 0; i < lines.Length; i++)
+        {
+            // The line starts far enough back along the slant to end at the same place, and each line is one leading further down the slant's other side.
+            var back = SlantReach - WidthOf(lines[i]);
+            var x = SlantStartX + (back * SlantAcross) + (i * ParagraphLeading * SlantUp);
+            var y = SlantStartY + (back * SlantUp) - (i * ParagraphLeading * SlantAcross);
+            _ = content.Append(System.Globalization.CultureInfo.InvariantCulture, $"{SlantAcross} {SlantUp} {-SlantUp} {SlantAcross} {x} {y} Tm ({lines[i]}) Tj ");
+        }
+
+        return content.Append("ET").ToString();
+    }
+
+    /// <summary>Reads how far along the slant each line of the first page ends, from the origin and the width of its last letter.</summary>
+    /// <param name="pdf">The PDF bytes.</param>
+    /// <returns>The place along the slant where each line that has words ends.</returns>
+    private static List<float> SlantedEnds(byte[] pdf)
+    {
+        using var document = PdfDocumentReader.Open(pdf, null);
+        var ends = new List<float>();
+        foreach (var item in PdfDocumentPageContent.GetPageContent(document, 0).Objects)
+        {
+            if (item is not PdfTextObject { Text.Length: > 0 } line)
+            {
+                continue;
+            }
+
+            var last = line.Glyphs[line.GlyphCount - 1];
+            ends.Add((last.Origin.X * SlantAcross) + (last.Origin.Y * SlantUp) + WidthOf(line.Text[^1].ToString()));
+        }
+
+        return ends;
     }
 
     /// <summary>Reads the text objects of the first page that have words, with the way each runs.</summary>

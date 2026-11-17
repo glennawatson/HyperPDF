@@ -28,6 +28,12 @@ public sealed class EmbeddedFontScriptTests
     /// <summary>The upward shift of a mark, in ems.</summary>
     private const float MarkRise = 0.4F;
 
+    /// <summary>The key of the replacement text of marked content.</summary>
+    private const string ActualTextKey = "/ActualText";
+
+    /// <summary>The number of pieces a text splits into around the one place it has the key.</summary>
+    private const int PiecesAroundOne = 2;
+
     /// <summary>The Hebrew letters alef and bet, which the test font has.</summary>
     private const string AlefBet = "אב";
 
@@ -69,7 +75,7 @@ public sealed class EmbeddedFontScriptTests
         var shaper = new ScriptedShaper(source).Script("ffi", false, Glyph('W', 0, LigatureAdvance, 0, 0));
         var pdf = EmbeddedFontPdf.Lines(source, new PdfEmbeddedFontOptions { ActualText = policy, Shaper = shaper }, "ffi");
 
-        await Assert.That(Content(pdf).Contains("/ActualText", StringComparison.Ordinal)).IsEqualTo(wrapped);
+        await Assert.That(Content(pdf).Contains(ActualTextKey, StringComparison.Ordinal)).IsEqualTo(wrapped);
         await Assert.That(OptimizerTestKit.Text(pdf)[0]).Contains("ffi");
     }
 
@@ -117,7 +123,22 @@ public sealed class EmbeddedFontScriptTests
         var content = Content(pdf);
 
         await Assert.That(content).Contains("4.8 Ts");
-        await Assert.That(content).Contains("/ActualText");
+        await Assert.That(content).Contains(ActualTextKey);
+        await Assert.That(OptimizerTestKit.Text(pdf)[0]).Contains(EAcute);
+    }
+
+    /// <summary>With the whole run policy a run that has a cluster needing replacement text is wrapped once as a whole, and its text extracts the same.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task WholeRunPolicyWrapsTheRunOnce()
+    {
+        var source = EmbeddedFontPdf.Open(TestFont.Create(), 0);
+        var shaper = new ScriptedShaper(source).Script(EAcute, false, Glyph('e', 0, Advance, 0, 0), Glyph('´', 0, 0, MarkShift, MarkRise));
+        var pdf = EmbeddedFontPdf.Lines(source, new PdfEmbeddedFontOptions { Shaper = shaper, ActualText = PdfActualTextPolicy.WholeRun }, EAcute);
+
+        var content = Content(pdf);
+
+        await Assert.That(content.Split(ActualTextKey).Length).IsEqualTo(PiecesAroundOne);
         await Assert.That(OptimizerTestKit.Text(pdf)[0]).Contains(EAcute);
     }
 

@@ -63,17 +63,26 @@ public sealed class ParagraphFinderTests
     /// <summary>The right edge the right aligned lines end at.</summary>
     private const float RightEdge = 170F;
 
-    /// <summary>How far across the page the first turned line is.</summary>
-    private const float TurnedAcross = 20F;
+    /// <summary>Where the middle of the first turned line is, across and down the page.</summary>
+    private const float TurnedCentre = 200F;
 
-    /// <summary>How far down the page the turned lines start.</summary>
-    private const float TurnedFrom = 40F;
+    /// <summary>The number of degrees in a half turn.</summary>
+    private const float HalfTurnDegrees = 180F;
+
+    /// <summary>The number of a line that is not part of the turned paragraph.</summary>
+    private const int Far = 9;
 
     /// <summary>How long the turned lines are.</summary>
     private const float TurnedLength = 100F;
 
     /// <summary>One half.</summary>
     private const float Half = 0.5F;
+
+    /// <summary>Words that read left to right.</summary>
+    private const string PlainWords = "plain words";
+
+    /// <summary>Words that read right to left.</summary>
+    private const string RightToLeftWords = "مرحبا بالعالم";
 
     /// <summary>The widths of the three lines of the centred and right aligned paragraphs.</summary>
     private static readonly float[] LineWidths = [150F, 100F, 120F];
@@ -170,26 +179,122 @@ public sealed class ParagraphFinderTests
         await Assert.That(ParagraphFinder.Find(page, page[Second])).IsEquivalentTo([First, Second, Third]);
     }
 
-    /// <summary>Lines turned a quarter turn are found one after the other the way they follow, and lines that read another way are left out.</summary>
-    /// <param name="flow">The way the lines read.</param>
+    /// <summary>Two lines that start together do not cut short a paragraph whose lines are all lined up on the right.</summary>
     /// <returns>A task.</returns>
     [Test]
-    [Arguments(TextFlow.Up)]
-    [Arguments(TextFlow.Down)]
-    public async Task TurnedLinesFormAParagraph(TextFlow flow)
+    public async Task LinesThatStartTogetherByChanceDoNotCutShortARightAlignedParagraph()
     {
-        // Lines that read upward follow one another to the right; lines that read downward, to the left.
-        var step = flow == TextFlow.Up ? Step : -Step;
+        const float End = 140F;
+        const float Full = 120F;
+        const float Short = 90F;
+        const float Shorter = 110F;
+        const int Fourth = 3;
         PageObjectInfo[] page =
         [
-            Turned(First, TurnedAcross + (First * step), flow),
-            Turned(Second, TurnedAcross + (Second * step), flow),
-            Turned(Third, TurnedAcross + (Third * step), flow),
-            Turned(FarIndex, TurnedAcross + (FarIndex * step), TextFlow.Right),
+            Sized(First, First, End - Full, Full),
+            Sized(Second, Second, End - Full, Full),
+            Sized(Third, Third, End - Short, Short),
+            Sized(Fourth, Fourth, End - Shorter, Shorter),
+        ];
+
+        await Assert.That(ParagraphFinder.Find(page, page[First])).IsEquivalentTo([First, Second, Third, Fourth]);
+    }
+
+    /// <summary>A text drawn right beside a line on the same row is part of that line and comes after it when the line reads left to right.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ATextBesideALineIsPartOfIt()
+    {
+        const int Beside = 3;
+        const float Touching = 2F;
+        const float Short = 30F;
+        PageObjectInfo[] page = [Line(First, First, PlainWords), Line(Second, Second, PlainWords), Line(Third, Third, PlainWords), Sized(Beside, Second, Left + Width + Touching, Short)];
+
+        await Assert.That(string.Join(',', ParagraphFinder.Find(page, page[Second]))).IsEqualTo("0,1,3,2");
+    }
+
+    /// <summary>A text beside a line that reads right to left is read after the line when it is further left, and one further right is read before it.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ATextBesideARightToLeftLineIsReadInTheWayItReads()
+    {
+        const int Beside = 3;
+        const float Touching = 2F;
+        const float Short = 30F;
+        PageObjectInfo[] page =
+        [
+            Reading(First), Reading(Second), Reading(Third),
+            new(Beside, PageObjectKind.Text, new(RightEdge - LineWidths[Second] - Touching - Short, Second * Step, Short, LineHeight), RightToLeftWords),
+        ];
+
+        await Assert.That(string.Join(',', ParagraphFinder.Find(page, page[Second]))).IsEqualTo("0,1,3,2");
+
+        PageObjectInfo Reading(int row) => new(row, PageObjectKind.Text, new(RightEdge - LineWidths[row], row * Step, LineWidths[row], LineHeight), RightToLeftWords);
+    }
+
+    /// <summary>The texts of a paragraph are joined with one space between them, and a text that is only spaces adds none.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task TextsAreJoinedWithOneSpaceBetweenThem()
+    {
+        const float Piece = 20F;
+        PageObjectInfo[] page =
+        [
+            new(First, PageObjectKind.Text, new(Left, 0F, Piece, LineHeight), " ab "),
+            new(Second, PageObjectKind.Text, new(Left + Piece, 0F, Piece, LineHeight), "  "),
+            new(Third, PageObjectKind.Text, new(Left + Piece + Piece, 0F, Piece, LineHeight), "cd"),
+            new(Third + 1, PageObjectKind.Text, new(Left, Step, Piece, LineHeight), "ef"),
+        ];
+
+        await Assert.That(ParagraphFinder.JoinText(page, [First, Second, Third, Third + 1])).IsEqualTo("ab cd ef");
+    }
+
+    /// <summary>A text far across a row from a line is a column of its own and is not part of the paragraph.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ATextInAnotherColumnIsNotPartOfTheLine()
+    {
+        const int Beside = 3;
+        const float Gutter = 40F;
+        PageObjectInfo[] page = [Line(First, First, PlainWords), Line(Second, Second, PlainWords), Line(Third, Third, PlainWords), Sized(Beside, Second, Left + Width + Gutter, Left)];
+
+        await Assert.That(ParagraphFinder.Find(page, page[Second])).IsEquivalentTo([First, Second, Third]);
+    }
+
+    /// <summary>Lines turned to any angle are found one after the other the way they follow, and a line right where the next one would be that reads another way is left out.</summary>
+    /// <param name="degrees">The way the lines read, anticlockwise from reading to the right.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(30F)]
+    [Arguments(90F)]
+    [Arguments(135F)]
+    [Arguments(180F)]
+    [Arguments(270F)]
+    [Arguments(345F)]
+    public async Task TurnedLinesFormAParagraph(float degrees)
+    {
+        var across = Turned(Far, Third + 1, degrees);
+        PageObjectInfo[] page =
+        [
+            Turned(First, First, degrees),
+            Turned(Second, Second, degrees),
+            Turned(Third, Third, degrees),
+            across with { Reading = across.Reading with { DirectionX = -across.Reading.DirectionY, DirectionY = across.Reading.DirectionX } },
         ];
 
         await Assert.That(ParagraphFinder.Find(page, page[Second])).IsEquivalentTo([First, Second, Third]);
         await Assert.That(ParagraphFinder.Find(page, page[Third])[0]).IsEqualTo(First);
+    }
+
+    /// <summary>Turned lines that are centred on the same middle are found as one paragraph.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task TurnedCentredLinesFormAParagraph()
+    {
+        const float Degrees = 60F;
+        PageObjectInfo[] page = [TurnedBy(First, First, Degrees, LineWidths[First]), TurnedBy(Second, Second, Degrees, LineWidths[Second]), TurnedBy(Third, Third, Degrees, LineWidths[Third])];
+
+        await Assert.That(ParagraphFinder.Find(page, page[Second])).IsEquivalentTo([First, Second, Third]);
     }
 
     /// <summary>Bullets, numbers and brackets mark list items; ordinary words do not.</summary>
@@ -237,13 +342,32 @@ public sealed class ParagraphFinderTests
     /// <returns>The object.</returns>
     private static PageObjectInfo Sized(int index, int row, float left, float width) => new(index, PageObjectKind.Text, new(left, row * Step, width, LineHeight), "words");
 
-    /// <summary>Makes a line of text that reads upward or downward, whose box is as tall as the line is long.</summary>
+    /// <summary>Makes a line of text that reads at an angle, the full length of a paragraph's lines.</summary>
     /// <param name="index">The object's number.</param>
-    /// <param name="across">How far across the page the line is.</param>
-    /// <param name="flow">The way the line reads.</param>
+    /// <param name="row">How many lines on from the first line it is, in the way the lines follow one another.</param>
+    /// <param name="degrees">The way the line reads.</param>
     /// <returns>The object.</returns>
-    private static PageObjectInfo Turned(int index, float across, TextFlow flow) =>
-        new(index, PageObjectKind.Text, new(across, TurnedFrom, LineHeight, TurnedLength), "words") { Flow = flow };
+    private static PageObjectInfo Turned(int index, int row, float degrees) => TurnedBy(index, row, degrees, TurnedLength);
+
+    /// <summary>Makes a line of text that reads at an angle, centred on the same middle as the others of its paragraph.</summary>
+    /// <param name="index">The object's number.</param>
+    /// <param name="row">How many lines on from the first line it is.</param>
+    /// <param name="degrees">The way the line reads.</param>
+    /// <param name="length">How long the line is.</param>
+    /// <returns>The object, whose bounds are the box round the turned line.</returns>
+    private static PageObjectInfo TurnedBy(int index, int row, float degrees, float length)
+    {
+        var angle = degrees * (MathF.PI / HalfTurnDegrees);
+        var directionX = MathF.Cos(angle);
+        var directionY = -MathF.Sin(angle);
+
+        // The next line is a quarter turn clockwise from the way a line reads: down the page for a line that reads to the right.
+        var middleX = TurnedCentre - (directionY * row * Step);
+        var middleY = TurnedCentre + (directionX * row * Step);
+        var reachX = ((MathF.Abs(directionX) * length) + (MathF.Abs(directionY) * LineHeight)) * Half;
+        var reachY = ((MathF.Abs(directionY) * length) + (MathF.Abs(directionX) * LineHeight)) * Half;
+        return new(index, PageObjectKind.Text, new(middleX - reachX, middleY - reachY, reachX / Half, reachY / Half), "words") { Reading = new(directionX, directionY, length, LineHeight) };
+    }
 
     /// <summary>Makes a line of text.</summary>
     /// <param name="index">The object's number.</param>

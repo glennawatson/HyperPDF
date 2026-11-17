@@ -2,7 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
 using ReactiveUI.SourceGenerators;
 
@@ -49,25 +49,8 @@ public sealed partial class PageContentEditViewModel
     /// <param name="objects">The objects of the page.</param>
     /// <param name="lines">The numbers of the lines.</param>
     /// <returns>The words.</returns>
-    internal static string JoinLines(PageObjectInfo[] objects, int[] lines)
-    {
-        var words = new StringBuilder();
-        foreach (var index in lines)
-        {
-            foreach (var item in objects)
-            {
-                if (item.Index != index)
-                {
-                    continue;
-                }
-
-                _ = words.Length > 0 ? words.Append(' ').Append(item.Text.Trim()) : words.Append(item.Text.Trim());
-                break;
-            }
-        }
-
-        return words.ToString();
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string JoinLines(PageObjectInfo[] objects, int[] lines) => ParagraphFinder.JoinText(objects, lines);
 
     /// <summary>Starts retyping the picked text's paragraph from a menu.</summary>
     [ReactiveCommand]

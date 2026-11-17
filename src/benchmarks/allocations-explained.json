@@ -5115,9 +5115,259 @@
     "reason": "The list of a paragraph's lines, sorted from the top. It is made once for each reflow, which is one edit a person makes."
   },
   {
-    "type": "System.Collections.Generic.List`1[System.String]",
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.PageObjects.PdfPageContentTextReplacement+WrappedLine]",
     "frame": "HyperPdfLibrary.PageObjects.PdfPageContentTextReplacement.Wrap",
-    "reason": "The wrapped lines of the new text, which the reflow writes out. The words are measured where they stand in the text, so only these finished lines are made as strings."
+    "reason": "The wrapped lines of the new text, which the reflow writes out. The words are measured where they stand in the text, so only these finished lines are made as strings. The list is sized from the length of the text."
+  },
+  {
+    "type": "WrappedLine[]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentTextReplacement.Wrap",
+    "reason": "The storage of the list of wrapped lines, sized from the length of the text so it is made once. The lines are the result of wrapping, and the reflow writes each of them."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Fonts.Embedding.PdfShapedGlyph]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentTextReplacement.ReplaceParagraph",
+    "reason": "One list the shaper fills while the words of a reflowed paragraph are measured, made only when the text needs an embedded font. It is reused for every word and line of the edit."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Core.Documents.ParagraphFinder.FindLined",
+    "reason": "The numbers of the lines of the paragraph, which are the result of the search and are as many as the paragraph has lines. The room the search works in is borrowed from the array pool."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentTextReplacement.WrapParagraph",
+    "reason": "The finished lines of the new text, which are the result of wrapping and are written to the page. The words are measured where they stand in the text, so only these lines are made as strings."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.PdfShapedGlyph[]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentTextReplacement.WriteLines",
+    "reason": "The storage of the list the shaper fills while the words of a reflowed paragraph are measured, made once for the edit and sized for a long line."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.PageObjects.PdfNewTextKashida.Insert",
+    "reason": "The line of a justified right-to-left paragraph with its tatweels in it, made once for each stretched line and written to the page. It is the result of stretching."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Fonts.Embedding.PdfShapedGlyph]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentTextReplacement.WriteLines",
+    "reason": "One list the shaper fills while the words of a reflowed paragraph are measured, made only when the text needs an embedded font, sized for a long line and reused for every word and line of the edit."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.PdfShapedGlyph[]",
+    "frame": "HyperPdfLibrary.Fonts.Shaping.SegmentShaper.Emit",
+    "reason": "The storage of the list the shaper fills grows when a line has more glyphs than the list was sized for. A reflowed paragraph shapes its lines into one list that is made once and reused, so it grows only for the longest line."
+  },
+  {
+    "type": "Entry[System.Int32,System.Int32][]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedGlyphUse..ctor",
+    "reason": "The table of the codes of the glyphs one embedded font has shown, sized for a page of text in one allocation. A reflowed paragraph makes one font for all its lines, and the table is read until the font is finished."
+  },
+  {
+    "type": "Entry[System.Int32,System.String][]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedGlyphUse..ctor",
+    "reason": "The table of the text each code of one embedded font stands for, sized for a page of text in one allocation. It is kept by the font's snapshot, which writes the font's ToUnicode map."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedGlyphUse..ctor",
+    "reason": "The dictionaries of the glyphs and texts of one embedded font, made once for each font. A reflowed paragraph makes one font for all its lines."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedGlyphUse..ctor",
+    "reason": "The buckets of the dictionaries of one embedded font, sized for a page of text in one allocation each."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Int32]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedGlyphUse..ctor",
+    "reason": "The order in which one embedded font first showed its glyphs, which decides their codes."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedGlyphUse..ctor",
+    "reason": "The lock that guards the glyph tables of one embedded font, as lines of one document may be written from more than one thread."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.PdfEmbeddedFont..ctor",
+    "reason": "The lock that guards the finishing of one embedded font, as it may be finished from more than one thread."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.EmbeddedGlyphUse",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.PdfEmbeddedFont..ctor",
+    "reason": "The record of the glyphs one embedded font has shown, made once for each font."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.PdfShapingOptions",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.PdfEmbeddedFont..ctor",
+    "reason": "The options one embedded font shapes its text with, made once for each font."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.PdfEmbeddedFont",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.PdfEmbeddedFont.Create",
+    "reason": "The embedded font of a reflowed paragraph, made once for all its lines. It is held until the font is finished, and its objects live in the document."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.PdfEmbeddedFont[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.PdfEmbeddedFont.Create",
+    "reason": "The list of the fonts of the document that are not finished, which grows as a font is added and shrinks as they are finished."
+  },
+  {
+    "type": "HyperPdfLibrary.Writing.PdfObjectStoreSink",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.PdfEmbeddedFont.Create",
+    "reason": "The adapter that puts the objects of one embedded font into the document's store, made once for each font."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfDictionary",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedFontWriter.",
+    "reason": "The font, descriptor and CID system info dictionaries of an embedded font. They are objects of the saved document and live as long as it does."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfArray",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedFontWriter.Write",
+    "reason": "The descendant fonts array and the font's other arrays, which are objects of the saved document and live as long as it does."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfArray",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.CidWidths.",
+    "reason": "The /W array of the glyph widths of an embedded font and its lists of widths, which are objects of the saved document and live as long as it does."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfStream",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.FontStreams.Compress",
+    "reason": "The stream that holds a font file or a map of an embedded font, made once for each, which is an object of the saved document."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfDictionary",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.FontStreams.Compress",
+    "reason": "The dictionary of the stream that holds a font file or a map of an embedded font, which is an object of the saved document."
+  },
+  {
+    "type": "Entry[System.Int32,HyperPdfLibrary.Objects.PdfValue][]",
+    "frame": "HyperPdfLibrary.Objects.StoreEditing.Add",
+    "reason": "The table of the objects of the document grows as the objects of the embedded font are added to it, and lives as long as the document does."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedGlyphUse.Freeze",
+    "reason": "The glyphs and codes of an embedded font in code order, copied once when the font is finished so the font's writer reads a snapshot."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedFontPlanner.With",
+    "reason": "The glyphs of an embedded font with the missing glyph first, made once when the font is finished."
+  },
+  {
+    "type": "System.Single[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedFontPlanner.Widths",
+    "reason": "The width of each glyph of an embedded font, made once when the font is finished and written into its /W array."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedGlyphUse.TextOf",
+    "reason": "The text a code of an embedded font stands for, made once for each code and kept for the font's ToUnicode map. A one-character text of Latin-1 is shared."
+  },
+  {
+    "type": "HyperPdfLibrary.Fonts.Embedding.SubsetProgram",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.TrueTypeRenumberer.Subset",
+    "reason": "The subset font of an embedded font, which is the result of cutting it down to the glyphs shown."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.TrueTypeRenumberer.Subset",
+    "reason": "The original glyph of each glyph of the subset font, kept with the subset as the map from new glyphs to old."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.TrueTypeRenumberer.",
+    "reason": "The tables of the subset font, made once for each font as the bytes its file is written from: the glyph data and locations, and the head, hhea and maxp copies that have their counts changed."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.EmbeddedFontPlanner.PlanTrueType",
+    "reason": "The name of the subset font, made once for each font when it is finished."
+  },
+  {
+    "type": "System.Byte[]",
+    "frame": "HyperPdfLibrary.Optimizing.SfntWriter.Write",
+    "reason": "The file of the subset font, made once for each embedded font when it is finished; it is the font program written into the document."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Fonts.Embedding.SubsetTags.Create",
+    "reason": "The six letter tag of a subset font's name, made once for each embedded font when it is finished."
+  },
+  {
+    "type": "ObjectEdit[]",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentPageContentEditing.EditAsync",
+    "reason": "One edit is handed to the path that applies several as an array of one, once for each edit the user makes; the edit is a large value that cannot be passed by reference across the await that prepares the page."
+  },
+  {
+    "type": "System.Func",
+    "frame": "HyperPdf.Engine.HyperPdfPageContentEditorService.",
+    "reason": "ReactiveUI.Primitives wiring: each read or edit of a page's objects is a cold signal made with Signal.FromAsync, which holds the work to start as a delegate, once for each read or edit the user makes."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.FromAsyncSignal",
+    "frame": "HyperPdf.Engine.HyperPdfPageContentEditorService.",
+    "reason": "ReactiveUI.Primitives wiring: the cold signal Signal.FromAsync returns for one read or edit of a page's objects, once for each read or edit the user makes."
+  },
+  {
+    "type": "<>c__DisplayClass",
+    "frame": "HyperPdf.Engine.HyperPdfPageContentEditorService.",
+    "reason": "ReactiveUI.Primitives wiring: the page, the object and the change of one read or edit, kept for the signal that starts the work when it is subscribed to, once for each read or edit the user makes."
+  },
+  {
+    "type": "System.Threading.Tasks.Task",
+    "frame": "HyperPdf.Engine.HyperPdfPageContentEditorService",
+    "reason": "The task of one asynchronous read of a page's objects, whose result is the list the caller asked for, once for each read."
+  },
+  {
+    "type": "System.Func",
+    "frame": "HyperPdf.Engine.HyperPdfPageManager.Undo",
+    "reason": "ReactiveUI.Primitives wiring: an undo is a cold signal made with Signal.FromAsync, which holds the work to start as a delegate, once for each undo the user makes."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.FromAsyncSignal",
+    "frame": "HyperPdf.Engine.HyperPdfPageManager.Undo",
+    "reason": "ReactiveUI.Primitives wiring: the cold signal Signal.FromAsync returns for one undo, once for each undo the user makes."
+  },
+  {
+    "type": "ReactiveUI.Primitives.",
+    "frame": "HyperPdf.Benchmarks.PageContentEditBenchmarks.",
+    "reason": "ReactiveUI.Primitives wiring of the benchmark itself: it awaits the signal of each read, edit and undo with ToTask, which subscribes once and makes the subscription, its lifetime and its completion for that one await. The viewer subscribes the same way, once for each read or edit the user makes."
+  },
+  {
+    "type": "System.Action",
+    "frame": "HyperPdf.Benchmarks.PageContentEditBenchmarks.",
+    "reason": "ReactiveUI.Primitives wiring of the benchmark itself: the handlers ToTask subscribes with for the value, the error and the end of the one signal it awaits."
+  },
+  {
+    "type": "System.Threading.",
+    "frame": "HyperPdf.Benchmarks.PageContentEditBenchmarks.",
+    "reason": "ReactiveUI.Primitives wiring of the benchmark itself: the task, its completion source and the cancellation source ToTask makes to await one signal."
+  },
+  {
+    "type": "<>c__DisplayClass",
+    "frame": "HyperPdf.Benchmarks.PageContentEditBenchmarks.",
+    "reason": "ReactiveUI.Primitives wiring of the benchmark itself: the state ToTask keeps for the one signal it awaits."
+  },
+  {
+    "type": "System.UInt64[]",
+    "frame": "HyperPdfLibrary.Document.PageTreeWalk..ctor",
+    "reason": "The marks of the page tree nodes a walk has seen, which guard against a tree that loops; made once for each walk of the page tree, which an edit that replaces the document's pages does once."
+  },
+  {
+    "type": "ZLibStreamHandle",
+    "frame": "HyperPdfLibrary.Compat.FlateEncoderPool.Create",
+    "reason": "The pool makes an encoder only when every one it has is in use and keeps it for the next stream, so a document makes as many as it compresses at once."
+  },
+  {
+    "type": "System.IO.Compression.",
+    "frame": "HyperPdfLibrary.Compat.FlateEncoderPool.Create",
+    "reason": "The pool makes an encoder only when every one it has is in use and keeps it for the next stream, so a document makes as many as it compresses at once."
   },
   {
     "type": "HyperPdfLibrary.Objects.PdfDictionary",
