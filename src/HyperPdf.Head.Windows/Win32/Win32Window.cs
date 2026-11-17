@@ -27,6 +27,9 @@ public sealed unsafe class Win32Window : IPlatformWindow
     /// <summary>The command that shows a minimised window as it was.</summary>
     private const int RestoreCommand = 9;
 
+    /// <summary>The ShowWindow command that maximises a window.</summary>
+    private const int MaximizeCommand = 3;
+
     /// <summary>The message that carries the files dropped on the window.</summary>
     private const uint DropFiles = 0x0233;
 
@@ -181,6 +184,9 @@ public sealed unsafe class Win32Window : IPlatformWindow
     public double Scale => _scale;
 
     /// <inheritdoc/>
+    public bool IsMaximized => NativeMethods.IsZoomed((nint)_window) != 0;
+
+    /// <inheritdoc/>
     public long NativeHandle => _window;
 
     /// <inheritdoc/>
@@ -244,6 +250,21 @@ public sealed unsafe class Win32Window : IPlatformWindow
 
         Win32FullScreen.Leave((nint)_window, _windowed!.Value);
         _windowed = null;
+    }
+
+    /// <inheritdoc/>
+    public void SetMaximized(bool on) => _ = NativeMethods.ShowWindow((nint)_window, on ? MaximizeCommand : RestoreCommand);
+
+    /// <inheritdoc/>
+    public void SetSize(int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        // The resize arrives as a size message, which resizes the drawing area the way a drag of the edge does.
+        Win32WindowSize.SetClient((nint)_window, (int)Math.Round(width * Scale), (int)Math.Round(height * Scale));
     }
 
     /// <inheritdoc/>

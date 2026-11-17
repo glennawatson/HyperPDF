@@ -5,6 +5,7 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Content;
+using HyperPdfLibrary.Objects;
 using HyperPdfLibrary.PageObjects;
 
 namespace HyperPdfLibrary.PageObjects;
@@ -54,6 +55,39 @@ internal static class PageContentParseGraphics
     /// <param name = "reader">The reader.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void OpSetLineWidth(PageContentParseState self, ref ContentReader reader) => self.State.LineWidth = Math.Max(0, reader.Number(0));
+
+    /// <summary>Handles <c>gs</c>: follows the opacity and blend mode, so an edit can put them back after it changes them.</summary>
+    /// <param name = "self">The parser.</param>
+    /// <param name = "reader">The reader.</param>
+    internal static void OpSetGraphicsState(PageContentParseState self, ref ContentReader reader)
+    {
+        var name = reader.Operand(0).Name;
+        if (PageContentParseObjects.FindResource(self, KnownName.ExtGState, name).AsDictionary() is not { } dictionary)
+        {
+            return;
+        }
+
+        if (dictionary.Get(KnownName.CA).IsNumber)
+        {
+            self.State.StrokeAlpha = Math.Clamp(dictionary.GetSingle(KnownName.CA), 0F, 1F);
+        }
+
+        if (dictionary.Get(KnownName.FillAlpha).IsNumber)
+        {
+            self.State.FillAlpha = Math.Clamp(dictionary.GetSingle(KnownName.FillAlpha), 0F, 1F);
+        }
+
+        var blend = dictionary.Get(KnownName.BM);
+        if (blend.AsArray() is { Count: > 0 } list)
+        {
+            blend = list.Get(0);
+        }
+
+        if (blend.Kind == PdfKind.Name)
+        {
+            self.State.BlendMode = blend.AsName();
+        }
+    }
 
     /// <summary>Handles <c>m</c>.</summary>
     /// <param name = "self">The parser.</param>
@@ -215,7 +249,8 @@ internal static class PageContentParseGraphics
     /// <param name = "reader">The reader.</param>
     internal static void OpEndPath(PageContentParseState self, ref ContentReader reader)
     {
-        PageContentParseGraphics.ApplyPendingClip(self);
+        // A path that only clips is not an object, so the clip remembers where its operators are, to be moved with the object it clips.
+        PageContentParseGraphics.ApplyPendingClip(self, new(self.PathStart, self.OperatorEnd));
         PageContentParseGraphics.ResetPath(self);
     }
 
@@ -289,13 +324,14 @@ internal static class PageContentParseGraphics
         var width = mode == PdfPathPaintMode.Fill ? 0 : state.State.LineWidth;
         var item = new PdfPathObject { Segments = segments, PaintMode = mode, EvenOddFill = evenOdd, ClosesPath = close, Clip = state.PendingClip, };
         PageContentParseObjects.Add(state, item, PathBounds.Measure(segments, state.State.Ctm, width), new(state.PathStart, state.OperatorEnd));
-        PageContentParseGraphics.ApplyPendingClip(state);
+        PageContentParseGraphics.ApplyPendingClip(state, default);
         PageContentParseGraphics.ResetPath(state);
     }
 
     /// <summary>Adds the pending clip to the state, after the path it came with was painted.</summary>
     /// <param name = "state">The owned parse or content state.</param>
-    internal static void ApplyPendingClip(PageContentParseState state)
+    /// <param name = "source">Where the operators of a path that was only a clip are, or empty when the path was painted too.</param>
+    internal static void ApplyPendingClip(PageContentParseState state, ByteRange source)
     {
         if (state.PendingClip == PdfClipMode.None || state.Segments.Count == 0)
         {
@@ -307,7 +343,7 @@ internal static class PageContentParseGraphics
         var parent = state.State.Clip;
         var clipped = parent is null ? bounds : parent.Bounds.Intersect(bounds);
         var path = new PdfClipPath(segments, state.State.Ctm, state.PendingClip == PdfClipMode.EvenOdd, bounds);
-        state.State.Clip = new(parent, path, clipped);
+        state.State.Clip = new(parent, path, clipped, source);
     }
 
     /// <summary>Forgets the path being built.</summary>

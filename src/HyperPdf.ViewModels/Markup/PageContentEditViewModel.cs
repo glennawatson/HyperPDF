@@ -242,6 +242,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
             return false;
         }
 
+        _paragraphLines = null;
         EditingText = picked.Object.Text;
         TextEdit = picked;
         MarksVersion++;
@@ -257,9 +258,15 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
         }
 
         var text = EditingText;
+        var paragraph = _paragraphLines;
+        _paragraphLines = null;
         TextEdit = null;
         MarksVersion++;
-        if (text != edit.Object.Text)
+        if (paragraph is not null)
+        {
+            CommitParagraph(edit, paragraph, text);
+        }
+        else if (text != edit.Object.Text)
         {
             Track(Edit(edit, _ => Editor!.ReplaceText(edit.Page, edit.Object.Index, text), edit.Object.Bounds, UiText.Get("Changed the text.")));
         }
@@ -273,6 +280,7 @@ public sealed partial class PageContentEditViewModel : ReactiveObject, IDisposab
             return;
         }
 
+        _paragraphLines = null;
         TextEdit = null;
         MarksVersion++;
     }

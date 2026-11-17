@@ -139,6 +139,9 @@ internal static class Selectors
     /// <summary>Gets <c>setFragmentTexture:atIndex:</c>.</summary>
     internal static nint SetFragmentTexture { get; } = NativeMethods.Selector("setFragmentTexture:atIndex:");
 
+    /// <summary>Gets <c>setScissorRect:</c>.</summary>
+    internal static nint SetScissorRect { get; } = NativeMethods.Selector("setScissorRect:");
+
     /// <summary>Gets <c>setFragmentSamplerState:atIndex:</c>.</summary>
     internal static nint SetFragmentSamplerState { get; } = NativeMethods.Selector("setFragmentSamplerState:atIndex:");
 

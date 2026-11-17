@@ -24,6 +24,12 @@ internal static class ChromePainter
     /// <summary>The colour of the ink on a drawing pad.</summary>
     private const uint PadInkColor = 0xFF202020;
 
+    /// <summary>The mask of the red, green and blue bits of a colour.</summary>
+    private const uint ColorBits = 0x00FFFFFF;
+
+    /// <summary>The alpha, in the top byte, that dimmed text is drawn with.</summary>
+    private const uint DimmedAlpha = 0x70000000;
+
     /// <summary>Draws a list of controls, back to front.</summary>
     /// <param name="pass">The frame.</param>
     /// <param name="items">The controls.</param>
@@ -66,6 +72,13 @@ internal static class ChromePainter
         var bounds = item.Bounds;
         if (DrawMark(pass, item, look))
         {
+            return;
+        }
+
+        // A popup or a panel with a colour of its own is filled with it alone, as the page behind focus mode's text and the mark under a word are.
+        if (item.Ground != 0 && item.Kind is ChromeItemKind.Popup or ChromeItemKind.Panel)
+        {
+            pass.FillRect(bounds, item.Ground);
             return;
         }
 
@@ -190,8 +203,8 @@ internal static class ChromePainter
     private static void DrawText(IFramePass pass, ChromeItem item, ChromeLook look)
     {
         var metrics = look.Metrics;
-        var color = item.Enabled ? look.Theme.Text : look.Theme.Faded;
-        var run = look.Runs.Get(item.Text, new(item.TextSize > 0 ? item.TextSize : metrics.TextSize, item.Kind == ChromeItemKind.Heading, color));
+        TextStyle style = new(item.TextSize > 0 ? item.TextSize : metrics.TextSize, item.Kind == ChromeItemKind.Heading, TextColorOf(item, look)) { Serif = item.Serif };
+        var run = look.Runs.Get(item.Text, style);
         var bounds = item.Bounds;
         var left = item.Kind == ChromeItemKind.Button ? bounds.X + Math.Floor((bounds.Width - run.Width) / MarkLines) : bounds.X + metrics.Padding;
         var top = bounds.Y + Math.Floor((bounds.Height - run.Height) / MarkLines);
@@ -205,6 +218,25 @@ internal static class ChromePainter
             // The caret sits after the text, where the next typed character goes.
             pass.FillRect(new(left + run.Width, bounds.Y + metrics.Gap, metrics.Line * MarkLines, bounds.Height - metrics.Gap - metrics.Gap), look.Theme.Text);
         }
+    }
+
+    /// <summary>Picks the colour a control's text is drawn in: its own when it has one, otherwise the theme's, and fainter when it is dimmed.</summary>
+    /// <param name="item">The control.</param>
+    /// <param name="look">The colours.</param>
+    /// <returns>The colour as ARGB.</returns>
+    private static uint TextColorOf(ChromeItem item, ChromeLook look)
+    {
+        var color = look.Theme.Faded;
+        if (item.Tint != 0)
+        {
+            color = item.Tint;
+        }
+        else if (item.Enabled)
+        {
+            color = look.Theme.Text;
+        }
+
+        return item.Dimmed ? (color & ColorBits) | DimmedAlpha : color;
     }
 
     /// <summary>Draws a filled box with a border.</summary>

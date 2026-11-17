@@ -5098,5 +5098,65 @@
     "type": "System.Single[]",
     "frame": "HyperPdf.Viewer.Text.CoverageBuffer.Reset",
     "reason": "The coverage buffer grows to the largest piece of text drawn so far and is then reused for every piece after it."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfNewTextRun",
+    "frame": "HyperPdfLibrary.PageObjects.PdfNewTextRun.Create",
+    "reason": "One run for each line the new text is written in. It holds the font the line uses until the line is written, and each line of a reflowed paragraph is its own run, so the count follows the text."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfTextObject[]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentTextReplacement.OrderLines",
+    "reason": "The list of a paragraph's lines, sorted from the top. It is made once for each reflow, which is one edit a person makes, and it is as long as the paragraph."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.PageObjects.PdfTextObject]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentTextReplacement.OrderLines",
+    "reason": "The list of a paragraph's lines, sorted from the top. It is made once for each reflow, which is one edit a person makes."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.String]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentTextReplacement.Wrap",
+    "reason": "The wrapped lines of the new text, which the reflow writes out. The words are measured where they stand in the text, so only these finished lines are made as strings."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfDictionary",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentWriter.WriteTransparency",
+    "reason": "The graphics state dictionary the file stores for an object made see-through or given a blend mode. It is part of the saved document, so it lives as long as the document does."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PendingResource",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentWriter.WriteTransparency",
+    "reason": "The record that adds that graphics state to the page's resources when the content is applied. One for each object changed."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PendingResource[]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentWriter.WriteTransparency",
+    "reason": "The growing list of resources to add when the content is applied. It doubles as it fills and is kept until the content is applied."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PendingResource[]",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentGradientWriter.WriteFill",
+    "reason": "The growing list of resources to add when the content is applied. It doubles as it fills and is kept until the content is applied."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PendingResource",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentGradientWriter.WriteFill",
+    "reason": "The record that adds the gradient's pattern to the page's resources when the content is applied. One for each object filled."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfDictionary",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentGradientWriter",
+    "reason": "The pattern, shading and function dictionaries of a gradient fill. The file stores them, so they live as long as the document does."
+  },
+  {
+    "type": "HyperPdfLibrary.Objects.PdfArray",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentGradientWriter",
+    "reason": "The coordinate, colour, domain and extend arrays of a gradient's shading. The file stores them, so they live as long as the document does."
+  },
+  {
+    "type": "HyperPdfLibrary.PageObjects.PdfPaint",
+    "frame": "HyperPdfLibrary.PageObjects.PdfPageContentGradientWriter.WriteFill",
+    "reason": "The pattern colour that selects the gradient's pattern for filling. One for each object filled, kept by the colour state while the object is written."
   }
 ]

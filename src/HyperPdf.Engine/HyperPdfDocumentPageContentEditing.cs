@@ -84,6 +84,9 @@ internal static class HyperPdfDocumentPageContentEditing
 
         /// <summary>Crops a picture, keeping what is stored.</summary>
         CropPicture = 12,
+
+        /// <summary>Writes new words over the lines of a paragraph, wrapped to the width the paragraph had.</summary>
+        ReflowParagraph = 13,
     }
 
     /// <summary>Lists what a page is made of.</summary>
@@ -119,7 +122,9 @@ internal static class HyperPdfDocumentPageContentEditing
             }
 
             var area = LinkTargets.ToPageRect(page.ToPhysicalRectangle(item.Bounds));
-            objects[next] = new(item.Index, ToKind(item.Kind), area, item is PdfTextObject run ? RightToLeftText.Typed(self.Document, pageIndex, run) : string.Empty);
+            objects[next] = item is PdfTextObject run
+                ? new(item.Index, ToKind(item.Kind), area, RightToLeftText.Typed(self.Document, pageIndex, run)) { Flow = PageObjectFlows.Of(page, run) }
+                : new(item.Index, ToKind(item.Kind), area, string.Empty);
             next++;
         }
 
@@ -234,7 +239,7 @@ internal static class HyperPdfDocumentPageContentEditing
     /// <param name="look">What to change.</param>
     /// <param name="cancellationToken">Cancels before the edit.</param>
     /// <returns>A task completing after the page has changed.</returns>
-    internal static ValueTask SetLookManyAsync(HyperPdfDocument self, int pageIndex, int[] objectIndexes, PageObjectLook look, CancellationToken cancellationToken)
+    internal static ValueTask SetLookManyAsync(HyperPdfDocument self, int pageIndex, int[] objectIndexes, in PageObjectLook look, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(objectIndexes);
         var edits = new ObjectEdit[objectIndexes.Length];
@@ -382,6 +387,22 @@ internal static class HyperPdfDocumentPageContentEditing
     {
         ArgumentNullException.ThrowIfNull(text);
         return EditAsync(self, pageIndex, new(ObjectEditKind.ReplaceText, objectIndex, default, text, default, default, default) { Fonts = self.FontState }, cancellationToken);
+    }
+
+    /// <summary>Replaces the text of the lines of a paragraph with new text wrapped to the width the paragraph had.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="objectIndexes">The numbers of the text objects that are the paragraph's lines.</param>
+    /// <param name="text">The new text.</param>
+    /// <param name="cancellationToken">Cancels before the edit.</param>
+    /// <returns>A task completing after the page has changed.</returns>
+    internal static ValueTask ReflowParagraphAsync(HyperPdfDocument self, int pageIndex, int[] objectIndexes, string text, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(objectIndexes);
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentOutOfRangeException.ThrowIfZero(objectIndexes.Length);
+        var edit = new ObjectEdit(ObjectEditKind.ReflowParagraph, objectIndexes[0], default, text, default, default, default) { Fonts = self.FontState, Lines = objectIndexes };
+        return EditAsync(self, pageIndex, edit, cancellationToken);
     }
 
     /// <summary>Sets a text object in another font and size.</summary>
@@ -545,18 +566,42 @@ internal static class HyperPdfDocumentPageContentEditing
 
             default:
             {
-                Retype(content, item as PdfTextObject ?? throw new InvalidOperationException("The object is not text."), edit);
+                Retype(content, item, edit);
                 break;
             }
         }
     }
 
+    /// <summary>Writes new words over the lines of a paragraph, wrapped to the width the paragraph had.</summary>
+    /// <param name="content">The page content.</param>
+    /// <param name="edit">The edit, which names the paragraph's lines and holds the new words.</param>
+    /// <exception cref="InvalidOperationException">A line is not text.</exception>
+    private static void Reflow(PdfPageContent content, in ObjectEdit edit)
+    {
+        var lines = new List<PdfTextObject>(edit.Lines.Length);
+        foreach (var index in edit.Lines)
+        {
+            lines.Add(Find(content, index) as PdfTextObject ?? throw new InvalidOperationException("The object is not text."));
+        }
+
+        var words = edit.Text ?? string.Empty;
+        PdfPageContentTextReplacement.ReplaceParagraph(content, lines, words, AppearanceFont.Helvetica, 0F, FallbackFor(edit, words, AppearanceFont.Helvetica));
+    }
+
     /// <summary>Writes a text object's words again, either as new words or in another font and size.</summary>
     /// <param name="content">The page content.</param>
-    /// <param name="run">The text object.</param>
-    /// <param name="edit">The edit: a retype with new words, or a restyle that keeps the words.</param>
-    private static void Retype(PdfPageContent content, PdfTextObject run, in ObjectEdit edit)
+    /// <param name="item">The object to retype or restyle, which must be text.</param>
+    /// <param name="edit">The edit: a retype with new words, a restyle that keeps the words, or a reflow of a paragraph.</param>
+    /// <exception cref="InvalidOperationException">The object is not text.</exception>
+    private static void Retype(PdfPageContent content, PdfPageObject item, in ObjectEdit edit)
     {
+        if (edit.Kind == ObjectEditKind.ReflowParagraph)
+        {
+            Reflow(content, edit);
+            return;
+        }
+
+        var run = item as PdfTextObject ?? throw new InvalidOperationException("The object is not text.");
         var restyle = edit.Kind == ObjectEditKind.Restyle;
         var font = restyle ? HyperPdfDocumentPageContentAdding.FontOf(edit.Style.Family, edit.Style.Bold, edit.Style.Italic) : AppearanceFont.Helvetica;
         var words = restyle ? run.GetRemainingText() : edit.Text ?? string.Empty;
@@ -738,16 +783,16 @@ internal static class HyperPdfDocumentPageContentEditing
         }
     }
 
-    /// <summary>Crops a picture of the page.</summary>
+    /// <summary>Crops a picture, drawing or shading of the page.</summary>
     /// <param name="item">The object.</param>
-    /// <param name="shares">The shares of the picture cut off each side.</param>
-    /// <exception cref="InvalidOperationException">The object is not a picture or a form.</exception>
+    /// <param name="shares">The shares of the object cut off each side.</param>
+    /// <exception cref="InvalidOperationException">The object is text.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The shares are out of range or leave nothing.</exception>
     private static void CropPicture(PdfPageObject item, PageMargins shares)
     {
-        if (item is not (PdfImageObject or PdfFormObject))
+        if (item is PdfTextObject)
         {
-            throw new InvalidOperationException("Only a picture can be cropped.");
+            throw new InvalidOperationException("Text cannot be cropped.");
         }
 
         item.SetCrop(shares.Left, shares.Top, shares.Right, shares.Bottom);
@@ -756,17 +801,24 @@ internal static class HyperPdfDocumentPageContentEditing
     /// <summary>Changes how an object is drawn besides its colours.</summary>
     /// <param name="item">The object.</param>
     /// <param name="look">What to change.</param>
-    /// <exception cref="InvalidOperationException">The object is text and it is asked to be made see-through.</exception>
     private static void ApplyLook(PdfPageObject item, in PageObjectLook look)
     {
         if (look.ChangeOpacity)
         {
-            if (item is PdfTextObject)
-            {
-                throw new InvalidOperationException("Text cannot be made see-through yet.");
-            }
-
             item.SetOpacity(Math.Clamp(look.Opacity, 0F, 1F));
+        }
+
+        if (look.ChangeGradient)
+        {
+            var gradient = look.Gradient;
+            var start = PdfPaint.FromRgb24(gradient.Start);
+            var end = PdfPaint.FromRgb24(gradient.End);
+            item.SetGradientFill(gradient.IsRadial ? PdfGradient.Radial(start, end) : PdfGradient.Linear(start, end, gradient.AngleDegrees));
+        }
+
+        if (look.ChangeBlend)
+        {
+            item.SetBlendMode((PdfBlendMode)(int)look.Blend);
         }
 
         if (look.ChangeLine)
@@ -813,5 +865,8 @@ internal static class HyperPdfDocumentPageContentEditing
 
         /// <summary>Gets the shares of the picture cut off each side, for a crop.</summary>
         internal PageMargins Shares { get; init; }
+
+        /// <summary>Gets the numbers of the text objects that are the lines of a paragraph, for a reflow.</summary>
+        internal int[] Lines { get; init; } = [];
     }
 }

@@ -135,12 +135,12 @@ public sealed partial class PageContentEditViewModel
         return Signal.Return(RxVoid.Default);
     }
 
-    /// <summary>Crops the picked picture by a share of its size, from one side or from every side. What is cut off stays stored and is only hidden.</summary>
+    /// <summary>Crops the picked picture or drawing by a share of its size, from one side or from every side. What is cut off stays stored and is only hidden.</summary>
     /// <param name="how">The side and the percent, such as <c>left:10</c>; the side is left, top, right, bottom or all.</param>
     [ReactiveCommand]
     private void CropPickedPicture(string how)
     {
-        if (!CanShape(out var picked) || picked.Object.Kind != PageObjectKind.Image || !TryReadCrop(how, out var shares))
+        if (!CanShape(out var picked) || picked.Object.Kind == PageObjectKind.Text || !TryReadCrop(how, out var shares))
         {
             return;
         }
@@ -151,7 +151,8 @@ public sealed partial class PageContentEditViewModel
             bounds.Top + (bounds.Height * shares.Top),
             bounds.Width * (1F - shares.Left - shares.Right),
             bounds.Height * (1F - shares.Top - shares.Bottom));
-        Track(Edit(picked, _ => Editor!.CropPicture(picked.Page, picked.Object.Index, shares), kept, UiText.Get("Cropped the picture.")));
+        var done = picked.Object.Kind == PageObjectKind.Image ? UiText.Get("Cropped the picture.") : UiText.Get("Cropped it.");
+        Track(Edit(picked, _ => Editor!.CropPicture(picked.Page, picked.Object.Index, shares), kept, done));
     }
 
     /// <summary>Asks where to save the picked picture and writes it there: as the JPEG the document holds, or as a PNG.</summary>

@@ -25,6 +25,15 @@ public sealed class QuadBatcher<TTile>
     /// <summary>The vertices the first array holds, enough for a few hundred quads.</summary>
     private const int FirstVertexCapacity = 4096;
 
+    /// <summary>The alpha of a colour that is fully opaque.</summary>
+    private const uint OpaqueAlpha = 255;
+
+    /// <summary>The bit shift of the alpha channel in 0xAARRGGBB.</summary>
+    private const int AlphaShift = 24;
+
+    /// <summary>The mask of the red, green and blue bits of a colour.</summary>
+    private const uint ColorMask = 0x00FFFFFF;
+
     /// <summary>The runs of the current frame.</summary>
     private readonly List<QuadBatch<TTile>> _batches = [];
 
@@ -33,6 +42,12 @@ public sealed class QuadBatcher<TTile>
 
     /// <summary>The number of vertices in the current frame.</summary>
     private int _vertexCount;
+
+    /// <summary>The rectangle the quads being added are limited to, or <see langword="null"/> for the whole frame.</summary>
+    private LayoutRect? _clip;
+
+    /// <summary>How much the quads being added count, out of 255.</summary>
+    private uint _opacity = OpaqueAlpha;
 
     /// <summary>Gets the vertices of the current frame.</summary>
     public ReadOnlySpan<QuadVertex> Vertices => _vertices.AsSpan(0, _vertexCount);
@@ -45,7 +60,25 @@ public sealed class QuadBatcher<TTile>
     {
         _batches.Clear();
         _vertexCount = 0;
+        _clip = null;
+        _opacity = OpaqueAlpha;
     }
+
+    /// <summary>Limits the quads added from now on to a rectangle of the frame, until <see cref="ClearClip"/>.</summary>
+    /// <param name="area">The rectangle in frame pixels.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void SetClip(in LayoutRect area) => _clip = area;
+
+    /// <summary>Lets the quads added from now on reach the whole frame again.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void ClearClip() => _clip = null;
+
+    /// <summary>
+    /// Makes the quads added from now on count for only that much, until it is set to 1. The shaders multiply what they draw by the vertex
+    /// colour, so a tile fades by the colour being white at that alpha and a fill by its own alpha being lower.
+    /// </summary>
+    /// <param name="opacity">How much the quads count, from 0 to 1.</param>
+    public void SetOpacity(double opacity) => _opacity = (uint)Math.Round(Math.Clamp(opacity, 0, 1) * OpaqueAlpha);
 
     /// <summary>Adds a clear of the whole frame.</summary>
     /// <param name="argb">The colour as 0xAARRGGBB.</param>
@@ -64,7 +97,7 @@ public sealed class QuadBatcher<TTile>
             Array.Resize(ref _vertices, _vertices.Length + _vertices.Length);
         }
 
-        var color = PremultipliedColor.ToVertexColor(argb);
+        var color = PremultipliedColor.ToVertexColor(_opacity == OpaqueAlpha ? argb : Faded(argb, _opacity));
         var left = (float)area.X;
         var top = (float)area.Y;
         var right = (float)(area.X + area.Width);
@@ -81,6 +114,16 @@ public sealed class QuadBatcher<TTile>
         _vertexCount += QuadVertices;
     }
 
+    /// <summary>Lowers the alpha of a colour by an opacity.</summary>
+    /// <param name="argb">The colour as 0xAARRGGBB.</param>
+    /// <param name="opacity">The opacity out of 255.</param>
+    /// <returns>The colour with its alpha scaled.</returns>
+    private static uint Faded(uint argb, uint opacity)
+    {
+        var alpha = (uint)PremultipliedColor.DivideBy255((int)((argb >> AlphaShift) * opacity));
+        return (argb & ColorMask) | (alpha << AlphaShift);
+    }
+
     /// <summary>Extends the last run by one quad, or starts a new run when the texture or sampler changes.</summary>
     /// <param name="tile">The tile, or <see langword="null"/> for a solid fill.</param>
     /// <param name="smooth">Whether the tile is sampled smoothly.</param>
@@ -89,13 +132,13 @@ public sealed class QuadBatcher<TTile>
         if (_batches.Count > 0)
         {
             var last = _batches[^1];
-            if (!last.IsClear && ReferenceEquals(last.Tile, tile) && last.Smooth == smooth)
+            if (!last.IsClear && ReferenceEquals(last.Tile, tile) && last.Smooth == smooth && last.Clip == _clip)
             {
                 _batches[^1] = last with { Count = last.Count + QuadVertices };
                 return;
             }
         }
 
-        _batches.Add(new(IsClear: false, tile, smooth, _vertexCount, QuadVertices, 0));
+        _batches.Add(new(IsClear: false, tile, smooth, _vertexCount, QuadVertices, 0) { Clip = _clip });
     }
 }

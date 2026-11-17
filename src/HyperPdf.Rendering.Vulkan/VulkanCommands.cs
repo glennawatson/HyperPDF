@@ -181,6 +181,23 @@ internal static unsafe class VulkanCommands
         NativeMethods.CmdDraw(commandBuffer, VkEnums.QuadVertexCount, 1, 0, 0);
     }
 
+    /// <summary>Sets the dynamic scissor, the part of the frame drawing may reach.</summary>
+    /// <param name="commandBuffer">The command buffer.</param>
+    /// <param name="left">The first column.</param>
+    /// <param name="top">The first row.</param>
+    /// <param name="width">The width in pixels.</param>
+    /// <param name="height">The height in pixels.</param>
+    internal static void SetScissor(ulong commandBuffer, int left, int top, int width, int height)
+    {
+        byte* scissor = stackalloc byte[StructSize];
+        var scissorWriter = new VkWriter(new(scissor, StructSize));
+        scissorWriter.I32(left);
+        scissorWriter.I32(top);
+        scissorWriter.U32((uint)width);
+        scissorWriter.U32((uint)height);
+        NativeMethods.CmdSetScissor(commandBuffer, 0, 1, scissor);
+    }
+
     /// <summary>Builds a VkBufferImageCopy for a whole colour image.</summary>
     /// <param name="target">The 96 byte buffer.</param>
     /// <param name="bufferOffset">The offset in the buffer.</param>
@@ -238,12 +255,6 @@ internal static unsafe class VulkanCommands
         viewportWriter.F32(MaxDepth);
         NativeMethods.CmdSetViewport(commandBuffer, 0, 1, viewport);
 
-        byte* scissor = stackalloc byte[StructSize];
-        var scissorWriter = new VkWriter(new(scissor, StructSize));
-        scissorWriter.I32(0);
-        scissorWriter.I32(0);
-        scissorWriter.U32((uint)width);
-        scissorWriter.U32((uint)height);
-        NativeMethods.CmdSetScissor(commandBuffer, 0, 1, scissor);
+        SetScissor(commandBuffer, 0, 0, width, height);
     }
 }

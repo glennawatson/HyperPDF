@@ -10,7 +10,37 @@ namespace HyperPdf.Core.Presentation;
 public static class TransitionCurtain
 {
     /// <summary>The most rectangles a curtain is made of.</summary>
-    public static readonly int MaxRectangles = 4;
+    public static readonly int MaxRectangles = 192;
+
+    /// <summary>The columns of cells a dissolve or glitter is made of.</summary>
+    private const int CellColumns = 16;
+
+    /// <summary>The rows of cells a dissolve or glitter is made of.</summary>
+    private const int CellRows = 12;
+
+    /// <summary>The multiplier that scrambles a cell's number into its place in the order cells open.</summary>
+    private const uint Scramble = 2_654_435_761U;
+
+    /// <summary>The cells the first and last diagonals share a row or column with, taken off the diagonals' count.</summary>
+    private const int DiagonalOverlap = 2;
+
+    /// <summary>The bits the scrambled number is shifted down by, leaving its best mixed bits.</summary>
+    private const int ScrambleShift = 8;
+
+    /// <summary>The mask of the bits kept after the shift.</summary>
+    private const uint ScrambleMask = 0xFFFFFF;
+
+    /// <summary>The share of the time the cells open over; the rest is left so every cell has opened before the effect ends.</summary>
+    private const double OpenSpread = 0.9;
+
+    /// <summary>The share of a glitter cell's opening time that comes from where it is rather than from chance.</summary>
+    private const double GlitterSweep = 0.5;
+
+    /// <summary>The rectangles of the frame around a growing box.</summary>
+    private const int BoxFrameSides = 4;
+
+    /// <summary>The strips blinds are made of.</summary>
+    private const int BlindStrips = 8;
 
     /// <summary>Half, for the middle of a rectangle.</summary>
     private const double Half = 0.5;
@@ -27,7 +57,9 @@ public static class TransitionCurtain
     public static int GetRectangles(in TransitionRun run, in LayoutRect area, Span<LayoutRect> rectangles, out double opacity)
     {
         opacity = 1;
-        if (!run.IsRunning || run.Step.Effect is TransitionEffect.None or TransitionEffect.Slide || rectangles.Length < MaxRectangles)
+
+        // Sliding effects cover nothing: they move the pages themselves, which the viewer does by drawing each page that far from its place.
+        if (!run.IsRunning || MovesPages(run.Step.Effect) || rectangles.Length < MaxRectangles)
         {
             return 0;
         }
@@ -53,11 +85,103 @@ public static class TransitionCurtain
                 return Split(area, run.Step, progress, rectangles);
             }
 
+            case TransitionEffect.Blinds:
+            {
+                return Blinds(area, run.Step.Vertical, progress, rectangles);
+            }
+
+            case TransitionEffect.Dissolve:
+            {
+                return Cells(area, progress, 0, rectangles);
+            }
+
+            case TransitionEffect.Glitter:
+            {
+                return Cells(area, progress, GlitterSweep, rectangles);
+            }
+
             default:
             {
                 return Box(area, run.Step.Inward, progress, rectangles);
             }
         }
+    }
+
+    /// <summary>Determines whether an effect covers nothing, because it moves pages or draws nothing.</summary>
+    /// <param name="effect">The effect.</param>
+    /// <returns><see langword="true"/> when there is no curtain.</returns>
+    private static bool MovesPages(TransitionEffect effect) =>
+        effect is TransitionEffect.None or TransitionEffect.Slide or TransitionEffect.Push or TransitionEffect.Cover or TransitionEffect.Uncover;
+
+    /// <summary>
+    /// Gets the cells a dissolve or glitter has not opened. Each cell opens at a time set by its number, scrambled so the cells open in
+    /// no pattern; a glitter mixes in how far along the page the cell is, so the opening sweeps across with sparkle ahead of it.
+    /// </summary>
+    /// <param name="area">The area the page fills.</param>
+    /// <param name="progress">How far the effect has played.</param>
+    /// <param name="sweep">The share of the opening time that comes from the cell's place, from 0 to 1.</param>
+    /// <param name="rectangles">Receives the covered cells.</param>
+    /// <returns>How many rectangles were written.</returns>
+    private static int Cells(in LayoutRect area, double progress, double sweep, Span<LayoutRect> rectangles)
+    {
+        var width = area.Width / CellColumns;
+        var height = area.Height / CellRows;
+        var count = 0;
+        for (var row = 0; row < CellRows; row++)
+        {
+            for (var column = 0; column < CellColumns; column++)
+            {
+                // Spread over the first nine tenths of the time so the last cell has opened before the effect ends.
+                if (OpensAt(row, column, sweep) * OpenSpread < progress)
+                {
+                    continue;
+                }
+
+                rectangles[count] = new(area.X + (width * column), area.Y + (height * row), width, height);
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    /// <summary>Gets when a cell opens.</summary>
+    /// <param name="row">The cell's row.</param>
+    /// <param name="column">The cell's column.</param>
+    /// <param name="sweep">The share of the time that comes from the cell's place.</param>
+    /// <returns>The time as a share of the effect, from 0 to 1.</returns>
+    private static double OpensAt(int row, int column, double sweep)
+    {
+        var scrambled = ((uint)((row * CellColumns) + column) * Scramble) >> ScrambleShift;
+        var chance = (double)(scrambled & ScrambleMask) / (ScrambleMask + 1);
+        var place = (column + row) / (double)(CellColumns + CellRows - DiagonalOverlap);
+        return (chance * (1 - sweep)) + (place * sweep);
+    }
+
+    /// <summary>Gets what blinds have not reached: each strip opens from its start, so the rest of it stays covered.</summary>
+    /// <param name="area">The area the page fills.</param>
+    /// <param name="vertical">Whether the strips are columns rather than rows.</param>
+    /// <param name="progress">How far the blinds have opened.</param>
+    /// <param name="rectangles">Receives the covered rectangles.</param>
+    /// <returns>How many rectangles were written.</returns>
+    private static int Blinds(in LayoutRect area, bool vertical, double progress, Span<LayoutRect> rectangles)
+    {
+        var rest = 1 - progress;
+        for (var i = 0; i < BlindStrips; i++)
+        {
+            if (vertical)
+            {
+                var strip = area.Width / BlindStrips;
+                rectangles[i] = new(area.X + (strip * (i + progress)), area.Y, strip * rest, area.Height);
+            }
+            else
+            {
+                var strip = area.Height / BlindStrips;
+                rectangles[i] = new(area.X, area.Y + (strip * (i + progress)), area.Width, strip * rest);
+            }
+        }
+
+        return BlindStrips;
     }
 
     /// <summary>Gets the part of the page a wipe has not reached.</summary>
@@ -129,6 +253,6 @@ public static class TransitionCurtain
         rectangles[1] = new(area.X, bottom, area.Width, area.Bottom - bottom);
         rectangles[2] = new(area.X, top, left - area.X, bottom - top);
         rectangles[3] = new(right, top, area.Right - right, bottom - top);
-        return MaxRectangles;
+        return BoxFrameSides;
     }
 }

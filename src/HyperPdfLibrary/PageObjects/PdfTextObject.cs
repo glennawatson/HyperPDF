@@ -77,6 +77,9 @@ public sealed class PdfTextObject : PdfPageObject
     /// <inheritdoc/>
     public override bool IsModified => base.IsModified || RemovedCount > 0;
 
+    /// <inheritdoc/>
+    internal override bool CanCrop => false;
+
     /// <summary>Gets a value indicating whether the text could not be read (no font), so only its original bytes can be written back.</summary>
     internal bool IsOpaque { get; init; }
 

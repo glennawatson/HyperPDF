@@ -55,8 +55,17 @@ internal record struct ParseState
     /// <summary>Gets or sets the innermost clip.</summary>
     internal ClipNode? Clip { get; set; }
 
+    /// <summary>Gets or sets the opacity of filling, from the last graphics state that set it.</summary>
+    internal float FillAlpha { get; set; }
+
+    /// <summary>Gets or sets the opacity of stroking, from the last graphics state that set it.</summary>
+    internal float StrokeAlpha { get; set; }
+
+    /// <summary>Gets or sets the blend mode, from the last graphics state that set it; none means normal.</summary>
+    internal PdfName BlendMode { get; set; }
+
     /// <summary>Creates the state a content stream starts in.</summary>
     /// <param name="ctm">The starting matrix.</param>
     /// <returns>The state.</returns>
-    internal static ParseState Start(Matrix3x2 ctm) => new() { Ctm = ctm, Fill = PdfPaint.Black, Stroke = PdfPaint.Black, LineWidth = 1, HorizontalScaling = 1 };
+    internal static ParseState Start(Matrix3x2 ctm) => new() { Ctm = ctm, Fill = PdfPaint.Black, Stroke = PdfPaint.Black, LineWidth = 1, HorizontalScaling = 1, FillAlpha = 1, StrokeAlpha = 1 };
 }

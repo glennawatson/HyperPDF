@@ -221,6 +221,9 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
     public double Scale { get; private set; } = 1;
 
     /// <inheritdoc/>
+    public bool IsMaximized => NativeMethods.SendFlag((nint)_window, Selectors.IsZoomed) != 0;
+
+    /// <inheritdoc/>
     public IRenderBackend Backend { get; }
 
     /// <inheritdoc/>
@@ -244,6 +247,34 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
         var pool = NativeMethods.AutoreleasePoolPush();
         NativeMethods.SendVoidFlag((nint)_application, Selectors.Activate, 1);
         NativeMethods.SendVoid((nint)_window, Selectors.MakeKeyAndOrderFront, 0);
+        NativeMethods.AutoreleasePoolPop(pool);
+    }
+
+    /// <inheritdoc/>
+    public void SetMaximized(bool on)
+    {
+        // Zooming only toggles, so the window is zoomed when it is not in the state asked for.
+        if (on == IsMaximized)
+        {
+            return;
+        }
+
+        var pool = NativeMethods.AutoreleasePoolPush();
+        NativeMethods.SendVoid((nint)_window, Selectors.Zoom, 0);
+        NativeMethods.AutoreleasePoolPop(pool);
+    }
+
+    /// <inheritdoc/>
+    public void SetSize(int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        // A Cocoa window is sized in points, which are already the logical units, and the resize reaches the view as a size change.
+        var pool = NativeMethods.AutoreleasePoolPush();
+        NativeMethods.SendSize((nint)_window, Selectors.SetContentSize, new(width, height));
         NativeMethods.AutoreleasePoolPop(pool);
     }
 

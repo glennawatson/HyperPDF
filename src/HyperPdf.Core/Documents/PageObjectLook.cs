@@ -16,6 +16,28 @@ namespace HyperPdf.Core.Documents;
 [DebuggerDisplay("PageObjectLook: line {ChangeLine} {Dash}, opacity {ChangeOpacity} {Opacity}")]
 public readonly record struct PageObjectLook(bool ChangeLine, PageLineDash Dash, PageLineCap Cap, PageLineJoin Join, bool ChangeOpacity, float Opacity)
 {
+    /// <summary>Gets a value indicating whether how the colours mix with what is under the objects is changed.</summary>
+    public bool ChangeBlend { get; init; }
+
+    /// <summary>Gets how the colours mix with what is under the objects, when it is changed.</summary>
+    public PageBlendMode Blend { get; init; }
+
+    /// <summary>Gets a value indicating whether the objects are filled with a gradient.</summary>
+    public bool ChangeGradient { get; init; }
+
+    /// <summary>Gets the gradient to fill the objects with, when it is changed.</summary>
+    public PageGradient Gradient { get; init; }
+
+    /// <summary>Makes a change that fills the objects with a gradient.</summary>
+    /// <param name="gradient">The gradient.</param>
+    /// <returns>The change.</returns>
+    public static PageObjectLook OfGradient(PageGradient gradient) => new(false, PageLineDash.Solid, PageLineCap.Butt, PageLineJoin.Miter, false, 1F) { ChangeGradient = true, Gradient = gradient };
+
+    /// <summary>Makes a change of how the colours mix with what is under the objects only.</summary>
+    /// <param name="blend">The blend mode.</param>
+    /// <returns>The change.</returns>
+    public static PageObjectLook OfBlend(PageBlendMode blend) => new(false, PageLineDash.Solid, PageLineCap.Butt, PageLineJoin.Miter, false, 1F) { ChangeBlend = true, Blend = blend };
+
     /// <summary>Makes a change of the line only.</summary>
     /// <param name="dash">The dashes.</param>
     /// <param name="cap">The ends.</param>

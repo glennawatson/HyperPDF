@@ -59,6 +59,9 @@ internal static class TabRequests
         tab.Media.SaveInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
         tab.PageTools.SaveImageInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
 
+        // A picture handed to the program the system uses for it; the picture comes back through the file when it is saved there.
+        tab.ContentEdit.ExternalEditInteraction.RegisterHandler(static context => context.SetOutput(ShellLauncher.OpenFile(context.Input))),
+
         // The windows that write a changed copy. Each asks where to save through a file dialog that opens over it.
         Copy(chrome, tab, tab.Copies.SaveCopy, CopyForms.SaveCopy, static m => m.SaveInteraction),
         Copy(chrome, tab, tab.Copies.Optimize, CopyForms.Optimize, static m => m.SaveInteraction),
@@ -86,6 +89,8 @@ internal static class TabRequests
             return chrome.ShowForm(ToolForms.SignatureMark(context.Input)).Do(context.SetOutput).Finally(browsing.Dispose);
         }),
         tab.Annotations.TextPropertiesInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.TextProperties(context.Input)).Do(context.SetOutput)),
+        tab.Annotations.ShowFilterInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.NoteFilter(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
+        tab.FocusMode.ShowSettingsInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.FocusSettings(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
         tab.Decorations.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.PageDecoration(context.Input)).Do(context.SetOutput)),
         tab.TextRecognition.ManageLanguagesInteraction.RegisterHandler(context => chrome.ShowForm(OcrLanguageForms.For(context.Input)).Do(context.SetOutput)),
         tab.Pages.Compare.ChooseFileInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Select(static files => files.Count > 0 ? files[0] : null).Do(context.SetOutput)),

@@ -194,6 +194,7 @@ public class CanvasMathBenchmarks
         Reveal(TransitionEffect.Split, true),
         Reveal(TransitionEffect.Box, false),
         Reveal(TransitionEffect.Box, true),
+        Reveal(TransitionEffect.Blinds, false),
     ];
 
     /// <summary>Makes a reveal that is partly played.</summary>

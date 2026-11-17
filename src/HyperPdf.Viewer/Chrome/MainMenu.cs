@@ -60,6 +60,20 @@ internal static class MainMenu
         return entries;
     }
 
+    /// <summary>Builds the menu of one tab, which opens on a right click on it: close it, close the others, close all, save and reload.</summary>
+    /// <param name="main">The main view model.</param>
+    /// <param name="tab">The tab.</param>
+    /// <returns>The entries.</returns>
+    internal static List<MenuEntry> ForTab(MainViewModel main, DocumentTabViewModel tab) =>
+    [
+        MenuEntry.Item(UiText.Get("_Close"), "Ctrl+W", main.CloseTabCommand, tab, true),
+        MenuEntry.Item(UiText.Get("Close _Other Tabs"), null, main.CloseOtherTabsCommand, tab, main.Tabs.Count > 1),
+        MenuEntry.Item(UiText.Get("Close _All Tabs"), null, main.CloseAllTabsCommand, null, true),
+        MenuEntry.Separator(),
+        MenuEntry.Item(UiText.Get("_Save"), null, tab.SaveCommand, null, tab.HasUnsavedChanges),
+        MenuEntry.Item(UiText.Get("Re_load"), null, tab.ReloadCommand, null, tab.IsLoaded),
+    ];
+
     /// <summary>Adds the entries about the app itself, which are there with or without a document.</summary>
     /// <param name="entries">Receives the entries.</param>
     /// <param name="main">The main view model.</param>

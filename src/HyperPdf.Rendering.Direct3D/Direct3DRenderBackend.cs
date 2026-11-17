@@ -4,6 +4,7 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using HyperPdf.Core.Layout;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Rendering.Direct3D.Interop;
 using HyperPdf.Windowing.Rendering;
@@ -200,12 +201,19 @@ public sealed unsafe class Direct3DRenderBackend : IRenderBackend
         var context = _device.Context;
         void* boundView = null;
         void* boundSampler = null;
+        LayoutRect? boundClip = null;
         foreach (ref readonly var batch in _quads.Batches)
         {
             if (batch.IsClear)
             {
                 Clear(batch.Color);
                 continue;
+            }
+
+            if (batch.Clip != boundClip)
+            {
+                SetScissor(batch.Clip);
+                boundClip = batch.Clip;
             }
 
             var view = batch.Tile is { } tile ? (void*)tile.View : _pipeline.WhiteView;
@@ -224,6 +232,17 @@ public sealed unsafe class Direct3DRenderBackend : IRenderBackend
 
             Direct3DCalls.Draw(context, (uint)batch.Count, (uint)batch.First);
         }
+    }
+
+    /// <summary>Limits drawing to a rectangle of the frame, or lets it reach the whole frame.</summary>
+    /// <param name="clip">The rectangle in frame pixels, or <see langword="null"/> for the whole frame.</param>
+    private void SetScissor(LayoutRect? clip)
+    {
+        var width = _device.Width;
+        var height = _device.Height;
+        var pixels = clip is { } area ? PixelClip.Of(area, width, height) : new PixelClip(0, 0, width, height);
+        var scissor = new ScissorRect(pixels.Left, pixels.Top, pixels.Right, pixels.Bottom);
+        Direct3DCalls.SetScissor(_device.Context, &scissor);
     }
 
     /// <summary>Clears the frame to a colour.</summary>

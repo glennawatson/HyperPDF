@@ -5,6 +5,12 @@ HyperPDF is a local PDF viewer for Linux, Windows and macOS. Primary users are p
 - **Frozen collections are banned.** Use `Dictionary` or `HashSet`. The global long-running-application exception does not apply.
 - **No UI toolkit and no XAML.** The UI is our own windows and render backends per platform. Never add Avalonia, MAUI, GTK, Qt or a wrapper library.
 
+## Working under a goal
+
+- When a `/goal` is active, keep working until the goal is met. Never stop, pause or end a turn to wait for CI, a push, a build or a monitor. Start the next piece of goal work straight away and read CI results whenever they arrive.
+- A running or pending CI job is not a reason to report back. Fix a failure when it shows up; otherwise carry on with the remaining goal items.
+- Report back only when the whole goal is done, or when a decision is genuinely blocked on the user.
+
 ## Performance
 
 - Low allocations and low execution time are core requirements. Back every change with BenchmarkDotNet, baseline against change under the same conditions. Overlapping error bars are inconclusive. Every feature needs a benchmark.

@@ -166,6 +166,13 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(ObjectiveC, EntryPoint = "objc_msgSend")]
     internal static partial void SendDraw(nint receiver, nint selector, nuint primitive, nuint start, nuint count);
 
+    /// <summary>Sends <c>setScissorRect:</c>.</summary>
+    /// <param name="receiver">The encoder.</param>
+    /// <param name="selector">The selector.</param>
+    /// <param name="scissor">The rectangle drawing may reach.</param>
+    [LibraryImport(ObjectiveC, EntryPoint = "objc_msgSend")]
+    internal static partial void SendScissor(nint receiver, nint selector, MetalScissor scissor);
+
     /// <summary>Sends <c>replaceRegion:mipmapLevel:withBytes:bytesPerRow:</c>.</summary>
     /// <param name="receiver">The texture.</param>
     /// <param name="selector">The selector.</param>

@@ -33,11 +33,11 @@ internal static class ToolMenus
     /// <summary>The sides a picture can be cropped from, with the words of the entry that crops each, in English.</summary>
     private static readonly CropSide[] CropSides =
     [
-        new("all", "Crop {0}% off Every Side of the Picked Picture"),
-        new("left", "Crop {0}% off the Left of the Picked Picture"),
-        new("top", "Crop {0}% off the Top of the Picked Picture"),
-        new("right", "Crop {0}% off the Right of the Picked Picture"),
-        new("bottom", "Crop {0}% off the Bottom of the Picked Picture"),
+        new("all", "Crop {0}% off Every Side of the Picked Object"),
+        new("left", "Crop {0}% off the Left of the Picked Object"),
+        new("top", "Crop {0}% off the Top of the Picked Object"),
+        new("right", "Crop {0}% off the Right of the Picked Object"),
+        new("bottom", "Crop {0}% off the Bottom of the Picked Object"),
     ];
 
     /// <summary>The shares of a picture a crop menu entry cuts off, in percent.</summary>
@@ -45,6 +45,23 @@ internal static class ToolMenus
 
     /// <summary>The dash patterns the lines of picked objects can have, by name.</summary>
     private static readonly string[] DashNames = ["Solid", "Dashed", "Dotted", "DashDot"];
+
+    /// <summary>How the colours of picked objects can mix with the page, by blend mode name.</summary>
+    private static readonly string[] BlendNames =
+    [
+        "Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "ColorDodge", "ColorBurn",
+        "HardLight", "SoftLight", "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity",
+    ];
+
+    /// <summary>The gradients the picked objects can be filled with, with the words of the entry that fills with each, in English.</summary>
+    private static readonly GradientChoice[] Gradients =
+    [
+        new("Fill the Picked Object with a Blue to White Gradient, Left to Right", "linear:0:1F4E9E:FFFFFF"),
+        new("Fill the Picked Object with a Blue to White Gradient, Top to Bottom", "linear:270:1F4E9E:FFFFFF"),
+        new("Fill the Picked Object with a Black to White Gradient, Left to Right", "linear:0:000000:FFFFFF"),
+        new("Fill the Picked Object with a Gold to Red Gradient, Left to Right", "linear:0:F2B705:B3261E"),
+        new("Fill the Picked Object with a White to Blue Gradient from the Middle", "radial:FFFFFF:1F4E9E"),
+    ];
 
     /// <summary>The line ends the lines of picked objects can have, by name.</summary>
     private static readonly string[] CapNames = ["Butt", "Round", "Square"];
@@ -320,6 +337,7 @@ internal static class ToolMenus
         entries.Add(Item("Text _Properties…", marks.EditTextPropertiesCommand));
         entries.Add(Item("_Finish Typing the Text", marks.FinishTextCommand));
         entries.Add(Item("_Edit the Picked Note…", marks.EditNoteCommand));
+        entries.Add(Item("Filter and _Sort the Notes…", marks.ShowFilterCommand));
         entries.Add(MenuEntry.Separator());
         entries.Add(MenuEntry.Radio(UiText.Get("Bol_d"), marks.ToggleBoldCommand, null, marks.IsBold));
         entries.Add(MenuEntry.Radio(UiText.Get("_Italic"), marks.ToggleItalicCommand, null, marks.IsItalic));
@@ -457,6 +475,7 @@ internal static class ToolMenus
             MenuEntry.Radio(UiText.Get("Text in a Fixed Width Font"), edit.ChooseTextFamilyCommand, nameof(PageTextFamily.Fixed), edit.NewTextFamily == PageTextFamily.Fixed),
             MenuEntry.Radio(UiText.Get("Bold Text"), edit.ToggleTextBoldCommand, null, edit.NewTextBold),
             MenuEntry.Radio(UiText.Get("Italic Text"), edit.ToggleTextItalicCommand, null, edit.NewTextItalic),
+            Item("Change the Picked Paragraph…", edit.EditPickedParagraphCommand),
             Item("Set the Picked Text in This Font", edit.ApplyTextFontCommand),
         ];
         entries.AddRange(TextSizeEntries(edit.SetPickedTextSizeCommand));
@@ -468,8 +487,14 @@ internal static class ToolMenus
     /// <returns>The entries.</returns>
     private static List<MenuEntry> Looks(PageContentEditViewModel edit)
     {
-        var entries = new List<MenuEntry>(Opacities.Length + DashNames.Length + CapNames.Length + JoinNames.Length);
+        var entries = new List<MenuEntry>(Opacities.Length + BlendNames.Length + DashNames.Length + CapNames.Length + JoinNames.Length);
         AddNamed(entries, "Make the Picked Object {0}% Solid", Opacities, edit.SetPickedOpacityCommand);
+        AddNamed(entries, "Mix the Picked Object's Colours with the Page as {0}", BlendNames, edit.SetPickedBlendCommand);
+        foreach (var gradient in Gradients)
+        {
+            entries.Add(MenuEntry.Item(UiText.Get(gradient.Words), null, edit.SetPickedGradientCommand, gradient.How, ((ICommand)edit.SetPickedGradientCommand).CanExecute(gradient.How)));
+        }
+
         AddNamed(entries, "Draw the Picked Object's Line {0}", DashNames, edit.SetPickedDashCommand);
         AddNamed(entries, "End the Picked Object's Line with a {0} End", CapNames, edit.SetPickedCapCommand);
         AddNamed(entries, "Give the Picked Object's Line {0} Corners", JoinNames, edit.SetPickedJoinCommand);
@@ -486,6 +511,7 @@ internal static class ToolMenus
         {
             Item("Draw Another Picture in Place of the Picked Picture…", edit.ReplacePickedPictureCommand),
             Item("Save the Picked Picture as a File…", edit.SavePickedPictureCommand),
+            Item("Change the Picked Picture in Another Program…", edit.EditPickedPictureOutsideCommand),
             Item("Make the Picked Object a Link…", edit.AddLinkToPickedCommand),
         };
         foreach (var side in CropSides)
@@ -546,6 +572,11 @@ internal static class ToolMenus
     /// <param name="Key">The word the crop command is given for the side.</param>
     /// <param name="Words">The words of the menu entry, with the percent in place of the placeholder.</param>
     private readonly record struct CropSide(string Key, string Words);
+
+    /// <summary>One gradient menu entry.</summary>
+    /// <param name="Words">The words of the entry, in English.</param>
+    /// <param name="How">The shape and colours, as the command reads them.</param>
+    private readonly record struct GradientChoice(string Words, string How);
 
     /// <summary>A colour of the palette.</summary>
     /// <param name="Name">The colour's name in the words of the menus.</param>

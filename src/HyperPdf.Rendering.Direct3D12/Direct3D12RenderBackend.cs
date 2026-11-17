@@ -4,6 +4,7 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using HyperPdf.Core.Layout;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Rendering.Direct3D12.Interop;
 using HyperPdf.Windowing.Rendering;
@@ -251,12 +252,20 @@ public sealed unsafe class Direct3D12RenderBackend : IRenderBackend
         var nextSlot = WhiteSlot + 1;
         var boundSlot = -1;
         var boundSmooth = -1;
+        LayoutRect? boundClip = null;
         foreach (ref readonly var batch in _quads.Batches)
         {
             if (batch.IsClear)
             {
                 Clear(batch.Color);
                 continue;
+            }
+
+            // The scissor of the whole frame is set as the frame starts, so a run is only limited when its clip differs from the last.
+            if (batch.Clip != boundClip)
+            {
+                SetScissor(batch.Clip);
+                boundClip = batch.Clip;
             }
 
             var slot = WhiteSlot;
@@ -281,6 +290,15 @@ public sealed unsafe class Direct3D12RenderBackend : IRenderBackend
 
             CommandListCalls.Draw(list, (uint)batch.Count, (uint)batch.First);
         }
+    }
+
+    /// <summary>Limits drawing to a rectangle of the frame, or lets it reach the whole frame.</summary>
+    /// <param name="clip">The rectangle in frame pixels, or <see langword="null"/> for the whole frame.</param>
+    private void SetScissor(LayoutRect? clip)
+    {
+        var pixels = clip is { } area ? PixelClip.Of(area, _device.Width, _device.Height) : new PixelClip(0, 0, _device.Width, _device.Height);
+        var scissor = new ScissorRect(pixels.Left, pixels.Top, pixels.Right, pixels.Bottom);
+        CommandListCalls.SetScissor(_device.List, &scissor);
     }
 
     /// <summary>Clears the frame to a colour.</summary>

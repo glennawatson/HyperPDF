@@ -39,6 +39,9 @@ public sealed class PageContentEditViewModelTests
     /// <summary>The seconds a test waits for an edit to reach the page.</summary>
     private const int WaitSeconds = 10;
 
+    /// <summary>The width and height of the scanned page picture, in pixels.</summary>
+    private const int ScanSide = 16;
+
     /// <summary>The milliseconds between looks at whether an edit has reached the page.</summary>
     private const int PollMilliseconds = 20;
 
@@ -66,6 +69,12 @@ public sealed class PageContentEditViewModelTests
     /// <summary>A point outside both in the hit test.</summary>
     private const float Far = 500;
 
+    /// <summary>The lines the paragraphs of the retyping tests have before they are retyped.</summary>
+    private const int ListLines = 3;
+
+    /// <summary>A text that takes more lines than the paragraphs of the retyping tests have.</summary>
+    private const string LongerText = "The quick brown fox jumps over the lazy dog and runs away from the farm and keeps running through the fields until night";
+
     /// <summary>Picks nothing until Edit mode is on.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -82,6 +91,125 @@ public sealed class PageContentEditViewModelTests
         {
             await Assert.That(edit.IsEditing).IsFalse();
             await Assert.That(edit.Selected).IsNull();
+        }
+    }
+
+    /// <summary>Retyping a paragraph fills the editor with all its lines as one text, and a longer text wraps onto more lines.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task AParagraphIsRetypedAsOneTextAndRewrapped()
+    {
+        const string Longer = "The quick brown fox jumps over the lazy dog and runs away from the farm and keeps running through the fields until night";
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        var pdf = MiniPdf.Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources 5 0 R /Contents 4 0 R >>",
+            MiniPdf.Stream(string.Empty, "BT /F1 12 Tf 20 160 Td (The quick brown fox jumps) Tj 0 -14 Td (over the lazy dog and) Tj 0 -14 Td (runs away) Tj ET"),
+            "<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> >> >>");
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("edit-paragraph.pdf", pdf)]);
+        var tab = main.SelectedTab!;
+        var edit = tab.ContentEdit;
+        _ = await edit.ToggleEditingCommand.Execute().ToTask();
+        var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
+        var before = await editor.ReadObjects(0).ToTask();
+        var second = Array.Find(before, static o => o.Kind == PageObjectKind.Text && o.Text.StartsWith("over", StringComparison.Ordinal));
+        edit.HoverAt(0, Centre(second));
+        _ = await edit.Press(0, Centre(second), false).ToTask();
+
+        var begun = edit.BeginParagraphEdit();
+        var together = edit.EditingText;
+        edit.EditingText = Longer;
+        edit.CommitText();
+        var changed = await WaitForAsync(() => edit.Status == "Changed the paragraph.");
+        var after = await editor.ReadObjects(0).ToTask();
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(begun).IsTrue();
+            await Assert.That(together).IsEqualTo("The quick brown fox jumps over the lazy dog and runs away");
+            await Assert.That(changed).IsTrue();
+            await Assert.That(after.Count(static o => o.Kind == PageObjectKind.Text && o.Text.Length > 0)).IsGreaterThan(before.Length);
+        }
+    }
+
+    /// <summary>A list item whose bullet is a text of its own is retyped without the bullet, which stays where it was, and the lines keep to the words.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task AListItemWithItsOwnBulletIsRetypedAndKeepsItsBullet()
+    {
+        var retyped = await RetypeAsync("BT /F1 12 Tf 20 160 Td (-) Tj 14 0 Td (first line of the item) Tj 0 -14 Td (continues here and) Tj 0 -14 Td (ends) Tj ET", "continues", LongerText);
+        var bullets = retyped.After.Count(static o => o.Kind == PageObjectKind.Text && o.Text == "-");
+        var wordsLeft = retyped.After.Where(static o => o.Kind == PageObjectKind.Text && o.Text.Length > 1).Select(static o => o.Bounds.Left).ToArray();
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(retyped.Begun).IsTrue();
+            await Assert.That(retyped.Together).IsEqualTo("first line of the item continues here and ends");
+            await Assert.That(retyped.Changed).IsTrue();
+            await Assert.That(bullets).IsEqualTo(1);
+            await Assert.That(wordsLeft.Length).IsGreaterThan(ListLines);
+            await Assert.That(wordsLeft.Max() - wordsLeft.Min()).IsLessThan(Half);
+        }
+    }
+
+    /// <summary>A paragraph turned a quarter turn is found, retyped as one text and written on in the same direction.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ATurnedParagraphIsRetypedAndStaysTurned()
+    {
+        var retyped = await RetypeAsync("BT /F1 12 Tf 0 1 -1 0 60 20 Tm (The quick brown fox jumps) Tj 0 -14 Td (over the lazy dog and) Tj 0 -14 Td (runs away) Tj ET", "over", LongerText);
+        var lines = retyped.After.Where(static o => o.Kind == PageObjectKind.Text && o.Text.Length > 0).ToArray();
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(retyped.Begun).IsTrue();
+            await Assert.That(retyped.Together).IsEqualTo("The quick brown fox jumps over the lazy dog and runs away");
+            await Assert.That(retyped.Changed).IsTrue();
+            await Assert.That(lines.Length).IsGreaterThan(ListLines);
+            await Assert.That(Array.TrueForAll(lines, static o => o.Flow == TextFlow.Up)).IsTrue();
+        }
+    }
+
+    /// <summary>A picture sent to another program is drawn again when that program saves its file.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ThePictureChangesWhenAnotherProgramSavesIt()
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("edit-outside.pdf", TestPdf.CreateScan(new byte[ScanSide * ScanSide], ScanSide, ScanSide))]);
+        var tab = main.SelectedTab!;
+        var edit = tab.ContentEdit;
+        _ = await edit.ToggleEditingCommand.Execute().ToTask();
+        var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
+        var picture = Array.Find(await editor.ReadObjects(0).ToTask(), static o => o.Kind == PageObjectKind.Image);
+        edit.HoverAt(0, Centre(picture));
+        _ = await edit.Press(0, Centre(picture), false).ToTask();
+        string? path = null;
+        using var open = edit.ExternalEditInteraction.RegisterHandler(context =>
+        {
+            path = context.Input;
+            context.SetOutput(true);
+        });
+
+        ((ICommand)edit.EditPickedPictureOutsideCommand).Execute(null);
+        var watching = await WaitForAsync(() => edit.Status.StartsWith("Change the picture in the other program", StringComparison.Ordinal));
+
+        // The other program saves its file a minute later than the one it was given.
+        var onePixelPng = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+        await File.WriteAllBytesAsync(path!, onePixelPng);
+        File.SetLastWriteTimeUtc(path!, TimeProvider.System.GetUtcNow().UtcDateTime.AddMinutes(1));
+        var changed = await WaitForAsync(() => edit.Status == "Changed the picture from the other program.");
+        var after = await editor.ReadObjects(0).ToTask();
+        Directory.Delete(Path.GetDirectoryName(path!)!, true);
+
+        using (Assert.Multiple())
+        {
+            await Assert.That(watching).IsTrue();
+            await Assert.That(changed).IsTrue();
+            await Assert.That(Array.Exists(after, static o => o.Kind == PageObjectKind.Image)).IsTrue();
         }
     }
 
@@ -246,7 +374,7 @@ public sealed class PageContentEditViewModelTests
         }
     }
 
-    /// <summary>Changes the dashes of several picked objects in one step, and says so plainly when text is asked to be made see-through.</summary>
+    /// <summary>Changes the dashes, opacity, blend mode and fill of several picked objects, text included, in one step each.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task ChangesTheLookOfSeveralPickedObjects()
@@ -259,12 +387,19 @@ public sealed class PageContentEditViewModelTests
         ((ICommand)edit.SetPickedDashCommand).Execute(nameof(PageLineDash.Dashed));
         var dashed = await WaitForAsync(() => edit.Status == "Changed the dashes.");
         ((ICommand)edit.SetPickedOpacityCommand).Execute("50");
-        var refused = await WaitForAsync(() => tab.Notice?.Contains("see-through", StringComparison.Ordinal) == true);
+        var solid = await WaitForAsync(() => edit.Status == "Changed how solid it is.");
+        ((ICommand)edit.SetPickedBlendCommand).Execute(nameof(PageBlendMode.Multiply));
+        var mixed = await WaitForAsync(() => edit.Status == "Changed how its colours mix with the page.");
+        ((ICommand)edit.SetPickedGradientCommand).Execute("linear:0:1F4E9E:FFFFFF");
+        var shaded = await WaitForAsync(() => edit.Status == "Filled it with a gradient.");
 
         using (Assert.Multiple())
         {
             await Assert.That(dashed).IsTrue();
-            await Assert.That(refused).IsTrue();
+            await Assert.That(solid).IsTrue();
+            await Assert.That(mixed).IsTrue();
+            await Assert.That(shaded).IsTrue();
+            await Assert.That(tab.Notice).IsNull();
         }
     }
 
@@ -510,6 +645,46 @@ public sealed class PageContentEditViewModelTests
 
         return true;
     }
+
+    /// <summary>Opens a page with some content, retypes the paragraph of one of its lines as a longer text and reads the page again.</summary>
+    /// <param name="content">The content of the page, which is 200 points square and has Helvetica as /F1.</param>
+    /// <param name="pickedStart">The first words of the line that is picked.</param>
+    /// <param name="replacement">The new words.</param>
+    /// <returns>What was seen before, while and after the retyping.</returns>
+    private static async Task<Retyped> RetypeAsync(string content, string pickedStart, string replacement)
+    {
+        using var test = new TestServices();
+        using var main = new MainViewModel(test.Services);
+        var pdf = MiniPdf.Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources 5 0 R /Contents 4 0 R >>",
+            MiniPdf.Stream(string.Empty, content),
+            "<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> >> >>");
+        await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("retype.pdf", pdf)]);
+        var tab = main.SelectedTab!;
+        var edit = tab.ContentEdit;
+        _ = await edit.ToggleEditingCommand.Execute().ToTask();
+        var editor = DocumentFeature<IPageContentEditor>.Get(tab.TryGetDocument())!;
+        var before = await editor.ReadObjects(0).ToTask();
+        var picked = Array.Find(before, o => o.Kind == PageObjectKind.Text && o.Text.StartsWith(pickedStart, StringComparison.Ordinal));
+        edit.HoverAt(0, Centre(picked));
+        _ = await edit.Press(0, Centre(picked), false).ToTask();
+
+        var begun = edit.BeginParagraphEdit();
+        var together = edit.EditingText;
+        edit.EditingText = replacement;
+        edit.CommitText();
+        var changed = await WaitForAsync(() => edit.Status == "Changed the paragraph.");
+        return new(begun, together, changed, await editor.ReadObjects(0).ToTask());
+    }
+
+    /// <summary>What a retyping showed.</summary>
+    /// <param name="Begun">Whether the paragraph could be retyped.</param>
+    /// <param name="Together">The words the editor was filled with.</param>
+    /// <param name="Changed">Whether the page was changed.</param>
+    /// <param name="After">The objects of the page afterwards.</param>
+    private sealed record Retyped(bool Begun, string Together, bool Changed, PageObjectInfo[] After);
 
     /// <summary>What a test starts from: the tab, its Edit mode and a text object to work on.</summary>
     /// <param name="Tab">The tab.</param>

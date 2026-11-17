@@ -63,6 +63,7 @@ internal static unsafe class PageContentParseDispatch
         table[(int)ContentOperator.Restore] = &PageContentParseGraphics.OpRestore;
         table[(int)ContentOperator.ConcatMatrix] = &PageContentParseGraphics.OpConcatMatrix;
         table[(int)ContentOperator.SetLineWidth] = &PageContentParseGraphics.OpSetLineWidth;
+        table[(int)ContentOperator.SetGraphicsState] = &PageContentParseGraphics.OpSetGraphicsState;
     }
 
     /// <summary>Registers the colour operators.</summary>

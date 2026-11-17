@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Windowing.Rendering;
 
 namespace HyperPdf.Rendering.Cpu;
 
@@ -14,4 +15,8 @@ namespace HyperPdf.Rendering.Cpu;
 /// <param name="Smooth">Whether to sample bilinearly when scaling.</param>
 /// <param name="Opaque">Whether the source is known to have no transparent pixel, so its rows are copied without being looked at first.</param>
 [DebuggerDisplay("BlitRequest ({X}, {Y}) {Width} x {Height}, smooth {Smooth}")]
-public readonly record struct BlitRequest(int X, int Y, int Width, int Height, bool Smooth, bool Opaque);
+public readonly record struct BlitRequest(int X, int Y, int Width, int Height, bool Smooth, bool Opaque)
+{
+    /// <summary>Gets the part of the frame the blit may reach, or <see langword="null"/> for the whole frame.</summary>
+    public PixelClip? Clip { get; init; }
+}

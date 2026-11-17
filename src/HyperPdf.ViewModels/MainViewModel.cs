@@ -974,8 +974,12 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
 
     /// <summary>Opens the tab finder.</summary>
     [ReactiveCommand]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void ShowTabFinder() => IsTabFinderOpen = true;
+    private void ShowTabFinder()
+    {
+        // The list shows the open documents that match the query, so it is made from them when the finder opens.
+        RefreshFoundTabs();
+        IsTabFinderOpen = true;
+    }
 
     /// <summary>Clears the status message.</summary>
     [ReactiveCommand]

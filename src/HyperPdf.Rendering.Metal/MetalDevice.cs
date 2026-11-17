@@ -5,6 +5,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.Core.Layout;
 using HyperPdf.Rendering.Metal.Interop;
 using HyperPdf.Windowing.Rendering;
 
@@ -442,6 +443,15 @@ internal sealed unsafe class MetalDevice : IDisposable
         }
     }
 
+    /// <summary>Limits drawing to a rectangle of the frame, or lets it reach the whole frame.</summary>
+    /// <param name="encoder">The render command encoder.</param>
+    /// <param name="clip">The rectangle in frame pixels, or <see langword="null"/> for the whole frame.</param>
+    private void SetScissor(nint encoder, LayoutRect? clip)
+    {
+        var pixels = clip is { } area ? PixelClip.Of(area, Width, Height) : new PixelClip(0, 0, Width, Height);
+        NativeMethods.SendScissor(encoder, Selectors.SetScissorRect, new((ulong)pixels.Left, (ulong)pixels.Top, (ulong)pixels.Width, (ulong)pixels.Height));
+    }
+
     /// <summary>Encodes every run in order, changing the texture and sampler only when a run needs a different one.</summary>
     /// <param name="encoder">The render command encoder.</param>
     /// <param name="batches">The runs of the frame.</param>
@@ -455,12 +465,20 @@ internal sealed unsafe class MetalDevice : IDisposable
         NativeMethods.SendVertexBytes(encoder, Selectors.SetVertexBytes, scale, FrameConstantsFloats * sizeof(float), FrameConstantsIndex);
         ulong boundTexture = 0;
         ulong boundSampler = 0;
+        LayoutRect? boundClip = null;
         foreach (ref readonly var batch in batches)
         {
             if (batch.IsClear)
             {
                 // The pass starts from the clear, so there is nothing to draw for it.
                 continue;
+            }
+
+            // A pass starts with the scissor over the whole target, so it is only set when a run's clip differs from the last.
+            if (batch.Clip != boundClip)
+            {
+                SetScissor(encoder, batch.Clip);
+                boundClip = batch.Clip;
             }
 
             var texture = batch.Tile is { } tile ? tile.Texture : _white;

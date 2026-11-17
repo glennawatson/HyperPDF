@@ -71,6 +71,8 @@ public sealed class PrintTests
 
         _ = await tab.Printing.PrintCommand.Execute().ToTask();
 
+        // The notice says the print was sent, so it is the sign that everything the printer was given has arrived.
+        _ = await TestWait.UntilAsync(() => tab.Notice is { Length: > 0 }, () => $"The notice was '{tab.Notice}'.");
         await Assert.That(printer.Title).IsEqualTo("print.pdf");
 
         // The preview first builds for the system dialog, which keeps notes as annotations, then again for the printer, which draws them into
@@ -101,6 +103,8 @@ public sealed class PrintTests
 
         _ = await tab.Printing.PrintCommand.Execute().ToTask();
 
+        // The notice is set once the command's own work has finished, which on a slow machine is after the command returns.
+        _ = await TestWait.UntilAsync(() => tab.Notice is { Length: > 0 }, () => $"The notice was '{tab.Notice}'.");
         await Assert.That(tab.Notice).IsEqualTo("Printing is not available on this desktop. Choose Save as PDF instead.");
     }
 

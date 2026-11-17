@@ -39,6 +39,9 @@ internal static class PageContentParseObjects
         item.LineWidth = state.State.LineWidth;
         item.OriginalFillPaint = state.State.Fill;
         item.OriginalStrokePaint = state.State.Stroke;
+        item.OriginalFillAlpha = state.State.FillAlpha;
+        item.OriginalStrokeAlpha = state.State.StrokeAlpha;
+        item.OriginalBlendMode = state.State.BlendMode;
         item.Index = state.Objects.Count;
         state.Objects.Add(item);
     }

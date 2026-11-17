@@ -13,4 +13,8 @@ namespace HyperPdf.Core.Documents;
 /// <param name="Bounds">Where the object is on the page, in page space.</param>
 /// <param name="Text">The text of a text object, or an empty string.</param>
 [DebuggerDisplay("PageObjectInfo: {Kind} {Index} at {Bounds}")]
-public readonly record struct PageObjectInfo(int Index, PageObjectKind Kind, PageRect Bounds, string Text);
+public readonly record struct PageObjectInfo(int Index, PageObjectKind Kind, PageRect Bounds, string Text)
+{
+    /// <summary>Gets the way a line of text reads on the page; text that reads to the right is the default.</summary>
+    public TextFlow Flow { get; init; }
+}

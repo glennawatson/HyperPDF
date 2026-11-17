@@ -65,6 +65,7 @@ internal static class MenuOverlays
     {
         { Kind: OverlayInputKind.Press, Item: { Command: ChromeCommand.MenuEntry } item } => Press(state, item.Index),
         { Kind: OverlayInputKind.Key } => PressKey(state, input.Key),
+        { Kind: OverlayInputKind.Scroll } => MoveCursor(state, Math.Sign(input.Value)),
         { Kind: OverlayInputKind.Dismiss } => state with { Done = true },
         _ => state,
     };
@@ -164,13 +165,22 @@ internal static class MenuOverlays
         var size = place.Size;
         var style = ChromeBars.Style(metrics);
         var width = metrics.PopupWidth;
-        var height = state.Parents.Length > 0 ? metrics.RowHeight : 0;
+        var back = state.Parents.Length > 0 ? metrics.RowHeight : 0;
         for (var i = 0; i < state.Shown.Count; i++)
         {
             var entry = state.Shown[i];
-            height += RowHeight(entry, metrics);
             var gesture = entry.Gesture is { } keys ? runs.Measure(keys, style) + metrics.Padding : 0;
             width = Math.Max(width, runs.Measure(Header(entry), style) + gesture + (metrics.Padding * SeparatorShare));
+        }
+
+        // A menu taller than the window shows the rows from the first that lets the keyboard's row be seen, as many as fit.
+        var first = FirstShown(state, metrics, size.Height - back);
+        var count = 0;
+        var height = back;
+        while (first + count < state.Shown.Count && height + RowHeight(state.Shown[first + count], metrics) <= size.Height)
+        {
+            height += RowHeight(state.Shown[first + count], metrics);
+            count++;
         }
 
         var left = Math.Max(0, Math.Min(anchor.X, size.Width - width));
@@ -183,12 +193,41 @@ internal static class MenuOverlays
             y += metrics.RowHeight;
         }
 
-        for (var i = 0; i < state.Shown.Count; i++)
+        for (var i = first; i < first + count; i++)
         {
             var bounds = new LayoutRect(left, y, width, RowHeight(state.Shown[i], metrics));
             y += (int)bounds.Height;
             AddEntry(items, state, runs, metrics, i, bounds);
         }
+    }
+
+    /// <summary>Finds the first entry a menu shows when it is taller than the room: the first, until the keyboard's entry would fall below the room.</summary>
+    /// <param name="state">What the menu shows.</param>
+    /// <param name="metrics">The sizes.</param>
+    /// <param name="room">The height left for the entries.</param>
+    /// <returns>The index of the first entry shown.</returns>
+    private static int FirstShown(MenuState state, in ChromeMetrics metrics, int room)
+    {
+        var first = 0;
+        if (state.Cursor < 0)
+        {
+            return first;
+        }
+
+        var used = 0;
+        for (var i = 0; i <= state.Cursor && i < state.Shown.Count; i++)
+        {
+            used += RowHeight(state.Shown[i], metrics);
+        }
+
+        // Entries are dropped from the top until the one the keyboard is on fits.
+        while (used > room && first < state.Cursor)
+        {
+            used -= RowHeight(state.Shown[first], metrics);
+            first++;
+        }
+
+        return first;
     }
 
     /// <summary>Gets the text of an entry as it is drawn.</summary>

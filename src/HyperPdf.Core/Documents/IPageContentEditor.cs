@@ -107,13 +107,15 @@ public interface IPageContentEditor : IDocumentFeature
     /// <exception cref="InvalidOperationException">The object is not a picture, or its pixels cannot be read.</exception>
     IObservable<PageObjectFile> ExtractPicture(int pageIndex, int objectIndex);
 
-    /// <summary>Changes how several objects are drawn besides their colours: the dashes, ends and corners of their lines and how solid they are, in one undo step.</summary>
+    /// <summary>
+    /// Changes how several objects are drawn besides their colours, in one undo step: the dashes, ends and corners of their lines,
+    /// how solid they are and how their colours mix with what is under them.
+    /// </summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <param name="objectIndexes">The objects' numbers from <see cref="ReadObjects"/>.</param>
     /// <param name="look">What to change.</param>
     /// <returns>A cold signal giving a task completing after the page has changed once; unsubscribing cancels the work.</returns>
     /// <exception cref="NotSupportedException">The document cannot change this.</exception>
-    /// <exception cref="InvalidOperationException">An object is text, which cannot be made see-through.</exception>
     IObservable<RxVoid> SetLookMany(int pageIndex, int[] objectIndexes, PageObjectLook look);
 
     /// <summary>Changes the fill or stroke colour of an object.</summary>
@@ -155,6 +157,17 @@ public interface IPageContentEditor : IDocumentFeature
     /// <returns>A cold signal giving a task completing after the page has changed once; unsubscribing cancels the work.</returns>
     /// <exception cref="InvalidOperationException">The object is not text.</exception>
     IObservable<RxVoid> ReplaceText(int pageIndex, int objectIndex, string text);
+
+    /// <summary>
+    /// Replaces the text of the lines of a paragraph with new text wrapped to the width the paragraph had, starting where its first line
+    /// started: a longer text takes more lines, and a shorter one takes fewer. It is one undo step.
+    /// </summary>
+    /// <param name="pageIndex">The zero based page index.</param>
+    /// <param name="objectIndexes">The numbers, from <see cref="ReadObjects"/>, of the text objects that are the paragraph's lines.</param>
+    /// <param name="text">The new text; a line break starts a new line.</param>
+    /// <returns>A cold signal giving a task completing after the page has changed once; unsubscribing cancels the work.</returns>
+    /// <exception cref="InvalidOperationException">An object is not text.</exception>
+    IObservable<RxVoid> ReflowParagraph(int pageIndex, int[] objectIndexes, string text);
 
     /// <summary>Sets a text object in another font and size, keeping its words, place and colour. The text is written in a standard font.</summary>
     /// <param name="pageIndex">The zero based page index.</param>

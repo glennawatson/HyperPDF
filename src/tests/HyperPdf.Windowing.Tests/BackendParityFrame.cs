@@ -10,7 +10,8 @@ namespace HyperPdf.Windowing.Tests;
 
 /// <summary>
 /// One small frame every render backend draws the same way: a clear, a tile at its own size, the tile scaled up two times and a half
-/// transparent fill. GPU backend tests compare their pixels with the CPU backend's.
+/// transparent fill, then the tile scaled over the whole frame but limited to a small clip, then a tile and a fill drawn as a half opaque
+/// layer. GPU backend tests compare their pixels with the CPU backend's.
 /// </summary>
 internal static class BackendParityFrame
 {
@@ -32,11 +33,29 @@ internal static class BackendParityFrame
     /// <summary>Twice the tile size in pixels.</summary>
     private const double DoubleTile = 8;
 
+    /// <summary>Where the clip starts, in the frame's empty corner.</summary>
+    private const double ClipStart = 9;
+
+    /// <summary>The width and height of the clip.</summary>
+    private const double ClipSide = 5;
+
     /// <summary>The opaque white used to clear the frame.</summary>
     private const uint White = 0xFFFFFFFF;
 
     /// <summary>A half transparent blue.</summary>
     private const uint HalfBlue = 0x800000FF;
+
+    /// <summary>An opaque blue.</summary>
+    private const uint OpaqueBlue = 0xFF0000FF;
+
+    /// <summary>How much the faded layer counts.</summary>
+    private const double HalfOpacity = 0.5;
+
+    /// <summary>The left edge of the faded tile and fill, in the frame's empty middle.</summary>
+    private const double FadedLeft = 4;
+
+    /// <summary>The top edge of the faded fill, under the faded tile.</summary>
+    private const double FadedFillTop = 12;
 
     /// <summary>The step between the colour values of neighbouring tile pixels.</summary>
     private const int Step = 40;
@@ -77,6 +96,17 @@ internal static class BackendParityFrame
         pass.DrawSurface(tile, new(TileSize, TileSize, TileSize, TileSize), smooth: false);
         pass.DrawSurface(tile, new(HalfFrame, 0, DoubleTile, DoubleTile), smooth: false);
         pass.FillRect(new(0, HalfFrame, TileSize, TileSize), HalfBlue);
+
+        // The tile scaled over the whole frame, limited to a clip in the empty corner, which must change nothing outside the clip.
+        pass.SetClip(new(ClipStart, ClipStart, ClipSide, ClipSide));
+        pass.DrawSurface(tile, new(0, 0, FrameSize, FrameSize), smooth: false);
+        pass.ClearClip();
+
+        // A tile and a fill drawn as a half opaque layer, each over the white they land on.
+        pass.SetOpacity(HalfOpacity);
+        pass.DrawSurface(tile, new(FadedLeft, HalfFrame, TileSize, TileSize), smooth: false);
+        pass.FillRect(new(FadedLeft, FadedFillTop, TileSize, TileSize), OpaqueBlue);
+        pass.SetOpacity(1);
     }
 
     /// <summary>Finds the largest difference between any channel of two frames.</summary>

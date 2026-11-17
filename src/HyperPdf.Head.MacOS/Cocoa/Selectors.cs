@@ -85,6 +85,15 @@ internal static class Selectors
     /// <summary>Gets <c>close</c>.</summary>
     internal static nint Close { get; } = NativeMethods.Selector("close");
 
+    /// <summary>Gets <c>isZoomed</c>.</summary>
+    internal static nint IsZoomed { get; } = NativeMethods.Selector("isZoomed");
+
+    /// <summary>Gets <c>zoom:</c>.</summary>
+    internal static nint Zoom { get; } = NativeMethods.Selector("zoom:");
+
+    /// <summary>Gets <c>setContentSize:</c>.</summary>
+    internal static nint SetContentSize { get; } = NativeMethods.Selector("setContentSize:");
+
     /// <summary>Gets <c>setTitle:</c>.</summary>
     internal static nint SetTitle { get; } = NativeMethods.Selector("setTitle:");
 

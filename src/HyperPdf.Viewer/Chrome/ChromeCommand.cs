@@ -141,4 +141,7 @@ public enum ChromeCommand
 
     /// <summary>Puts away the message in the status bar.</summary>
     DismissStatus = 44,
+
+    /// <summary>Leaves reading mode and brings the bars back.</summary>
+    LeaveReadMode = 45,
 }

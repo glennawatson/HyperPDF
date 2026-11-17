@@ -15,4 +15,10 @@ internal enum VulkanDrawKind
 
     /// <summary>Draws a tile.</summary>
     Tile = 2,
+
+    /// <summary>Limits what is drawn after it to a rectangle of the frame.</summary>
+    Clip = 3,
+
+    /// <summary>Lets what is drawn after it reach the whole frame again.</summary>
+    Unclip = 4,
 }

@@ -129,6 +129,9 @@
   <data name="A block of data was never closed, so it was read to the end of its part." xml:space="preserve">
     <value>某个数据块缺少结束标记，已读取至其所属部分的末尾。</value>
   </data>
+  <data name="A certificate used before" xml:space="preserve">
+    <value>以前使用过的证书</value>
+  </data>
   <data name="A drawing that stays sharp at any size. Text, shapes and images are kept as they are." xml:space="preserve">
     <value>可在任意大小下保持清晰的矢量图。文本、形状和图像均保持原样。</value>
   </data>
@@ -204,6 +207,9 @@
   <data name="A trusted timestamp is added from {0}. Only a hash of the signature is sent, never the document." xml:space="preserve">
     <value>从 {0} 添加可信时间戳。仅发送签名的哈希值，不发送文档。</value>
   </data>
+  <data name="A web address such as https://example.com, or page: and a page number" xml:space="preserve">
+    <value>网址，例如 https://example.com，或 page: 加页码</value>
+  </data>
   <data name="A whole signature container (CMS, DER) made over the document digest" xml:space="preserve">
     <value>基于文档摘要生成的完整签名容器（CMS、DER）</value>
   </data>
@@ -234,8 +240,14 @@
   <data name="Actions" xml:space="preserve">
     <value>操作</value>
   </data>
+  <data name="Actual _Size" xml:space="preserve">
+    <value>实际大小(_S)</value>
+  </data>
   <data name="Actual size" xml:space="preserve">
     <value>实际大小</value>
+  </data>
+  <data name="Add Bates numbers" xml:space="preserve">
+    <value>添加贝茨编号</value>
   </data>
   <data name="Add Bookmark" xml:space="preserve">
     <value>添加书签</value>
@@ -249,6 +261,9 @@
   <data name="Add Note" xml:space="preserve">
     <value>添加便笺</value>
   </data>
+  <data name="Add Some _Text" xml:space="preserve">
+    <value>添加文字(_T)</value>
+  </data>
   <data name="Add Text" xml:space="preserve">
     <value>添加文本</value>
   </data>
@@ -258,14 +273,53 @@
   <data name="Add Validation Data or Timestamp… (needs the HyperPDF engine)" xml:space="preserve">
     <value>添加验证数据或时间戳…（需要 HyperPDF 引擎）</value>
   </data>
+  <data name="Add _Bates Numbers…" xml:space="preserve">
+    <value>添加贝茨编号(_B)…</value>
+  </data>
   <data name="Add _Note" xml:space="preserve">
     <value>添加便笺(_N)</value>
   </data>
   <data name="Add _Note Here" xml:space="preserve">
     <value>在此添加_批注</value>
   </data>
+  <data name="Add _Page Numbers…" xml:space="preserve">
+    <value>添加页码(_P)…</value>
+  </data>
   <data name="Add _Validation Data or Timestamp…" xml:space="preserve">
     <value>添加验证数据或时间戳(_V)…</value>
+  </data>
+  <data name="Add _to Pages" xml:space="preserve">
+    <value>添加到页面(_T)</value>
+  </data>
+  <data name="Add a Form Check _Box" xml:space="preserve">
+    <value>添加表单复选框(_B)</value>
+  </data>
+  <data name="Add a Form Drop-_Down List" xml:space="preserve">
+    <value>添加表单下拉列表(_D)</value>
+  </data>
+  <data name="Add a Form _Button" xml:space="preserve">
+    <value>添加表单按钮(_B)</value>
+  </data>
+  <data name="Add a Form _Text Field" xml:space="preserve">
+    <value>添加表单文本域(_T)</value>
+  </data>
+  <data name="Add a _Footer…" xml:space="preserve">
+    <value>添加页脚(_F)…</value>
+  </data>
+  <data name="Add a _Header…" xml:space="preserve">
+    <value>添加页眉(_H)…</value>
+  </data>
+  <data name="Add a _Line" xml:space="preserve">
+    <value>添加直线(_L)</value>
+  </data>
+  <data name="Add a _Picture…" xml:space="preserve">
+    <value>添加图片(_P)…</value>
+  </data>
+  <data name="Add a _Rectangle" xml:space="preserve">
+    <value>添加矩形(_R)</value>
+  </data>
+  <data name="Add a _Watermark…" xml:space="preserve">
+    <value>添加水印(_W)…</value>
   </data>
   <data name="Add a bookmark that goes to the page you are on. It goes below the chosen bookmark, or at the top when none is chosen." xml:space="preserve">
     <value>添加指向当前页面的书签，放在所选书签下方；未选择书签时放在顶部。</value>
@@ -273,11 +327,26 @@
   <data name="Add a document timestamp" xml:space="preserve">
     <value>添加文档时间戳</value>
   </data>
+  <data name="Add a footer" xml:space="preserve">
+    <value>添加页脚</value>
+  </data>
+  <data name="Add a header" xml:space="preserve">
+    <value>添加页眉</value>
+  </data>
+  <data name="Add a link" xml:space="preserve">
+    <value>添加链接</value>
+  </data>
   <data name="Add a reading structure (tags) when missing" xml:space="preserve">
     <value>缺少阅读结构（标签）时添加</value>
   </data>
   <data name="Add a record for each signature." xml:space="preserve">
     <value>为每个签名添加记录。</value>
+  </data>
+  <data name="Add a watermark" xml:space="preserve">
+    <value>添加水印</value>
+  </data>
+  <data name="Add an _Ellipse" xml:space="preserve">
+    <value>添加椭圆(_E)</value>
   </data>
   <data name="Add bookmark" xml:space="preserve">
     <value>添加书签</value>
@@ -285,17 +354,35 @@
   <data name="Add copies of the selected pages after the selection." xml:space="preserve">
     <value>在所选页面之后添加这些页面的副本。</value>
   </data>
+  <data name="Add it" xml:space="preserve">
+    <value>添加</value>
+  </data>
+  <data name="Add page numbers" xml:space="preserve">
+    <value>添加页码</value>
+  </data>
   <data name="Add pictures as pages" xml:space="preserve">
     <value>将图片添加为页面</value>
   </data>
   <data name="Add pictures as pages…" xml:space="preserve">
     <value>将图片添加为页面…</value>
   </data>
+  <data name="Add tags worked out from the layout" xml:space="preserve">
+    <value>添加根据版面推断出的标签</value>
+  </data>
+  <data name="Add the Page I Am On to the Selection" xml:space="preserve">
+    <value>将当前页添加到所选内容</value>
+  </data>
   <data name="Add the custom tag type" xml:space="preserve">
     <value>添加自定义标签类型</value>
   </data>
+  <data name="Add the custom type" xml:space="preserve">
+    <value>添加自定义类型</value>
+  </data>
   <data name="Add the document language, a window title and tag flags when they are missing, so screen readers read the file correctly." xml:space="preserve">
     <value>补充缺失的文档语言、窗口标题和标签标志，以便屏幕阅读器正确读取文件。</value>
+  </data>
+  <data name="Add the link" xml:space="preserve">
+    <value>添加链接</value>
   </data>
   <data name="Add this reply to the comment. Shortcut: Ctrl+Enter" xml:space="preserve">
     <value>将此回复添加到批注。快捷键：Ctrl+Enter</value>
@@ -308,6 +395,15 @@
   </data>
   <data name="Added bookmark {0}." xml:space="preserve">
     <value>已添加书签 {0}。</value>
+  </data>
+  <data name="Added the field {0}. Drag it to where it belongs." xml:space="preserve">
+    <value>已添加字段 {0}。请将其拖到合适的位置。</value>
+  </data>
+  <data name="Added the link." xml:space="preserve">
+    <value>已添加链接。</value>
+  </data>
+  <data name="Added. Drag its handles to size it, or drag it to move it." xml:space="preserve">
+    <value>已添加。拖动控点可调整大小，拖动对象可移动。</value>
   </data>
   <data name="Adding and changing comments and markings" xml:space="preserve">
     <value>添加和修改批注与标记</value>
@@ -324,11 +420,23 @@
   <data name="Adjust Mark" xml:space="preserve">
     <value>调整标记</value>
   </data>
+  <data name="Adjust the Mark" xml:space="preserve">
+    <value>调整标记</value>
+  </data>
   <data name="Advanced sharpness choices" xml:space="preserve">
     <value>高级清晰度选项</value>
   </data>
   <data name="After you save it, the removed content cannot be brought back. Your open file is not changed, so keep it if you may need the original." xml:space="preserve">
     <value>保存后，删除的内容无法恢复。当前打开的文件保持不变，如可能需要原件，请保留它。</value>
+  </data>
+  <data name="Align _Centre" xml:space="preserve">
+    <value>居中对齐(_C)</value>
+  </data>
+  <data name="Align _Left" xml:space="preserve">
+    <value>左对齐(_L)</value>
+  </data>
+  <data name="Align _Right" xml:space="preserve">
+    <value>右对齐(_R)</value>
   </data>
   <data name="Align left" xml:space="preserve">
     <value>左对齐</value>
@@ -429,6 +537,9 @@
   <data name="Approve: allow any later change" xml:space="preserve">
     <value>批准：允许后续任何更改</value>
   </data>
+  <data name="Archive standard" xml:space="preserve">
+    <value>存档标准</value>
+  </data>
   <data name="Area" xml:space="preserve">
     <value>面积</value>
   </data>
@@ -504,6 +615,9 @@
   <data name="Azure region" xml:space="preserve">
     <value>Azure 区域</value>
   </data>
+  <data name="Azure speech region" xml:space="preserve">
+    <value>Azure 语音区域</value>
+  </data>
   <data name="A−" xml:space="preserve">
     <value>A−</value>
   </data>
@@ -519,8 +633,17 @@
   <data name="Back 10 s" xml:space="preserve">
     <value>后退 10 秒</value>
   </data>
+  <data name="Back ten seconds" xml:space="preserve">
+    <value>后退十秒</value>
+  </data>
   <data name="Back to Pages" xml:space="preserve">
     <value>返回页面</value>
+  </data>
+  <data name="Back to the pages" xml:space="preserve">
+    <value>返回页面</value>
+  </data>
+  <data name="Background colour" xml:space="preserve">
+    <value>背景颜色</value>
   </data>
   <data name="Balanced" xml:space="preserve">
     <value>均衡</value>
@@ -552,8 +675,14 @@
   <data name="Blue" xml:space="preserve">
     <value>蓝色</value>
   </data>
+  <data name="Bol_d" xml:space="preserve">
+    <value>粗体(_D)</value>
+  </data>
   <data name="Bold" xml:space="preserve">
     <value>粗体</value>
+  </data>
+  <data name="Bold Text" xml:space="preserve">
+    <value>粗体文字</value>
   </data>
   <data name="Boldest" xml:space="preserve">
     <value>最粗</value>
@@ -561,8 +690,26 @@
   <data name="Booklet (fold in half)" xml:space="preserve">
     <value>小册子（对折）</value>
   </data>
+  <data name="Box" xml:space="preserve">
+    <value>矩形</value>
+  </data>
   <data name="Bring back the tool bars and sidebar. Shortcut: Esc or Ctrl+H" xml:space="preserve">
     <value>恢复工具栏和侧边栏。快捷键：Esc 或 Ctrl+H</value>
+  </data>
+  <data name="Bring the Picked Object Forward One Step" xml:space="preserve">
+    <value>将所选对象上移一层</value>
+  </data>
+  <data name="Bring the Picked Object to the Front" xml:space="preserve">
+    <value>将所选对象置于顶层</value>
+  </data>
+  <data name="Bring the result back and save the signed copy…" xml:space="preserve">
+    <value>取回结果并保存已签名的副本…</value>
+  </data>
+  <data name="Brought forward one step." xml:space="preserve">
+    <value>已上移一层。</value>
+  </data>
+  <data name="Brought to the front." xml:space="preserve">
+    <value>已置于顶层。</value>
   </data>
   <data name="Browsing the parts of a document" xml:space="preserve">
     <value>浏览文档的各部分</value>
@@ -572,6 +719,12 @@
   </data>
   <data name="Bytes to sign: {0} bytes (DER signed attributes). Your signer hashes them and signs the hash." xml:space="preserve">
     <value>待签名字节：{0} 字节（DER 签名属性）。签名工具将计算其哈希值并对哈希值签名。</value>
+  </data>
+  <data name="CONFIDENTIAL" xml:space="preserve">
+    <value>机密</value>
+  </data>
+  <data name="C_loud" xml:space="preserve">
+    <value>云形(_L)</value>
   </data>
   <data name="C_olour" xml:space="preserve">
     <value>颜_色</value>
@@ -657,20 +810,38 @@
   <data name="Certify: allow no later change" xml:space="preserve">
     <value>认证：不允许后续更改</value>
   </data>
+  <data name="Change a tag" xml:space="preserve">
+    <value>更改标签</value>
+  </data>
   <data name="Change how the app looks and works. Shortcut: Ctrl+Comma" xml:space="preserve">
     <value>更改应用的外观和行为。快捷键：Ctrl+Comma</value>
   </data>
   <data name="Change how wide the column of text is." xml:space="preserve">
     <value>调整文本栏宽度。</value>
   </data>
+  <data name="Change the Picked Paragraph…" xml:space="preserve">
+    <value>更改所选段落…</value>
+  </data>
+  <data name="Change the Picked Picture in Another Program…" xml:space="preserve">
+    <value>在其他程序中更改所选图片…</value>
+  </data>
+  <data name="Change the Picked Text…" xml:space="preserve">
+    <value>更改所选文字…</value>
+  </data>
   <data name="Change the chosen tag" xml:space="preserve">
     <value>更改所选标签</value>
+  </data>
+  <data name="Change the document" xml:space="preserve">
+    <value>更改文档</value>
   </data>
   <data name="Change the page itself. Click text, a picture or a drawing to pick it, then retype, move or remove it. Shortcut: Ctrl+E" xml:space="preserve">
     <value>直接修改页面本身。单击文字、图片或图形即可选中，然后重新输入、移动或删除。快捷键：Ctrl+E</value>
   </data>
   <data name="Change the pages" xml:space="preserve">
     <value>更改页面</value>
+  </data>
+  <data name="Change the picture in the other program and save it there. It changes here when you do." xml:space="preserve">
+    <value>请在其他程序中修改图片并在那里保存，保存后此处会随之更新。</value>
   </data>
   <data name="Change the size of the text." xml:space="preserve">
     <value>更改文本大小。</value>
@@ -687,8 +858,50 @@
   <data name="Change the title of the chosen bookmark." xml:space="preserve">
     <value>更改所选书签的标题。</value>
   </data>
+  <data name="Changed how its colours mix with the page." xml:space="preserve">
+    <value>已更改其颜色与页面的混合方式。</value>
+  </data>
+  <data name="Changed how solid it is." xml:space="preserve">
+    <value>已更改不透明度。</value>
+  </data>
+  <data name="Changed the dashes." xml:space="preserve">
+    <value>已更改虚线。</value>
+  </data>
+  <data name="Changed the fill colour." xml:space="preserve">
+    <value>已更改填充颜色。</value>
+  </data>
+  <data name="Changed the font." xml:space="preserve">
+    <value>已更改字体。</value>
+  </data>
+  <data name="Changed the line colour." xml:space="preserve">
+    <value>已更改线条颜色。</value>
+  </data>
+  <data name="Changed the line corners." xml:space="preserve">
+    <value>已更改线条转角。</value>
+  </data>
+  <data name="Changed the line ends." xml:space="preserve">
+    <value>已更改线条端点。</value>
+  </data>
+  <data name="Changed the page numbers. Undo is in the Pages menu." xml:space="preserve">
+    <value>已更改页码。撤销在“页面”菜单中。</value>
+  </data>
+  <data name="Changed the paragraph." xml:space="preserve">
+    <value>已更改段落。</value>
+  </data>
+  <data name="Changed the picture from the other program." xml:space="preserve">
+    <value>已根据其他程序更改图片。</value>
+  </data>
   <data name="Changed the text." xml:space="preserve">
     <value>文字已更改。</value>
+  </data>
+  <data name="Changed whether the field can be changed." xml:space="preserve">
+    <value>已更改字段是否可修改。</value>
+  </data>
+  <data name="Changed whether the field must be filled in." xml:space="preserve">
+    <value>已更改字段是否必填。</value>
+  </data>
+  <data name="Changed {0} pages. Undo is in the Pages menu." xml:space="preserve">
+    <value>已更改 {0} 页。撤销在“页面”菜单中。</value>
   </data>
   <data name="Changes apply straight away and are kept for next time." xml:space="preserve">
     <value>更改立即生效，并保留供下次使用。</value>
@@ -708,8 +921,17 @@
   <data name="Check spelling in form fields" xml:space="preserve">
     <value>检查表单字段中的拼写</value>
   </data>
+  <data name="Check spelling in forms and notes" xml:space="preserve">
+    <value>检查表单和注释中的拼写</value>
+  </data>
+  <data name="Check the _Accessibility Tags" xml:space="preserve">
+    <value>检查无障碍标签(_A)</value>
+  </data>
   <data name="Check the choices, choose where to save, then make the protected copy. The open file is never replaced." xml:space="preserve">
     <value>检查选项，选择保存位置，然后创建受保护的副本。不会替换当前打开的文件。</value>
+  </data>
+  <data name="Check the signatures again" xml:space="preserve">
+    <value>再次检查签名</value>
   </data>
   <data name="Check who signed this document and whether it changed after signing. This may go online." xml:space="preserve">
     <value>检查文档签名者及签名后是否有更改。此操作可能联网。</value>
@@ -722,6 +944,9 @@
   </data>
   <data name="Checking the file" xml:space="preserve">
     <value>正在检查文件</value>
+  </data>
+  <data name="Checking the signatures…" xml:space="preserve">
+    <value>正在检查签名…</value>
   </data>
   <data name="Checking…" xml:space="preserve">
     <value>正在检查…</value>
@@ -768,6 +993,12 @@
   <data name="Choose a different file so the open document is not replaced." xml:space="preserve">
     <value>请选择其他文件，以免替换已打开的文档。</value>
   </data>
+  <data name="Choose a file" xml:space="preserve">
+    <value>选择文件</value>
+  </data>
+  <data name="Choose a folder" xml:space="preserve">
+    <value>选择文件夹</value>
+  </data>
   <data name="Choose a folder and the words to find." xml:space="preserve">
     <value>选择文件夹并输入要查找的词语。</value>
   </data>
@@ -776,6 +1007,9 @@
   </data>
   <data name="Choose a picture file to use as a stamp, then click on the page to place it." xml:space="preserve">
     <value>选择用作图章的图片文件，然后单击页面放置。</value>
+  </data>
+  <data name="Choose a picture of it…" xml:space="preserve">
+    <value>选择它的图片…</value>
   </data>
   <data name="Choose a picture of your signature from a folder." xml:space="preserve">
     <value>从文件夹中选择签名图片。</value>
@@ -870,6 +1104,9 @@
   <data name="Choose the Answers to Load ({0})" xml:space="preserve">
     <value>选择要加载的表单内容（{0}）</value>
   </data>
+  <data name="Choose the Language to Recognise…" xml:space="preserve">
+    <value>选择要识别的语言…</value>
+  </data>
   <data name="Choose the PDF/A level the copy must meet. Use the arrow keys to move between the choices." xml:space="preserve">
     <value>选择副本必须符合的 PDF/A 级别。使用方向键切换选项。</value>
   </data>
@@ -878,6 +1115,9 @@
   </data>
   <data name="Choose the Signer's Certificates" xml:space="preserve">
     <value>选择签名者证书</value>
+  </data>
+  <data name="Choose the certificate file…" xml:space="preserve">
+    <value>选择证书文件…</value>
   </data>
   <data name="Choose the colour behind the text." xml:space="preserve">
     <value>选择文本背景颜色。</value>
@@ -897,6 +1137,9 @@
   <data name="Choose the colours of the app, such as Calm, Dark or High contrast." xml:space="preserve">
     <value>选择应用配色，如柔和、深色或高对比度。</value>
   </data>
+  <data name="Choose the document to show." xml:space="preserve">
+    <value>请选择要显示的文档。</value>
+  </data>
   <data name="Choose the file your signer gave back, then choose where to save the signed copy." xml:space="preserve">
     <value>选择签名方返回的文件，然后选择签名副本的保存位置。</value>
   </data>
@@ -905,6 +1148,9 @@
   </data>
   <data name="Choose the folder to search." xml:space="preserve">
     <value>选择要搜索的文件夹。</value>
+  </data>
+  <data name="Choose the folder…" xml:space="preserve">
+    <value>选择文件夹…</value>
   </data>
   <data name="Choose the font of the text you type, or of the text you picked. Each font is shown in its own letters." xml:space="preserve">
     <value>选择输入文本或所选文本的字体。每种字体均以自身字形显示。</value>
@@ -924,6 +1170,9 @@
   <data name="Choose the language a scanned document is written in, then find its words. Other languages download in one click." xml:space="preserve">
     <value>选择扫描文档的语言，然后识别文字。其他语言可一键下载。</value>
   </data>
+  <data name="Choose the language of the viewer. You can change it later in the preferences." xml:space="preserve">
+    <value>请选择查看器的语言。以后可以在首选项中更改。</value>
+  </data>
   <data name="Choose the language of this document. Languages not on this computer download in the same click." xml:space="preserve">
     <value>选择文档语言。此计算机尚未安装的语言可一键下载。</value>
   </data>
@@ -935,6 +1184,9 @@
   </data>
   <data name="Choose the pages and settings, then print. Shortcut: Ctrl+P" xml:space="preserve">
     <value>选择页面和设置，然后打印。快捷键：Ctrl+P</value>
+  </data>
+  <data name="Choose the signer's certificate…" xml:space="preserve">
+    <value>选择签名者的证书…</value>
   </data>
   <data name="Choose the size of new text and callouts, and of the text you picked." xml:space="preserve">
     <value>选择新文本、标注框以及所选文本的大小。</value>
@@ -956,6 +1208,9 @@
   </data>
   <data name="Choose the zoom for new documents. Fit page shows the whole page. Fit width fills the width." xml:space="preserve">
     <value>选择新文档的缩放比例。适合页面显示整页，适合宽度填满视图宽度。</value>
+  </data>
+  <data name="Choose this folder" xml:space="preserve">
+    <value>选择此文件夹</value>
   </data>
   <data name="Choose to add validation data or a document timestamp. Use the arrow keys to move between the choices." xml:space="preserve">
     <value>选择添加验证数据或文档时间戳。使用方向键切换选项。</value>
@@ -1056,8 +1311,17 @@
   <data name="Clear recent documents" xml:space="preserve">
     <value>清除最近文档</value>
   </data>
+  <data name="Clear the Measurement" xml:space="preserve">
+    <value>清除测量</value>
+  </data>
   <data name="Clear the measurement you are making. Shortcut: Esc" xml:space="preserve">
     <value>清除当前测量。快捷键：Esc</value>
+  </data>
+  <data name="Clear the title, author, subject, keywords and the program that made it" xml:space="preserve">
+    <value>清除标题、作者、主题、关键字和创建程序</value>
+  </data>
+  <data name="Click a field to pick it first." xml:space="preserve">
+    <value>请先点击一个字段将其选中。</value>
   </data>
   <data name="Click a form field to fill it in, or click anywhere on the page and type. Tab moves between fields." xml:space="preserve">
     <value>单击表单字段填写，或单击页面任意位置输入。按 Tab 在字段间切换。</value>
@@ -1079,6 +1343,9 @@
   </data>
   <data name="Click the corners of a shape to measure its area. Double-click to finish." xml:space="preserve">
     <value>单击形状各角测量面积。双击完成。</value>
+  </data>
+  <data name="Click the points to measure between." xml:space="preserve">
+    <value>请点击要测量的两点。</value>
   </data>
   <data name="Click two points on the page to measure the distance between them." xml:space="preserve">
     <value>单击页面上的两点以测量它们之间的距离。</value>
@@ -1164,6 +1431,12 @@
   <data name="Colour separations" xml:space="preserve">
     <value>分色</value>
   </data>
+  <data name="Colour: {0}" xml:space="preserve">
+    <value>颜色：{0}</value>
+  </data>
+  <data name="Columns the cell spans" xml:space="preserve">
+    <value>单元格跨越的列数</value>
+  </data>
   <data name="Columns this cell covers" xml:space="preserve">
     <value>此单元格跨越的列数</value>
   </data>
@@ -1178,6 +1451,9 @@
   </data>
   <data name="Comments, highlights, stamps and drawings become part of the page. Form fields and links stay as they are." xml:space="preserve">
     <value>批注、高亮、图章和绘图将合并到页面中。表单字段和链接保持不变。</value>
+  </data>
+  <data name="Compare with Another Document" xml:space="preserve">
+    <value>与另一个文档比较</value>
   </data>
   <data name="Compatible (AES-128)" xml:space="preserve">
     <value>兼容（AES-128）</value>
@@ -1203,11 +1479,17 @@
   <data name="Convert _Pictures to PDF…" xml:space="preserve">
     <value>将图片转换为 _PDF…</value>
   </data>
+  <data name="Convert _Pictures to a PDF…" xml:space="preserve">
+    <value>将图片转换为 PDF(_P)…</value>
+  </data>
   <data name="Copied an image of the area. Paste it where you need it." xml:space="preserve">
     <value>已复制此区域的图片。可将其粘贴到所需位置。</value>
   </data>
   <data name="Copied the licence text." xml:space="preserve">
     <value>已复制许可证文本。</value>
+  </data>
+  <data name="Copied." xml:space="preserve">
+    <value>已复制。</value>
   </data>
   <data name="Copies" xml:space="preserve">
     <value>份数</value>
@@ -1215,14 +1497,26 @@
   <data name="Copy text and pictures" xml:space="preserve">
     <value>复制文本和图片</value>
   </data>
+  <data name="Copy the Picked Object" xml:space="preserve">
+    <value>复制所选对象</value>
+  </data>
   <data name="Copy the full licence text of the chosen component to the clipboard." xml:space="preserve">
     <value>将所选组件的完整许可证文本复制到剪贴板。</value>
+  </data>
+  <data name="Copy this licence" xml:space="preserve">
+    <value>复制此许可证</value>
   </data>
   <data name="Copyright" xml:space="preserve">
     <value>版权</value>
   </data>
   <data name="Could not add pictures as pages." xml:space="preserve">
     <value>无法将图片添加为页面。</value>
+  </data>
+  <data name="Could not change the page numbers." xml:space="preserve">
+    <value>无法更改页码。</value>
+  </data>
+  <data name="Could not change the pages." xml:space="preserve">
+    <value>无法更改页面。</value>
   </data>
   <data name="Could not delete pages." xml:space="preserve">
     <value>无法删除页面。</value>
@@ -1284,6 +1578,9 @@
   <data name="Could not redo the page edit." xml:space="preserve">
     <value>无法重做页面编辑。</value>
   </data>
+  <data name="Could not remove the hidden information." xml:space="preserve">
+    <value>无法删除隐藏信息。</value>
+  </data>
   <data name="Could not rotate pages." xml:space="preserve">
     <value>无法旋转页面。</value>
   </data>
@@ -1304,6 +1601,9 @@
   </data>
   <data name="Could not save the image: {0}" xml:space="preserve">
     <value>无法保存图片：{0}</value>
+  </data>
+  <data name="Could not save the picture." xml:space="preserve">
+    <value>无法保存图片。</value>
   </data>
   <data name="Could not save the redacted copy: {0}" xml:space="preserve">
     <value>无法保存删改副本：{0}</value>
@@ -1334,6 +1634,15 @@
   </data>
   <data name="Crisp gives text, lines and pictures hard edges and fits lines to whole pixels. Custom shows that the choices under Advanced match none of them." xml:space="preserve">
     <value>“清晰”使文本、线条和图片边缘清晰，并将线条对齐到整像素。“自定义”表示“高级”中的设置不匹配任何预设。</value>
+  </data>
+  <data name="Crop the pages" xml:space="preserve">
+    <value>裁剪页面</value>
+  </data>
+  <data name="Cropped it." xml:space="preserve">
+    <value>已裁剪。</value>
+  </data>
+  <data name="Cropped the picture." xml:space="preserve">
+    <value>已裁剪图片。</value>
   </data>
   <data name="Cryptographic filter" xml:space="preserve">
     <value>加密筛选器</value>
@@ -1374,6 +1683,9 @@
   <data name="Custom tag {0} now stands for {1}. Undo takes it back." xml:space="preserve">
     <value>自定义标签 {0} 现在代表 {1}。撤销可恢复。</value>
   </data>
+  <data name="Cut the Picked Object" xml:space="preserve">
+    <value>剪切所选对象</value>
+  </data>
   <data name="Damaged colour separation details on {0} were removed." xml:space="preserve">
     <value>已移除 {0} 中损坏的分色详细信息。</value>
   </data>
@@ -1389,6 +1701,9 @@
   <data name="Darkest" xml:space="preserve">
     <value>最深</value>
   </data>
+  <data name="Delete" xml:space="preserve">
+    <value>删除</value>
+  </data>
   <data name="Delete pages" xml:space="preserve">
     <value>删除页面</value>
   </data>
@@ -1401,11 +1716,17 @@
   <data name="Delete selected pages" xml:space="preserve">
     <value>删除所选页面</value>
   </data>
+  <data name="Delete the Page" xml:space="preserve">
+    <value>删除页面</value>
+  </data>
   <data name="Delete this comment from the page. Undo can bring it back." xml:space="preserve">
     <value>从页面删除此批注。可通过撤销恢复。</value>
   </data>
   <data name="Delete this language from this computer to free space. You can download it again later." xml:space="preserve">
     <value>从此计算机删除此语言以释放空间。以后可以重新下载。</value>
+  </data>
+  <data name="Describe pictures" xml:space="preserve">
+    <value>描述图片</value>
   </data>
   <data name="Describe pictures for screen readers" xml:space="preserve">
     <value>为屏幕阅读器描述图像</value>
@@ -1422,6 +1743,9 @@
   <data name="Details of the chosen component" xml:space="preserve">
     <value>所选组件的详细信息</value>
   </data>
+  <data name="Digits in the number, with zeros in front" xml:space="preserve">
+    <value>编号的位数，前面补零</value>
+  </data>
   <data name="Dim text away from what is read" xml:space="preserve">
     <value>淡化当前阅读内容之外的文本</value>
   </data>
@@ -1437,14 +1761,23 @@
   <data name="Distance" xml:space="preserve">
     <value>距离</value>
   </data>
+  <data name="Distance from the edge in points" xml:space="preserve">
+    <value>与边缘的距离（磅）</value>
+  </data>
   <data name="Document" xml:space="preserve">
     <value>文档</value>
+  </data>
+  <data name="Document Propert_ies…" xml:space="preserve">
+    <value>文档属性(_I)…</value>
   </data>
   <data name="Document digest, if your signing service wants a hash: {0}" xml:space="preserve">
     <value>文档摘要（若签名服务需要哈希值）：{0}</value>
   </data>
   <data name="Document language" xml:space="preserve">
     <value>文档语言</value>
+  </data>
+  <data name="Document language, such as en-AU" xml:space="preserve">
+    <value>文档语言，例如 zh-CN</value>
   </data>
   <data name="Document part" xml:space="preserve">
     <value>文档部分</value>
@@ -1481,6 +1814,9 @@
   </data>
   <data name="Done. The signed copy is saved." xml:space="preserve">
     <value>完成。已签名副本已保存。</value>
+  </data>
+  <data name="Dots per inch" xml:space="preserve">
+    <value>每英寸点数</value>
   </data>
   <data name="Download" xml:space="preserve">
     <value>下载</value>
@@ -1551,6 +1887,9 @@
   <data name="Draw" xml:space="preserve">
     <value>绘制</value>
   </data>
+  <data name="Draw Another Picture in Place of the Picked Picture…" xml:space="preserve">
+    <value>用另一张图片替换所选图片…</value>
+  </data>
   <data name="Draw a cloud around an area. Click each corner, then press Enter or double-click." xml:space="preserve">
     <value>围绕区域绘制云朵。单击各角，然后按 Enter 或双击。</value>
   </data>
@@ -1565,6 +1904,9 @@
   </data>
   <data name="Draw here. Each line you draw is added until you clear it." xml:space="preserve">
     <value>在此绘制。清除前，每笔都会保留。</value>
+  </data>
+  <data name="Draw it behind the page's own content" xml:space="preserve">
+    <value>绘制在页面自身内容之后</value>
   </data>
   <data name="Draw joined straight lines. Click each point, then press Enter or double-click." xml:space="preserve">
     <value>绘制相连的直线。单击各点，然后按 Enter 或双击。</value>
@@ -1581,11 +1923,17 @@
   <data name="Draw straight lines. Drag on the page to draw one." xml:space="preserve">
     <value>绘制直线。在页面上拖动即可绘制。</value>
   </data>
+  <data name="Draw the Picked Object's Line {0}" xml:space="preserve">
+    <value>将所选对象的线条绘制为{0}</value>
+  </data>
   <data name="Draw with a mouse, pen or finger. Typing is the keyboard way." xml:space="preserve">
     <value>使用鼠标、笔或手指绘制。使用键盘时可选择键入。</value>
   </data>
   <data name="Drawing" xml:space="preserve">
     <value>绘图</value>
+  </data>
+  <data name="Drawing (next start)" xml:space="preserve">
+    <value>绘制（下次启动生效）</value>
   </data>
   <data name="Drawing area" xml:space="preserve">
     <value>绘图区</value>
@@ -1595,6 +1943,9 @@
   </data>
   <data name="Drawings under a mark" xml:space="preserve">
     <value>标记下的绘图</value>
+  </data>
+  <data name="Drawings under a marked area" xml:space="preserve">
+    <value>标记区域下方的图形</value>
   </data>
   <data name="Draws form fields, comments and other marks into the page so they can no longer be changed." xml:space="preserve">
     <value>将表单字段、批注和其他标记绘制到页面中，使其无法再修改。</value>
@@ -1611,8 +1962,17 @@
   <data name="Duplicate selected pages" xml:space="preserve">
     <value>复制所选页面</value>
   </data>
+  <data name="Duplicate the Picked Object" xml:space="preserve">
+    <value>复制所选对象副本</value>
+  </data>
+  <data name="Duplicated." xml:space="preserve">
+    <value>已制作副本。</value>
+  </data>
   <data name="E_xport Pages as Pictures or Drawings…" xml:space="preserve">
     <value>将页面导出为图像或绘图(_X)…</value>
+  </data>
+  <data name="E_xtract Pages…" xml:space="preserve">
+    <value>提取页面(_X)…</value>
   </data>
   <data name="Each sentence read aloud is sent to your own Azure Speech resource, which bills your Azure account. The key is kept in your settings file, readable only by you." xml:space="preserve">
     <value>朗读的每个句子都会发送到您自己的 Azure Speech 资源，并向您的 Azure 账户计费。密钥保存在仅您可读取的设置文件中。</value>
@@ -1668,6 +2028,9 @@
   <data name="End each line at the right of the text box." xml:space="preserve">
     <value>将文本框中每行文本右对齐。</value>
   </data>
+  <data name="End the Picked Object's Line with a {0} End" xml:space="preserve">
+    <value>将所选对象的线条端点设为{0}端点</value>
+  </data>
   <data name="English is included. Other languages download from the Tesseract project on GitHub when you choose them, " xml:space="preserve">
     <value>已包含英语。选择其他语言时，将从 GitHub 上的 Tesseract 项目下载， </value>
   </data>
@@ -1676,6 +2039,9 @@
   </data>
   <data name="Every page already has text, so there was nothing to recognise." xml:space="preserve">
     <value>每页均已有文本，无需识别。</value>
+  </data>
+  <data name="Every page is numbered 1, 2, 3 again." xml:space="preserve">
+    <value>每一页重新编号为 1、2、3。</value>
   </data>
   <data name="Everyone" xml:space="preserve">
     <value>所有人</value>
@@ -1731,6 +2097,9 @@
   <data name="FFmpeg could not start to play this file." xml:space="preserve">
     <value>FFmpeg 无法开始播放此文件。</value>
   </data>
+  <data name="F_ind…" xml:space="preserve">
+    <value>查找(_I)…</value>
+  </data>
   <data name="Faster" xml:space="preserve">
     <value>更快</value>
   </data>
@@ -1752,11 +2121,23 @@
   <data name="Fill and Sign tools" xml:space="preserve">
     <value>填写与签名工具</value>
   </data>
+  <data name="Fill in forms" xml:space="preserve">
+    <value>填写表单</value>
+  </data>
   <data name="Fill in forms and add comments" xml:space="preserve">
     <value>填写表单并添加批注</value>
   </data>
   <data name="Fill in missing language and title" xml:space="preserve">
     <value>补全缺少的语言和标题</value>
+  </data>
+  <data name="Fill the Page _Background…" xml:space="preserve">
+    <value>填充页面背景(_B)…</value>
+  </data>
+  <data name="Fill the page background" xml:space="preserve">
+    <value>填充页面背景</value>
+  </data>
+  <data name="Filled it with a gradient." xml:space="preserve">
+    <value>已用渐变填充。</value>
   </data>
   <data name="Filled-in fields, check boxes and buttons become part of the page. Comments, highlights and links stay as they are." xml:space="preserve">
     <value>已填写的字段、复选框和按钮将合并到页面中。批注、高亮和链接保持不变。</value>
@@ -1775,6 +2156,9 @@
   </data>
   <data name="Find" xml:space="preserve">
     <value>查找</value>
+  </data>
+  <data name="Find a component" xml:space="preserve">
+    <value>查找组件</value>
   </data>
   <data name="Find an open tab" xml:space="preserve">
     <value>查找已打开的标签页</value>
@@ -1833,14 +2217,29 @@
   <data name="Fit width" xml:space="preserve">
     <value>适合宽度</value>
   </data>
+  <data name="Fix accessibility problems" xml:space="preserve">
+    <value>修复无障碍问题</value>
+  </data>
   <data name="Flattened" xml:space="preserve">
     <value>已扁平化</value>
   </data>
   <data name="Flattening draws form fields, comments and other marks into the page, so they look the same everywhere and can no longer be changed. The copy is a new file. Your open file is never changed. A signed file cannot be flattened, because that would break its signature." xml:space="preserve">
     <value>扁平化会将表单字段、批注和其他标记绘制到页面中，使其在各处显示一致且无法再修改。副本将保存为新文件，当前打开的文件不会更改。已签名文件无法扁平化，因为这会破坏签名。</value>
   </data>
+  <data name="Flip the Picked Object Across" xml:space="preserve">
+    <value>水平翻转所选对象</value>
+  </data>
+  <data name="Flip the Picked Object Upside Down" xml:space="preserve">
+    <value>垂直翻转所选对象</value>
+  </data>
+  <data name="Flipped." xml:space="preserve">
+    <value>已翻转。</value>
+  </data>
   <data name="Focus" xml:space="preserve">
     <value>焦点</value>
+  </data>
+  <data name="Focus mode: one column of plain text." xml:space="preserve">
+    <value>专注模式：单列纯文本。</value>
   </data>
   <data name="Folder" xml:space="preserve">
     <value>文件夹</value>
@@ -1850,6 +2249,18 @@
   </data>
   <data name="Follow the desktop" xml:space="preserve">
     <value>跟随桌面</value>
+  </data>
+  <data name="Follow the document's opening action" xml:space="preserve">
+    <value>遵循文档的打开动作</value>
+  </data>
+  <data name="Follow the document's page layout" xml:space="preserve">
+    <value>遵循文档的页面布局</value>
+  </data>
+  <data name="Follow the document's print settings" xml:space="preserve">
+    <value>遵循文档的打印设置</value>
+  </data>
+  <data name="Follow the document's side panel choice" xml:space="preserve">
+    <value>遵循文档的侧栏选择</value>
   </data>
   <data name="Follow the page a document opens at" xml:space="preserve">
     <value>遵循文档指定的打开页面</value>
@@ -1872,6 +2283,9 @@
   <data name="For example uksouth or eastus" xml:space="preserve">
     <value>例如 uksouth 或 eastus</value>
   </data>
+  <data name="For_ward" xml:space="preserve">
+    <value>前进(_W)</value>
+  </data>
   <data name="Forget" xml:space="preserve">
     <value>忘记</value>
   </data>
@@ -1881,11 +2295,20 @@
   <data name="Forget certificate" xml:space="preserve">
     <value>忘记证书</value>
   </data>
+  <data name="Forget the Recent Documents" xml:space="preserve">
+    <value>清除最近的文档</value>
+  </data>
+  <data name="Forget the one that was kept" xml:space="preserve">
+    <value>忘记已保存的那个</value>
+  </data>
   <data name="Forget the picked certificate. The certificate file itself is not changed." xml:space="preserve">
     <value>忘记所选证书。证书文件本身不会更改。</value>
   </data>
   <data name="Forget the remembered one now. Signatures already placed are not changed." xml:space="preserve">
     <value>立即忘记已记住的签名。已放置的签名不受影响。</value>
+  </data>
+  <data name="Forget this certificate" xml:space="preserve">
+    <value>忘记此证书</value>
   </data>
   <data name="Form data (.fdf, .xfdf)" xml:space="preserve">
     <value>表单数据（.fdf、.xfdf）</value>
@@ -1898,6 +2321,12 @@
   </data>
   <data name="Form field colour strength" xml:space="preserve">
     <value>表单字段颜色强度</value>
+  </data>
+  <data name="Form field highlight colour" xml:space="preserve">
+    <value>表单字段高亮颜色</value>
+  </data>
+  <data name="Form field highlight strength" xml:space="preserve">
+    <value>表单字段高亮强度</value>
   </data>
   <data name="Form fields and all markup (suggested)" xml:space="preserve">
     <value>表单字段及所有标记（建议）</value>
@@ -1926,11 +2355,41 @@
   <data name="Forward 10 s" xml:space="preserve">
     <value>前进 10 秒</value>
   </data>
+  <data name="Forward ten seconds" xml:space="preserve">
+    <value>快进十秒</value>
+  </data>
+  <data name="Freehand H_ighlighter" xml:space="preserve">
+    <value>手绘荧光笔(_I)</value>
+  </data>
   <data name="Freehand highlight" xml:space="preserve">
     <value>手绘高亮</value>
   </data>
+  <data name="From page" xml:space="preserve">
+    <value>起始页</value>
+  </data>
   <data name="Full" xml:space="preserve">
     <value>完整</value>
+  </data>
+  <data name="Get a Better _Voice…" xml:space="preserve">
+    <value>获取更好的语音(_V)…</value>
+  </data>
+  <data name="Get a better voice" xml:space="preserve">
+    <value>获取更好的语音</value>
+  </data>
+  <data name="Get the document ready" xml:space="preserve">
+    <value>准备文档</value>
+  </data>
+  <data name="Getting the pages ready…" xml:space="preserve">
+    <value>正在准备页面…</value>
+  </data>
+  <data name="Getting the voice" xml:space="preserve">
+    <value>正在获取语音</value>
+  </data>
+  <data name="Give the Picked Object's Line {0} Corners" xml:space="preserve">
+    <value>将所选对象的线条转角设为{0}</value>
+  </data>
+  <data name="Go" xml:space="preserve">
+    <value>转到</value>
   </data>
   <data name="Go ahead with what this window asks about." xml:space="preserve">
     <value>继续执行此窗口询问的操作。</value>
@@ -1955,6 +2414,12 @@
   </data>
   <data name="Go on to print with these settings." xml:space="preserve">
     <value>使用这些设置继续打印。</value>
+  </data>
+  <data name="Go to a document" xml:space="preserve">
+    <value>转到文档</value>
+  </data>
+  <data name="Go to a page" xml:space="preserve">
+    <value>转到页面</value>
   </data>
   <data name="Go to the first page. Home also works when the pages have the keyboard. Shortcut: Ctrl+Home" xml:space="preserve">
     <value>转到第一页。焦点位于页面时也可按 Home。快捷键：Ctrl+Home</value>
@@ -1995,6 +2460,9 @@
   <data name="Guess headings, paragraphs and pictures from the page layout when the document has no reading structure. The guess can be wrong, so check it." xml:space="preserve">
     <value>文档没有阅读结构时，根据页面布局推测标题、段落和图片。推测可能有误，请检查。</value>
   </data>
+  <data name="H_ighlight" xml:space="preserve">
+    <value>高亮(_I)</value>
+  </data>
   <data name="Heading" xml:space="preserve">
     <value>标题</value>
   </data>
@@ -2003,6 +2471,9 @@
   </data>
   <data name="Heading {0}" xml:space="preserve">
     <value>标题 {0}</value>
+  </data>
+  <data name="Hidden" xml:space="preserve">
+    <value>已隐藏</value>
   </data>
   <data name="Hide details" xml:space="preserve">
     <value>隐藏详细信息</value>
@@ -2046,11 +2517,20 @@
   <data name="How sharp a picture is, in dots to the inch. Higher is sharper and the file is larger. Drawings ignore it." xml:space="preserve">
     <value>图像清晰度，以每英寸点数 (DPI) 表示。数值越高越清晰，文件也越大。绘图不受此设置影响。</value>
   </data>
+  <data name="How solid" xml:space="preserve">
+    <value>不透明度</value>
+  </data>
+  <data name="How the number is written" xml:space="preserve">
+    <value>编号的写法</value>
+  </data>
   <data name="How this list labels its items, such as bullets or numbers. Screen readers use it to say what kind of list it is." xml:space="preserve">
     <value>此列表的条目标记方式，例如项目符号或编号。屏幕阅读器据此说明列表类型。</value>
   </data>
   <data name="How this tag sits in the text" xml:space="preserve">
     <value>此标签在文本中的位置</value>
+  </data>
+  <data name="How to make it" xml:space="preserve">
+    <value>制作方式</value>
   </data>
   <data name="Hyper PDF Viewer" xml:space="preserve">
     <value>Hyper PDF Viewer</value>
@@ -2069,6 +2549,9 @@
   </data>
   <data name="I understand that removed content cannot be brought back after I save" xml:space="preserve">
     <value>我理解，保存后无法恢复已移除的内容</value>
+  </data>
+  <data name="I understand this cannot be undone in the copy" xml:space="preserve">
+    <value>我了解此操作在副本中无法撤销</value>
   </data>
   <data name="Icons only" xml:space="preserve">
     <value>仅图标</value>
@@ -2100,8 +2583,14 @@
   <data name="Include comments and form fields" xml:space="preserve">
     <value>包含批注和表单字段</value>
   </data>
+  <data name="Include notes and marks" xml:space="preserve">
+    <value>包含注释和标记</value>
+  </data>
   <data name="Include sub_folders" xml:space="preserve">
     <value>包含子文件夹(_F)</value>
+  </data>
+  <data name="Include the data of each signature" xml:space="preserve">
+    <value>包含每个签名的数据</value>
   </data>
   <data name="Included" xml:space="preserve">
     <value>已包含</value>
@@ -2109,17 +2598,32 @@
   <data name="Index" xml:space="preserve">
     <value>索引</value>
   </data>
+  <data name="Initials" xml:space="preserve">
+    <value>姓名首字母</value>
+  </data>
   <data name="Initials…" xml:space="preserve">
     <value>姓名首字母…</value>
   </data>
   <data name="Ink" xml:space="preserve">
     <value>墨迹</value>
   </data>
+  <data name="Ink, as six hex digits such as FFFF00" xml:space="preserve">
+    <value>墨水颜色，六位十六进制，如 FFFF00</value>
+  </data>
+  <data name="Inks" xml:space="preserve">
+    <value>墨水</value>
+  </data>
   <data name="Insert PDF before selection" xml:space="preserve">
     <value>在所选页面前插入 PDF</value>
   </data>
   <data name="Insert PDF before selection…" xml:space="preserve">
     <value>在所选页面前插入 PDF…</value>
+  </data>
+  <data name="Insert Te_xt Here" xml:space="preserve">
+    <value>在此插入文字(_X)</value>
+  </data>
+  <data name="Insert _Pictures as Pages…" xml:space="preserve">
+    <value>将图片插入为页面(_P)…</value>
   </data>
   <data name="Insert or Merge PDFs" xml:space="preserve">
     <value>插入或合并 PDF</value>
@@ -2154,6 +2658,9 @@
   <data name="Italic" xml:space="preserve">
     <value>斜体</value>
   </data>
+  <data name="Italic Text" xml:space="preserve">
+    <value>斜体文字</value>
+  </data>
   <data name="Item {0} of {1}" xml:space="preserve">
     <value>第 {0} 项，共 {1} 项</value>
   </data>
@@ -2162,6 +2669,15 @@
   </data>
   <data name="Keep" xml:space="preserve">
     <value>保留</value>
+  </data>
+  <data name="Keep &quot;{0}&quot; as it is" xml:space="preserve">
+    <value>保持“{0}”不变</value>
+  </data>
+  <data name="Keep as a mark" xml:space="preserve">
+    <value>保留为标记</value>
+  </data>
+  <data name="Keep it for next time" xml:space="preserve">
+    <value>保留供下次使用</value>
   </data>
   <data name="Keep it on this computer to use again. Untick to forget it after this time." xml:space="preserve">
     <value>保存在此计算机上以便再次使用。取消勾选则本次使用后忘记。</value>
@@ -2172,17 +2688,32 @@
   <data name="Keep quality" xml:space="preserve">
     <value>保持质量</value>
   </data>
+  <data name="Keep signatures checkable in a copy of {0}" xml:space="preserve">
+    <value>在 {0} 的副本中保持签名可验证</value>
+  </data>
+  <data name="Keep the Measurement as a Mark" xml:space="preserve">
+    <value>将测量保留为标记</value>
+  </data>
   <data name="Keep the finished measurement on the page as an annotation." xml:space="preserve">
     <value>将完成的测量结果作为注释保留在页面上。</value>
   </data>
   <data name="Keep the keyboard cursor on pages" xml:space="preserve">
     <value>将键盘光标保持在页面上</value>
   </data>
+  <data name="Keep the keyboard cursor on the page" xml:space="preserve">
+    <value>让键盘光标保持在页面上</value>
+  </data>
+  <data name="Keep the note" xml:space="preserve">
+    <value>保留注释</value>
+  </data>
   <data name="Keep the text you are typing. Shortcut: Ctrl+Enter." xml:space="preserve">
     <value>保留正在输入的文本。快捷键：Ctrl+Enter。</value>
   </data>
   <data name="Keep this language and start using the app." xml:space="preserve">
     <value>保留此语言并开始使用应用。</value>
+  </data>
+  <data name="Keep this version" xml:space="preserve">
+    <value>保留此版本</value>
   </data>
   <data name="Keep what is on screen now and hide this message." xml:space="preserve">
     <value>保留当前屏幕内容并隐藏此消息。</value>
@@ -2204,6 +2735,12 @@
   </data>
   <data name="Keywords" xml:space="preserve">
     <value>关键词</value>
+  </data>
+  <data name="Kind of copy" xml:space="preserve">
+    <value>副本类型</value>
+  </data>
+  <data name="Kind of key" xml:space="preserve">
+    <value>密钥类型</value>
   </data>
   <data name="Kind of signing key" xml:space="preserve">
     <value>签名密钥类型</value>
@@ -2231,6 +2768,9 @@
   </data>
   <data name="Larger" xml:space="preserve">
     <value>更大</value>
+  </data>
+  <data name="Larger Focus Text" xml:space="preserve">
+    <value>放大专注文字</value>
   </data>
   <data name="Larger text" xml:space="preserve">
     <value>增大文本</value>
@@ -2264,6 +2804,9 @@
   </data>
   <data name="Leave empty to use your user name" xml:space="preserve">
     <value>留空以使用您的用户名</value>
+  </data>
+  <data name="Leave every margin at 0 to show the whole page again." xml:space="preserve">
+    <value>将每个边距保持为 0 可重新显示整页。</value>
   </data>
   <data name="Leave pictures alone" xml:space="preserve">
     <value>不更改图片</value>
@@ -2313,6 +2856,9 @@
   <data name="Licence: " xml:space="preserve">
     <value>许可证： </value>
   </data>
+  <data name="Licences" xml:space="preserve">
+    <value>许可证</value>
+  </data>
   <data name="Licences and components" xml:space="preserve">
     <value>许可证与组件</value>
   </data>
@@ -2324,6 +2870,24 @@
   </data>
   <data name="Line" xml:space="preserve">
     <value>线条</value>
+  </data>
+  <data name="Line Up the Picked Objects on Their Middles, Across" xml:space="preserve">
+    <value>将所选对象按水平中线对齐</value>
+  </data>
+  <data name="Line Up the Picked Objects on Their Middles, Down" xml:space="preserve">
+    <value>将所选对象按垂直中线对齐</value>
+  </data>
+  <data name="Line Up the Picked Objects on the Bottom" xml:space="preserve">
+    <value>将所选对象底端对齐</value>
+  </data>
+  <data name="Line Up the Picked Objects on the Left" xml:space="preserve">
+    <value>将所选对象左对齐</value>
+  </data>
+  <data name="Line Up the Picked Objects on the Right" xml:space="preserve">
+    <value>将所选对象右对齐</value>
+  </data>
+  <data name="Line Up the Picked Objects on the Top" xml:space="preserve">
+    <value>将所选对象顶端对齐</value>
   </data>
   <data name="Line spacing" xml:space="preserve">
     <value>行间距</value>
@@ -2337,8 +2901,17 @@
   <data name="Linearized" xml:space="preserve">
     <value>已线性化</value>
   </data>
+  <data name="Lined up." xml:space="preserve">
+    <value>已对齐。</value>
+  </data>
   <data name="Lines and shapes are not changed, even under a mark." xml:space="preserve">
     <value>不更改线条和形状，即使它们位于标记下。</value>
+  </data>
+  <data name="Lines start at" xml:space="preserve">
+    <value>行起始编号</value>
+  </data>
+  <data name="Lines {0} to {1} of {2}" xml:space="preserve">
+    <value>第 {0} 至 {1} 行，共 {2} 行</value>
   </data>
   <data name="Link" xml:space="preserve">
     <value>链接</value>
@@ -2348,6 +2921,9 @@
   </data>
   <data name="List" xml:space="preserve">
     <value>列表</value>
+  </data>
+  <data name="List fonts that are only for preview" xml:space="preserve">
+    <value>列出仅用于预览的字体</value>
   </data>
   <data name="List item" xml:space="preserve">
     <value>列表项</value>
@@ -2367,6 +2943,9 @@
   <data name="Load Answers" xml:space="preserve">
     <value>加载表单内容</value>
   </data>
+  <data name="Load data into this form?" xml:space="preserve">
+    <value>要将数据载入此表单吗？</value>
+  </data>
   <data name="Load the changed file from the disk." xml:space="preserve">
     <value>从磁盘加载更改后的文件。</value>
   </data>
@@ -2382,8 +2961,17 @@
   <data name="Long edge" xml:space="preserve">
     <value>长边</value>
   </data>
+  <data name="Look" xml:space="preserve">
+    <value>外观</value>
+  </data>
   <data name="Look for things a screen reader would struggle with, such as a picture with no description." xml:space="preserve">
     <value>查找可能给屏幕阅读器带来困难的内容，如没有说明的图片。</value>
+  </data>
+  <data name="Look in folders inside it too" xml:space="preserve">
+    <value>同时搜索其中的文件夹</value>
+  </data>
+  <data name="Look of the letters" xml:space="preserve">
+    <value>字母外观</value>
   </data>
   <data name="Look to keep" xml:space="preserve">
     <value>要保留的外观</value>
@@ -2414,6 +3002,36 @@
   </data>
   <data name="Make it from a picture, such as a photo or scan of your signature." xml:space="preserve">
     <value>通过图片创建，例如签名的照片或扫描件。</value>
+  </data>
+  <data name="Make the Mark Bigger" xml:space="preserve">
+    <value>放大标记</value>
+  </data>
+  <data name="Make the Mark Smaller" xml:space="preserve">
+    <value>缩小标记</value>
+  </data>
+  <data name="Make the Picked Field Read-Only or Not" xml:space="preserve">
+    <value>将所选字段设为只读或取消只读</value>
+  </data>
+  <data name="Make the Picked Field Required or Not" xml:space="preserve">
+    <value>将所选字段设为必填或取消必填</value>
+  </data>
+  <data name="Make the Picked Object Larger" xml:space="preserve">
+    <value>放大所选对象</value>
+  </data>
+  <data name="Make the Picked Object Smaller" xml:space="preserve">
+    <value>缩小所选对象</value>
+  </data>
+  <data name="Make the Picked Object a Link…" xml:space="preserve">
+    <value>将所选对象设为链接…</value>
+  </data>
+  <data name="Make the Picked Object {0}% Solid" xml:space="preserve">
+    <value>将所选对象设为 {0}% 不透明</value>
+  </data>
+  <data name="Make the Typed Text Larger" xml:space="preserve">
+    <value>放大输入的文字</value>
+  </data>
+  <data name="Make the Typed Text Smaller" xml:space="preserve">
+    <value>缩小输入的文字</value>
   </data>
   <data name="Make the annotation change you undid again. Shortcut: Ctrl+Y or Ctrl+Shift+Z" xml:space="preserve">
     <value>重做已撤销的注释更改。快捷键：Ctrl+Y 或 Ctrl+Shift+Z</value>
@@ -2478,6 +3096,9 @@
   <data name="Making the copy" xml:space="preserve">
     <value>正在创建副本</value>
   </data>
+  <data name="Manage the Recognition Languages…" xml:space="preserve">
+    <value>管理识别语言…</value>
+  </data>
   <data name="Map positions in 3D models" xml:space="preserve">
     <value>三维模型中的地图位置</value>
   </data>
@@ -2505,6 +3126,9 @@
   <data name="Match _case" xml:space="preserve">
     <value>区分大小写(_C)</value>
   </data>
+  <data name="Match capital letters" xml:space="preserve">
+    <value>区分大小写</value>
+  </data>
   <data name="Match case" xml:space="preserve">
     <value>区分大小写</value>
   </data>
@@ -2519,6 +3143,9 @@
   </data>
   <data name="Matching tabs" xml:space="preserve">
     <value>匹配的标签页</value>
+  </data>
+  <data name="Measure" xml:space="preserve">
+    <value>测量</value>
   </data>
   <data name="Measure distances, lengths and areas on the page. Shortcut: Ctrl+Shift+M" xml:space="preserve">
     <value>测量页面上的距离、长度和面积。快捷键：Ctrl+Shift+M</value>
@@ -2535,14 +3162,23 @@
   <data name="Medium" xml:space="preserve">
     <value>中等</value>
   </data>
+  <data name="Menu" xml:space="preserve">
+    <value>菜单</value>
+  </data>
   <data name="Merge PDFs at end" xml:space="preserve">
     <value>在末尾合并 PDF</value>
   </data>
   <data name="Merge PDFs at end…" xml:space="preserve">
     <value>在末尾合并 PDF…</value>
   </data>
+  <data name="Mix the Picked Object's Colours with the Page as {0}" xml:space="preserve">
+    <value>以{0}方式将所选对象的颜色与页面混合</value>
+  </data>
   <data name="Modified" xml:space="preserve">
     <value>修改时间</value>
+  </data>
+  <data name="More…" xml:space="preserve">
+    <value>更多…</value>
   </data>
   <data name="Motion" xml:space="preserve">
     <value>动态效果</value>
@@ -2556,6 +3192,18 @@
   <data name="Move Up" xml:space="preserve">
     <value>上移</value>
   </data>
+  <data name="Move _Down" xml:space="preserve">
+    <value>下移(_D)</value>
+  </data>
+  <data name="Move _In" xml:space="preserve">
+    <value>移入(_I)</value>
+  </data>
+  <data name="Move _Out" xml:space="preserve">
+    <value>移出(_O)</value>
+  </data>
+  <data name="Move _Up" xml:space="preserve">
+    <value>上移(_U)</value>
+  </data>
   <data name="Move bookmark down" xml:space="preserve">
     <value>下移书签</value>
   </data>
@@ -2567,6 +3215,9 @@
   </data>
   <data name="Move earlier (Ctrl+Alt+Up)" xml:space="preserve">
     <value>提前（Ctrl+Alt+Up）</value>
+  </data>
+  <data name="Move it there" xml:space="preserve">
+    <value>移到那里</value>
   </data>
   <data name="Move later (Ctrl+Alt+Down)" xml:space="preserve">
     <value>延后（Ctrl+Alt+Down）</value>
@@ -2582,6 +3233,12 @@
   </data>
   <data name="Move selected pages later" xml:space="preserve">
     <value>将所选页面后移</value>
+  </data>
+  <data name="Move the Page La_ter" xml:space="preserve">
+    <value>将页面后移(_T)</value>
+  </data>
+  <data name="Move the Page _Earlier" xml:space="preserve">
+    <value>将页面前移(_E)</value>
   </data>
   <data name="Move the chosen bookmark above the one before it." xml:space="preserve">
     <value>将所选书签移到前一个书签上方。</value>
@@ -2655,6 +3312,9 @@
   <data name="Name a custom tag type this document uses and choose the standard tag it stands for, so screen readers know what it means." xml:space="preserve">
     <value>为文档使用的自定义标签类型命名，并选择其对应的标准标签，以便屏幕阅读器理解其含义。</value>
   </data>
+  <data name="Name on comments" xml:space="preserve">
+    <value>批注署名</value>
+  </data>
   <data name="Name, licence or where it comes from" xml:space="preserve">
     <value>名称、许可证或来源</value>
   </data>
@@ -2673,8 +3333,20 @@
   <data name="New custom tag type name" xml:space="preserve">
     <value>新自定义标签类型名称</value>
   </data>
+  <data name="New custom type name" xml:space="preserve">
+    <value>新自定义类型名称</value>
+  </data>
   <data name="Newest first" xml:space="preserve">
     <value>最新优先</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>下一个</value>
+  </data>
+  <data name="Next Place in the Article" xml:space="preserve">
+    <value>文章中的下一处</value>
+  </data>
+  <data name="Next match" xml:space="preserve">
+    <value>下一个匹配项</value>
   </data>
   <data name="Next page" xml:space="preserve">
     <value>下一页</value>
@@ -2703,6 +3375,9 @@
   <data name="No document" xml:space="preserve">
     <value>无文档</value>
   </data>
+  <data name="No document is open" xml:space="preserve">
+    <value>没有打开的文档</value>
+  </data>
   <data name="No file manager is available." xml:space="preserve">
     <value>没有可用的文件管理器。</value>
   </data>
@@ -2723,6 +3398,9 @@
   </data>
   <data name="No problems found. A person should still read the document with a screen reader." xml:space="preserve">
     <value>未发现问题。仍应由人工使用屏幕阅读器检查文档。</value>
+  </data>
+  <data name="No program could open the picture. It is saved here:" xml:space="preserve">
+    <value>没有程序能打开该图片。它已保存在：</value>
   </data>
   <data name="No results" xml:space="preserve">
     <value>没有结果</value>
@@ -2808,6 +3486,21 @@
   <data name="Nothing was prepared." xml:space="preserve">
     <value>未进行任何准备。</value>
   </data>
+  <data name="Number every page 1, 2, 3 again" xml:space="preserve">
+    <value>每一页重新编号为 1、2、3</value>
+  </data>
+  <data name="Number of the first page" xml:space="preserve">
+    <value>第一页的编号</value>
+  </data>
+  <data name="Number the Pages i, ii, iii or A-1…" xml:space="preserve">
+    <value>将页码编为 i、ii、iii 或 A-1…</value>
+  </data>
+  <data name="Number the first page starts at" xml:space="preserve">
+    <value>第一页的起始编号</value>
+  </data>
+  <data name="Number these pages" xml:space="preserve">
+    <value>为这些页面编号</value>
+  </data>
   <data name="Off" xml:space="preserve">
     <value>关闭</value>
   </data>
@@ -2822,6 +3515,9 @@
   </data>
   <data name="Older programs open it too. This is the only choice that can stop screen readers, so leave that permission on unless you are sure." xml:space="preserve">
     <value>旧程序也能打开。这是唯一可以阻止屏幕阅读器的选项，除非确定无需此功能，请保留阅读权限。</value>
+  </data>
+  <data name="On" xml:space="preserve">
+    <value>开</value>
   </data>
   <data name="On this computer" xml:space="preserve">
     <value>本机</value>
@@ -2874,6 +3570,9 @@
   <data name="Open a document you had open recently. It opens at the page you left it on." xml:space="preserve">
     <value>打开最近使用的文档，回到上次阅读的页面。</value>
   </data>
+  <data name="Open a document…" xml:space="preserve">
+    <value>打开文档…</value>
+  </data>
   <data name="Open another window showing this document at the same page, to read two places side by side. Shortcut: Ctrl+N" xml:space="preserve">
     <value>另开窗口，在相同页面显示此文档，以便并排阅读两个位置。快捷键：Ctrl+N</value>
   </data>
@@ -2910,6 +3609,9 @@
   <data name="Open the copy and check it before you share it." xml:space="preserve">
     <value>打开副本，分享前先检查。</value>
   </data>
+  <data name="Open the document" xml:space="preserve">
+    <value>打开文档</value>
+  </data>
   <data name="Open the document with this password." xml:space="preserve">
     <value>使用此密码打开文档。</value>
   </data>
@@ -2925,11 +3627,20 @@
   <data name="Open this document with the certificate and private key you chose." xml:space="preserve">
     <value>使用所选证书和私钥打开此文档。</value>
   </data>
+  <data name="Open {0}" xml:space="preserve">
+    <value>打开 {0}</value>
+  </data>
   <data name="Open {0} from {1}." xml:space="preserve">
     <value>从 {1} 打开 {0}。</value>
   </data>
   <data name="Open {0} in another app? Only open files you trust." xml:space="preserve">
     <value>是否在其他应用中打开 {0}？请仅打开您信任的文件。</value>
+  </data>
+  <data name="Opened lately" xml:space="preserve">
+    <value>最近打开</value>
+  </data>
+  <data name="Opening documents" xml:space="preserve">
+    <value>打开文档</value>
   </data>
   <data name="Opening zoom" xml:space="preserve">
     <value>打开时缩放比例</value>
@@ -2972,6 +3683,9 @@
   </data>
   <data name="Outline" xml:space="preserve">
     <value>大纲</value>
+  </data>
+  <data name="Oval" xml:space="preserve">
+    <value>椭圆</value>
   </data>
   <data name="Owner password" xml:space="preserve">
     <value>所有者密码</value>
@@ -3033,6 +3747,15 @@
   <data name="Page" xml:space="preserve">
     <value>页面</value>
   </data>
+  <data name="Page Numbers" xml:space="preserve">
+    <value>页码</value>
+  </data>
+  <data name="Page _Layout and Zoom" xml:space="preserve">
+    <value>页面布局和缩放(_L)</value>
+  </data>
+  <data name="Page _Tone" xml:space="preserve">
+    <value>页面色调(_T)</value>
+  </data>
   <data name="Page _by Page" xml:space="preserve">
     <value>逐页(_B)</value>
   </data>
@@ -3047,6 +3770,9 @@
   </data>
   <data name="Page number" xml:space="preserve">
     <value>页码</value>
+  </data>
+  <data name="Page numbers, such as 1-3, 7" xml:space="preserve">
+    <value>页码，例如 1-3、7</value>
   </data>
   <data name="Page range" xml:space="preserve">
     <value>页面范围</value>
@@ -3069,8 +3795,17 @@
   <data name="Page {0}, {1} of {2}" xml:space="preserve">
     <value>第 {0} 页，第 {1} 项，共 {2} 项</value>
   </data>
+  <data name="Page {0}: the words are the same, but {1}% of the page looks different. Press to go to it." xml:space="preserve">
+    <value>第 {0} 页：文字相同，但页面有 {1}% 外观不同。按下可转到该页。</value>
+  </data>
   <data name="Page {0}: {1}" xml:space="preserve">
     <value>第 {0} 页：{1}</value>
+  </data>
+  <data name="Page {0}: {1} words added, {2} words removed. Press to go to it." xml:space="preserve">
+    <value>第 {0} 页：新增 {1} 个词，删除 {2} 个词。按下可转到该页。</value>
+  </data>
+  <data name="Page {page} of {pages}" xml:space="preserve">
+    <value>第 {page} 页，共 {pages} 页</value>
   </data>
   <data name="Pages" xml:space="preserve">
     <value>页面</value>
@@ -3099,6 +3834,12 @@
   <data name="Pages to export, such as 1-3, 7" xml:space="preserve">
     <value>要导出的页面，例如 1-3、7</value>
   </data>
+  <data name="Pages to print, such as 1-3, 7" xml:space="preserve">
+    <value>要打印的页面，例如 1-3、7</value>
+  </data>
+  <data name="Pages to write, such as 1-3, 7" xml:space="preserve">
+    <value>要写入的页面，例如 1-3、7</value>
+  </data>
   <data name="Pages {0} to {1}" xml:space="preserve">
     <value>第 {0} 至 {1} 页</value>
   </data>
@@ -3107,6 +3848,9 @@
   </data>
   <data name="Paper size" xml:space="preserve">
     <value>纸张大小</value>
+  </data>
+  <data name="Paper, as six hex digits such as 000000" xml:space="preserve">
+    <value>纸张颜色，六位十六进制，如 000000</value>
   </data>
   <data name="Paragraph" xml:space="preserve">
     <value>段落</value>
@@ -3126,11 +3870,26 @@
   <data name="Password" xml:space="preserve">
     <value>密码</value>
   </data>
+  <data name="Password of the certificate" xml:space="preserve">
+    <value>证书密码</value>
+  </data>
   <data name="Password protected" xml:space="preserve">
     <value>密码保护</value>
   </data>
+  <data name="Password to change the copy" xml:space="preserve">
+    <value>修改副本的密码</value>
+  </data>
+  <data name="Password to open the copy" xml:space="preserve">
+    <value>打开副本的密码</value>
+  </data>
   <data name="Passwords" xml:space="preserve">
     <value>密码</value>
+  </data>
+  <data name="Paste the Copied Object" xml:space="preserve">
+    <value>粘贴已复制的对象</value>
+  </data>
+  <data name="Pasted." xml:space="preserve">
+    <value>已粘贴。</value>
   </data>
   <data name="Pause" xml:space="preserve">
     <value>暂停</value>
@@ -3156,11 +3915,26 @@
   <data name="Photoshop (PSD) picture" xml:space="preserve">
     <value>Photoshop (PSD) 图像</value>
   </data>
+  <data name="Pick Every Object on the Page" xml:space="preserve">
+    <value>选取页面上的所有对象</value>
+  </data>
   <data name="Pick a certificate you asked this computer to remember." xml:space="preserve">
     <value>选择已让本机记住的证书。</value>
   </data>
+  <data name="Pick a picture first." xml:space="preserve">
+    <value>请先选取一张图片。</value>
+  </data>
+  <data name="Pick a picture to change in another program first." xml:space="preserve">
+    <value>请先选取要在其他程序中更改的图片。</value>
+  </data>
+  <data name="Pick something first." xml:space="preserve">
+    <value>请先选取对象。</value>
+  </data>
   <data name="Pick up the signature you just placed so you can move or resize it again." xml:space="preserve">
     <value>拾取刚放置的签名，以便再次移动或调整大小。</value>
+  </data>
+  <data name="Picked {0} objects." xml:space="preserve">
+    <value>已选取 {0} 个对象。</value>
   </data>
   <data name="Picked {0}." xml:space="preserve">
     <value>已选中{0}。</value>
@@ -3186,8 +3960,17 @@
   <data name="Pictures under a mark" xml:space="preserve">
     <value>标记下的图片</value>
   </data>
+  <data name="Pictures under a marked area" xml:space="preserve">
+    <value>标记区域下方的图片</value>
+  </data>
   <data name="Place" xml:space="preserve">
     <value>放置</value>
+  </data>
+  <data name="Place My _Initials…" xml:space="preserve">
+    <value>放置我的姓名首字母(_I)…</value>
+  </data>
+  <data name="Place My _Signature…" xml:space="preserve">
+    <value>放置我的签名(_S)…</value>
   </data>
   <data name="Place {0} of {1}, page {2}" xml:space="preserve">
     <value>第 {2} 页，第 {0} 处，共 {1} 处</value>
@@ -3197,6 +3980,9 @@
   </data>
   <data name="Play Media" xml:space="preserve">
     <value>播放媒体</value>
+  </data>
+  <data name="Play page transitions" xml:space="preserve">
+    <value>播放页面切换效果</value>
   </data>
   <data name="Play the chosen sound or video here. It starts only when you press this." xml:space="preserve">
     <value>在此播放所选音频或视频。仅按下此按钮后开始播放。</value>
@@ -3209,6 +3995,9 @@
   </data>
   <data name="Playing sound and video" xml:space="preserve">
     <value>播放音频和视频</value>
+  </data>
+  <data name="Poly-_line" xml:space="preserve">
+    <value>折线(_L)</value>
   </data>
   <data name="Polygon" xml:space="preserve">
     <value>多边形</value>
@@ -3228,6 +4017,9 @@
   <data name="Poster, 4 × 4 sheets a page" xml:space="preserve">
     <value>海报，每页 4 × 4 张纸</value>
   </data>
+  <data name="Pre_ferences…" xml:space="preserve">
+    <value>首选项(_F)…</value>
+  </data>
   <data name="Preferences" xml:space="preserve">
     <value>首选项</value>
   </data>
@@ -3237,6 +4029,12 @@
   <data name="Preparing the file. This can take a while for long files." xml:space="preserve">
     <value>正在准备文件。较长文件可能需要一些时间。</value>
   </data>
+  <data name="Presen_tation" xml:space="preserve">
+    <value>演示(_T)</value>
+  </data>
+  <data name="Press a language to tick it or untick it. A ticked language that is not on this computer downloads at once." xml:space="preserve">
+    <value>按下语言可勾选或取消勾选。已勾选但本机没有的语言会立即下载。</value>
+  </data>
   <data name="Preview" xml:space="preserve">
     <value>预览</value>
   </data>
@@ -3245,6 +4043,15 @@
   </data>
   <data name="Previewing colour separations" xml:space="preserve">
     <value>预览分色</value>
+  </data>
+  <data name="Previous" xml:space="preserve">
+    <value>上一个</value>
+  </data>
+  <data name="Previous Place in the Article" xml:space="preserve">
+    <value>文章中的上一处</value>
+  </data>
+  <data name="Previous match" xml:space="preserve">
+    <value>上一个匹配项</value>
   </data>
   <data name="Previous page" xml:space="preserve">
     <value>上一页</value>
@@ -3275,6 +4082,9 @@
   </data>
   <data name="Print using system dialog… (Ctrl+Shift+P)" xml:space="preserve">
     <value>使用系统对话框打印…（Ctrl+Shift+P）</value>
+  </data>
+  <data name="Print with the System _Dialog…" xml:space="preserve">
+    <value>使用系统对话框打印(_D)…</value>
   </data>
   <data name="Print with your computer's own print window instead. Shortcut: Ctrl+Shift+P" xml:space="preserve">
     <value>改用计算机的系统打印窗口。快捷键：Ctrl+Shift+P</value>
@@ -3318,6 +4128,9 @@
   <data name="Protect a copy of {0}" xml:space="preserve">
     <value>保护 {0} 的副本</value>
   </data>
+  <data name="Protect the document's details too" xml:space="preserve">
+    <value>同时保护文档详细信息</value>
+  </data>
   <data name="Protect with Password" xml:space="preserve">
     <value>密码保护</value>
   </data>
@@ -3330,14 +4143,26 @@
   <data name="Protecting the copy. This can take a while for long files." xml:space="preserve">
     <value>正在保护副本。长文件可能需要一些时间。</value>
   </data>
+  <data name="Protection" xml:space="preserve">
+    <value>保护</value>
+  </data>
   <data name="Put every layer back to how the file sets it. The file does not change." xml:space="preserve">
     <value>将所有图层恢复为文件设定的状态。不会更改文件。</value>
+  </data>
+  <data name="Put it down" xml:space="preserve">
+    <value>放下</value>
+  </data>
+  <data name="Put it inside the tag above" xml:space="preserve">
+    <value>放入上方的标签内</value>
   </data>
   <data name="Put one letter in each of this many evenly spaced boxes, as on forms with a box per letter. 0 writes running text." xml:space="preserve">
     <value>在指定数量的等距方框中各填一个字符，适用于一字一格的表单。0 表示连续文本。</value>
   </data>
   <data name="Put the Fill &amp; Sign tools away." xml:space="preserve">
     <value>收起填写与签名工具。</value>
+  </data>
+  <data name="Put the Mark Down" xml:space="preserve">
+    <value>放下标记</value>
   </data>
   <data name="Put the annotation tools away." xml:space="preserve">
     <value>收起批注工具。</value>
@@ -3372,8 +4197,14 @@
   <data name="RSA with PSS padding" xml:space="preserve">
     <value>使用 PSS 填充的 RSA</value>
   </data>
+  <data name="Re_do" xml:space="preserve">
+    <value>重做(_D)</value>
+  </data>
   <data name="Re_load" xml:space="preserve">
     <value>重新加载(_L)</value>
+  </data>
+  <data name="Re_move the Bookmark" xml:space="preserve">
+    <value>删除书签(_M)</value>
   </data>
   <data name="Rea_d Mode" xml:space="preserve">
     <value>阅读模式(_D)</value>
@@ -3390,6 +4221,18 @@
   <data name="Read Later" xml:space="preserve">
     <value>延后阅读</value>
   </data>
+  <data name="Read This _Page" xml:space="preserve">
+    <value>朗读此页(_P)</value>
+  </data>
+  <data name="Read _Aloud" xml:space="preserve">
+    <value>朗读(_A)</value>
+  </data>
+  <data name="Read aloud" xml:space="preserve">
+    <value>朗读</value>
+  </data>
+  <data name="Read aloud voice" xml:space="preserve">
+    <value>朗读语音</value>
+  </data>
   <data name="Read mode" xml:space="preserve">
     <value>阅读模式</value>
   </data>
@@ -3399,14 +4242,29 @@
   <data name="Read the licence for this app and for every component it includes or downloads." xml:space="preserve">
     <value>阅读此应用及其包含或下载的所有组件的许可证。</value>
   </data>
+  <data name="Read this page" xml:space="preserve">
+    <value>朗读此页</value>
+  </data>
   <data name="Read this tag earlier" xml:space="preserve">
     <value>提前阅读此标签</value>
   </data>
   <data name="Read this tag later" xml:space="preserve">
     <value>延后阅读此标签</value>
   </data>
+  <data name="Read to the _End" xml:space="preserve">
+    <value>朗读到末尾(_E)</value>
+  </data>
+  <data name="Read to the end" xml:space="preserve">
+    <value>朗读到末尾</value>
+  </data>
+  <data name="Read with a screen reader" xml:space="preserve">
+    <value>使用屏幕阅读器阅读</value>
+  </data>
   <data name="Reading aloud stopped: {0}" xml:space="preserve">
     <value>朗读已停止：{0}</value>
+  </data>
+  <data name="Reading and forms" xml:space="preserve">
+    <value>阅读和表单</value>
   </data>
   <data name="Reading order and nesting" xml:space="preserve">
     <value>阅读顺序与嵌套</value>
@@ -3422,6 +4280,9 @@
   </data>
   <data name="Reading the pages" xml:space="preserve">
     <value>正在读取页面</value>
+  </data>
+  <data name="Reading this page…" xml:space="preserve">
+    <value>正在读取此页…</value>
   </data>
   <data name="Ready. Choose Save Copy to make a PDF 2.0 file." xml:space="preserve">
     <value>已就绪。选择“保存副本”以创建 PDF 2.0 文件。</value>
@@ -3462,6 +4323,9 @@
   <data name="Reason" xml:space="preserve">
     <value>原因</value>
   </data>
+  <data name="Reason for signing" xml:space="preserve">
+    <value>签名原因</value>
+  </data>
   <data name="Reason: {0}" xml:space="preserve">
     <value>原因：{0}</value>
   </data>
@@ -3474,8 +4338,14 @@
   <data name="Recognise _Text" xml:space="preserve">
     <value>识别文本(_T)</value>
   </data>
+  <data name="Recognise _Text in Scanned Pages" xml:space="preserve">
+    <value>识别扫描页面中的文字(_T)</value>
+  </data>
   <data name="Recognise in {0}" xml:space="preserve">
     <value>识别语言：{0}</value>
+  </data>
+  <data name="Recognising text" xml:space="preserve">
+    <value>正在识别文字</value>
   </data>
   <data name="Recognising text: page {0} of {1}" xml:space="preserve">
     <value>正在识别文本：第 {0} 页，共 {1} 页</value>
@@ -3485,6 +4355,15 @@
   </data>
   <data name="Red" xml:space="preserve">
     <value>红色</value>
+  </data>
+  <data name="Redact Selected Te_xt" xml:space="preserve">
+    <value>涂黑所选文字(_X)</value>
+  </data>
+  <data name="Redact a copy of {0}" xml:space="preserve">
+    <value>涂黑 {0} 的副本</value>
+  </data>
+  <data name="Redact an _Area" xml:space="preserve">
+    <value>涂黑区域(_A)</value>
   </data>
   <data name="Redaction" xml:space="preserve">
     <value>删改</value>
@@ -3528,6 +4407,9 @@
   <data name="Remember this certificate on this computer. The password is never saved." xml:space="preserve">
     <value>在此计算机上记住此证书。绝不保存密码。</value>
   </data>
+  <data name="Remember this certificate, without its password" xml:space="preserve">
+    <value>记住此证书（不含密码）</value>
+  </data>
   <data name="Remembered" xml:space="preserve">
     <value>已记住</value>
   </data>
@@ -3543,6 +4425,9 @@
   <data name="Remove Custom Type" xml:space="preserve">
     <value>移除自定义类型</value>
   </data>
+  <data name="Remove Hidden Information" xml:space="preserve">
+    <value>删除隐藏信息</value>
+  </data>
   <data name="Remove Mark" xml:space="preserve">
     <value>移除标记</value>
   </data>
@@ -3555,8 +4440,17 @@
   <data name="Remove Protection… (needs a protected document and the HyperPDF engine)" xml:space="preserve">
     <value>移除保护…（需要受保护文档及 HyperPDF 引擎）</value>
   </data>
+  <data name="Remove _Hidden Information…" xml:space="preserve">
+    <value>删除隐藏信息(_H)…</value>
+  </data>
+  <data name="Remove attached files" xml:space="preserve">
+    <value>删除附件</value>
+  </data>
   <data name="Remove bookmark" xml:space="preserve">
     <value>移除书签</value>
+  </data>
+  <data name="Remove comments and marks, but keep links and form fields" xml:space="preserve">
+    <value>删除批注和标记，但保留链接和表单字段</value>
   </data>
   <data name="Remove drawings that are fully covered" xml:space="preserve">
     <value>删除完全覆盖的绘图</value>
@@ -3570,11 +4464,20 @@
   <data name="Remove from recent documents" xml:space="preserve">
     <value>从最近文档中移除</value>
   </data>
+  <data name="Remove hidden text" xml:space="preserve">
+    <value>删除隐藏文字</value>
+  </data>
   <data name="Remove hidden text, such as a scan's text layer" xml:space="preserve">
     <value>移除隐藏文本，例如扫描件的文本层</value>
   </data>
+  <data name="Remove it" xml:space="preserve">
+    <value>删除</value>
+  </data>
   <data name="Remove language pack" xml:space="preserve">
     <value>移除语言包</value>
+  </data>
+  <data name="Remove links and comments" xml:space="preserve">
+    <value>删除链接和批注</value>
   </data>
   <data name="Remove links, comments and form fields" xml:space="preserve">
     <value>移除链接、批注和表单字段</value>
@@ -3585,11 +4488,26 @@
   <data name="Remove picked" xml:space="preserve">
     <value>删除所选内容</value>
   </data>
+  <data name="Remove protection from a copy of {0}" xml:space="preserve">
+    <value>从 {0} 的副本中移除保护</value>
+  </data>
   <data name="Remove recent PDFs without deleting files. On Linux, this also clears the desktop's shared recent PDF list." xml:space="preserve">
     <value>移除最近 PDF 记录而不删除文件。在 Linux 上，这也会清除桌面共享的最近 PDF 列表。</value>
   </data>
+  <data name="Remove scripts" xml:space="preserve">
+    <value>删除脚本</value>
+  </data>
   <data name="Remove tag" xml:space="preserve">
     <value>移除标签</value>
+  </data>
+  <data name="Remove the Mark" xml:space="preserve">
+    <value>删除标记</value>
+  </data>
+  <data name="Remove the Picked Form Field" xml:space="preserve">
+    <value>删除所选表单字段</value>
+  </data>
+  <data name="Remove the Picked Object" xml:space="preserve">
+    <value>删除所选对象</value>
   </data>
   <data name="Remove the chosen bookmark and the bookmarks below it. Undo puts them back." xml:space="preserve">
     <value>删除所选书签及其下级书签。撤销可恢复。</value>
@@ -3600,8 +4518,20 @@
   <data name="Remove the chosen tag when it holds no page content. The tags inside it stay. Undo puts it back." xml:space="preserve">
     <value>删除未包含页面内容的所选标签。其内部标签会保留。可通过撤销恢复。</value>
   </data>
+  <data name="Remove the custom type" xml:space="preserve">
+    <value>删除自定义类型</value>
+  </data>
   <data name="Remove the document information and metadata" xml:space="preserve">
     <value>移除文档信息和元数据</value>
+  </data>
+  <data name="Remove the document's details" xml:space="preserve">
+    <value>删除文档详细信息</value>
+  </data>
+  <data name="Remove the downloaded languages I have not ticked" xml:space="preserve">
+    <value>删除我未勾选的已下载语言</value>
+  </data>
+  <data name="Remove the note" xml:space="preserve">
+    <value>删除注释</value>
   </data>
   <data name="Remove the protection from a copy of {0}" xml:space="preserve">
     <value>移除 {0} 副本的保护</value>
@@ -3612,17 +4542,26 @@
   <data name="Remove the whole picture" xml:space="preserve">
     <value>删除整张图片</value>
   </data>
+  <data name="Remove them" xml:space="preserve">
+    <value>删除它们</value>
+  </data>
   <data name="Remove this PDF from recent files without deleting it. On Linux, this also updates the desktop's shared recent list." xml:space="preserve">
     <value>将此 PDF 从最近文件中移除而不删除文件。在 Linux 上，这也会更新桌面共享的最近列表。</value>
   </data>
   <data name="Remove thumbnails and hidden extras" xml:space="preserve">
     <value>移除缩略图和隐藏的附加内容</value>
   </data>
+  <data name="Remove unused parts" xml:space="preserve">
+    <value>删除未使用的部分</value>
+  </data>
   <data name="Remove white paper" xml:space="preserve">
     <value>移除白色纸张背景</value>
   </data>
   <data name="Removed bookmark {0}. Undo puts it back." xml:space="preserve">
     <value>已删除书签 {0}。撤销可恢复。</value>
+  </data>
+  <data name="Removed the field." xml:space="preserve">
+    <value>已删除字段。</value>
   </data>
   <data name="Removed the mapping for custom tag {0}. Undo puts it back." xml:space="preserve">
     <value>已移除自定义标签 {0} 的映射。可通过撤销恢复。</value>
@@ -3657,8 +4596,17 @@
   <data name="Rename…" xml:space="preserve">
     <value>重命名…</value>
   </data>
+  <data name="Reopen _Closed Tab" xml:space="preserve">
+    <value>重新打开已关闭的标签页(_C)</value>
+  </data>
+  <data name="Reopen at the last page read" xml:space="preserve">
+    <value>在上次阅读的页面重新打开</value>
+  </data>
   <data name="Repeated content" xml:space="preserve">
     <value>重复内容</value>
+  </data>
+  <data name="Replaced the picture." xml:space="preserve">
+    <value>已替换图片。</value>
   </data>
   <data name="Replacement text" xml:space="preserve">
     <value>替换文本</value>
@@ -3668,6 +4616,9 @@
   </data>
   <data name="Reply text" xml:space="preserve">
     <value>回复文本</value>
+  </data>
+  <data name="Reply to the note" xml:space="preserve">
+    <value>回复注释</value>
   </data>
   <data name="Reset Layers" xml:space="preserve">
     <value>重置图层</value>
@@ -3717,6 +4668,9 @@
   <data name="Rotate selected pages clockwise" xml:space="preserve">
     <value>顺时针旋转所选页面</value>
   </data>
+  <data name="Rows the cell spans" xml:space="preserve">
+    <value>单元格跨越的行数</value>
+  </data>
   <data name="Rows this cell covers" xml:space="preserve">
     <value>此单元格跨越的行数</value>
   </data>
@@ -3734,6 +4688,9 @@
   </data>
   <data name="SVG drawing" xml:space="preserve">
     <value>SVG 绘图</value>
+  </data>
+  <data name="S_plit the View" xml:space="preserve">
+    <value>拆分视图(_P)</value>
   </data>
   <data name="S_quiggly Underline" xml:space="preserve">
     <value>波浪_下划线</value>
@@ -3825,6 +4782,9 @@
   <data name="Save _Optimised Copy…" xml:space="preserve">
     <value>保存_优化副本…</value>
   </data>
+  <data name="Save a Cop_y" xml:space="preserve">
+    <value>保存副本(_Y)</value>
+  </data>
   <data name="Save a Copy" xml:space="preserve">
     <value>保存副本</value>
   </data>
@@ -3842,6 +4802,9 @@
   </data>
   <data name="Save a _Copy…" xml:space="preserve">
     <value>保存副本(_C)…</value>
+  </data>
+  <data name="Save a copy as" xml:space="preserve">
+    <value>将副本另存为</value>
   </data>
   <data name="Save a copy in which form fields, comments and other marks become part of the page and can no longer be changed. " xml:space="preserve">
     <value>保存副本，将表单字段、批注和其他标记变成页面的一部分，使其无法再修改。 </value>
@@ -3870,8 +4833,14 @@
   <data name="Save a flattened copy of {0}" xml:space="preserve">
     <value>保存 {0} 的扁平化副本</value>
   </data>
+  <data name="Save a smaller copy of {0}" xml:space="preserve">
+    <value>保存 {0} 的较小副本</value>
+  </data>
   <data name="Save a smaller or more accessible copy of this document. Your open file is never changed." xml:space="preserve">
     <value>保存更小或无障碍支持更好的文档副本。不会更改已打开的文件。</value>
+  </data>
+  <data name="Save an archive copy of {0}" xml:space="preserve">
+    <value>保存 {0} 的存档副本</value>
   </data>
   <data name="Save an edited copy as a PDF 2.0 file, the current PDF standard. Details in features PDF 2.0 retired are moved when they can be." xml:space="preserve">
     <value>将编辑后的副本保存为 PDF 2.0 文件（当前的 PDF 标准）。PDF 2.0 已淘汰功能中的细节会在可能时移走。</value>
@@ -3903,6 +4872,9 @@
   <data name="Save pages as picture files, or as SVG, PostScript or EPS drawings. Your open file is never changed." xml:space="preserve">
     <value>将页面保存为图像文件，或保存为 SVG、PostScript 或 EPS 绘图。不会更改当前打开的文件。</value>
   </data>
+  <data name="Save pages of {0}" xml:space="preserve">
+    <value>保存 {0} 的页面</value>
+  </data>
   <data name="Save pages that are shown turned the right way up, with the turn built into the page. Links and bookmarks on turned pages may land in a different place." xml:space="preserve">
     <value>保存已转正的页面，将旋转直接应用到页面内容。旋转页面上的链接和书签可能跳到不同位置。</value>
   </data>
@@ -3912,14 +4884,29 @@
   <data name="Save the Bytes to Sign" xml:space="preserve">
     <value>保存待签名字节</value>
   </data>
+  <data name="Save the Picked Picture as a File…" xml:space="preserve">
+    <value>将所选图片保存为文件…</value>
+  </data>
   <data name="Save the bytes your signer must sign to a file you can give to the signer." xml:space="preserve">
     <value>将签名工具必须签署的字节保存到文件，以便交给签名工具。</value>
+  </data>
+  <data name="Save the changes to this tag" xml:space="preserve">
+    <value>保存对此标签的更改</value>
   </data>
   <data name="Save the chosen attachment as a file." xml:space="preserve">
     <value>将所选附件保存为文件。</value>
   </data>
   <data name="Save the chosen sound or video as a file." xml:space="preserve">
     <value>将所选声音或视频保存为文件。</value>
+  </data>
+  <data name="Save the copy…" xml:space="preserve">
+    <value>保存副本…</value>
+  </data>
+  <data name="Save the pages…" xml:space="preserve">
+    <value>保存页面…</value>
+  </data>
+  <data name="Save the redacted copy…" xml:space="preserve">
+    <value>保存涂黑后的副本…</value>
   </data>
   <data name="Save the selected pages in a new PDF file." xml:space="preserve">
     <value>将所选页面保存到新 PDF 文件。</value>
@@ -3929,6 +4916,9 @@
   </data>
   <data name="Save turned pages upright" xml:space="preserve">
     <value>将旋转的页面保存为正向</value>
+  </data>
+  <data name="Save what must be signed…" xml:space="preserve">
+    <value>保存需要签名的内容…</value>
   </data>
   <data name="Save your annotations and form entries to the file. Shortcut: Ctrl+S" xml:space="preserve">
     <value>将批注和表单内容保存到文件。快捷键：Ctrl+S</value>
@@ -3962,6 +4952,9 @@
   </data>
   <data name="Saved the changes to {0}. Undo takes them back." xml:space="preserve">
     <value>已保存对 {0} 的更改。可通过撤销恢复。</value>
+  </data>
+  <data name="Saved the picture." xml:space="preserve">
+    <value>已保存图片。</value>
   </data>
   <data name="Saved {0} files, numbered by page, next to {1}." xml:space="preserve">
     <value>已在 {1} 旁保存 {0} 个文件，并按页码编号。</value>
@@ -4017,17 +5010,41 @@
   <data name="Screen reader warning" xml:space="preserve">
     <value>屏幕阅读器警告</value>
   </data>
+  <data name="Scroll Faster" xml:space="preserve">
+    <value>滚动更快</value>
+  </data>
   <data name="Scroll Si_deways" xml:space="preserve">
     <value>横向滚动(_D)</value>
   </data>
+  <data name="Scroll Slower" xml:space="preserve">
+    <value>滚动更慢</value>
+  </data>
+  <data name="Scroll _Across the Pages" xml:space="preserve">
+    <value>横向滚动页面(_A)</value>
+  </data>
   <data name="Scroll _Down" xml:space="preserve">
     <value>向下滚动(_D)</value>
+  </data>
+  <data name="Scroll _Down the Pages" xml:space="preserve">
+    <value>向下滚动页面(_D)</value>
   </data>
   <data name="Scroll down by itself at a calm speed. Up and Down change the speed. Press Esc or click to stop. Shortcut: Ctrl+Shift+H" xml:space="preserve">
     <value>以舒缓速度自动向下滚动。上下方向键调整速度。按 Esc 或单击可停止。快捷键：Ctrl+Shift+H</value>
   </data>
   <data name="Scrolling by itself at speed {0} of {1}. Up and Down change the speed. Escape or a click stops." xml:space="preserve">
     <value>正在以 {0}/{1} 的速度自动滚动。按上下键调整速度，按 Escape 或单击停止。</value>
+  </data>
+  <data name="Scrolling by itself at speed {0}." xml:space="preserve">
+    <value>正在以速度 {0} 自动滚动。</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>搜索</value>
+  </data>
+  <data name="Search a _Folder of Documents…" xml:space="preserve">
+    <value>搜索文档文件夹(_F)…</value>
+  </data>
+  <data name="Search a folder of documents" xml:space="preserve">
+    <value>搜索文档文件夹</value>
   </data>
   <data name="Search components" xml:space="preserve">
     <value>搜索组件</value>
@@ -4071,6 +5088,9 @@
   <data name="Select Te_xt" xml:space="preserve">
     <value>选择文本(_X)</value>
   </data>
+  <data name="Select _Every Page" xml:space="preserve">
+    <value>选择所有页面(_E)</value>
+  </data>
   <data name="Select all the text on the current page, ready to copy. Shortcut: Ctrl+A" xml:space="preserve">
     <value>选中当前页的所有文本，以便复制。快捷键：Ctrl+A</value>
   </data>
@@ -4095,8 +5115,32 @@
   <data name="Selected: {0}, {1}, on page {2} ({3})" xml:space="preserve">
     <value>已选择：{0}，{1}，位于第 {2} 页（{3}）</value>
   </data>
+  <data name="Send the Picked Object Back One Step" xml:space="preserve">
+    <value>将所选对象下移一层</value>
+  </data>
+  <data name="Send the Picked Object to the Back" xml:space="preserve">
+    <value>将所选对象置于底层</value>
+  </data>
+  <data name="Send the reply" xml:space="preserve">
+    <value>发送回复</value>
+  </data>
+  <data name="Send to" xml:space="preserve">
+    <value>发送到</value>
+  </data>
+  <data name="Sent back one step." xml:space="preserve">
+    <value>已下移一层。</value>
+  </data>
+  <data name="Sent to the back." xml:space="preserve">
+    <value>已置于底层。</value>
+  </data>
   <data name="Sent to {0}." xml:space="preserve">
     <value>已发送到 {0}。</value>
+  </data>
+  <data name="Sentence _Before" xml:space="preserve">
+    <value>上一句(_B)</value>
+  </data>
+  <data name="Sentence before" xml:space="preserve">
+    <value>上一句</value>
   </data>
   <data name="Separation: {0}, part of printed page {1} ({2} {3})" xml:space="preserve">
     <value>分色：{0}，属于打印页面 {1}（{2} {3}）</value>
@@ -4104,8 +5148,17 @@
   <data name="Serif" xml:space="preserve">
     <value>衬线字体</value>
   </data>
+  <data name="Services" xml:space="preserve">
+    <value>服务</value>
+  </data>
   <data name="Set every text setting with exact numbers, including comb boxes and the wrap width." xml:space="preserve">
     <value>通过精确数值设置所有文本选项，包括分格文本框和换行宽度。</value>
+  </data>
+  <data name="Set the Picked Text in This Font" xml:space="preserve">
+    <value>将所选文字设为此字体</value>
+  </data>
+  <data name="Set the Picked Text to {0} Points" xml:space="preserve">
+    <value>将所选文字设为 {0} 磅</value>
   </data>
   <data name="Set the scale as a percentage of the page's true size, from 10 to 400." xml:space="preserve">
     <value>将缩放比例设为页面实际大小的百分比，范围为 10 至 400。</value>
@@ -4116,6 +5169,12 @@
   <data name="Sharp" xml:space="preserve">
     <value>锐利</value>
   </data>
+  <data name="Sharpness of text and pictures" xml:space="preserve">
+    <value>文字和图片的清晰度</value>
+  </data>
+  <data name="Sheet shown: {0}" xml:space="preserve">
+    <value>当前显示的页张：{0}</value>
+  </data>
   <data name="Sheet {0}" xml:space="preserve">
     <value>第 {0} 张纸</value>
   </data>
@@ -4124,6 +5183,12 @@
   </data>
   <data name="Show All Comments" xml:space="preserve">
     <value>显示所有批注</value>
+  </data>
+  <data name="Show Every Note Again" xml:space="preserve">
+    <value>重新显示所有注释</value>
+  </data>
+  <data name="Show Every _Layer as the Document Sets It" xml:space="preserve">
+    <value>按文档设置显示每个图层(_L)</value>
   </data>
   <data name="Show a document's own title when it asks" xml:space="preserve">
     <value>根据文档要求显示其自身标题</value>
@@ -4194,6 +5259,9 @@
   <data name="Show separation" xml:space="preserve">
     <value>显示分色</value>
   </data>
+  <data name="Show the Document in Its F_older" xml:space="preserve">
+    <value>在所在文件夹中显示文档(_O)</value>
+  </data>
   <data name="Show the document's headings. Choose one to go to it." xml:space="preserve">
     <value>显示文档标题。选择一项即可跳转。</value>
   </data>
@@ -4203,6 +5271,9 @@
   <data name="Show the document's parts and article threads, if it has any." xml:space="preserve">
     <value>显示文档的组成部分及文章线程（如有）。</value>
   </data>
+  <data name="Show the document's title instead of its file name" xml:space="preserve">
+    <value>显示文档标题而不是文件名</value>
+  </data>
   <data name="Show the files attached to this document." xml:space="preserve">
     <value>显示此文档的附件。</value>
   </data>
@@ -4211,6 +5282,9 @@
   </data>
   <data name="Show the highlights, notes and other annotations in this document." xml:space="preserve">
     <value>显示此文档中的高亮、批注及其他注释。</value>
+  </data>
+  <data name="Show the next sheet" xml:space="preserve">
+    <value>显示下一页张</value>
   </data>
   <data name="Show the pages a quarter bigger than their real size." xml:space="preserve">
     <value>以实际大小的 125% 显示页面。</value>
@@ -4239,6 +5313,15 @@
   <data name="Show the panel a document asks for" xml:space="preserve">
     <value>显示文档指定的面板</value>
   </data>
+  <data name="Show the picture" xml:space="preserve">
+    <value>显示图片</value>
+  </data>
+  <data name="Show the sheet before" xml:space="preserve">
+    <value>显示上一页张</value>
+  </data>
+  <data name="Show the signature on the page" xml:space="preserve">
+    <value>在页面上显示签名</value>
+  </data>
   <data name="Show the signature on the page, in the bottom left corner." xml:space="preserve">
     <value>在页面左下角显示签名。</value>
   </data>
@@ -4257,11 +5340,17 @@
   <data name="Show two pages side by side: pages 1 and 2, then 3 and 4. Next page moves to the next pair." xml:space="preserve">
     <value>并排显示两页：第 1、2 页，然后第 3、4 页。下一页会移到下一对页面。</value>
   </data>
+  <data name="Show {0}" xml:space="preserve">
+    <value>显示 {0}</value>
+  </data>
   <data name="Showing a portfolio of files" xml:space="preserve">
     <value>显示文件包</value>
   </data>
   <data name="Showing and switching layers" xml:space="preserve">
     <value>显示和切换图层</value>
+  </data>
+  <data name="Shown" xml:space="preserve">
+    <value>已显示</value>
   </data>
   <data name="Shown below {0} zoom" xml:space="preserve">
     <value>缩放低于 {0} 时显示</value>
@@ -4283,6 +5372,9 @@
   </data>
   <data name="Side note" xml:space="preserve">
     <value>旁注</value>
+  </data>
+  <data name="Side panel" xml:space="preserve">
+    <value>侧栏</value>
   </data>
   <data name="Sidebar" xml:space="preserve">
     <value>侧边栏</value>
@@ -4314,6 +5406,15 @@
   <data name="Sign with External Signer… (needs the HyperPDF engine)" xml:space="preserve">
     <value>使用外部签名方签名…（需要 HyperPDF 引擎）</value>
   </data>
+  <data name="Sign with a certificate" xml:space="preserve">
+    <value>使用证书签名</value>
+  </data>
+  <data name="Sign with a certificate…" xml:space="preserve">
+    <value>使用证书签名…</value>
+  </data>
+  <data name="Sign {0} with your own tool" xml:space="preserve">
+    <value>使用您自己的工具为 {0} 签名</value>
+  </data>
   <data name="Signature" xml:space="preserve">
     <value>签名</value>
   </data>
@@ -4326,8 +5427,17 @@
   <data name="Signature type: {0}, digest {1}." xml:space="preserve">
     <value>签名类型：{0}，摘要 {1}。</value>
   </data>
+  <data name="Signatures and Ta_gs" xml:space="preserve">
+    <value>签名和标签(_G)</value>
+  </data>
   <data name="Signatures are checked, but the rules for allowed changes are not reported." xml:space="preserve">
     <value>会验证签名，但不会报告允许更改的规则。</value>
+  </data>
+  <data name="Signatures in this document: {0}" xml:space="preserve">
+    <value>此文档中的签名：{0}</value>
+  </data>
+  <data name="Signatures of {0}" xml:space="preserve">
+    <value>{0} 的签名</value>
   </data>
   <data name="Signatures — {0}" xml:space="preserve">
     <value>签名 — {0}</value>
@@ -4353,6 +5463,9 @@
   <data name="Signs the empty field" xml:space="preserve">
     <value>签署空白字段</value>
   </data>
+  <data name="Signs with a key this app never sees. Save what must be signed, sign it with your own tool, then bring the result back." xml:space="preserve">
+    <value>使用本应用永远无法看到的密钥签名。请保存需要签名的内容，用您自己的工具签名，然后取回结果。</value>
+  </data>
   <data name="Sign…" xml:space="preserve">
     <value>签名…</value>
   </data>
@@ -4363,6 +5476,9 @@
     <value>大小</value>
   </data>
   <data name="Size (points)" xml:space="preserve">
+    <value>大小（磅）</value>
+  </data>
+  <data name="Size in points" xml:space="preserve">
     <value>大小（磅）</value>
   </data>
   <data name="Size of the copy" xml:space="preserve">
@@ -4385,6 +5501,9 @@
   </data>
   <data name="Smaller" xml:space="preserve">
     <value>更小</value>
+  </data>
+  <data name="Smaller Focus Text" xml:space="preserve">
+    <value>缩小专注文字</value>
   </data>
   <data name="Smaller file" xml:space="preserve">
     <value>更小的文件</value>
@@ -4437,6 +5556,9 @@
   <data name="Sort by" xml:space="preserve">
     <value>排序依据</value>
   </data>
+  <data name="Sound and film" xml:space="preserve">
+    <value>声音和影片</value>
+  </data>
   <data name="Sound and video are not played." xml:space="preserve">
     <value>不播放音频和视频。</value>
   </data>
@@ -4448,6 +5570,12 @@
   </data>
   <data name="Sound and video in this document. Nothing plays by itself: choose an item, then press Play, save it, or open it with your system's player." xml:space="preserve">
     <value>此文档中的音频和视频。内容不会自动播放：请选择项目，然后播放、保存，或使用系统播放器打开。</value>
+  </data>
+  <data name="Space between letters" xml:space="preserve">
+    <value>字母间距</value>
+  </data>
+  <data name="Space between lines" xml:space="preserve">
+    <value>行间距</value>
   </data>
   <data name="Spacing" xml:space="preserve">
     <value>间距</value>
@@ -4464,11 +5592,29 @@
   <data name="Split view divider" xml:space="preserve">
     <value>拆分视图分隔线</value>
   </data>
+  <data name="Spread evenly." xml:space="preserve">
+    <value>已均匀分布。</value>
+  </data>
+  <data name="Spread the Picked Objects Evenly Across" xml:space="preserve">
+    <value>将所选对象水平均匀分布</value>
+  </data>
+  <data name="Spread the Picked Objects Evenly Down" xml:space="preserve">
+    <value>将所选对象垂直均匀分布</value>
+  </data>
   <data name="Squiggly underline" xml:space="preserve">
     <value>波浪下划线</value>
   </data>
   <data name="Stamp" xml:space="preserve">
     <value>图章</value>
+  </data>
+  <data name="Stamp from a _Picture…" xml:space="preserve">
+    <value>用图片制作图章(_P)…</value>
+  </data>
+  <data name="Stamp with My Own _Words…" xml:space="preserve">
+    <value>用我自己的文字制作图章(_W)…</value>
+  </data>
+  <data name="Stamp {0}" xml:space="preserve">
+    <value>图章 {0}</value>
   </data>
   <data name="Stamp: {0}" xml:space="preserve">
     <value>图章：{0}</value>
@@ -4491,6 +5637,9 @@
   <data name="Start each line at the left of the text box." xml:space="preserve">
     <value>每行从文本框左侧开始。</value>
   </data>
+  <data name="Start the drawing again" xml:space="preserve">
+    <value>重新开始绘制</value>
+  </data>
   <data name="Starting text recognition…" xml:space="preserve">
     <value>正在启动文本识别…</value>
   </data>
@@ -4508,6 +5657,12 @@
   </data>
   <data name="Stop Media" xml:space="preserve">
     <value>停止媒体</value>
+  </data>
+  <data name="Stop Placing" xml:space="preserve">
+    <value>停止放置</value>
+  </data>
+  <data name="Stop Recognising" xml:space="preserve">
+    <value>停止识别</value>
   </data>
   <data name="Stop applying the redactions. No file is saved." xml:space="preserve">
     <value>停止应用删改。不会保存文件。</value>
@@ -4542,6 +5697,9 @@
   <data name="Stop searching the folder." xml:space="preserve">
     <value>停止搜索文件夹。</value>
   </data>
+  <data name="Stop the download" xml:space="preserve">
+    <value>停止下载</value>
+  </data>
   <data name="Stop the language download. Languages that already finished are kept." xml:space="preserve">
     <value>停止下载语言。已完成下载的语言会保留。</value>
   </data>
@@ -4560,7 +5718,13 @@
   <data name="Stores the certificates and the revocation answers (OCSP and CRL) each signature needs, so it can still be checked after the certificates expire. This looks them up on the internet." xml:space="preserve">
     <value>保存各签名所需的证书和吊销状态响应（OCSP 和 CRL），使证书过期后仍可验证签名。此操作会通过互联网查询。</value>
   </data>
+  <data name="Stri_ke Out" xml:space="preserve">
+    <value>删除线(_K)</value>
+  </data>
   <data name="Strike" xml:space="preserve">
+    <value>删除线</value>
+  </data>
+  <data name="Strike out" xml:space="preserve">
     <value>删除线</value>
   </data>
   <data name="Strike-out" xml:space="preserve">
@@ -4604,6 +5768,9 @@
   </data>
   <data name="T_hick" xml:space="preserve">
     <value>粗(_H)</value>
+  </data>
+  <data name="T_ools" xml:space="preserve">
+    <value>工具(_O)</value>
   </data>
   <data name="Table" xml:space="preserve">
     <value>表格</value>
@@ -4662,11 +5829,23 @@
   <data name="Tags tell a screen reader how this document reads. Choose a tag to change it." xml:space="preserve">
     <value>标签向屏幕阅读器说明此文档的阅读方式。选择标签可进行更改。</value>
   </data>
+  <data name="Take a Picture of an _Area" xml:space="preserve">
+    <value>截取区域图片(_A)</value>
+  </data>
   <data name="Take away the chosen custom tag type's meaning. It is refused while any tag still uses the type." xml:space="preserve">
     <value>删除所选自定义标签类型的含义。只要仍有标签使用该类型，就无法删除。</value>
   </data>
   <data name="Take back the latest change to the document, including a tag change." xml:space="preserve">
     <value>撤销文档的最近一次更改，包括标签更改。</value>
+  </data>
+  <data name="Take it out of its parent" xml:space="preserve">
+    <value>将其移出父级</value>
+  </data>
+  <data name="Take out what you do not want to share. Your open file stays as it is until you save; Undo is in the Pages menu." xml:space="preserve">
+    <value>删除您不想分享的内容。在保存之前，已打开的文件保持不变；撤销在“页面”菜单中。</value>
+  </data>
+  <data name="Take the paper out of the picture" xml:space="preserve">
+    <value>去除图片中的纸张</value>
   </data>
   <data name="Take the picked text, picture or drawing off the page. Undo brings it back. Shortcut: Delete" xml:space="preserve">
     <value>将选中的文字、图片或图形从页面上删除。撤销可将其恢复。快捷键：Delete</value>
@@ -4674,14 +5853,32 @@
   <data name="Take the signature you just placed off the page." xml:space="preserve">
     <value>从页面移除刚放置的签名。</value>
   </data>
+  <data name="Take this much off the bottom, in points" xml:space="preserve">
+    <value>从底部裁掉这么多（磅）</value>
+  </data>
+  <data name="Take this much off the left, in points" xml:space="preserve">
+    <value>从左侧裁掉这么多（磅）</value>
+  </data>
+  <data name="Take this much off the right, in points" xml:space="preserve">
+    <value>从右侧裁掉这么多（磅）</value>
+  </data>
+  <data name="Take this much off the top, in points" xml:space="preserve">
+    <value>从顶部裁掉这么多（磅）</value>
+  </data>
   <data name="Text" xml:space="preserve">
     <value>文本</value>
+  </data>
+  <data name="Text Colour: {0}" xml:space="preserve">
+    <value>文字颜色：{0}</value>
   </data>
   <data name="Text Properties" xml:space="preserve">
     <value>文本属性</value>
   </data>
   <data name="Text Properties…" xml:space="preserve">
     <value>文本属性…</value>
+  </data>
+  <data name="Text Recognition Languages" xml:space="preserve">
+    <value>文字识别语言</value>
   </data>
   <data name="Text Settings" xml:space="preserve">
     <value>文本设置</value>
@@ -4709,6 +5906,15 @@
   </data>
   <data name="Text format" xml:space="preserve">
     <value>文本格式</value>
+  </data>
+  <data name="Text in a Fixed Width Font" xml:space="preserve">
+    <value>使用等宽字体的文字</value>
+  </data>
+  <data name="Text in a Sans Serif Font" xml:space="preserve">
+    <value>使用无衬线字体的文字</value>
+  </data>
+  <data name="Text in a Serif Font" xml:space="preserve">
+    <value>使用衬线字体的文字</value>
   </data>
   <data name="Text is drawn with hard edges, where each pixel is fully dark or fully clear. Lines and pictures keep soft edges." xml:space="preserve">
     <value>以硬边绘制文本，每个像素为全深色或全透明。线条和图片仍保留柔和边缘。</value>
@@ -4763,6 +5969,15 @@
   </data>
   <data name="That action stopped because the document was closed or reloaded." xml:space="preserve">
     <value>文档已关闭或重新加载，操作已停止。</value>
+  </data>
+  <data name="That file could not be compared." xml:space="preserve">
+    <value>无法比较该文件。</value>
+  </data>
+  <data name="That is not a web address or a page of this document. Type an address such as https://example.com, or page: and a page number." xml:space="preserve">
+    <value>这既不是网址，也不是此文档的页面。请输入类似 https://example.com 的地址，或 page: 加页码。</value>
+  </data>
+  <data name="That picture could not be read." xml:space="preserve">
+    <value>无法读取该图片。</value>
   </data>
   <data name="That picture could not be read. Choose a PNG, JPEG, BMP or WebP file." xml:space="preserve">
     <value>无法读取此图片。请选择 PNG、JPEG、BMP 或 WebP 文件。</value>
@@ -4896,6 +6111,9 @@
   <data name="The first scanned page does not read well as {0}, " xml:space="preserve">
     <value>首个扫描页面按 {0} 识别的效果不佳， </value>
   </data>
+  <data name="The form could not be changed." xml:space="preserve">
+    <value>无法更改表单。</value>
+  </data>
   <data name="The form does not accept that value." xml:space="preserve">
     <value>表单不接受此值。</value>
   </data>
@@ -4950,14 +6168,23 @@
   <data name="The newest level, based on PDF 2.0. Attached files must also be PDF/A." xml:space="preserve">
     <value>基于 PDF 2.0 的最新级别。附件也必须为 PDF/A。</value>
   </data>
+  <data name="The note" xml:space="preserve">
+    <value>注释</value>
+  </data>
   <data name="The note text for this comment. Type to change it. Shortcut: Ctrl+Enter" xml:space="preserve">
     <value>此批注的文本。输入可更改。快捷键：Ctrl+Enter</value>
   </data>
   <data name="The oldest level. Use it only when a system asks for PDF/A-1. It does not allow see-through effects or attached files." xml:space="preserve">
     <value>最早的级别。仅在系统要求 PDF/A-1 时使用。不支持透明效果或附件。</value>
   </data>
+  <data name="The owner password" xml:space="preserve">
+    <value>所有者密码</value>
+  </data>
   <data name="The owner password of the protection this document has now. It is needed because you opened the document with its reading password. It is never saved." xml:space="preserve">
     <value>文档当前保护设置的所有者密码。由于您使用阅读密码打开文档，因此需要此密码。不会保存。</value>
+  </data>
+  <data name="The owner password this document has now" xml:space="preserve">
+    <value>此文档当前的所有者密码</value>
   </data>
   <data name="The page on screen" xml:space="preserve">
     <value>屏幕上显示的页面</value>
@@ -4979,6 +6206,9 @@
   </data>
   <data name="The redacted copy was not saved." xml:space="preserve">
     <value>未保存删改副本。</value>
+  </data>
+  <data name="The same password again" xml:space="preserve">
+    <value>再次输入相同的密码</value>
   </data>
   <data name="The signature does not match: the signed content was altered or the signature is damaged." xml:space="preserve">
     <value>签名不匹配：已签名的内容已被更改，或签名已损坏。</value>
@@ -5028,6 +6258,9 @@
   <data name="The tags could not be changed." xml:space="preserve">
     <value>无法更改标签。</value>
   </data>
+  <data name="The text it stands for" xml:space="preserve">
+    <value>它所代表的文字</value>
+  </data>
   <data name="The text. Enter starts a new line." xml:space="preserve">
     <value>文本内容。按 Enter 换行。</value>
   </data>
@@ -5064,6 +6297,9 @@
   <data name="The width lines wrap at, in points. 0 lets the box grow as you type." xml:space="preserve">
     <value>文本换行的宽度，以磅为单位。0 表示文本框随输入扩展。</value>
   </data>
+  <data name="The words and the look of the two documents are the same." xml:space="preserve">
+    <value>两个文档的文字和外观相同。</value>
+  </data>
   <data name="There are no PDF files in this folder." xml:space="preserve">
     <value>此文件夹中没有 PDF 文件。</value>
   </data>
@@ -5097,6 +6333,9 @@
   <data name="This desktop's clipboard cannot hold images, so the image of the area was saved as {0}." xml:space="preserve">
     <value>此桌面的剪贴板无法存储图片，因此区域图片已保存为 {0}。</value>
   </data>
+  <data name="This document cannot be changed in this way." xml:space="preserve">
+    <value>无法以这种方式更改此文档。</value>
+  </data>
   <data name="This document cannot be edited on the page." xml:space="preserve">
     <value>此文档无法在页面上编辑。</value>
   </data>
@@ -5114,6 +6353,12 @@
   </data>
   <data name="This document is digitally signed." xml:space="preserve">
     <value>此文档已进行数字签名。</value>
+  </data>
+  <data name="This document is locked" xml:space="preserve">
+    <value>此文档已锁定</value>
+  </data>
+  <data name="This document is locked for the holders of a certificate. Choose your certificate file and type its password." xml:space="preserve">
+    <value>此文档仅限证书持有者使用。请选择您的证书文件并输入密码。</value>
   </data>
   <data name="This document is password protected" xml:space="preserve">
     <value>此文档受密码保护</value>
@@ -5226,6 +6471,9 @@
   <data name="This file could not be read as a picture. Choose a PNG, JPEG, BMP or WebP file." xml:space="preserve">
     <value>无法将此文件读取为图片。请选择 PNG、JPEG、BMP 或 WebP 文件。</value>
   </data>
+  <data name="This file has changed on disk." xml:space="preserve">
+    <value>此文件在磁盘上已更改。</value>
+  </data>
   <data name="This file has no sound or picture that can be decoded." xml:space="preserve">
     <value>此文件不包含可解码的音频或图像。</value>
   </data>
@@ -5253,6 +6501,9 @@
   <data name="This form asked to send your answers. HyperPDF does not send form data." xml:space="preserve">
     <value>此表单请求发送您的答案。HyperPDF 不会发送表单数据。</value>
   </data>
+  <data name="This form asks to fill itself in from the file {0}. You choose the file next." xml:space="preserve">
+    <value>此表单请求从文件 {0} 自动填写。接下来由您选择文件。</value>
+  </data>
   <data name="This form asks to load answers from {0}. You choose the file next, and Undo takes the change back. Only load files you trust." xml:space="preserve">
     <value>此表单请求从 {0} 加载表单内容。接下来由您选择文件，可使用“撤销”恢复更改。请仅加载您信任的文件。</value>
   </data>
@@ -5268,6 +6519,9 @@
   <data name="This media could not be read from the document." xml:space="preserve">
     <value>无法从文档中读取此媒体。</value>
   </data>
+  <data name="This page has no text." xml:space="preserve">
+    <value>此页没有文字。</value>
+  </data>
   <data name="This password gives every permission and can change or remove the protection. " xml:space="preserve">
     <value>此密码授予所有权限，并可更改或移除保护。 </value>
   </data>
@@ -5276,6 +6530,9 @@
   </data>
   <data name="This signature could not be checked." xml:space="preserve">
     <value>无法验证此签名。</value>
+  </data>
+  <data name="Those pages or that first number are not right. Pages are counted from 1, and the first number must be 1 or more." xml:space="preserve">
+    <value>这些页面或第一个编号不正确。页面从 1 开始计数，第一个编号必须为 1 或更大。</value>
   </data>
   <data name="Thumbnails" xml:space="preserve">
     <value>缩略图</value>
@@ -5295,6 +6552,9 @@
   <data name="Timestamp server" xml:space="preserve">
     <value>时间戳服务器</value>
   </data>
+  <data name="Timestamp server for signing" xml:space="preserve">
+    <value>签名时间戳服务器</value>
+  </data>
   <data name="Timestamped {0:g} by {1}, whose certificate is not trusted on this computer.{2}" xml:space="preserve">
     <value>时间戳时间为 {0:g}，由 {1} 提供，此计算机不信任其证书。{2}</value>
   </data>
@@ -5313,6 +6573,9 @@
   <data name="To meet the standard, the copy:" xml:space="preserve">
     <value>为符合标准，副本将：</value>
   </data>
+  <data name="To page, or leave empty for the end of the document" xml:space="preserve">
+    <value>结束页；留空表示到文档末尾</value>
+  </data>
   <data name="Tool bar" xml:space="preserve">
     <value>工具栏</value>
   </data>
@@ -5322,11 +6585,38 @@
   <data name="Tools ▾" xml:space="preserve">
     <value>工具 ▾</value>
   </data>
+  <data name="Treat accented letters as plain" xml:space="preserve">
+    <value>将带重音的字母视为普通字母</value>
+  </data>
+  <data name="Treat look-alike characters as the same" xml:space="preserve">
+    <value>将外形相近的字符视为相同</value>
+  </data>
   <data name="Treat look-alike characters as the same: curly and straight quotes, dashes, and full-width letters." xml:space="preserve">
     <value>将外观相似的字符视为相同：弯引号与直引号、破折号以及全角字母。</value>
   </data>
+  <data name="Turn anticlockwise by degrees" xml:space="preserve">
+    <value>逆时针旋转的度数</value>
+  </data>
   <data name="Turn pages" xml:space="preserve">
     <value>翻页</value>
+  </data>
+  <data name="Turn pages on the document's timings" xml:space="preserve">
+    <value>按文档的计时翻页</value>
+  </data>
+  <data name="Turn pages upright" xml:space="preserve">
+    <value>将页面转正</value>
+  </data>
+  <data name="Turn the Page _Left" xml:space="preserve">
+    <value>将页面向左旋转(_L)</value>
+  </data>
+  <data name="Turn the Page _Right" xml:space="preserve">
+    <value>将页面向右旋转(_R)</value>
+  </data>
+  <data name="Turn the Picked Object to the Left" xml:space="preserve">
+    <value>将所选对象向左旋转</value>
+  </data>
+  <data name="Turn the Picked Object to the Right" xml:space="preserve">
+    <value>将所选对象向右旋转</value>
   </data>
   <data name="Turn the pages a quarter turn to the left. Shortcut: Ctrl+Left" xml:space="preserve">
     <value>将页面向左旋转 90 度。快捷键：Ctrl+Left</value>
@@ -5339,6 +6629,12 @@
   </data>
   <data name="Turn the selected pages clockwise by a quarter turn." xml:space="preserve">
     <value>将所选页面顺时针旋转四分之一圈。</value>
+  </data>
+  <data name="Turned." xml:space="preserve">
+    <value>已旋转。</value>
+  </data>
+  <data name="Two Pages Wide with a _Cover" xml:space="preserve">
+    <value>双页并排并带封面(_C)</value>
   </data>
   <data name="Two Pages with _Cover" xml:space="preserve">
     <value>双页与封面(_C)</value>
@@ -5424,6 +6720,9 @@
   <data name="Type the password for your certificate. It is never saved." xml:space="preserve">
     <value>输入证书密码。密码不会保存。</value>
   </data>
+  <data name="Type the password for {0}." xml:space="preserve">
+    <value>请输入 {0} 的密码。</value>
+  </data>
   <data name="Type the reading password again, so a typing mistake does not lock you out." xml:space="preserve">
     <value>再次输入阅读密码，避免输入错误导致无法打开文件。</value>
   </data>
@@ -5435,6 +6734,9 @@
   </data>
   <data name="Type the words to find. Press Enter for the next result or Shift+Enter for the one before." xml:space="preserve">
     <value>输入要查找的词语。按 Enter 查看下一个结果，按 Shift+Enter 查看上一个。</value>
+  </data>
+  <data name="Type to find" xml:space="preserve">
+    <value>输入以查找</value>
   </data>
   <data name="Type where your certificate file is, a .p12 or .pfx file." xml:space="preserve">
     <value>输入证书文件的位置，应为 .p12 或 .pfx 文件。</value>
@@ -5460,6 +6762,9 @@
   <data name="Typeface" xml:space="preserve">
     <value>字体</value>
   </data>
+  <data name="U_ndo" xml:space="preserve">
+    <value>撤销(_N)</value>
+  </data>
   <data name="Un-nest" xml:space="preserve">
     <value>取消嵌套</value>
   </data>
@@ -5472,6 +6777,9 @@
   <data name="Underline the text, or not. Shortcut: Ctrl+U while typing." xml:space="preserve">
     <value>切换文本下划线。输入时快捷键：Ctrl+U。</value>
   </data>
+  <data name="Underlined" xml:space="preserve">
+    <value>带下划线</value>
+  </data>
   <data name="Undo" xml:space="preserve">
     <value>撤销</value>
   </data>
@@ -5480,6 +6788,9 @@
   </data>
   <data name="Undo page edit" xml:space="preserve">
     <value>撤销页面编辑</value>
+  </data>
+  <data name="Undo the last change to the document" xml:space="preserve">
+    <value>撤销对文档的上一次更改</value>
   </data>
   <data name="Undo the latest edit of the document, such as a bookmark change." xml:space="preserve">
     <value>撤销最近一次文档编辑，例如书签更改。</value>
@@ -5535,6 +6846,9 @@
   <data name="Use grey for new annotations and the one you picked." xml:space="preserve">
     <value>为新批注及所选批注使用灰色。</value>
   </data>
+  <data name="Use it" xml:space="preserve">
+    <value>使用它</value>
+  </data>
   <data name="Use large text for new text and callouts and the one you picked." xml:space="preserve">
     <value>为新文本、标注框及所选对象使用大号文本。</value>
   </data>
@@ -5579,6 +6893,9 @@
   </data>
   <data name="Use the print choices a document asks for" xml:space="preserve">
     <value>使用文档指定的打印选项</value>
+  </data>
+  <data name="Use these" xml:space="preserve">
+    <value>使用这些</value>
   </data>
   <data name="Use these settings for the text." xml:space="preserve">
     <value>将这些设置应用于文本。</value>
@@ -5637,8 +6954,17 @@
   <data name="What became part of the page, what was left alone and why, or why the copy could not be made." xml:space="preserve">
     <value>哪些内容已变成页面的一部分、哪些保持不变及原因，或无法创建副本的原因。</value>
   </data>
+  <data name="What it is, for those who cannot see it" xml:space="preserve">
+    <value>它是什么，供看不见的人使用</value>
+  </data>
   <data name="What people with the reading password may do" xml:space="preserve">
     <value>持有阅读密码者的权限</value>
+  </data>
+  <data name="What readers may do" xml:space="preserve">
+    <value>读者可以做什么</value>
+  </data>
+  <data name="What the check found" xml:space="preserve">
+    <value>检查结果</value>
   </data>
   <data name="What the chosen tag is, such as a heading or a paragraph. Only types the file may use are listed." xml:space="preserve">
     <value>所选标签的类型，例如标题或段落。仅列出文件允许使用的类型。</value>
@@ -5657,6 +6983,9 @@
   </data>
   <data name="What the saved copy changed, what was left alone, or why it could not be made." xml:space="preserve">
     <value>保存的副本更改了什么、哪些保持不变，或无法创建的原因。</value>
+  </data>
+  <data name="What the signature allows afterwards" xml:space="preserve">
+    <value>签名之后允许的操作</value>
   </data>
   <data name="What the signer gave back" xml:space="preserve">
     <value>签名者返回的内容</value>
@@ -5684,6 +7013,9 @@
   </data>
   <data name="What you read is never sent anywhere." xml:space="preserve">
     <value>阅读内容绝不会发送到任何地方。</value>
+  </data>
+  <data name="What your tool gave back" xml:space="preserve">
+    <value>您的工具返回的内容</value>
   </data>
   <data name="When a big picture is shown much smaller, average the pixels it covers instead of picking some of them. This applies to pictures inside the page content as well as stored ones." xml:space="preserve">
     <value>大幅缩小显示大图时，对所覆盖像素取平均值，而非抽取部分像素。此设置适用于页面内容中的图片以及已存储的图片。</value>
@@ -5730,6 +7062,12 @@
   <data name="When ticked, the print window starts with the copies, two-sided choice and scaling the document asks for. You can change them." xml:space="preserve">
     <value>勾选后，打印窗口将采用文档要求的份数、双面及缩放设置。您可以更改。</value>
   </data>
+  <data name="Where it is signed" xml:space="preserve">
+    <value>签名位置</value>
+  </data>
+  <data name="Where on the page" xml:space="preserve">
+    <value>页面上的位置</value>
+  </data>
   <data name="Where the copy is saved and everything you should know about how it was made." xml:space="preserve">
     <value>副本保存位置及其制作方式的完整说明。</value>
   </data>
@@ -5742,6 +7080,9 @@
   <data name="Which cells this table header labels: the cells in its row, in its column, or both. Screen readers use it to say which header goes with a cell." xml:space="preserve">
     <value>此表头对应的单元格范围：所在行、所在列或两者。屏幕阅读器据此说明单元格对应的表头。</value>
   </data>
+  <data name="Which look to keep" xml:space="preserve">
+    <value>保留哪种外观</value>
+  </data>
   <data name="White" xml:space="preserve">
     <value>白色</value>
   </data>
@@ -5750,6 +7091,9 @@
   </data>
   <data name="Whole words" xml:space="preserve">
     <value>全字匹配</value>
+  </data>
+  <data name="Whole words only" xml:space="preserve">
+    <value>仅全字匹配</value>
   </data>
   <data name="Wi_der" xml:space="preserve">
     <value>更宽(_D)</value>
@@ -5760,11 +7104,20 @@
   <data name="Wider" xml:space="preserve">
     <value>更宽</value>
   </data>
+  <data name="Width the lines wrap at, 0 for none" xml:space="preserve">
+    <value>自动换行的宽度，0 表示不换行</value>
+  </data>
+  <data name="Words before the number, such as A-" xml:space="preserve">
+    <value>编号前的文字，例如 A-</value>
+  </data>
   <data name="Words on the stamp" xml:space="preserve">
     <value>图章文字</value>
   </data>
   <data name="Words to find" xml:space="preserve">
     <value>要查找的词语</value>
+  </data>
+  <data name="Words, with {page}, {pages}, {number} and {date}" xml:space="preserve">
+    <value>文字，可使用 {page}、{pages}、{number} 和 {date}</value>
   </data>
   <data name="Wrap width (0 grows)" xml:space="preserve">
     <value>换行宽度（0 表示自动扩展）</value>
@@ -5789,6 +7142,15 @@
   </data>
   <data name="Write text with an arrow pointing at something. Drag from the thing to where the text goes." xml:space="preserve">
     <value>编写带箭头的文本指向某个内容。从目标位置拖动到文本位置。</value>
+  </data>
+  <data name="Write the Tag Changes to the Document" xml:space="preserve">
+    <value>将标签更改写入文档</value>
+  </data>
+  <data name="Writes a copy anyone can open and change. The document shown is not changed." xml:space="preserve">
+    <value>写入任何人都能打开和修改的副本。当前显示的文档不会改变。</value>
+  </data>
+  <data name="Writes a copy in the PDF 2.0 format. The document shown is not changed." xml:space="preserve">
+    <value>以 PDF 2.0 格式写入副本。当前显示的文档不会改变。</value>
   </data>
   <data name="Writes a standard PDF copy of this document with your annotations, form entries and page changes. Your open file is never changed." xml:space="preserve">
     <value>将此文档保存为标准 PDF 副本，包含您的批注、表单内容和页面更改。当前打开的文件不会更改。</value>
@@ -5817,11 +7179,23 @@
   <data name="Your initials" xml:space="preserve">
     <value>你的姓名缩写</value>
   </data>
+  <data name="Your name or initials, as you sign" xml:space="preserve">
+    <value>您签名时使用的姓名或首字母</value>
+  </data>
   <data name="Your name, as you sign it" xml:space="preserve">
     <value>您的签名姓名</value>
   </data>
   <data name="Your open file is never changed. A signed or PDF/A document is refused with the reason." xml:space="preserve">
     <value>当前打开的文件始终保持不变。已签名或 PDF/A 文档会被拒绝并说明原因。</value>
+  </data>
+  <data name="Your reply" xml:space="preserve">
+    <value>您的回复</value>
+  </data>
+  <data name="Zoom _In" xml:space="preserve">
+    <value>放大(_I)</value>
+  </data>
+  <data name="Zoom _Out" xml:space="preserve">
+    <value>缩小(_O)</value>
   </data>
   <data name="Zoom in" xml:space="preserve">
     <value>放大</value>
@@ -5829,11 +7203,17 @@
   <data name="Zoom out" xml:space="preserve">
     <value>缩小</value>
   </data>
+  <data name="Zoom to {0}%" xml:space="preserve">
+    <value>缩放到 {0}%</value>
+  </data>
   <data name="_Accepted" xml:space="preserve">
     <value>_已接受</value>
   </data>
   <data name="_Add Reply" xml:space="preserve">
     <value>添加回复(_A)</value>
+  </data>
+  <data name="_Add a Bookmark Here…" xml:space="preserve">
+    <value>在此添加书签(_A)…</value>
   </data>
   <data name="_Annotate…" xml:space="preserve">
     <value>添加注释(_A)…</value>
@@ -5850,11 +7230,17 @@
   <data name="_Auto-scroll" xml:space="preserve">
     <value>自动滚动(_A)</value>
   </data>
+  <data name="_Back" xml:space="preserve">
+    <value>后退(_B)</value>
+  </data>
   <data name="_Black" xml:space="preserve">
     <value>黑色(_B)</value>
   </data>
   <data name="_Blue" xml:space="preserve">
     <value>蓝色(_B)</value>
+  </data>
+  <data name="_Bookmarks" xml:space="preserve">
+    <value>书签(_B)</value>
   </data>
   <data name="_Callout" xml:space="preserve">
     <value>标注框(_C)</value>
@@ -5865,8 +7251,14 @@
   <data name="_Cancelled" xml:space="preserve">
     <value>_已取消</value>
   </data>
+  <data name="_Caret Mode" xml:space="preserve">
+    <value>光标模式(_C)</value>
+  </data>
   <data name="_Caret Navigation" xml:space="preserve">
     <value>光标导航(_C)</value>
+  </data>
+  <data name="_Check the Signatures" xml:space="preserve">
+    <value>检查签名(_C)</value>
   </data>
   <data name="_Choose…" xml:space="preserve">
     <value>选择(_C)…</value>
@@ -5874,8 +7266,14 @@
   <data name="_Close" xml:space="preserve">
     <value>关闭(_C)</value>
   </data>
+  <data name="_Close Tab" xml:space="preserve">
+    <value>关闭标签页(_C)</value>
+  </data>
   <data name="_Comfort Page Colour" xml:space="preserve">
     <value>舒适页面颜色(_C)</value>
+  </data>
+  <data name="_Compare with Another Document…" xml:space="preserve">
+    <value>与另一个文档比较(_C)…</value>
   </data>
   <data name="_Confidential" xml:space="preserve">
     <value>机密(_C)</value>
@@ -5885,6 +7283,9 @@
   </data>
   <data name="_Copy licence text" xml:space="preserve">
     <value>复制许可证文本(_C)</value>
+  </data>
+  <data name="_Crop the Pages…" xml:space="preserve">
+    <value>裁剪页面(_C)…</value>
   </data>
   <data name="_Dark Blue" xml:space="preserve">
     <value>深蓝色(_D)</value>
@@ -5901,6 +7302,12 @@
   <data name="_Draft" xml:space="preserve">
     <value>草稿(_D)</value>
   </data>
+  <data name="_Draw" xml:space="preserve">
+    <value>绘图(_D)</value>
+  </data>
+  <data name="_Duplicate the Page" xml:space="preserve">
+    <value>复制页面(_D)</value>
+  </data>
   <data name="_Edit Note" xml:space="preserve">
     <value>编辑便笺(_E)</value>
   </data>
@@ -5910,14 +7317,29 @@
   <data name="_Edit Text" xml:space="preserve">
     <value>_编辑文本</value>
   </data>
+  <data name="_Edit the Page's Own Content" xml:space="preserve">
+    <value>编辑页面自身内容(_E)</value>
+  </data>
+  <data name="_Edit the Picked Note…" xml:space="preserve">
+    <value>编辑所选注释(_E)…</value>
+  </data>
+  <data name="_Edit the Selected Tag…" xml:space="preserve">
+    <value>编辑所选标签(_E)…</value>
+  </data>
   <data name="_Ellipse" xml:space="preserve">
     <value>椭圆(_E)</value>
   </data>
   <data name="_Export…" xml:space="preserve">
     <value>_导出…</value>
   </data>
+  <data name="_Fill and Sign" xml:space="preserve">
+    <value>填写和签名(_F)</value>
+  </data>
   <data name="_Final" xml:space="preserve">
     <value>最终版(_F)</value>
+  </data>
+  <data name="_Finish Typing the Text" xml:space="preserve">
+    <value>完成文字输入(_F)</value>
   </data>
   <data name="_Finish…" xml:space="preserve">
     <value>完成(_F)…</value>
@@ -5925,8 +7347,20 @@
   <data name="_First Page" xml:space="preserve">
     <value>首页(_F)</value>
   </data>
+  <data name="_Focus Mode" xml:space="preserve">
+    <value>专注模式(_F)</value>
+  </data>
+  <data name="_Go" xml:space="preserve">
+    <value>转到(_G)</value>
+  </data>
+  <data name="_Go to a Document…" xml:space="preserve">
+    <value>转到文档(_G)…</value>
+  </data>
   <data name="_Green" xml:space="preserve">
     <value>绿色(_G)</value>
+  </data>
+  <data name="_Hand" xml:space="preserve">
+    <value>手形(_H)</value>
   </data>
   <data name="_Hand Tool" xml:space="preserve">
     <value>抓手工具(_H)</value>
@@ -5934,8 +7368,20 @@
   <data name="_Highlight" xml:space="preserve">
     <value>高亮(_H)</value>
   </data>
+  <data name="_Insert Pages from Files…" xml:space="preserve">
+    <value>从文件插入页面(_I)…</value>
+  </data>
+  <data name="_Italic" xml:space="preserve">
+    <value>斜体(_I)</value>
+  </data>
   <data name="_Keep This Spelling" xml:space="preserve">
     <value>保留此拼写(_K)</value>
+  </data>
+  <data name="_Last Page" xml:space="preserve">
+    <value>最后一页(_L)</value>
+  </data>
+  <data name="_Licences…" xml:space="preserve">
+    <value>许可证(_L)…</value>
   </data>
   <data name="_Line" xml:space="preserve">
     <value>直线(_L)</value>
@@ -5943,11 +7389,26 @@
   <data name="_Measure" xml:space="preserve">
     <value>测量(_M)</value>
   </data>
+  <data name="_Measure, Sign and Edit" xml:space="preserve">
+    <value>测量、签名和编辑(_M)</value>
+  </data>
   <data name="_Medium" xml:space="preserve">
     <value>中等(_M)</value>
   </data>
+  <data name="_Merge Files…" xml:space="preserve">
+    <value>合并文件(_M)…</value>
+  </data>
   <data name="_New Window" xml:space="preserve">
     <value>新建窗口(_N)</value>
+  </data>
+  <data name="_Next Page" xml:space="preserve">
+    <value>下一页(_N)</value>
+  </data>
+  <data name="_Next Sentence" xml:space="preserve">
+    <value>下一句(_N)</value>
+  </data>
+  <data name="_Next Tab" xml:space="preserve">
+    <value>下一个标签页(_N)</value>
   </data>
   <data name="_Normal" xml:space="preserve">
     <value>正常(_N)</value>
@@ -5955,14 +7416,26 @@
   <data name="_Not Approved" xml:space="preserve">
     <value>未批准(_N)</value>
   </data>
+  <data name="_Note" xml:space="preserve">
+    <value>注释(_N)</value>
+  </data>
+  <data name="_One Page Wide" xml:space="preserve">
+    <value>单页宽度(_O)</value>
+  </data>
   <data name="_Open…" xml:space="preserve">
     <value>打开(_O)…</value>
   </data>
   <data name="_Orange" xml:space="preserve">
     <value>橙色(_O)</value>
   </data>
+  <data name="_Pages" xml:space="preserve">
+    <value>页面(_P)</value>
+  </data>
   <data name="_Picture…" xml:space="preserve">
     <value>图片(_P)…</value>
+  </data>
+  <data name="_Play or Pause" xml:space="preserve">
+    <value>播放或暂停(_P)</value>
   </data>
   <data name="_Polygon" xml:space="preserve">
     <value>多边形(_P)</value>
@@ -5972,6 +7445,15 @@
   </data>
   <data name="_Prepare" xml:space="preserve">
     <value>准备(_P)</value>
+  </data>
+  <data name="_Previous Page" xml:space="preserve">
+    <value>上一页(_P)</value>
+  </data>
+  <data name="_Previous Tab" xml:space="preserve">
+    <value>上一个标签页(_P)</value>
+  </data>
+  <data name="_Print…" xml:space="preserve">
+    <value>打印(_P)…</value>
   </data>
   <data name="_Properties" xml:space="preserve">
     <value>属性(_P)</value>
@@ -5985,6 +7467,12 @@
   <data name="_Read Aloud from Here" xml:space="preserve">
     <value>从此处朗读(_R)</value>
   </data>
+  <data name="_Reading Aids" xml:space="preserve">
+    <value>阅读辅助(_R)</value>
+  </data>
+  <data name="_Reading Mode" xml:space="preserve">
+    <value>阅读模式(_R)</value>
+  </data>
   <data name="_Rectangle" xml:space="preserve">
     <value>矩形(_R)</value>
   </data>
@@ -5993,6 +7481,9 @@
   </data>
   <data name="_Rejected" xml:space="preserve">
     <value>_已拒绝</value>
+  </data>
+  <data name="_Rename the Bookmark…" xml:space="preserve">
+    <value>重命名书签(_R)…</value>
   </data>
   <data name="_Reopen Closed Tabs" xml:space="preserve">
     <value>重新打开已关闭的标签页(_R)</value>
@@ -6021,11 +7512,23 @@
   <data name="_Save Unprotected Copy…" xml:space="preserve">
     <value>保存无保护副本(_S)…</value>
   </data>
+  <data name="_Scroll Slowly by Itself" xml:space="preserve">
+    <value>自动慢速滚动(_S)</value>
+  </data>
   <data name="_Search" xml:space="preserve">
     <value>搜索(_S)</value>
   </data>
   <data name="_Search in Folder…" xml:space="preserve">
     <value>在文件夹中搜索(_S)…</value>
+  </data>
+  <data name="_Select Text" xml:space="preserve">
+    <value>选择文字(_S)</value>
+  </data>
+  <data name="_Side Panel" xml:space="preserve">
+    <value>侧栏(_S)</value>
+  </data>
+  <data name="_Sign with a Certificate…" xml:space="preserve">
+    <value>使用证书签名(_S)…</value>
   </data>
   <data name="_Single" xml:space="preserve">
     <value>单倍(_S)</value>
@@ -6036,11 +7539,17 @@
   <data name="_Snapshot" xml:space="preserve">
     <value>快照(_S)</value>
   </data>
+  <data name="_Stamp" xml:space="preserve">
+    <value>图章(_S)</value>
+  </data>
   <data name="_Status" xml:space="preserve">
     <value>_状态</value>
   </data>
   <data name="_Strike Out" xml:space="preserve">
     <value>删除线(_S)</value>
+  </data>
+  <data name="_Tabs" xml:space="preserve">
+    <value>标签页(_T)</value>
   </data>
   <data name="_Thin" xml:space="preserve">
     <value>细(_T)</value>
@@ -6051,11 +7560,20 @@
   <data name="_Two Pages" xml:space="preserve">
     <value>双页(_T)</value>
   </data>
+  <data name="_Two Pages Wide" xml:space="preserve">
+    <value>双页宽度(_T)</value>
+  </data>
   <data name="_Type Text Here" xml:space="preserve">
     <value>_在此输入文本</value>
   </data>
   <data name="_Underline" xml:space="preserve">
     <value>下划线(_U)</value>
+  </data>
+  <data name="_Underlined" xml:space="preserve">
+    <value>下划线(_U)</value>
+  </data>
+  <data name="_View" xml:space="preserve">
+    <value>视图(_V)</value>
   </data>
   <data name="_Whole words" xml:space="preserve">
     <value>全字匹配(_W)</value>
@@ -6063,8 +7581,14 @@
   <data name="_Wide" xml:space="preserve">
     <value>宽(_W)</value>
   </data>
+  <data name="_Window" xml:space="preserve">
+    <value>窗口(_W)</value>
+  </data>
   <data name="_Wrap Pages" xml:space="preserve">
     <value>页面自动换行(_W)</value>
+  </data>
+  <data name="_Wrap the Pages" xml:space="preserve">
+    <value>页面换行(_W)</value>
   </data>
   <data name="_Yellow" xml:space="preserve">
     <value>黄色(_Y)</value>
@@ -6168,6 +7692,9 @@
   <data name="matches" xml:space="preserve">
     <value>匹配项</value>
   </data>
+  <data name="no" xml:space="preserve">
+    <value>否</value>
+  </data>
   <data name="not drawn on the page" xml:space="preserve">
     <value>未绘制在页面上</value>
   </data>
@@ -6231,6 +7758,9 @@
   <data name="value {0}" xml:space="preserve">
     <value>值 {0}</value>
   </data>
+  <data name="yes" xml:space="preserve">
+    <value>是</value>
+  </data>
   <data name="{0:0.##}× speed" xml:space="preserve">
     <value>{0:0.##}× 速度</value>
   </data>
@@ -6248,6 +7778,9 @@
   </data>
   <data name="{0:0} × {1:0} mm" xml:space="preserve">
     <value>{0:0} × {1:0} 毫米</value>
+  </data>
+  <data name="{0} (not saved)" xml:space="preserve">
+    <value>{0}（未保存）</value>
   </data>
   <data name="{0} (saved as {1})" xml:space="preserve">
     <value>{0}（保存为 {1}）</value>
@@ -6323,6 +7856,9 @@
   </data>
   <data name="{0} pages" xml:space="preserve">
     <value>{0} 页</value>
+  </data>
+  <data name="{0} pages differ in their words or in how they look. Text in pictures is not compared." xml:space="preserve">
+    <value>有 {0} 页的文字或外观不同。图片中的文字不参与比较。</value>
   </data>
   <data name="{0} pictures need" xml:space="preserve">
     <value>{0} 张图片需要</value>
@@ -6410,5 +7946,11 @@
   </data>
   <data name="{0}Text recognised on {1}. You can now search, select and copy it. Save to keep it." xml:space="preserve">
     <value>{0}已在 {1} 上识别文本。现在可以搜索、选择和复制。请保存以保留结果。</value>
+  </data>
+  <data name="‹ Back" xml:space="preserve">
+    <value>‹ 返回</value>
+  </data>
+  <data name="↑ Up one folder" xml:space="preserve">
+    <value>↑ 上一级文件夹</value>
   </data>
 </root>

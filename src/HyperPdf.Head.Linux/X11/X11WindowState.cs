@@ -49,6 +49,42 @@ internal static unsafe class X11WindowState
     /// <summary>The value that holds the state atom.</summary>
     private const int StateIndex = 1;
 
+    /// <summary>The most state atoms read from a window.</summary>
+    private const int MostStates = 64;
+
+    /// <summary>Tells whether a window has a state, by reading the states the window manager has put on it.</summary>
+    /// <param name="display">The display.</param>
+    /// <param name="window">The window.</param>
+    /// <param name="property">The atom of <c>_NET_WM_STATE</c>.</param>
+    /// <param name="first">The atom of one state.</param>
+    /// <param name="second">The atom of another state, which the window must have too.</param>
+    /// <returns><see langword="true"/> when the window has both.</returns>
+    internal static bool HasBoth(nint display, nint window, nint property, nint first, nint second)
+    {
+        nint type;
+        int format;
+        nuint count;
+        nuint remaining;
+        byte* data;
+        if (NativeMethods.XGetWindowProperty(display, window, property, 0, MostStates, 0, 0, &type, &format, &count, &remaining, &data) != 0 || data is null)
+        {
+            return false;
+        }
+
+        // Each value of a format 32 property is a C long, which is as wide as a pointer.
+        var atoms = (nint*)data;
+        var hasFirst = false;
+        var hasSecond = false;
+        for (nuint i = 0; i < count; i++)
+        {
+            hasFirst |= atoms[i] == first;
+            hasSecond |= atoms[i] == second;
+        }
+
+        _ = NativeMethods.XFree(data);
+        return hasFirst && hasSecond;
+    }
+
     /// <summary>Asks the window manager to make a window the active one and bring it to the front.</summary>
     /// <param name="display">The display.</param>
     /// <param name="root">The root window, which the message is sent to.</param>

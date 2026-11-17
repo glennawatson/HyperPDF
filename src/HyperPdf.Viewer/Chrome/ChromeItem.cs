@@ -23,4 +23,16 @@ public sealed record ChromeItem(ChromeItemKind Kind, ChromeCommand Command, int 
 
     /// <summary>Gets the size the text is drawn at, in device pixels, or 0 for the size of the window's own text.</summary>
     public int TextSize { get; init; }
+
+    /// <summary>Gets the colour, as ARGB, that fills a popup or a panel in place of the theme's, or zero to use the theme's.</summary>
+    public uint Ground { get; init; }
+
+    /// <summary>Gets the colour, as ARGB, that the text is drawn in instead of the theme's, or zero to use the theme's.</summary>
+    public uint Tint { get; init; }
+
+    /// <summary>Gets a value indicating whether the text is drawn faint, as text away from what is being read is.</summary>
+    public bool Dimmed { get; init; }
+
+    /// <summary>Gets a value indicating whether the text is set in the serif font.</summary>
+    public bool Serif { get; init; }
 }

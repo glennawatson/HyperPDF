@@ -12,6 +12,7 @@ using HyperPdf.Core.Signatures;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Finding;
 using HyperPdf.ViewModels.Markup;
+using HyperPdf.ViewModels.Reading;
 using HyperPdf.ViewModels.Sidebar;
 using HyperPdf.ViewModels.Signing;
 using HyperPdf.ViewModels.Viewing;
@@ -125,6 +126,7 @@ internal static class ToolForms
         FormSettings.Field<TextPropertiesViewModel>("Space between lines", static m => Number(m.LineSpacing), static (m, text) => m.LineSpacing = Number(text, m.LineSpacing)),
         FormSettings.Field<TextPropertiesViewModel>("Space between letters", static m => Number(m.CharacterSpacing), static (m, text) => m.CharacterSpacing = Number(text, m.CharacterSpacing)),
         FormSettings.Field<TextPropertiesViewModel>("Width the lines wrap at, 0 for none", static m => Number(m.WrapWidth), static (m, text) => m.WrapWidth = Number(text, m.WrapWidth)),
+        FormSettings.Field<TextPropertiesViewModel>("Comb boxes, 0 for none", static m => Number(m.CombCells), static (m, text) => m.CombCells = Number(text, m.CombCells)),
         FormSettings.Action<TextPropertiesViewModel>("Use these", static m => m.AcceptCommand),
     ];
 
@@ -302,12 +304,42 @@ internal static class ToolForms
         FormSettings.Action<AnnotationsViewModel>("Remove the note", static m => m.DeleteBubbleAnnotationCommand).When(static m => m.IsExistingBubble),
     ];
 
+    /// <summary>The rows of the window of Focus Mode's text settings, which apply as they are changed: the text, how it is spread, its colours, and what is marked while it is read aloud.</summary>
+    private static readonly FormSetting<FocusModeViewModel>[] FocusRows =
+    [
+        FormSettings.Note<FocusModeViewModel>("Change the size, spacing, width, colour and typeface of the text. Each change shows at once."),
+        FormSettings.Field<FocusModeViewModel>("Text size in points", static m => Number(m.FontSize), static (m, text) => m.FontSize = Number(text, m.FontSize)),
+        FormSettings.Field<FocusModeViewModel>("Space between lines, in text sizes", static m => Number(m.LineSpacing), static (m, text) => m.LineSpacing = Number(text, m.LineSpacing)),
+        FormSettings.Field<FocusModeViewModel>(
+            "Space between paragraphs, in text sizes",
+            static m => Number(m.ParagraphSpacing),
+            static (m, text) => m.ParagraphSpacing = Number(text, m.ParagraphSpacing)),
+        FormSettings.Field<FocusModeViewModel>("How wide the column of text is, in characters", static m => Number(m.TextWidth), static (m, text) => m.TextWidth = Number(text, m.TextWidth)),
+        FormSettings.Choice<FocusModeViewModel>("Colour behind the text", FocusModeViewModel.PageColourOptions, static m => m.PageColour, static (m, value) => m.PageColour = value),
+        FormSettings.Choice<FocusModeViewModel>("Typeface", FocusModeViewModel.FontOptions, static m => m.Font, static (m, value) => m.Font = value),
+        FormSettings.Toggle<FocusModeViewModel>("Dim the text away from what is read aloud", static m => m.FocusBand, static (m, on) => m.FocusBand = on),
+        FormSettings.Toggle<FocusModeViewModel>("Mark each word as it is read aloud", static m => m.WordHighlight, static (m, on) => m.WordHighlight = on),
+    ];
+
+    /// <summary>The rows of the window that filters and sorts the list of notes and marks, which changes as the choices do.</summary>
+    private static readonly FormSetting<AnnotationsViewModel>[] NoteFilterRows =
+    [
+        FormSettings.Note<AnnotationsViewModel>("Show only some of the notes and marks. The list shows the change at once."),
+        FormSettings.Field<AnnotationsViewModel>("Words the notes contain", static m => m.FilterText, static (m, text) => m.FilterText = text),
+        FormSettings.Choice<AnnotationsViewModel>("Type", AnnotationsViewModel.TypeFilterOptions, static m => m.FilterType, static (m, value) => m.FilterType = value),
+        FormSettings.Choice<AnnotationsViewModel>("Colour", AnnotationsViewModel.ColorFilterOptions, static m => m.FilterColor, static (m, value) => m.FilterColor = value),
+        FormSettings.Pick<AnnotationsViewModel, string>("Author", static m => m.AuthorOptions, static name => name, static m => m.FilterAuthor, static (m, name) => m.FilterAuthor = name),
+        FormSettings.Choice<AnnotationsViewModel>("Sort by", AnnotationsViewModel.SortOptions, static m => m.SortOrder, static (m, value) => m.SortOrder = value),
+        FormSettings.Action<AnnotationsViewModel>("Show all the notes", static m => m.ClearFilterCommand),
+    ];
+
     /// <summary>The rows of the window that finds a tab among many: every open document, to go to with one press.</summary>
     private static readonly FormSetting<MainViewModel>[] TabFinderRows =
     [
+        FormSettings.Field<MainViewModel>("Words in the name or the folder", static m => m.TabQuery, static (m, text) => m.TabQuery = text),
         FormSettings.Note<MainViewModel>("Choose the document to show."),
         FormSettings.Picker<MainViewModel, DocumentTabViewModel>(
-            static m => m.Tabs,
+            static m => m.FoundTabs,
             static tab => tab.HasUnsavedChanges ? UiText.Format("{0} (not saved)", tab.Title) : tab.Title,
             static (m, tab) =>
             {
@@ -347,6 +379,18 @@ internal static class ToolForms
         Answered = marks.WhenChanged(static m => m.ActiveBubble).Where(static bubble => bubble is null).Select(static _ => true),
     };
 
+    /// <summary>Makes the window of Focus Mode's text settings. It closes when it is closed; the settings apply as they are changed.</summary>
+    /// <param name="focus">Focus Mode's view model.</param>
+    /// <returns>What the window shows.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormRequest FocusSettings(FocusModeViewModel focus) => FormSettings.Window(UiText.Get("Text settings"), focus, FocusRows);
+
+    /// <summary>Makes the window that filters and sorts the list of notes and marks. It closes when it is closed; the list changes as the choices do.</summary>
+    /// <param name="marks">The marking tools of the tab shown.</param>
+    /// <returns>What the window shows.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormRequest NoteFilter(AnnotationsViewModel marks) => FormSettings.Window(UiText.Get("Filter and sort the notes"), marks, NoteFilterRows);
+
     /// <summary>Makes the window that finds a tab among many. It closes when a tab is chosen.</summary>
     /// <param name="main">The main view model.</param>
     /// <returns>What the window shows.</returns>
@@ -354,7 +398,10 @@ internal static class ToolForms
         UiText.Get("Go to a document"),
         main,
         TabFinderRows,
-        ((IList)main.Tabs).CollectionChanges.AsSignal()) with
+        Signal.Merge(
+            ((IList)main.Tabs).CollectionChanges.AsSignal(),
+            ((IList)main.FoundTabs).CollectionChanges.AsSignal(),
+            main.WhenChanged(static m => m.TabQuery).AsSignal())) with
     {
         Answered = main.WhenChanged(static m => m.IsTabFinderOpen).Where(static open => !open).Select(static _ => true),
     };
@@ -473,6 +520,19 @@ internal static class ToolForms
     /// <returns>The number.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static decimal Number(string text, decimal current) => decimal.TryParse(text, NumberStyles.Number, CultureInfo.CurrentCulture, out var value) ? value : current;
+
+    /// <summary>Writes a fractional number as it is shown in a typing box.</summary>
+    /// <param name="value">The number.</param>
+    /// <returns>The text.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string Number(double value) => value.ToString(CultureInfo.CurrentCulture);
+
+    /// <summary>Reads a fractional number as it is typed.</summary>
+    /// <param name="text">The typed text.</param>
+    /// <param name="current">The number kept when the text is not a number.</param>
+    /// <returns>The number.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static double Number(string text, double current) => double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out var value) && double.IsFinite(value) ? value : current;
 
     /// <summary>Reads a whole number as it is typed.</summary>
     /// <param name="text">The typed text.</param>

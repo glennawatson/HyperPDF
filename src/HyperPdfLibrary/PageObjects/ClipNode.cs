@@ -11,8 +11,9 @@ namespace HyperPdfLibrary.PageObjects;
 /// <param name="Parent">The clip in force before this one, or <see langword="null"/>.</param>
 /// <param name="Path">The clipping path.</param>
 /// <param name="Bounds">The bounds of this clip and every clip before it, in user space.</param>
+/// <param name="Source">Where the operators that made the clip are in the content, when they are a path that was only a clip (<c>W n</c>); empty otherwise.</param>
 [DebuggerDisplay("ClipNode: {Bounds}")]
-internal sealed record ClipNode(ClipNode? Parent, PdfClipPath Path, PdfRectangle Bounds)
+internal sealed record ClipNode(ClipNode? Parent, PdfClipPath Path, PdfRectangle Bounds, ByteRange Source)
 {
     /// <summary>Copies the chain into a list, outermost clip first.</summary>
     /// <param name="node">The innermost clip, or <see langword="null"/>.</param>

@@ -11,4 +11,8 @@ namespace HyperPdf.ViewModels.Markup;
 /// <param name="Added">The number of words the other document has that this one does not.</param>
 /// <param name="Removed">The number of words this document has that the other one does not.</param>
 [DebuggerDisplay("ComparedPage: page {Page + 1}, +{Added} -{Removed}")]
-public sealed record ComparedPage(int Page, int Added, int Removed);
+public sealed record ComparedPage(int Page, int Added, int Removed)
+{
+    /// <summary>Gets the share of the page that looks different between the two documents, from 0 to 1.</summary>
+    public double LookChange { get; init; }
+}

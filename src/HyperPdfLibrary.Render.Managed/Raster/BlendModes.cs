@@ -71,9 +71,22 @@ internal static class BlendModes
                 continue;
             }
 
-            pixels[i] = Blend(mode, value == byte.MaxValue ? source[i] : SpanBlender.Scale(source[i], value), pixels[i]);
+            var top = value == byte.MaxValue ? source[i] : SpanBlender.Scale(source[i], value);
+            var under = pixels[i];
+
+            // Two opaque pixels need none of the alpha arithmetic: dividing by an alpha of one changes nothing, and the blend is all that shows.
+            pixels[i] = (top >> AlphaShift) == byte.MaxValue && (under >> AlphaShift) == byte.MaxValue ? BlendOpaque(mode, top, under) : Blend(mode, top, under);
         }
     }
+
+    /// <summary>Blends one opaque pixel onto another, which gives the bytes <see cref="Blend"/> gives for two opaque pixels.</summary>
+    /// <param name="mode">The blend mode.</param>
+    /// <param name="source">The pixel on top.</param>
+    /// <param name="backdrop">The pixel under it.</param>
+    /// <returns>The blended pixel.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static uint BlendOpaque(PdfBlendMode mode, uint source, uint backdrop) =>
+        ToPixel(Vector3.Clamp(Mix(mode, ToColor(backdrop), ToColor(source)), Vector3.Zero, Vector3.One), 1F);
 
     /// <summary>Blends one premultiplied pixel onto another.</summary>
     /// <param name="mode">The blend mode.</param>

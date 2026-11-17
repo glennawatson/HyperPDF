@@ -13,4 +13,8 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="Starts">Whether the line is the first of its paragraph, which is the one that can be pressed.</param>
 /// <param name="Text">The line's text, empty for a space between paragraphs.</param>
 [DebuggerDisplay("FocusLine: page {Page} '{Text}'")]
-internal sealed record FocusLine(ChromeItemKind Kind, int Block, int Page, bool Starts, string Text);
+internal sealed record FocusLine(ChromeItemKind Kind, int Block, int Page, bool Starts, string Text)
+{
+    /// <summary>Gets where the line's text starts in its paragraph's text, so a word being read can be found in the line.</summary>
+    internal int Start { get; init; }
+}

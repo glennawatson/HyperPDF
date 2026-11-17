@@ -27,4 +27,32 @@ public interface IFramePass : IDisposable
     /// <param name="destination">Where it goes, in canvas units.</param>
     /// <param name="smooth">Whether it is sampled smoothly because it is scaled.</param>
     void DrawSurface(IRenderSurface surface, in LayoutRect destination, bool smooth);
+
+    /// <summary>
+    /// Limits what is drawn from now on to a rectangle, until <see cref="ClearClip"/>, as a page transition does to show one page through
+    /// the part of the window the other has not yet covered. A pass that cannot clip draws everything, which shows the wrong page there
+    /// but never a broken frame.
+    /// </summary>
+    /// <param name="area">The rectangle in frame pixels.</param>
+    void SetClip(in LayoutRect area)
+    {
+        // A pass that does not clip draws whole.
+    }
+
+    /// <summary>Lets drawing reach the whole frame again.</summary>
+    void ClearClip()
+    {
+        // A pass that does not clip has nothing to clear.
+    }
+
+    /// <summary>
+    /// Makes everything drawn from now on, until the opacity is set to 1 again, count for only that much over what is already in the frame,
+    /// as one layer: where the layer is transparent the frame shows as it was. A page transition uses it to fade one page in over another.
+    /// A pass that cannot fade draws the layer opaque, which cuts to the new page but never breaks the frame.
+    /// </summary>
+    /// <param name="opacity">How much the layer counts, from 0 to 1.</param>
+    void SetOpacity(double opacity)
+    {
+        // A pass that does not fade draws opaque.
+    }
 }

@@ -11,4 +11,8 @@ namespace HyperPdf.Viewer.Text;
 /// <param name="Bold">Whether the text is bold.</param>
 /// <param name="Color">The colour as ARGB.</param>
 [DebuggerDisplay("TextStyle: {Size} px, bold {Bold}")]
-public readonly record struct TextStyle(int Size, bool Bold, uint Color);
+public readonly record struct TextStyle(int Size, bool Bold, uint Color)
+{
+    /// <summary>Gets a value indicating whether the text is set in the bundled serif font instead of the sans serif one the window uses.</summary>
+    public bool Serif { get; init; }
+}

@@ -45,6 +45,9 @@ public sealed class ViewerSession : IDisposable
     /// <summary>The wait for events that has no limit.</summary>
     private const int NoLimit = -1;
 
+    /// <summary>The smallest saved width or height that is used to open the window, so a bad value cannot open a sliver.</summary>
+    private const double MinimumWindowSize = 400;
+
     /// <summary>What the session owns.</summary>
     private readonly MultipleDisposable _owned = [];
 
@@ -65,6 +68,9 @@ public sealed class ViewerSession : IDisposable
 
     /// <summary>Whether the user asked to close the window.</summary>
     private bool _closed;
+
+    /// <summary>Whether the reader chose to close with unsaved edits, so the close is not asked about again.</summary>
+    private bool _closeConfirmed;
 
     /// <summary>The canvas of the second view of a split document, or <see langword="null"/> when the view is whole.</summary>
     private ViewerCanvas? _split;
@@ -98,7 +104,7 @@ public sealed class ViewerSession : IDisposable
         _owned.Add(Canvas);
         _owned.Add(Chrome);
         _owned.Add(Main);
-        _owned.Add(window.Events.Where(static e => e.Kind == WindowEventKind.CloseRequested).SubscribeSafe(_ => _closed = true, ErrorTrace.Write));
+        _owned.Add(window.Events.Where(static e => e.Kind == WindowEventKind.CloseRequested).SubscribeSafe(_ => RequestClose(), ErrorTrace.Write));
         _owned.Add(Chrome.PageEvents.SubscribeSafe(RoutePageEvent, ErrorTrace.Write));
         _owned.Add(Accessibility.Presses.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(PressControl, ErrorTrace.Write));
         _owned.Add(Accessibility.FocusRequests.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(FocusControl, ErrorTrace.Write));
@@ -186,7 +192,19 @@ public sealed class ViewerSession : IDisposable
     /// <summary>Runs until the user closes the window.</summary>
     public void Run()
     {
+        // The window opens at the size it had when it was last closed.
+        var settings = _services.Settings;
+        if (!Main.IsSecondaryWindow && settings.WindowWidth >= MinimumWindowSize && settings.WindowHeight >= MinimumWindowSize)
+        {
+            _window.SetSize((int)Math.Round(settings.WindowWidth), (int)Math.Round(settings.WindowHeight));
+        }
+
         _window.Show();
+        if (!Main.IsSecondaryWindow && settings.WindowMaximized)
+        {
+            _window.SetMaximized(true);
+        }
+
         while (PumpOnce(NoLimit))
         {
             // Each turn handles the events and posted work that woke it.
@@ -221,6 +239,57 @@ public sealed class ViewerSession : IDisposable
     /// <returns>The question.</returns>
     private static PromptRequest PasswordRequest(DocumentTabViewModel tab) =>
         new(UiText.Get("This document is locked"), UiText.Format("Type the password for {0}.", tab.FileName), string.Empty, UiText.Get("Open"), true);
+
+    /// <summary>
+    /// Handles the window being asked to close. With unsaved edits the close is held and the question asked once; closing again after the
+    /// answer goes through, remembering the window's size and the session.
+    /// </summary>
+    private void RequestClose()
+    {
+        if (_closeConfirmed || !Main.HasUnsavedTabs)
+        {
+            FinishClose();
+            return;
+        }
+
+        if (Main.IsConfirmingDiscard)
+        {
+            return;
+        }
+
+        _owned.Add(Main.ConfirmDiscard().ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(AnswerClose, ErrorTrace.Write));
+    }
+
+    /// <summary>Closes the window when the reader chose to discard unsaved edits.</summary>
+    /// <param name="confirmed">Whether the reader chose to close without saving.</param>
+    private void AnswerClose(bool confirmed)
+    {
+        if (!confirmed)
+        {
+            return;
+        }
+
+        _closeConfirmed = true;
+        FinishClose();
+    }
+
+    /// <summary>Remembers the window's size and the open documents for the next start, and ends the run.</summary>
+    private void FinishClose()
+    {
+        // A window that fills the screen has a size that is not its own, and a second window leaves the saved size to the first.
+        var fullView = Chrome.IsFullScreen || Main.SelectedTab is { IsPresenting: true };
+        if (!Main.IsSecondaryWindow && !fullView)
+        {
+            // A maximised window's size is the screen's, so only its state is kept and the size from before stays.
+            var size = _window.ClientSize;
+            var scale = _window.Scale;
+            var maximized = _window.IsMaximized;
+            Main.RememberWindow(size.Width / scale, size.Height / scale, maximized, !maximized);
+        }
+
+        Main.SaveSession();
+        _closed = true;
+    }
 
     /// <summary>Has a screen reader speak a message.</summary>
     /// <param name="message">The words, or <see langword="null"/> for nothing.</param>

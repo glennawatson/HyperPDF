@@ -50,6 +50,9 @@ public sealed class ViewerChrome : IDisposable
     /// <summary>The controls of the overlay, back to front.</summary>
     private readonly List<ChromeItem> _overlayItems = [];
 
+    /// <summary>The controls of the preview of the tab the pointer is over, made again each frame it is shown.</summary>
+    private readonly List<ChromeItem> _previewItems = [];
+
     /// <summary>The command of each button of the notice and tool bars, in the order the buttons were laid out.</summary>
     private readonly List<MenuEntry> _toolActions = [];
 
@@ -124,6 +127,21 @@ public sealed class ViewerChrome : IDisposable
 
     /// <summary>Whether a stroke is being drawn on the dialog's drawing pad, so the pointer moving and being let go belong to it.</summary>
     private bool _padHeld;
+
+    /// <summary>Whether F11 has put the window into full screen.</summary>
+    private bool _fullScreen;
+
+    /// <summary>The tab whose preview is shown, or <see langword="null"/> when none is.</summary>
+    private DocumentTabViewModel? _previewTab;
+
+    /// <summary>The pictures asked for the preview.</summary>
+    private ThumbnailAsks _previewAsks = ThumbnailAsks.None;
+
+    /// <summary>What the controls of the preview were made from, or <see langword="null"/> before the first.</summary>
+    private TabPreviewKey? _previewKey;
+
+    /// <summary>The place of the tab the pointer was pressed on, or -1 when it was not pressed on a tab.</summary>
+    private int _tabDragFrom = -1;
 
     /// <summary>Initializes a new instance of the <see cref="ViewerChrome"/> class.</summary>
     /// <param name="window">The window.</param>
@@ -200,6 +218,9 @@ public sealed class ViewerChrome : IDisposable
 
     /// <summary>Gets a value indicating whether a menu, a dialog or the search bar is open.</summary>
     public bool HasOverlay => _overlay is not null;
+
+    /// <summary>Gets a value indicating whether F11 has put the window into full screen.</summary>
+    public bool IsFullScreen => _fullScreen;
 
     /// <summary>Gets the controls of the bars, back to front.</summary>
     public IReadOnlyList<ChromeItem> Bars
@@ -357,6 +378,17 @@ public sealed class ViewerChrome : IDisposable
         }
 
         tab.Search.Open();
+        ShowFindBar();
+    }
+
+    /// <summary>Shows the search bar of the tab shown, unless it is already showing.</summary>
+    public void ShowFindBar()
+    {
+        if (_main.SelectedTab is not { } tab || _overlay is { Kind: OverlayKind.Find })
+        {
+            return;
+        }
+
         Show(FindOverlays.Open(tab.Search));
     }
 
@@ -418,6 +450,7 @@ public sealed class ViewerChrome : IDisposable
         if (_overlay is not { } overlay)
         {
             DrawFocus(pass, _bars, false);
+            DrawTabPreview(pass);
             return;
         }
 
@@ -789,8 +822,9 @@ public sealed class ViewerChrome : IDisposable
             _overlayChanged = false;
             BuildOverlay();
         }
-        else if (barsChanged)
+        else if (barsChanged && _pointerSeen)
         {
+            // Nothing is under a pointer that has not been seen in the window yet.
             _hover = Find(_bars, _pointer.X, _pointer.Y);
         }
     }
@@ -907,6 +941,15 @@ public sealed class ViewerChrome : IDisposable
     /// <returns><see langword="true"/> when the pointer is over the controls or ended a stroke.</returns>
     private bool Release(int x, int y)
     {
+        // A tab let go over another tab takes that tab's place, which is how tabs are put in a new order.
+        var dragged = _tabDragFrom;
+        _tabDragFrom = -1;
+        if (dragged >= 0 && Find(_bars, x, y) is { Command: ChromeCommand.SelectTab } target && target.Index != dragged)
+        {
+            _main.MoveTab(dragged, target.Index);
+            return true;
+        }
+
         if (!_padHeld)
         {
             return IsOverChrome(x, y);
@@ -914,6 +957,52 @@ public sealed class ViewerChrome : IDisposable
 
         _padHeld = false;
         SendToOverlay(OverlayInput.Pad(OverlayInputKind.PadUp, x, y));
+        return true;
+    }
+
+    /// <summary>Draws the preview of the tab the pointer is over: the page it shows, its name and where it is in the document.</summary>
+    /// <param name="pass">The frame.</param>
+    private void DrawTabPreview(IFramePass pass)
+    {
+        _previewTab = null;
+        if (_hover is not { Command: ChromeCommand.SelectTab } hovered || (uint)hovered.Index >= (uint)_main.Tabs.Count)
+        {
+            return;
+        }
+
+        var tab = _main.Tabs[hovered.Index];
+        _previewTab = tab;
+
+        // The controls are made again only when something they show has changed, so a hover that rests costs no allocation.
+        var key = new TabPreviewKey(tab, hovered, TabPreviews.PageOf(tab), tab.PageCount, _window.ClientSize.Width, _window.Scale);
+        if (!key.IsSameAs(_previewKey))
+        {
+            _previewKey = key;
+            _previewItems.Clear();
+            TabPreviews.Add(_previewItems, tab, hovered, _runs, _look.Metrics, key.Scale, key.WindowWidth);
+        }
+
+        ChromePainter.Draw(pass, _previewItems, _look, null);
+    }
+
+    /// <summary>Handles a press on a tab with the middle or right button: the middle button closes the tab and the right opens its menu.</summary>
+    /// <param name="buttons">The buttons held.</param>
+    /// <param name="tabItem">The tab.</param>
+    /// <returns><see langword="true"/> when the press was one of these.</returns>
+    private bool PressTabWithAnotherButton(ViewerButtons buttons, ChromeItem tabItem)
+    {
+        if ((buttons & ViewerButtons.Middle) != 0)
+        {
+            Emit(new(ChromeCommand.CloseTab, tabItem.Index, tabItem.Bounds));
+            return true;
+        }
+
+        if ((buttons & ViewerButtons.Right) == 0 || (uint)tabItem.Index >= (uint)_main.Tabs.Count)
+        {
+            return false;
+        }
+
+        ShowMenu(MainMenu.ForTab(_main, _main.Tabs[tabItem.Index]), new((int)tabItem.Bounds.X, (int)tabItem.Bounds.Bottom));
         return true;
     }
 
@@ -954,12 +1043,33 @@ public sealed class ViewerChrome : IDisposable
             return false;
         }
 
-        if ((windowEvent.Buttons & ViewerButtons.Left) != 0 && Find(_bars, x, y) is { } item)
+        PressBars(windowEvent.Buttons, x, y);
+        return true;
+    }
+
+    /// <summary>Handles a press on the bars: a left press runs the control, and on a tab the other buttons close it or open its menu.</summary>
+    /// <param name="buttons">The buttons held.</param>
+    /// <param name="x">The x in device pixels.</param>
+    /// <param name="y">The y in device pixels.</param>
+    private void PressBars(ViewerButtons buttons, int x, int y)
+    {
+        if (Find(_bars, x, y) is not { } item)
         {
-            Emit(new(item.Command, item.Index, item.Bounds));
+            return;
         }
 
-        return true;
+        if (item.Command == ChromeCommand.SelectTab && PressTabWithAnotherButton(buttons, item))
+        {
+            return;
+        }
+
+        if ((buttons & ViewerButtons.Left) == 0)
+        {
+            return;
+        }
+
+        _tabDragFrom = item.Command == ChromeCommand.SelectTab ? item.Index : -1;
+        Emit(new(item.Command, item.Index, item.Bounds));
     }
 
     /// <summary>Handles a scroll.</summary>
@@ -975,6 +1085,10 @@ public sealed class ViewerChrome : IDisposable
             {
                 ScrollSidebar(-Math.Sign(windowEvent.Y));
             }
+            else if (overChrome && _pointer.Y < _look.Metrics.TabHeight && !IsOverOverlay(_pointer.X, _pointer.Y))
+            {
+                ScrollTabs(-Math.Sign(windowEvent.Y));
+            }
 
             return overChrome;
         }
@@ -982,6 +1096,19 @@ public sealed class ViewerChrome : IDisposable
         // A notch up scrolls a list towards its start.
         SendToOverlay(OverlayInput.Scroll(-Math.Sign(windowEvent.Y)));
         return true;
+    }
+
+    /// <summary>Moves to a neighbouring tab, which is how the tab strip scrolls: it always keeps the chosen tab in view.</summary>
+    /// <param name="step">The tabs to move on, negative to move back.</param>
+    private void ScrollTabs(int step)
+    {
+        if (_main.SelectedTab is not { } current)
+        {
+            return;
+        }
+
+        var next = Math.Clamp(_main.Tabs.IndexOf(current) + step, 0, _main.Tabs.Count - 1);
+        _main.SelectedTab = _main.Tabs[next];
     }
 
     /// <summary>Scrolls the list of bookmarks in the side panel.</summary>
@@ -1031,6 +1158,12 @@ public sealed class ViewerChrome : IDisposable
         if (row == Overlay.PictureIndex)
         {
             return _overlay?.Picture?.Invoke();
+        }
+
+        // So has the picture of the page a tab's preview shows.
+        if (row == TabPreviews.PictureIndex)
+        {
+            return _previewTab is { } previewed ? PageThumbnails.Get(ref _previewAsks, previewed, TabPreviews.PageOf(previewed)) : null;
         }
 
         return _main.SelectedTab is { } tab && (uint)row < (uint)_sidebar.Rows.Length ? PageThumbnails.Get(ref _thumbnails, tab, _sidebar.Rows[row].Page) : null;
@@ -1101,6 +1234,20 @@ public sealed class ViewerChrome : IDisposable
     /// <returns><see langword="true"/> when the key is a shortcut that has something to act on now.</returns>
     private bool RunShortcut(ViewerKey key, ViewerModifiers modifiers)
     {
+        // Delete and F2 edit text where a field, a note or the search bar is being typed in, so they belong to that while it is open.
+        if (_overlay is not null && key is ViewerKey.Delete or ViewerKey.F2)
+        {
+            return false;
+        }
+
+        // Full screen belongs to the window, not to a view model, so F11 acts on the window itself.
+        if (key == ViewerKey.F11 && modifiers == ViewerModifiers.None)
+        {
+            _fullScreen = !_fullScreen;
+            _window.SetFullScreen(_fullScreen);
+            return true;
+        }
+
         if (Shortcuts.Find(_main, key, modifiers) is not { } shortcut)
         {
             return false;

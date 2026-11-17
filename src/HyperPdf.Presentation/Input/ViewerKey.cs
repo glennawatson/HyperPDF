@@ -147,4 +147,16 @@ public enum ViewerKey
 
     /// <summary>The menu key, which opens the menu of what the keyboard is on.</summary>
     Menu = 46,
+
+    /// <summary>The H key, which with Control turns reading mode on or off.</summary>
+    H = 47,
+
+    /// <summary>The M key, which with Control and Shift turns measuring on or off.</summary>
+    M = 48,
+
+    /// <summary>The F5 key, which reloads the file, and with Shift starts a presentation.</summary>
+    F5 = 49,
+
+    /// <summary>The F11 key, which puts the window into or out of full screen.</summary>
+    F11 = 50,
 }

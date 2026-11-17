@@ -142,6 +142,9 @@ public static class PdfPageContentTextWriter
 
         PdfPageContentTextWriter.WriteTextPrefix(ref builder, text);
         PdfPageContentWriter.WritePaints(state, ref builder, text);
+
+        // A graphics state may be set inside a text object, but a save and restore may not, so the old values are put back below.
+        PdfPageContentWriter.WriteTransparency(state, ref builder, text, false);
         if (text.IsTransformed && PdfPageContentWriter.TryGetLocalTransform(text, out var matrix))
         {
             var moved = text.TextMatrix * matrix;
@@ -155,6 +158,7 @@ public static class PdfPageContentTextWriter
         }
 
         PdfPageContentTextWriter.WriteRestorePaints(state, ref builder, text);
+        PdfPageContentWriter.WriteTransparency(state, ref builder, text, true);
     }
 
     /// <summary>Puts the colours a recoloured text object changed back.</summary>
@@ -163,7 +167,7 @@ public static class PdfPageContentTextWriter
     /// <param name = "text">The text object.</param>
     internal static void WriteRestorePaints(PdfPageContent state, ref PdfContentBuilder builder, PdfTextObject text)
     {
-        if (text.ChangedFill is not null)
+        if (text.ChangedFill is not null || text.FillGradient is not null)
         {
             PdfPageContentPaintWriter.WritePaint(state, ref builder, text.OriginalFillPaint, false);
         }

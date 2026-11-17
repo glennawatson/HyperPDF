@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Annotations;
+using ReactiveUI.Primitives;
 using ReactiveUI.SourceGenerators;
 
 namespace HyperPdf.ViewModels.Markup;
@@ -97,6 +98,9 @@ public sealed partial class AnnotationsViewModel
 
     /// <summary>Gets every annotation of the document, in page order.</summary>
     public ObservableCollection<AnnotationItemViewModel> Items { get; } = [];
+
+    /// <summary>Gets the question that shows the window that filters and sorts the comment list, which the window answers when it is closed.</summary>
+    public Interaction<AnnotationsViewModel, RxVoid> ShowFilterInteraction { get; } = new();
 
     /// <summary>Gets the annotations the list shows: <see cref="Items"/> filtered and sorted.</summary>
     public ObservableCollection<AnnotationItemViewModel> VisibleItems { get; } = [];
@@ -442,4 +446,10 @@ public sealed partial class AnnotationsViewModel
         FilterColor = 0;
         FilterAuthor = AuthorOptions[0];
     }
+
+    /// <summary>Shows the window that filters and sorts the comment list. The list changes as the choices do.</summary>
+    /// <returns>A signal that ends when the window is closed.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ShowFilter() => ShowFilterInteraction.Handle(this).ToSignal();
 }

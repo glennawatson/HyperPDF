@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using HyperPdf.Core.Layout;
 using HyperPdf.Core.Reading;
 using HyperPdf.Presentation.Input;
 using HyperPdf.ViewModels.Reading;
@@ -26,14 +27,30 @@ internal static class FocusOverlays
     /// <summary>The focus text size that is drawn at the size of the window's own text. Larger sizes are drawn larger in step.</summary>
     private const double BaseFontSize = 12;
 
-    /// <summary>The widest a line is, in text sizes, which is about seventy characters: the width a line is easiest to follow at.</summary>
-    private const int ColumnSizes = 36;
+    /// <summary>How wide an average character is, as a share of the text size, which turns the width in characters the settings give into pixels.</summary>
+    private const double CharacterShare = 0.5;
+
+    /// <summary>The index of the serif typeface in the typeface choices.</summary>
+    private const int SerifFont = 1;
+
+    /// <summary>The colour under the word being read aloud, translucent so the text shows through on a light page or a dark one.</summary>
+    private const uint WordMarkColor = 0x99D9A400;
 
     /// <summary>The least room between lines, as a share of the text size.</summary>
     private const double LeastLineSpacing = 1.2;
 
     /// <summary>The lines a turn of the wheel moves.</summary>
     private const int WheelLines = 3;
+
+    /// <summary>The page colours, in the order of the choices: the window's own, soft paper, sage, calm night and white, each with the text colour that goes on it.</summary>
+    private static readonly FocusTone[] Tones =
+    [
+        new(0, 0),
+        new(0xFFF3EBD9, 0xFF2B2A28),
+        new(0xFFDCE7D6, 0xFF1F2B20),
+        new(0xFF1C2431, 0xFFD6DCE6),
+        new(0xFFFFFFFF, 0xFF1B1B1B),
+    ];
 
     /// <summary>
     /// Opens focus mode. A press on a paragraph reads aloud from there, Escape runs the command that turns focus mode off, and the arrow
@@ -56,6 +73,11 @@ internal static class FocusOverlays
             Signal.Merge(
                 focus.WhenChanged(static f => f.FontSize).AsSignal(),
                 focus.WhenChanged(static f => f.LineSpacing).AsSignal(),
+                focus.WhenChanged(static f => f.ParagraphSpacing).AsSignal(),
+                focus.WhenChanged(static f => f.TextWidth).AsSignal(),
+                focus.WhenChanged(static f => f.PageColour).AsSignal(),
+                focus.WhenChanged(static f => f.Font).AsSignal(),
+                focus.MarksChanged,
                 focus.WhenChanged(static f => f.Pages).SwitchMap(PageChanges)),
             Signal.Never<RxVoid>(),
             new MultipleDisposable(
@@ -124,20 +146,17 @@ internal static class FocusOverlays
         IObserver<FocusPageViewModel> loads,
         in OverlayPlace place)
     {
-        var metrics = place.Metrics;
         var area = place.Area;
-        var textSize = Math.Max(metrics.TextSize, (int)(metrics.TextSize * focus.FontSize / BaseFontSize));
-        var rowHeight = (int)(textSize * Math.Max(LeastLineSpacing, focus.LineSpacing));
-        var width = (int)Math.Min(area.Width - metrics.Padding - metrics.Padding, textSize * ColumnSizes);
-        var left = (int)area.X + (((int)area.Width - width) >> 1);
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, area, true, false));
-        if (width <= 0 || rowHeight <= 0)
+        var layout = LayoutOf(focus, place);
+        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, area, true, false) { Ground = layout.Tone.Ground });
+        if (layout.Width <= 0 || layout.RowHeight <= 0)
         {
             return;
         }
 
-        var wrapped = Wrap(state.Value, focus, place.Runs, new(textSize, false, 0), width);
-        var visible = Math.Max(1, (int)(area.Height / rowHeight));
+        TextStyle style = new(layout.TextSize, false, 0) { Serif = layout.Serif };
+        var wrapped = Wrap(state.Value, focus, place.Runs, style, layout.Width);
+        var visible = Math.Max(1, (int)(area.Height / layout.RowHeight));
         var first = Math.Clamp(wrapped.First, 0, Math.Max(0, wrapped.Lines.Length - visible));
         var laid = wrapped with { First = first, Visible = visible };
         if (laid != state.Value)
@@ -145,21 +164,93 @@ internal static class FocusOverlays
             edits.OnNext(_ => laid);
         }
 
-        var y = (int)area.Y;
-        var last = Math.Min(laid.Lines.Length, first + visible);
-        for (var i = first; i < last; i++)
+        var last = AddLines(items, laid, focus, layout, place, first);
+        AskForPagesInView(laid, focus, first, last, edits, loads);
+    }
+
+    /// <summary>Works out how the column is laid out from the settings: the text size, the height of a line and of the space between paragraphs, the width, the colours and the typeface.</summary>
+    /// <param name="focus">The focus mode of the tab shown.</param>
+    /// <param name="place">What to lay out with.</param>
+    /// <returns>The layout.</returns>
+    private static FocusLayout LayoutOf(FocusModeViewModel focus, in OverlayPlace place)
+    {
+        var metrics = place.Metrics;
+        var area = place.Area;
+        var textSize = Math.Max(metrics.TextSize, (int)(metrics.TextSize * focus.FontSize / BaseFontSize));
+        var rowHeight = (int)(textSize * Math.Max(LeastLineSpacing, focus.LineSpacing));
+        var gapHeight = (int)(textSize * Math.Max(0, focus.ParagraphSpacing));
+        var width = (int)Math.Min(area.Width - metrics.Padding - metrics.Padding, textSize * focus.TextWidth * CharacterShare);
+        var left = (int)area.X + (((int)area.Width - width) >> 1);
+        var tone = Tones[Math.Clamp(focus.PageColour, 0, Tones.Length - 1)];
+        return new(textSize, rowHeight, gapHeight, width, left, focus.Font == SerifFont, tone);
+    }
+
+    /// <summary>Adds the lines in view, from the first, as controls: the mark under the word being read, then the text, dimmed when it is away from what is read.</summary>
+    /// <param name="items">Receives the controls, back to front.</param>
+    /// <param name="state">What focus mode shows.</param>
+    /// <param name="focus">The focus mode of the tab shown.</param>
+    /// <param name="layout">How the column is laid out.</param>
+    /// <param name="place">What to lay them out with.</param>
+    /// <param name="first">The first line in view.</param>
+    /// <returns>The line after the last one in view.</returns>
+    private static int AddLines(List<ChromeItem> items, FocusState state, FocusModeViewModel focus, in FocusLayout layout, in OverlayPlace place, int first)
+    {
+        var y = (int)place.Area.Y;
+        var i = first;
+        for (; i < state.Lines.Length && y < place.Area.Bottom; i++)
         {
-            var line = laid.Lines[i];
+            var line = state.Lines[i];
+            var block = line.Block >= 0 ? state.Blocks[line.Block] : null;
             if (line.Text.Length > 0)
             {
-                var spoken = line.Block >= 0 && laid.Blocks[line.Block].Spoken != TextRange.None;
-                items.Add(new(line.Kind, line.Starts ? ChromeCommand.PickRow : ChromeCommand.None, line.Block, line.Text, new(left, y, width, rowHeight), true, spoken) { TextSize = textSize });
+                AddWordMark(items, line, block, focus, layout, place, y);
+                var command = line.Starts ? ChromeCommand.PickRow : ChromeCommand.None;
+                var bounds = new LayoutRect(layout.Left, y, layout.Width, layout.RowHeight);
+                items.Add(
+                    new(line.Kind, command, line.Block, line.Text, bounds, true, block is { Spoken.IsEmpty: false })
+                    {
+                        TextSize = layout.TextSize,
+                        Tint = layout.Tone.Text,
+                        Dimmed = block is { IsDimmed: true },
+                        Serif = layout.Serif,
+                    });
             }
 
-            y += rowHeight;
+            y += line.Text.Length == 0 && line.Block < 0 ? layout.GapHeight : layout.RowHeight;
         }
 
-        AskForPagesInView(laid, focus, first, last, edits, loads);
+        return i;
+    }
+
+    /// <summary>Adds the mark under the word being read aloud, when the line holds it and marking words is on.</summary>
+    /// <param name="items">Receives the control.</param>
+    /// <param name="line">The line.</param>
+    /// <param name="block">The paragraph the line belongs to, or <see langword="null"/>.</param>
+    /// <param name="focus">The focus mode of the tab shown.</param>
+    /// <param name="layout">How the column is laid out.</param>
+    /// <param name="place">What to measure with.</param>
+    /// <param name="y">The top of the line.</param>
+    private static void AddWordMark(
+        List<ChromeItem> items,
+        FocusLine line,
+        FocusBlockViewModel? block,
+        FocusModeViewModel focus,
+        in FocusLayout layout,
+        in OverlayPlace place,
+        int y)
+    {
+        if (!focus.WordHighlight || block is not { Word.IsEmpty: false } || block.Word.Start >= line.Start + line.Text.Length || block.Word.End <= line.Start)
+        {
+            return;
+        }
+
+        var from = Math.Clamp(block.Word.Start - line.Start, 0, line.Text.Length);
+        var to = Math.Clamp(block.Word.End - line.Start, from, line.Text.Length);
+        TextStyle style = new(layout.TextSize, line.Kind == ChromeItemKind.Heading, 0) { Serif = layout.Serif };
+        var before = place.Runs.Measure(line.Text.AsSpan(0, from), style);
+        var through = place.Runs.Measure(line.Text.AsSpan(0, to), style);
+        var x = layout.Left + place.Metrics.Padding + before;
+        items.Add(new(ChromeItemKind.Panel, ChromeCommand.None, 0, string.Empty, new(x, y, through - before, layout.RowHeight), true, false) { Ground = WordMarkColor });
     }
 
     /// <summary>Wraps the text into lines again when the width, the text size or the text of a page changed since the last time.</summary>
@@ -174,6 +265,7 @@ internal static class FocusOverlays
         var from = default(HashCode);
         from.Add(width);
         from.Add(style.Size);
+        from.Add(style.Serif);
         foreach (var page in focus.Pages)
         {
             from.Add(RuntimeHelpers.GetHashCode(page.Blocks));
@@ -220,9 +312,14 @@ internal static class FocusOverlays
             ChromeText.Wrap(block.Text, style with { Bold = block.Kind == ReadingBlockKind.Heading }, width, runs, wrapped);
             var number = blocks.Count;
             blocks.Add(block);
+
+            // Each line remembers where it starts in the paragraph, so the word being read can be found in it.
+            var cursor = 0;
             for (var i = 0; i < wrapped.Count; i++)
             {
-                lines.Add(new(i == 0 ? KindOf(block) : ChromeItemKind.Label, number, page.PageIndex, i == 0, wrapped[i]));
+                var at = Math.Max(cursor, block.Text.IndexOf(wrapped[i], cursor, StringComparison.Ordinal));
+                cursor = at + wrapped[i].Length;
+                lines.Add(new(i == 0 ? KindOf(block) : ChromeItemKind.Label, number, page.PageIndex, i == 0, wrapped[i]) { Start = at });
             }
 
             // An empty line sets paragraphs apart.

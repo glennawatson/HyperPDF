@@ -58,7 +58,8 @@ internal static class HyperPdfDocumentTransitions
         transition.Dimension == VerticalDimension,
         transition.Motion == InwardMotion,
         transition.Direction,
-        transition.AdvanceAfter);
+        transition.AdvanceAfter)
+    { Scale = transition.Scale };
 
     /// <summary>Maps a style name to a style; an unknown name is a plain replacement, which the standard names the default.</summary>
     /// <param name="name">The style name.</param>
