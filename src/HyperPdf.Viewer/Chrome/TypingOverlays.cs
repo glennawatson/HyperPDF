@@ -59,7 +59,7 @@ internal static class TypingOverlays
                 enters.Where(key => target.TakesLines && (key.Modifiers & ViewerModifiers.Control) == 0)
                     .SubscribeSafe(_ => target.Write(string.Concat(target.Read(), NewLine)), ErrorTrace.Write),
                 keys.Where(static key => key.Key == ViewerKey.Back).SubscribeSafe(_ => target.Write(ChromeText.WithoutLast(target.Read())), ErrorTrace.Write),
-                input.SelectPressedItems().Where(static item => item.Command == ChromeCommand.PickRow).SubscribeSafe(item => target.Correct(item.Index), ErrorTrace.Write),
+                input.SelectPressedItems().Where(static item => item.Action == OverlayAction.PickRow).SubscribeSafe(item => target.Correct(item.Index), ErrorTrace.Write),
                 input.SelectTypedRunes().SubscribeSafe(rune => target.Write(string.Concat(target.Read(), rune.ToString())), ErrorTrace.Write)))
         { HasMoved = () => canvas.GetWindowRect(target.Page, target.Bounds) != place.Value };
     }
@@ -92,7 +92,7 @@ internal static class TypingOverlays
 
             var before = runs.Measure(line[..start], style);
             var width = runs.Measure(line.Substring(start, word.Length), style);
-            items.Add(new(ChromeItemKind.Underline, ChromeCommand.None, 0, string.Empty, new(row.X + before, row.Bottom - metrics.Line - metrics.Line, width, metrics.Line), false, false));
+            items.Add(new(ChromeItemKind.Underline, null, 0, string.Empty, new(row.X + before, row.Bottom - metrics.Line - metrics.Line, width, metrics.Line), false, false));
         }
     }
 
@@ -111,11 +111,11 @@ internal static class TypingOverlays
 
         var style = ChromeBars.Style(metrics);
         var room = (int)under.Width - metrics.Padding - metrics.Padding;
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, new(under.X, under.Y, under.Width, corrections.Length * metrics.RowHeight), true, false));
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(under.X, under.Y, under.Width, corrections.Length * metrics.RowHeight), true, false));
         for (var i = 0; i < corrections.Length; i++)
         {
             var bounds = new LayoutRect(under.X, under.Y + (i * metrics.RowHeight), under.Width, metrics.RowHeight);
-            items.Add(new(ChromeItemKind.Row, ChromeCommand.PickRow, i, ChromeText.Fit(corrections[i], style, room, runs), bounds, true, false));
+            items.Add(new(ChromeItemKind.Row, OverlayAction.PickRow, i, ChromeText.Fit(corrections[i], style, room, runs), bounds, true, false));
         }
     }
 
@@ -139,7 +139,7 @@ internal static class TypingOverlays
         var text = target.Read();
         if (!target.TakesLines)
         {
-            items.Add(new(ChromeItemKind.Field, ChromeCommand.None, 0, ChromeText.FitEnd(text, ChromeBars.Style(metrics), room, runs), new(place.X, place.Y, width, height), true, true));
+            items.Add(new(ChromeItemKind.Field, null, 0, ChromeText.FitEnd(text, ChromeBars.Style(metrics), room, runs), new(place.X, place.Y, width, height), true, true));
             AddUnderlines(items, target.Misspelled(), text, 0, new(place.X + metrics.Padding, place.Y, width, height), in metrics, runs);
             AddCorrections(items, target.Corrections(), place with { Y = place.Y + height, Width = width }, in metrics, runs);
             return;
@@ -147,13 +147,13 @@ internal static class TypingOverlays
 
         // A box of several lines is a panel as tall as its lines, with one row of text for each line.
         var lines = text.Split('\n');
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, new(place.X, place.Y, width, Math.Max(height, lines.Length * metrics.RowHeight)), true, false));
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(place.X, place.Y, width, Math.Max(height, lines.Length * metrics.RowHeight)), true, false));
         var offset = 0;
         var marked = target.Misspelled();
         for (var i = 0; i < lines.Length; i++)
         {
             var bounds = new LayoutRect(place.X, place.Y + (i * metrics.RowHeight), width, metrics.RowHeight);
-            items.Add(new(ChromeItemKind.Label, ChromeCommand.None, i, ChromeText.FitEnd(lines[i], ChromeBars.Style(metrics), room, runs), bounds, true, false));
+            items.Add(new(ChromeItemKind.Label, null, i, ChromeText.FitEnd(lines[i], ChromeBars.Style(metrics), room, runs), bounds, true, false));
             AddUnderlines(items, marked, lines[i], offset, bounds with { X = bounds.X + metrics.Padding }, in metrics, runs);
             offset += lines[i].Length + 1;
         }

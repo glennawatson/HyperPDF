@@ -85,13 +85,13 @@ internal static class FileOverlays
     /// <param name="state">The state before.</param>
     /// <param name="item">The control.</param>
     /// <returns>The state after.</returns>
-    private static FileState Press(FileState state, ChromeItem item) => item.Command switch
+    private static FileState Press(FileState state, ChromeItem item) => item.Action switch
     {
-        ChromeCommand.ParentFolder => Directory.GetParent(state.Folder) is { } parent ? ShowFolder(state, parent.FullName) : state,
-        ChromeCommand.PickRow => Pick(state, item.Index),
-        ChromeCommand.FileKinds => ShowFolder(state with { AllFiles = !state.AllFiles }, state.Folder),
-        ChromeCommand.Accept => AcceptEntry(state),
-        ChromeCommand.Cancel => state with { Answered = true },
+        OverlayAction.ParentFolder => Directory.GetParent(state.Folder) is { } parent ? ShowFolder(state, parent.FullName) : state,
+        OverlayAction.PickRow => Pick(state, item.Index),
+        OverlayAction.FileKinds => ShowFolder(state with { AllFiles = !state.AllFiles }, state.Folder),
+        OverlayAction.Accept => AcceptEntry(state),
+        OverlayAction.Cancel => state with { Answered = true },
         _ => state,
     };
 
@@ -297,16 +297,16 @@ internal static class FileOverlays
         var height = (metrics.RowHeight * (VisibleRows + OtherRows)) + metrics.ToolbarHeight + metrics.Padding + metrics.Padding;
         var left = (size.Width - width) >> 1;
         var top = Math.Max(0, (size.Height - height) >> 1);
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, new(left, top, width, height), true, false));
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(left, top, width, height), true, false));
         var y = top + metrics.Padding;
-        items.Add(new(ChromeItemKind.Heading, ChromeCommand.None, 0, TitleOf(state), new(left, y, width, metrics.RowHeight), true, false));
+        items.Add(new(ChromeItemKind.Heading, null, 0, TitleOf(state), new(left, y, width, metrics.RowHeight), true, false));
         y += metrics.RowHeight;
         var typed = ChromeText.FitEnd(state.Entry, style, inner - metrics.Padding - metrics.Padding, runs);
-        items.Add(new(ChromeItemKind.Field, ChromeCommand.None, 0, typed, new(left + metrics.Padding, y, inner, metrics.RowHeight), true, true));
+        items.Add(new(ChromeItemKind.Field, null, 0, typed, new(left + metrics.Padding, y, inner, metrics.RowHeight), true, true));
         y += metrics.RowHeight;
-        items.Add(new(ChromeItemKind.Label, ChromeCommand.None, 0, ChromeText.FitEnd(state.Folder, style, inner, runs), new(left, y, width, metrics.RowHeight), false, false));
+        items.Add(new(ChromeItemKind.Label, null, 0, ChromeText.FitEnd(state.Folder, style, inner, runs), new(left, y, width, metrics.RowHeight), false, false));
         y += metrics.RowHeight;
-        items.Add(new(ChromeItemKind.Row, ChromeCommand.ParentFolder, 0, UiText.Get("↑ Up one folder"), new(left, y, width, metrics.RowHeight), Directory.GetParent(state.Folder) is not null, false));
+        items.Add(new(ChromeItemKind.Row, OverlayAction.ParentFolder, 0, UiText.Get("↑ Up one folder"), new(left, y, width, metrics.RowHeight), Directory.GetParent(state.Folder) is not null, false));
         y += metrics.RowHeight;
         for (var row = 0; row < VisibleRows; row++)
         {
@@ -315,16 +315,16 @@ internal static class FileOverlays
             {
                 var name = index < state.FolderCount ? string.Concat(state.Names[index], FolderMark) : state.Names[index];
                 var ticked = index >= state.FolderCount && Array.IndexOf(state.Chosen, state.Names[index]) >= 0;
-                items.Add(new(ChromeItemKind.Row, ChromeCommand.PickRow, index, ChromeText.Fit(name, style, inner, runs), new(left, y, width, metrics.RowHeight), true, ticked));
+                items.Add(new(ChromeItemKind.Row, OverlayAction.PickRow, index, ChromeText.Fit(name, style, inner, runs), new(left, y, width, metrics.RowHeight), true, ticked));
             }
 
             y += metrics.RowHeight;
         }
 
         var buttons = new ChromeRow(items, runs, metrics, left + metrics.Padding, y + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap);
-        buttons = buttons.Button(AcceptText(state), ChromeCommand.Accept, state.Entry.Length > 0 || state.Chosen.Length > 0 || state.PicksFolder);
-        buttons = buttons.Button(UiText.Get("Cancel"), ChromeCommand.Cancel, true);
+        buttons = buttons.Button(AcceptText(state), OverlayAction.Accept, state.Entry.Length > 0 || state.Chosen.Length > 0 || state.PicksFolder);
+        buttons = buttons.Button(UiText.Get("Cancel"), OverlayAction.Cancel, true);
         buttons = buttons.Space();
-        buttons = buttons.Button(UiText.Get(state.AllFiles ? "Showing all files" : "Showing PDF files"), ChromeCommand.FileKinds, true);
+        buttons = buttons.Button(UiText.Get(state.AllFiles ? "Showing all files" : "Showing PDF files"), OverlayAction.FileKinds, true);
     }
 }

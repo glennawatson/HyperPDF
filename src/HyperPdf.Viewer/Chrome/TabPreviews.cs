@@ -38,19 +38,19 @@ internal static class TabPreviews
         var height = padding + (pictureHeight > 0 ? pictureHeight + padding : 0) + (row * TextRows) + padding;
         var x = (int)Math.Clamp(hovered.Bounds.X, 0, Math.Max(0, windowWidth - width));
         var top = metrics.TabHeight;
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, new(x, top, width, height), true, false));
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(x, top, width, height), true, false));
 
         var y = top + padding;
         if (pictureHeight > 0)
         {
-            items.Add(new(ChromeItemKind.Thumbnail, ChromeCommand.None, PictureIndex, string.Empty, new(x + padding, y, width - (padding * Sides), pictureHeight), true, false));
+            items.Add(new(ChromeItemKind.Thumbnail, null, PictureIndex, string.Empty, new(x + padding, y, width - (padding * Sides), pictureHeight), true, false));
             y += pictureHeight + padding;
         }
 
         var room = width - (padding * Sides);
         var style = ChromeBars.Style(metrics);
-        items.Add(new(ChromeItemKind.Label, ChromeCommand.None, 0, ChromeText.Fit(tab.FileName, style, room, runs), new(x + padding, y, room, row), true, false));
-        items.Add(new(ChromeItemKind.Label, ChromeCommand.None, 0, ChromeText.Fit(PageText(tab), style, room, runs), new(x + padding, y + row, room, row), true, false));
+        items.Add(new(ChromeItemKind.Label, null, 0, ChromeText.Fit(tab.FileName, style, room, runs), new(x + padding, y, room, row), true, false));
+        items.Add(new(ChromeItemKind.Label, null, 0, ChromeText.Fit(PageText(tab), style, room, runs), new(x + padding, y + row, room, row), true, false));
     }
 
     /// <summary>Gets the page of a tab the preview shows.</summary>

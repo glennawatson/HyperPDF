@@ -8,6 +8,7 @@ using HyperPdf.Engine;
 using HyperPdf.ViewModels.Services;
 using HyperPdf.Viewer;
 using HyperPdf.Viewer.Chrome;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Windowing.Windows;
 using ReactiveUI.Primitives.Signals;
 
@@ -19,6 +20,12 @@ public sealed class ViewerStartViewTests
 {
     /// <summary>The start of the text of the button that forgets a document opened lately.</summary>
     private const string RemoveName = "Remove";
+
+    /// <summary>The document that was opened first.</summary>
+    private const string FirstDocument = "/documents/first.pdf";
+
+    /// <summary>The documents opened lately that the test lists.</summary>
+    private const int Listed = 2;
 
     /// <summary>The window width in pixels.</summary>
     private const int Width = 900;
@@ -38,7 +45,7 @@ public sealed class ViewerStartViewTests
     public async Task StartViewListsRecentDocumentsAndClearsThem()
     {
         var recent = new ListRecentDocuments();
-        recent.Add("/documents/first.pdf");
+        recent.Add(FirstDocument);
         recent.Add("/documents/second.pdf");
         var before = SynchronizationContext.Current;
         try
@@ -54,6 +61,14 @@ public sealed class ViewerStartViewTests
                 Settle(session);
                 var shown = session.Chrome.OverlayItems.Select(static item => item.Text).ToArray();
 
+                // Each document has its icon and the folder it is in, and a rule sets it apart from the next: one under the heading and one under each.
+                var rules = session.Chrome.OverlayItems.Count(static item => item.Kind == ChromeItemKind.Separator);
+                var documents = session.Chrome.OverlayItems.Count(static item => item is { Kind: ChromeItemKind.Row, Icon: ChromeIcon.Document });
+                var listedFolder = Path.GetDirectoryName(FirstDocument);
+                var folders = shown.Count(text => text == listedFolder);
+                var open = session.Chrome.OverlayItems.First(static item => item.Icon == ChromeIcon.Open);
+                var opens = ReferenceEquals(open.Command, session.Main.OpenCommand);
+
                 // The newest document is listed first, and its own button forgets just that one.
                 Press(window, session.Chrome.OverlayItems.First(static item => item.Text.StartsWith(RemoveName, StringComparison.Ordinal)));
                 Settle(session);
@@ -65,8 +80,12 @@ public sealed class ViewerStartViewTests
                 await Assert.That(shown.Contains("Drop PDF files here, or choose them from a folder.")).IsTrue();
                 await Assert.That(shown.Contains("first.pdf")).IsTrue();
                 await Assert.That(shown.Contains("second.pdf")).IsTrue();
+                await Assert.That(documents).IsEqualTo(Listed);
+                await Assert.That(folders).IsEqualTo(Listed);
+                await Assert.That(rules).IsEqualTo(Listed + 1);
+                await Assert.That(opens).IsTrue();
                 await Assert.That(left.Length).IsEqualTo(1);
-                await Assert.That(left[0]).IsEqualTo("/documents/first.pdf");
+                await Assert.That(left[0]).IsEqualTo(FirstDocument);
                 await Assert.That(recent.GetRecent(int.MaxValue).Count).IsEqualTo(0);
                 await Assert.That(session.Main.RecentDocuments.Count).IsEqualTo(0);
             }

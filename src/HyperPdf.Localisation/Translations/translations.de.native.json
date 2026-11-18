@@ -512,5 +512,8 @@
   "‹ Back": "‹ Zurück",
   "↑ Up one folder": "↑ Einen Ordner nach oben",
   "Change the Picked Paragraph…": "Ausgewählten Absatz ändern…",
-  "Changed the paragraph.": "Absatz geändert."
+  "Changed the paragraph.": "Absatz geändert.",
+  "Minimise": "Minimieren",
+  "Maximise": "Maximieren",
+  "Restore": "Wiederherstellen"
 }

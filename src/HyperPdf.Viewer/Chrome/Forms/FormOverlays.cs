@@ -54,7 +54,7 @@ internal static class FormOverlays
         var presses = input.SelectPressedItems();
         var keys = input.WhereKeyPress();
         var answers = Signal.Merge(
-                presses.Where(static item => item.Command is ChromeCommand.Accept or ChromeCommand.Cancel).Select(static item => item.Command == ChromeCommand.Accept),
+                presses.Where(static item => item.Action is OverlayAction.Accept or OverlayAction.Cancel).Select(static item => item.Action == OverlayAction.Accept),
                 keys.Where(static key => key.Key == ViewerKey.Escape).Select(static _ => false),
                 keys.Where(key => key.Key == ViewerKey.Enter && request.AcceptText is not null && (request.CanAccept?.Invoke() ?? true)).Select(static _ => true),
                 input.SelectDismissals().Select(static _ => false),
@@ -81,8 +81,8 @@ internal static class FormOverlays
                 request.Pad?.Invoke(strokes) ?? EmptyDisposable.Instance,
                 (request.PadCleared ?? Signal.Never<RxVoid>()).SubscribeSafe(_ => changes.OnNext(static current => current with { Ink = PadInk.Empty }), ErrorTrace.Write),
                 input.WherePad().SubscribeSafe(pointer => Draw(ui, changes, strokes, in pointer), ErrorTrace.Write),
-                presses.Where(static item => item.Command == ChromeCommand.MenuEntry).SubscribeSafe(item => ChooseValue(request, builder, edits, changes, item.Index), ErrorTrace.Write),
-                presses.Where(static item => item.Command == ChromeCommand.PickRow).SubscribeSafe(item => PressRow(request, builder, edits, changes, item.Index), ErrorTrace.Write),
+                presses.Where(static item => item.Action == OverlayAction.PickOption).SubscribeSafe(item => ChooseValue(request, builder, edits, changes, item.Index), ErrorTrace.Write),
+                presses.Where(static item => item.Action == OverlayAction.PickRow).SubscribeSafe(item => PressRow(request, builder, edits, changes, item.Index), ErrorTrace.Write),
                 keys.Where(static key => key.Key == ViewerKey.Back).SubscribeSafe(_ => EditFocused(request, builder, ui, edits, ChromeText.WithoutLast), ErrorTrace.Write),
                 Signal.Merge(keys.Select(static key => LinesOf(key.Key)), input.SelectScrollRows()).Where(static lines => lines != 0)
                     .SubscribeSafe(lines => changes.OnNext(current => current with { First = Math.Max(0, current.First + lines) }), ErrorTrace.Write),
@@ -261,9 +261,9 @@ internal static class FormOverlays
         var height = (metrics.RowHeight * (shown + 1)) + metrics.ToolbarHeight + metrics.Padding + metrics.Padding;
         var left = (size.Width - width) >> 1;
         var top = Math.Max(0, (size.Height - height) >> 1);
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, new(left, top, width, height), true, false));
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(left, top, width, height), true, false));
         var y = top + metrics.Padding;
-        items.Add(new(ChromeItemKind.Heading, ChromeCommand.None, 0, ChromeText.Fit(request.Title, ChromeBars.Style(metrics), inner, runs), new(left, y, rowsWidth, metrics.RowHeight), true, false));
+        items.Add(new(ChromeItemKind.Heading, null, 0, ChromeText.Fit(request.Title, ChromeBars.Style(metrics), inner, runs), new(left, y, rowsWidth, metrics.RowHeight), true, false));
         y += metrics.RowHeight;
         Report(request, ui, changes, AddPicture(items, request, new(left + rowsWidth, y, pictureWidth - metrics.Padding, metrics.RowHeight * shown)), first);
 
@@ -302,8 +302,8 @@ internal static class FormOverlays
     /// <returns>The row after the buttons.</returns>
     private static ChromeRow AddButtons(ChromeRow buttons, FormRequest request)
     {
-        var agreed = request.AcceptText is { } accept ? buttons.Button(accept, ChromeCommand.Accept, request.CanAccept?.Invoke() ?? true) : buttons;
-        return agreed.Button(request.AcceptText is null ? UiText.Get("Close") : UiText.Get("Cancel"), ChromeCommand.Cancel, true);
+        var agreed = request.AcceptText is { } accept ? buttons.Button(accept, OverlayAction.Accept, request.CanAccept?.Invoke() ?? true) : buttons;
+        return agreed.Button(request.AcceptText is null ? UiText.Get("Close") : UiText.Get("Cancel"), OverlayAction.Cancel, true);
     }
 
     /// <summary>Adds the lines in view, one under another.</summary>
@@ -320,7 +320,7 @@ internal static class FormOverlays
         {
             var line = lines[i];
             var bounds = line.Kind == ChromeItemKind.Field ? new LayoutRect(row.X + padding, y, row.Width - padding - padding, row.Height) : row with { Y = y };
-            items.Add(new(line.Kind, line.Command, line.Index, line.Text, bounds, line.Enabled, line.Selected) { Trait = line.Trait });
+            items.Add(new(line.Kind, line.Action, line.Index, line.Text, bounds, line.Enabled, line.Selected) { Trait = line.Trait });
             y += row.Height;
         }
     }
@@ -337,7 +337,7 @@ internal static class FormOverlays
             return FormUi.Start;
         }
 
-        items.Add(new(ChromeItemKind.Pad, ChromeCommand.None, 0, string.Empty, column, true, false));
+        items.Add(new(ChromeItemKind.Pad, null, 0, string.Empty, column, true, false));
         return FormUi.Start with { Pad = column };
     }
 
@@ -362,7 +362,7 @@ internal static class FormOverlays
         var x = column.X + ((column.Width - picture.Width) / HalfDivisor);
         var y = column.Y + ((column.Height - picture.Height) / HalfDivisor);
         var area = new LayoutRect(x, y, picture.Width, picture.Height);
-        items.Add(new(ChromeItemKind.Thumbnail, ChromeCommand.None, Overlay.PictureIndex, string.Empty, area, true, false));
+        items.Add(new(ChromeItemKind.Thumbnail, null, Overlay.PictureIndex, string.Empty, area, true, false));
         return none with { Picture = picture, Pad = area };
     }
 
@@ -384,7 +384,7 @@ internal static class FormOverlays
             {
                 case FormRowKind.Heading:
                     {
-                        lines.Add(new(ChromeItemKind.Heading, ChromeCommand.None, i, ChromeText.Fit(row.Label, style, width, runs), true, false));
+                        lines.Add(new(ChromeItemKind.Heading, OverlayAction.None, i, ChromeText.Fit(row.Label, style, width, runs), true, false));
                         break;
                     }
 
@@ -394,7 +394,7 @@ internal static class FormOverlays
                         ChromeText.Wrap(row.Label, style, width, runs, wrapped);
                         foreach (var line in wrapped)
                         {
-                            lines.Add(new(ChromeItemKind.Label, ChromeCommand.None, i, line, true, false));
+                            lines.Add(new(ChromeItemKind.Label, OverlayAction.None, i, line, true, false));
                         }
 
                         break;
@@ -427,21 +427,21 @@ internal static class FormOverlays
                 {
                     var state = row.Selected != 0 ? UiText.Get("On") : UiText.Get("Off");
                     var text = ChromeText.Fit($"{row.Label}: {state}", style, width, runs);
-                    lines.Add(new(ChromeItemKind.Row, ChromeCommand.PickRow, index, text, row.Enabled, row.Selected != 0) { Trait = ChromeItemTrait.Switch });
+                    lines.Add(new(ChromeItemKind.Row, OverlayAction.PickRow, index, text, row.Enabled, row.Selected != 0) { Trait = ChromeItemTrait.Switch });
                     break;
                 }
 
             case FormRowKind.Choice:
                 {
                     var chosen = (uint)row.Selected < (uint)row.Options.Count ? row.Options[row.Selected] : string.Empty;
-                    lines.Add(new(ChromeItemKind.Row, ChromeCommand.PickRow, index, ChromeText.Fit($"{row.Label}: {chosen}  ›", style, width, runs), row.Enabled, false)
+                    lines.Add(new(ChromeItemKind.Row, OverlayAction.PickRow, index, ChromeText.Fit($"{row.Label}: {chosen}  ›", style, width, runs), row.Enabled, false)
                     {
                         Trait = ui.Open == index ? ChromeItemTrait.Expanded : ChromeItemTrait.Collapsed,
                     });
                     for (var option = 0; ui.Open == index && option < row.Options.Count; option++)
                     {
                         var text = ChromeText.Fit(string.Concat(Indent, row.Options[option]), style, width, runs);
-                        lines.Add(new(ChromeItemKind.Row, ChromeCommand.MenuEntry, (index * OptionSpan) + option, text, true, option == row.Selected));
+                        lines.Add(new(ChromeItemKind.Row, OverlayAction.PickOption, (index * OptionSpan) + option, text, true, option == row.Selected));
                     }
 
                     break;
@@ -449,14 +449,14 @@ internal static class FormOverlays
 
             case FormRowKind.Field:
                 {
-                    lines.Add(new(ChromeItemKind.Row, ChromeCommand.PickRow, index, ChromeText.Fit(row.Label, style, width, runs), true, false));
-                    lines.Add(new(ChromeItemKind.Field, ChromeCommand.PickRow, index, ChromeText.Fit(Shown(row), style, width, runs), true, ui.Focus == index));
+                    lines.Add(new(ChromeItemKind.Row, OverlayAction.PickRow, index, ChromeText.Fit(row.Label, style, width, runs), true, false));
+                    lines.Add(new(ChromeItemKind.Field, OverlayAction.PickRow, index, ChromeText.Fit(Shown(row), style, width, runs), true, ui.Focus == index));
                     break;
                 }
 
             default:
                 {
-                    lines.Add(new(ChromeItemKind.Button, ChromeCommand.PickRow, index, ChromeText.Fit(row.Label, style, width, runs), row.Enabled, false)
+                    lines.Add(new(ChromeItemKind.Button, OverlayAction.PickRow, index, ChromeText.Fit(row.Label, style, width, runs), row.Enabled, false)
                     {
                         Trait = ui.Open == index ? ChromeItemTrait.Expanded : ChromeItemTrait.Collapsed,
                     });

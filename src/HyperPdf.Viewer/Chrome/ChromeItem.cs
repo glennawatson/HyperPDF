@@ -3,21 +3,43 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Windows.Input;
 using HyperPdf.Core.Layout;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome;
 
 /// <summary>One control of the window, laid out: a tab, a button, a menu row, a label.</summary>
 /// <param name="Kind">How it is drawn.</param>
-/// <param name="Command">What it does when pressed.</param>
+/// <param name="Command">The command a press runs, or <see langword="null"/> for a control that runs none.</param>
 /// <param name="Index">Which tab, menu entry or list row it stands for.</param>
 /// <param name="Text">The text shown, already cut to fit.</param>
 /// <param name="Bounds">Where it is in the window, in device pixels.</param>
 /// <param name="Enabled">Whether it can be pressed.</param>
 /// <param name="Selected">Whether it is the chosen one of its group, such as the tab shown or a ticked menu entry.</param>
-[DebuggerDisplay("ChromeItem: {Kind} {Command} '{Text}'")]
-public sealed record ChromeItem(ChromeItemKind Kind, ChromeCommand Command, int Index, string Text, LayoutRect Bounds, bool Enabled, bool Selected)
+[DebuggerDisplay("ChromeItem: {Kind} {Action} '{Text}'")]
+public sealed record ChromeItem(ChromeItemKind Kind, ICommand? Command, int Index, string Text, LayoutRect Bounds, bool Enabled, bool Selected)
 {
+    /// <summary>Initializes a new instance of the <see cref="ChromeItem"/> class for a control of a menu or dialog, whose press is an input to that dialog.</summary>
+    /// <param name="kind">How it is drawn.</param>
+    /// <param name="action">What a press means to the dialog.</param>
+    /// <param name="index">Which menu entry or list row it stands for.</param>
+    /// <param name="text">The text shown, already cut to fit.</param>
+    /// <param name="bounds">Where it is in the window, in device pixels.</param>
+    /// <param name="enabled">Whether it can be pressed.</param>
+    /// <param name="selected">Whether it is the chosen one of its group.</param>
+    public ChromeItem(ChromeItemKind kind, OverlayAction action, int index, string text, LayoutRect bounds, bool enabled, bool selected)
+        : this(kind, (ICommand?)null, index, text, bounds, enabled, selected) => Action = action;
+
+    /// <summary>Gets what is passed to <see cref="Command"/> when the control is pressed.</summary>
+    public object? Parameter { get; init; }
+
+    /// <summary>Gets what a press means to the menu or dialog the control is in.</summary>
+    public OverlayAction Action { get; init; }
+
+    /// <summary>Gets a value indicating whether a press does anything: runs a command or means something to a dialog.</summary>
+    public bool IsPressable => Command is not null || Action != OverlayAction.None;
+
     /// <summary>Gets what the control is beyond its kind: a switch, a list that opens or a ticked entry.</summary>
     public ChromeItemTrait Trait { get; init; }
 
@@ -32,6 +54,15 @@ public sealed record ChromeItem(ChromeItemKind Kind, ChromeCommand Command, int 
 
     /// <summary>Gets a value indicating whether the text is drawn faint, as text away from what is being read is.</summary>
     public bool Dimmed { get; init; }
+
+    /// <summary>Gets the icon drawn before the text, or in place of it when <see cref="HidesText"/> is set.</summary>
+    public ChromeIcon Icon { get; init; }
+
+    /// <summary>Gets the side of the icon in device pixels, or 0 for the size of the window's own icons.</summary>
+    public int IconSize { get; init; }
+
+    /// <summary>Gets a value indicating whether only the icon is drawn. The text is still the name a screen reader says.</summary>
+    public bool HidesText { get; init; }
 
     /// <summary>Gets a value indicating whether the text is set in the serif font.</summary>
     public bool Serif { get; init; }

@@ -31,6 +31,9 @@ public sealed class ViewerChromeTests
     /// <summary>The name of the first sample document.</summary>
     private const string FirstFile = "first.pdf";
 
+    /// <summary>The name of the toolbar button that shows or hides the side panel.</summary>
+    private const string SidePanelName = "Side panel";
+
     /// <summary>The name of the second sample document.</summary>
     private const string SecondFile = "second.pdf";
 
@@ -412,17 +415,17 @@ public sealed class ViewerChromeTests
         _ = PumpUntil(session, () => session.Main.SelectedTab is { IsLoaded: true, Outline.Count: > 0 });
         if (session.Main.SelectedTab is { SidebarVisible: false })
         {
-            Click(window, Find(chrome.Bars, ChromeCommand.Sidebar));
+            Click(window, Find(chrome.Bars, SidePanelName));
         }
 
         var shown = PumpUntil(session, () => chrome.CanvasBounds.X > 0);
         Click(window, FindMode(chrome.Bars, SidebarMode.Outline));
-        _ = PumpUntil(session, () => session.Main.SelectedTab is { SidebarMode: SidebarMode.Outline } && Find(chrome.Bars, ChromeCommand.PickRow) is not null);
-        var rows = chrome.Bars.Count(static item => item.Command == ChromeCommand.PickRow);
-        Click(window, chrome.Bars.LastOrDefault(static item => item.Command == ChromeCommand.PickRow));
+        _ = PumpUntil(session, () => session.Main.SelectedTab is { SidebarMode: SidebarMode.Outline } && chrome.Bars.FirstOrDefault(static item => item.Kind == ChromeItemKind.Row) is not null);
+        var rows = chrome.Bars.Count(static item => item.Kind == ChromeItemKind.Row);
+        Click(window, chrome.Bars.LastOrDefault(static item => item.Kind == ChromeItemKind.Row));
         _ = PumpUntil(session, () => session.Main.SelectedTab?.SelectedOutlineItem is not null);
         var chosen = session.Main.SelectedTab?.SelectedOutlineItem?.Title ?? string.Empty;
-        Click(window, Find(chrome.Bars, ChromeCommand.Sidebar));
+        Click(window, Find(chrome.Bars, SidePanelName));
         var hidden = PumpUntil(session, () => chrome.CanvasBounds.X <= 0);
         return new(shown, rows, chosen, hidden);
     }
@@ -443,7 +446,7 @@ public sealed class ViewerChromeTests
         _ = PumpUntil(session, () => session.Main.SelectedTab is { IsLoaded: true });
         if (session.Main.SelectedTab is { SidebarVisible: false })
         {
-            Click(window, Find(chrome.Bars, ChromeCommand.Sidebar));
+            Click(window, Find(chrome.Bars, SidePanelName));
         }
 
         _ = PumpUntil(session, () => chrome.CanvasBounds.X > 0);
@@ -457,16 +460,16 @@ public sealed class ViewerChromeTests
         Click(window, FindMode(chrome.Bars, SidebarMode.Annotations));
         _ = PumpUntil(session, () => session.Main.SelectedTab is { SidebarMode: SidebarMode.Annotations });
         _ = session.PumpOnce(PumpMilliseconds);
-        var noNotes = Find(chrome.Bars, ChromeCommand.PickRow) is null;
+        var noNotes = chrome.Bars.FirstOrDefault(static item => item.Kind == ChromeItemKind.Row) is null;
 
-        Click(window, Find(chrome.Bars, ChromeCommand.Annotate));
-        _ = PumpUntil(session, () => Find(chrome.Bars, ChromeCommand.MarkTool) is not null);
-        var tools = chrome.Bars.Count(static item => item.Command == ChromeCommand.MarkTool);
-        Click(window, chrome.Bars.FirstOrDefault(static item => item is { Command: ChromeCommand.MarkTool, Index: (int)AnnotationTool.Highlight }));
+        Click(window, Find(chrome.Bars, "Annotate"));
+        _ = PumpUntil(session, () => chrome.Bars.FirstOrDefault(static item => item.Parameter is AnnotationTool) is not null);
+        var tools = chrome.Bars.Count(static item => item.Parameter is AnnotationTool);
+        Click(window, chrome.Bars.FirstOrDefault(static item => item is { Parameter: AnnotationTool.Highlight }));
         _ = PumpUntil(session, () => session.Main.SelectedTab is { Annotations.Tool: AnnotationTool.Highlight });
         var tool = session.Main.SelectedTab?.Annotations.Tool ?? AnnotationTool.Select;
-        Click(window, Find(chrome.Bars, ChromeCommand.Annotate));
-        var barGone = PumpUntil(session, () => Find(chrome.Bars, ChromeCommand.MarkTool) is null);
+        Click(window, Find(chrome.Bars, "Annotate"));
+        var barGone = PumpUntil(session, () => chrome.Bars.FirstOrDefault(static item => item.Parameter is AnnotationTool) is null);
         return new(pictures, page, noNotes, tools, tool, barGone);
     }
 
@@ -488,18 +491,18 @@ public sealed class ViewerChromeTests
         _ = PumpUntil(session, () => session.Main.SelectedTab is { IsLoaded: true } && window.FramesPresented > 0);
 
         // The document's title arrives with its metadata, which a slow machine can deliver after the first frame, and the strip follows on the next pass.
-        _ = PumpUntil(session, () => Find(chrome.Bars, ChromeCommand.SelectTab)?.Text == session.Main.SelectedTab?.Title);
-        var tabText =Find(chrome.Bars, ChromeCommand.SelectTab)?.Text ?? string.Empty;
+        _ = PumpUntil(session, () => chrome.Bars.FirstOrDefault(static item => item.Kind == ChromeItemKind.Tab)?.Text == session.Main.SelectedTab?.Title);
+        var tabText =chrome.Bars.FirstOrDefault(static item => item.Kind == ChromeItemKind.Tab)?.Text ?? string.Empty;
         var tabTitle = session.Main.SelectedTab?.Title ?? string.Empty;
         var barText = CountBarText(window, (int)chrome.CanvasBounds.Y);
 
         var zoomRole = PressZoomThroughTree(session, out var zoomed);
 
-        Click(window, Find(chrome.Bars, ChromeCommand.NextPage));
+        Click(window, Find(chrome.Bars, "Next"));
         _ = PumpUntil(session, () => session.Main.SelectedTab is { CurrentPageIndex: > 0 });
         var page = session.Main.SelectedTab?.CurrentPageIndex ?? -1;
 
-        Click(window, Find(chrome.Bars, ChromeCommand.Menu));
+        Click(window, Find(chrome.Bars, "Menu"));
         _ = PumpUntil(session, () => chrome.HasOverlay);
         var menuRows = chrome.OverlayItems.Count(static item => item.Kind == ChromeItemKind.Row);
         window.Send(new(WindowEventKind.KeyDown, 0, 0, (uint)ViewerKey.Escape, 0));
@@ -512,7 +515,7 @@ public sealed class ViewerChromeTests
         window.Send(new(WindowEventKind.KeyDown, 0, 0, (uint)ViewerKey.C, (uint)ViewerModifiers.Control));
         _ = PumpUntil(session, () => window.ClipboardText is not null);
 
-        Click(window, chrome.Bars.LastOrDefault(static item => item.Command == ChromeCommand.CloseTab));
+        Click(window, chrome.Bars.LastOrDefault(static item => item.Text == "Close tab"));
         _ = PumpUntil(session, () => session.Main.Tabs.Count == 1);
         var copied = window.ClipboardText?.Length ?? 0;
         return new(tabText, tabTitle, barText, zoomRole, zoomed, page, menuRows, menuClosed, dialogOpened, tabsAfterOpen, copied, session.Main.Tabs.Count);
@@ -526,7 +529,7 @@ public sealed class ViewerChromeTests
     {
         // The first question from a screen reader makes the viewer build its tree, which the next pump does.
         _ = session.Accessibility.Get(session.Accessibility.RootId);
-        var zoomId = ViewerNodes.FirstControlId + IndexOf(session.Chrome.Bars, ChromeCommand.ZoomIn);
+        var zoomId = ViewerNodes.FirstControlId + IndexOf(session.Chrome.Bars, "Zoom in");
         _ = PumpUntil(session, () => session.Accessibility.Get(zoomId) is not null);
         var before = session.Main.SelectedTab?.Zoom ?? 0;
         zoomed = session.Accessibility.DoAction(zoomId, 0) && PumpUntil(session, () => session.Main.SelectedTab is { } shown && shown.Zoom > before);
@@ -567,46 +570,46 @@ public sealed class ViewerChromeTests
         var chrome = session.Chrome;
         IReadOnlyList<string>? chosen = null;
         using var picking = chrome.PickFiles(folder).Subscribe(paths => chosen = paths);
-        _ = PumpUntil(session, () => Find(chrome.OverlayItems, ChromeCommand.PickRow) is not null);
-        var pdfRows = chrome.OverlayItems.Count(static item => item.Command == ChromeCommand.PickRow);
-        Click(window, Find(chrome.OverlayItems, ChromeCommand.FileKinds));
-        _ = PumpUntil(session, () => chrome.OverlayItems.Count(static item => item.Command == ChromeCommand.PickRow) > pdfRows);
-        var allRows = chrome.OverlayItems.Count(static item => item.Command == ChromeCommand.PickRow);
-        Click(window, Find(chrome.OverlayItems, ChromeCommand.FileKinds));
-        _ = PumpUntil(session, () => chrome.OverlayItems.Count(static item => item.Command == ChromeCommand.PickRow) == pdfRows);
+        _ = PumpUntil(session, () => chrome.OverlayItems.FirstOrDefault(static item => item.Action == OverlayAction.PickRow) is not null);
+        var pdfRows = chrome.OverlayItems.Count(static item => item.Action == OverlayAction.PickRow);
+        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item.Action == OverlayAction.FileKinds));
+        _ = PumpUntil(session, () => chrome.OverlayItems.Count(static item => item.Action == OverlayAction.PickRow) > pdfRows);
+        var allRows = chrome.OverlayItems.Count(static item => item.Action == OverlayAction.PickRow);
+        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item.Action == OverlayAction.FileKinds));
+        _ = PumpUntil(session, () => chrome.OverlayItems.Count(static item => item.Action == OverlayAction.PickRow) == pdfRows);
 
-        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item is { Command: ChromeCommand.PickRow, Text: FirstFile }));
-        _ = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item is { Command: ChromeCommand.PickRow, Selected: true }));
-        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item is { Command: ChromeCommand.PickRow, Text: SecondFile }));
-        _ = PumpUntil(session, () => chrome.OverlayItems.Count(static item => item is { Command: ChromeCommand.PickRow, Selected: true }) > 1);
+        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item is { Action: OverlayAction.PickRow, Text: FirstFile }));
+        _ = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item is { Action: OverlayAction.PickRow, Selected: true }));
+        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item is { Action: OverlayAction.PickRow, Text: SecondFile }));
+        _ = PumpUntil(session, () => chrome.OverlayItems.Count(static item => item is { Action: OverlayAction.PickRow, Selected: true }) > 1);
         var stayedOpen = chrome.HasOverlay;
-        Click(window, Find(chrome.OverlayItems, ChromeCommand.Accept));
+        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item.Action == OverlayAction.Accept));
         _ = PumpUntil(session, () => chosen is not null);
         return new(pdfRows, allRows, stayedOpen, chosen?.Count ?? 0);
     }
 
     /// <summary>Finds the first control that does something.</summary>
     /// <param name="items">The controls.</param>
-    /// <param name="command">What the control does.</param>
+    /// <param name="text">The control's name.</param>
     /// <returns>The control, or <see langword="null"/>.</returns>
-    private static ChromeItem? Find(IReadOnlyList<ChromeItem> items, ChromeCommand command) => items.FirstOrDefault(item => item.Command == command);
+    private static ChromeItem? Find(IReadOnlyList<ChromeItem> items, string text) => items.FirstOrDefault(item => item.Text == text);
 
     /// <summary>Finds the side panel tab that shows one kind of list.</summary>
     /// <param name="items">The controls.</param>
     /// <param name="mode">The list.</param>
     /// <returns>The tab, or <see langword="null"/>.</returns>
     private static ChromeItem? FindMode(IReadOnlyList<ChromeItem> items, SidebarMode mode) =>
-        items.FirstOrDefault(item => item.Command == ChromeCommand.SidebarMode && item.Index == (int)mode);
+        items.FirstOrDefault(item => item.Parameter is SidebarMode shown && shown == mode);
 
     /// <summary>Finds the place of the first control that does something.</summary>
     /// <param name="items">The controls.</param>
-    /// <param name="command">What the control does.</param>
+    /// <param name="text">The control's name.</param>
     /// <returns>The place, or -1.</returns>
-    private static int IndexOf(IReadOnlyList<ChromeItem> items, ChromeCommand command)
+    private static int IndexOf(IReadOnlyList<ChromeItem> items, string text)
     {
         for (var i = 0; i < items.Count; i++)
         {
-            if (items[i].Command == command)
+            if (items[i].Text == text)
             {
                 return i;
             }

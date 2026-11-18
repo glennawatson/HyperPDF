@@ -2,8 +2,10 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Layout;
 using HyperPdf.Viewer.Chrome.Forms;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 using HyperPdf.Windowing.Rendering;
 
@@ -37,11 +39,20 @@ internal static class ChromePainter
     /// <param name="hover">The control under the pointer, or <see langword="null"/>.</param>
     internal static void Draw(IFramePass pass, List<ChromeItem> items, ChromeLook look, ChromeItem? hover)
     {
+        var hovered = false;
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            DrawBackground(pass, item, look, ReferenceEquals(item, hover));
+            var under = ReferenceEquals(item, hover);
+            hovered |= under;
+            DrawBackground(pass, item, look, under);
             DrawText(pass, item, look);
+        }
+
+        // The control under the pointer may be one of an older layout. Its name is only shown while it is one of these.
+        if (hovered)
+        {
+            DrawHint(pass, hover, look);
         }
     }
 
@@ -59,6 +70,43 @@ internal static class ChromePainter
         pass.FillRect(new(bounds.X, bounds.Y, weight, bounds.Height), color);
         pass.FillRect(new(bounds.Right - weight, bounds.Y, weight, bounds.Height), color);
     }
+
+    /// <summary>
+    /// Draws the name of a control that shows its icon alone, in a small box by the control, while the pointer is over it. An icon
+    /// is never the only way to tell what a control does.
+    /// </summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="hovered">The control under the pointer, or <see langword="null"/>.</param>
+    /// <param name="look">The text, colours and sizes.</param>
+    internal static void DrawHint(IFramePass pass, ChromeItem? hovered, ChromeLook look)
+    {
+        if (hovered is not { HidesText: true, Text.Length: > 0 })
+        {
+            return;
+        }
+
+        var metrics = look.Metrics;
+        var run = look.Runs.Get(hovered.Text, new(metrics.TextSize, false, look.Theme.Text));
+        var width = run.Width + metrics.Padding + metrics.Padding;
+        var height = metrics.RowHeight;
+        var size = pass.Size;
+
+        // The box sits under the control, kept inside the window, and above it when there is no room below.
+        var x = Math.Clamp(hovered.Bounds.X, 0, Math.Max(0, size.Width - width));
+        var below = hovered.Bounds.Bottom + metrics.Gap;
+        var y = below + height <= size.Height ? below : hovered.Bounds.Y - metrics.Gap - height;
+        DrawBox(pass, new(x, y, width, height), look.Theme.Surface, look.Theme.Border, metrics.Line);
+        if (run.Surface is { } surface)
+        {
+            pass.DrawSurface(surface, new(x + metrics.Padding, y + ((height - run.Height) >> 1), run.Width, run.Height), false);
+        }
+    }
+
+    /// <summary>Gets the space between an icon and the text after it.</summary>
+    /// <param name="metrics">The sizes.</param>
+    /// <returns>The space in device pixels.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int IconGap(in ChromeMetrics metrics) => metrics.Gap + (metrics.Gap >> 1);
 
     /// <summary>Draws what lies behind the text of a control.</summary>
     /// <param name="pass">The frame.</param>
@@ -105,7 +153,7 @@ internal static class ChromePainter
 
             case ChromeItemKind.Separator:
                 {
-                    pass.FillRect(new(bounds.X, bounds.Y + Math.Floor(bounds.Height / MarkLines), bounds.Width, line), theme.Border);
+                    DrawSeparator(pass, bounds, look);
                     break;
                 }
 
@@ -173,7 +221,7 @@ internal static class ChromePainter
     /// <param name="hovered">Whether the pointer is over it.</param>
     private static void DrawState(IFramePass pass, ChromeItem item, ChromeLook look, bool hovered)
     {
-        if (item.Command == ChromeCommand.None || !item.Enabled)
+        if (!item.IsPressable || !item.Enabled)
         {
             return;
         }
@@ -204,9 +252,9 @@ internal static class ChromePainter
     {
         var metrics = look.Metrics;
         TextStyle style = new(item.TextSize > 0 ? item.TextSize : metrics.TextSize, item.Kind == ChromeItemKind.Heading, TextColorOf(item, look)) { Serif = item.Serif };
-        var run = look.Runs.Get(item.Text, style);
+        var run = look.Runs.Get(item.HidesText ? string.Empty : item.Text, style);
         var bounds = item.Bounds;
-        var left = item.Kind == ChromeItemKind.Button ? bounds.X + Math.Floor((bounds.Width - run.Width) / MarkLines) : bounds.X + metrics.Padding;
+        var left = DrawIcon(pass, item, look, run.Width);
         var top = bounds.Y + Math.Floor((bounds.Height - run.Height) / MarkLines);
         if (run.Surface is { } surface)
         {
@@ -218,6 +266,72 @@ internal static class ChromePainter
             // The caret sits after the text, where the next typed character goes.
             pass.FillRect(new(left + run.Width, bounds.Y + metrics.Gap, metrics.Line * MarkLines, bounds.Height - metrics.Gap - metrics.Gap), look.Theme.Text);
         }
+    }
+
+    /// <summary>Draws the icon of a control, in the middle of a button with its text and on the left of everything else.</summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="item">The control.</param>
+    /// <param name="look">The icons, colours and sizes.</param>
+    /// <param name="textWidth">The width of the text that follows the icon.</param>
+    /// <returns>Where the text starts across.</returns>
+    private static double DrawIcon(IFramePass pass, ChromeItem item, ChromeLook look, int textWidth)
+    {
+        var bounds = item.Bounds;
+        var iconSize = IconSizeOf(item, look);
+        var iconRoom = iconSize > 0 && textWidth > 0 ? iconSize + IconGap(look.Metrics) : iconSize;
+        var centred = item.Kind == ChromeItemKind.Button || (item.Kind == ChromeItemKind.Picture && item.Text.Length == 0);
+        var left = centred ? bounds.X + Math.Floor((bounds.Width - iconRoom - textWidth) / MarkLines) : bounds.X + look.Metrics.Padding;
+        if (iconSize > 0 && look.Icons?.Get(item.Icon, iconSize, IconColorOf(item, look)) is { } icon)
+        {
+            pass.DrawSurface(icon, new(left, bounds.Y + Math.Floor((bounds.Height - iconSize) / MarkLines), iconSize, iconSize), false);
+        }
+
+        return left + iconRoom;
+    }
+
+    /// <summary>Gets the side of the icon a control is drawn with.</summary>
+    /// <param name="item">The control.</param>
+    /// <param name="look">The icons and the sizes.</param>
+    /// <returns>The side in device pixels, or 0 for a control with no icon.</returns>
+    private static int IconSizeOf(ChromeItem item, ChromeLook look)
+    {
+        if (item.Icon == ChromeIcon.None || look.Icons is null)
+        {
+            return 0;
+        }
+
+        return item.IconSize > 0 ? item.IconSize : look.Metrics.IconSize;
+    }
+
+    /// <summary>Picks the colour a control's icon is drawn in: faded when it cannot be pressed, its own tint when it has one, otherwise the tint of what the icon does.</summary>
+    /// <param name="item">The control.</param>
+    /// <param name="look">The colours.</param>
+    /// <returns>The colour as ARGB.</returns>
+    private static uint IconColorOf(ChromeItem item, ChromeLook look)
+    {
+        if (!item.Enabled)
+        {
+            return look.Theme.Faded;
+        }
+
+        return item.Tint != 0 ? item.Tint : look.Theme.IconColor(IconPaths.ToneOf(item.Icon));
+    }
+
+    /// <summary>Draws a line between controls: down the middle of a tall place, across the middle of a wide one.</summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="bounds">The place.</param>
+    /// <param name="look">The colours and sizes.</param>
+    private static void DrawSeparator(IFramePass pass, in LayoutRect bounds, ChromeLook look)
+    {
+        var line = look.Metrics.Line;
+        if (bounds.Height > bounds.Width)
+        {
+            var inset = look.Metrics.Gap;
+            pass.FillRect(new(bounds.X + Math.Floor(bounds.Width / MarkLines), bounds.Y + inset, line, bounds.Height - inset - inset), look.Theme.Border);
+            return;
+        }
+
+        pass.FillRect(new(bounds.X, bounds.Y + Math.Floor(bounds.Height / MarkLines), bounds.Width, line), look.Theme.Border);
     }
 
     /// <summary>Picks the colour a control's text is drawn in: its own when it has one, otherwise the theme's, and fainter when it is dimmed.</summary>

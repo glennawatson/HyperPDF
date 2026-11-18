@@ -4,6 +4,8 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 
 namespace HyperPdf.Viewer.Chrome;
@@ -38,53 +40,116 @@ internal sealed record ChromeRow(List<ChromeItem> Items, TextRuns Runs, ChromeMe
     /// <summary>Gets how far across a control may reach before a new line starts.</summary>
     internal int Limit { get; init; } = int.MaxValue;
 
-    /// <summary>Adds a button.</summary>
+    /// <summary>Gets a value indicating whether a button with an icon shows its text beside it.</summary>
+    internal bool ShowLabels { get; init; } = true;
+
+    /// <summary>Adds a button that runs a command.</summary>
     /// <param name="text">The text.</param>
-    /// <param name="command">What the button does.</param>
+    /// <param name="command">The command a press runs.</param>
     /// <param name="enabled">Whether it can be pressed.</param>
     /// <returns>The row with the button in it.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ChromeRow Button(string text, ChromeCommand command, bool enabled) => Add(ChromeItemKind.Button, text, command, enabled);
+    internal ChromeRow Button(string text, ICommand? command, bool enabled) => Add(new(ChromeItemKind.Button, command, 0, text, default, enabled, false));
 
-    /// <summary>Adds a button that is one of a group, which shows whether it is the chosen one.</summary>
-    /// <param name="text">The text.</param>
-    /// <param name="command">What the button does.</param>
-    /// <param name="index">Which member of the group it stands for.</param>
-    /// <param name="selected">Whether it is the chosen one.</param>
+    /// <summary>Adds a button that runs a command, with an icon before its text.</summary>
+    /// <param name="icon">The icon.</param>
+    /// <param name="text">The text, which is also the name a screen reader says.</param>
+    /// <param name="command">The command a press runs.</param>
+    /// <param name="enabled">Whether it can be pressed.</param>
     /// <returns>The row with the button in it.</returns>
-    internal ChromeRow Button(string text, ChromeCommand command, int index, bool selected)
-    {
-        var next = Add(ChromeItemKind.Button, text, command, true);
-        Items[^1] = Items[^1] with { Index = index, Selected = selected };
-        return next;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow Button(ChromeIcon icon, string text, ICommand? command, bool enabled) =>
+        Add(new(ChromeItemKind.Button, command, 0, text, default, enabled, false) { Icon = icon });
+
+    /// <summary>Adds a button of a dialog, whose press is an input to that dialog.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="action">What a press means to the dialog.</param>
+    /// <param name="enabled">Whether it can be pressed.</param>
+    /// <returns>The row with the button in it.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow Button(string text, OverlayAction action, bool enabled) => Add(new(ChromeItemKind.Button, action, 0, text, default, enabled, false));
+
+    /// <summary>Adds a button that shows its icon alone, whatever the setting for names beside icons. What it does is plain from the text next to it.</summary>
+    /// <param name="icon">The icon.</param>
+    /// <param name="text">The name a screen reader says.</param>
+    /// <param name="command">The command a press runs.</param>
+    /// <param name="enabled">Whether it can be pressed.</param>
+    /// <returns>The row with the button in it.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow IconButton(ChromeIcon icon, string text, ICommand? command, bool enabled) =>
+        Add(new(ChromeItemKind.Button, command, 0, text, default, enabled, false) { Icon = icon, HidesText = true });
+
+    /// <summary>Adds a button that turns something on or off, and shows whether it is on.</summary>
+    /// <param name="icon">The icon.</param>
+    /// <param name="text">The text, which is also the name a screen reader says.</param>
+    /// <param name="command">The command a press runs, or <see langword="null"/> when there is nothing to turn on.</param>
+    /// <param name="on">Whether it is on now.</param>
+    /// <returns>The row with the button in it.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow Toggle(ChromeIcon icon, string text, ICommand? command, bool on) =>
+        Add(new(ChromeItemKind.Button, command, 0, text, default, command is not null, on) { Icon = icon, Trait = ChromeItemTrait.Switch });
+
+    /// <summary>Adds a control the caller made, such as a button of a group that passes its own value to a shared command. Its place is set here.</summary>
+    /// <param name="item">The control, without its place.</param>
+    /// <returns>The row with the control in it.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow Control(ChromeItem item) => Add(item);
 
     /// <summary>Adds plain text.</summary>
     /// <param name="text">The text.</param>
     /// <returns>The row with the text in it.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ChromeRow Label(string text) => Add(ChromeItemKind.Label, text, ChromeCommand.None, true);
+    internal ChromeRow Label(string text) => Add(new(ChromeItemKind.Label, null, 0, text, default, true, false));
 
     /// <summary>Leaves a space.</summary>
     /// <returns>The row after the space.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ChromeRow Space() => this with { Next = Next + Metrics.Padding };
 
-    /// <summary>Adds a control, on a new line when it would pass the limit.</summary>
-    /// <param name="kind">What kind of control.</param>
-    /// <param name="text">The text.</param>
-    /// <param name="command">What the control does.</param>
-    /// <param name="enabled">Whether it can be pressed.</param>
-    /// <returns>The row with the control in it.</returns>
-    private ChromeRow Add(ChromeItemKind kind, string text, ChromeCommand command, bool enabled)
+    /// <summary>Adds an upright line between two groups of controls.</summary>
+    /// <returns>The row after the line.</returns>
+    internal ChromeRow Divider()
     {
-        var width = Runs.Measure(text, ChromeBars.Style(Metrics)) + Metrics.Padding + Metrics.Padding;
+        Items.Add(new(ChromeItemKind.Separator, null, 0, string.Empty, new(Next, Top, Metrics.Padding, Height), true, false));
+        return this with { Next = Next + Metrics.Padding + Metrics.Gap };
+    }
+
+    /// <summary>Measures a control: its icon, its text and the space each side of them.</summary>
+    /// <param name="item">The control.</param>
+    /// <param name="hidesText">Whether only its icon shows.</param>
+    /// <returns>The width in device pixels.</returns>
+    private int WidthOf(ChromeItem item, bool hidesText)
+    {
+        var textWidth = hidesText ? 0 : Runs.Measure(item.Text, ChromeBars.Style(Metrics));
+        if (item.Icon == ChromeIcon.None)
+        {
+            return textWidth + Metrics.Padding + Metrics.Padding;
+        }
+
+        // A button with an icon stands closer to its neighbours, as the icon already sets it apart.
+        var padding = IconPadding(hidesText);
+        return Metrics.IconSize + (textWidth > 0 ? ChromePainter.IconGap(Metrics) : 0) + textWidth + padding + padding;
+    }
+
+    /// <summary>Gets the space each side of a button with an icon: a little less when the icon stands alone, so a row of them stays compact.</summary>
+    /// <param name="iconAlone">Whether the button shows no text.</param>
+    /// <returns>The space in device pixels.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int IconPadding(bool iconAlone) => iconAlone ? Metrics.Gap + (Metrics.Gap >> 1) : Metrics.Gap + Metrics.Gap;
+
+    /// <summary>Adds a control, on a new line when it would pass the limit.</summary>
+    /// <param name="item">The control, without its place.</param>
+    /// <returns>The row with the control in it.</returns>
+    private ChromeRow Add(ChromeItem item)
+    {
+        var hidesText = item.Icon != ChromeIcon.None && (item.HidesText || !ShowLabels);
+        var width = WidthOf(item, hidesText);
         var wraps = Next + width > Limit && Next > Start;
 
         // A line is as tall as a bar: the control's height and the gap above and below it.
         var x = wraps ? Start : Next;
         var y = wraps ? Top + Height + Metrics.Gap + Metrics.Gap : Top;
-        Items.Add(new(kind, command, 0, text, new(x, y, width, Height), enabled, false));
+        Items.Add(item with { Bounds = new(x, y, width, Height), HidesText = hidesText });
         return this with { Next = x + width + Metrics.Gap, Top = y, Lines = wraps ? Lines + 1 : Lines };
     }
 }

@@ -16,6 +16,7 @@ using HyperPdf.ViewModels.Services;
 using HyperPdf.ViewModels.Sidebar;
 using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer.Chrome.Forms;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 using HyperPdf.Windowing.Rendering;
 using HyperPdf.Windowing.Windows;
@@ -44,6 +45,9 @@ public sealed class ViewerChrome : IDisposable
     /// <summary>The drawn text.</summary>
     private readonly TextRuns _runs;
 
+    /// <summary>The drawn icons of the controls.</summary>
+    private readonly IconRuns _icons;
+
     /// <summary>The controls of the bars, back to front.</summary>
     private readonly List<ChromeItem> _bars = [];
 
@@ -53,14 +57,8 @@ public sealed class ViewerChrome : IDisposable
     /// <summary>The controls of the preview of the tab the pointer is over, made again each frame it is shown.</summary>
     private readonly List<ChromeItem> _previewItems = [];
 
-    /// <summary>The command of each button of the notice and tool bars, in the order the buttons were laid out.</summary>
-    private readonly List<MenuEntry> _toolActions = [];
-
     /// <summary>Carries the command of each shortcut key pressed to whatever runs it.</summary>
     private readonly Signal<MenuEntry> _shortcuts = new();
-
-    /// <summary>Carries each press of a control of the bars to the view model commands joined to it.</summary>
-    private readonly Signal<ChromePress> _presses = new();
 
     /// <summary>Carries the window events the controls did not use on to the pages.</summary>
     private readonly Signal<WindowEvent> _pageEvents = new();
@@ -97,6 +95,9 @@ public sealed class ViewerChrome : IDisposable
 
     /// <summary>What the open overlay is joined to: its changes, its wish to close and everything the overlay itself follows and owns.</summary>
     private IDisposable? _overlayLinks;
+
+    /// <summary>The commands of the controls that act on the window itself and not on a view model, or <see langword="null"/> before they are first needed.</summary>
+    private ChromeActions? _actions;
 
     /// <summary>What the controls are drawn with.</summary>
     private ChromeLook _look;
@@ -140,6 +141,9 @@ public sealed class ViewerChrome : IDisposable
     /// <summary>What the controls of the preview were made from, or <see langword="null"/> before the first.</summary>
     private TabPreviewKey? _previewKey;
 
+    /// <summary>The presses on the empty part of the top bar, which tell a second press from a first.</summary>
+    private ClickCounter _framePresses;
+
     /// <summary>The place of the tab the pointer was pressed on, or -1 when it was not pressed on a tab.</summary>
     private int _tabDragFrom = -1;
 
@@ -156,26 +160,17 @@ public sealed class ViewerChrome : IDisposable
         _window = window;
         _main = main;
         _runs = new(window.Backend.Surfaces);
-        _look = new(_runs, theme, ChromeMetrics.For(window.Scale), ThumbnailOf, InkOf);
+        _icons = new(window.Backend.Surfaces);
+        _look = new(_runs, theme, ChromeMetrics.For(window.Scale), ThumbnailOf, InkOf) { Icons = _icons };
 
         // The view models say when something the controls show has changed, on whichever thread changed it. The layout runs on the
         // window's thread, so the signal is brought there first.
         _owned.Add(main.ControlChanges.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => InvalidateBars(), ErrorTrace.Write));
-        _owned.Add(ChromeBindings.Window(_presses, main));
-        _owned.Add(_presses.WhereCommand(ChromeCommand.Menu).SubscribeSafe(ShowMainMenu, ErrorTrace.Write));
-        _owned.Add(_presses.WhereCommand(ChromeCommand.MarkMore).SubscribeSafe(ShowMoreMarks, ErrorTrace.Write));
-        _owned.Add(_presses.WhereCommand(ChromeCommand.Find).SubscribeSafe(_ => ShowFind(), ErrorTrace.Write));
         _owned.Add(main.WhenChanged(static m => m.SelectedTab).SubscribeSafe(JoinTab, ErrorTrace.Write));
         _owned.Add(_shortcuts.SubscribeSafe(RunEntry, ErrorTrace.Write));
-        _owned.Add(_presses.WhereCommand(ChromeCommand.ToolAction).SelectWith(_toolActions, static (actions, press) => (uint)press.Index < (uint)actions.Count ? actions[press.Index] : null)
-            .KeepNotNull()
-            .SubscribeSafe(RunEntry, ErrorTrace.Write));
         _owned.Add(events.SubscribeSafe(_incoming.OnNext, ErrorTrace.Write));
         _owned.Add(RouteEvents());
     }
-
-    /// <summary>Gets the presses of the controls of the bars, by the pointer, a keyboard shortcut or an assistive technology.</summary>
-    public IObservable<ChromePress> Presses => _presses;
 
     /// <summary>Gets what takes the window's events into the controls. An event they use goes no further; any other goes on to <see cref="PageEvents"/>.</summary>
     public IObserver<WindowEvent> Input => _incoming;
@@ -191,6 +186,22 @@ public sealed class ViewerChrome : IDisposable
         {
             _look = _look with { Theme = value };
             _window.RequestFrame();
+        }
+    }
+
+    /// <summary>Gets or sets a value indicating whether tool bar buttons show their names beside their icons.</summary>
+    public bool ShowLabels
+    {
+        get => _look.ShowLabels;
+        set
+        {
+            if (_look.ShowLabels == value)
+            {
+                return;
+            }
+
+            _look = _look with { ShowLabels = value };
+            InvalidateBars();
         }
     }
 
@@ -241,6 +252,9 @@ public sealed class ViewerChrome : IDisposable
             return _overlayItems;
         }
     }
+
+    /// <summary>Gets the commands of the controls that act on the window itself, made when first asked for, once the controls exist to run them.</summary>
+    private ChromeActions Actions => _actions ??= new(this, _main, _window);
 
     /// <summary>Opens a menu.</summary>
     /// <param name="entries">The entries.</param>
@@ -400,14 +414,14 @@ public sealed class ViewerChrome : IDisposable
     {
         Layout();
         var items = inOverlay ? _overlayItems : _bars;
-        if ((uint)index >= (uint)items.Count || items[index] is not { Enabled: true } item || item.Command == ChromeCommand.None)
+        if ((uint)index >= (uint)items.Count || items[index] is not { Enabled: true, IsPressable: true } item)
         {
             return false;
         }
 
         if (!inOverlay)
         {
-            Emit(new(item.Command, item.Index, item.Bounds));
+            Run(item);
             return true;
         }
 
@@ -416,7 +430,7 @@ public sealed class ViewerChrome : IDisposable
             return false;
         }
 
-        SendToOverlay(OverlayInput.Press(item));
+        PressOverlayItem(item);
         return true;
     }
 
@@ -483,13 +497,14 @@ public sealed class ViewerChrome : IDisposable
 
         _under.Clear();
         ReleaseRetired();
-        _presses.Dispose();
         _pageEvents.Dispose();
         _incoming.Dispose();
         _shortcuts.Dispose();
         SheetFrames.Release(_sheetFrame);
         MediaFrames.Release(_mediaFrame);
         _runs.Dispose();
+        _icons.Dispose();
+        _actions?.Dispose();
     }
 
     /// <summary>Shows a window made of rows when subscribed to.</summary>
@@ -521,12 +536,6 @@ public sealed class ViewerChrome : IDisposable
 
     /// <summary>Shows the side panel's list from its start again, as when another list is chosen.</summary>
     internal void ResetSidebarScroll() => _sidebar = _sidebar with { First = 0 };
-
-    /// <summary>Finds what a row of the side panel stands for.</summary>
-    /// <param name="press">The press of the row.</param>
-    /// <returns>The page, bookmark, note, attached file or layer, or <see langword="null"/> for a row that cannot be picked.</returns>
-    internal object? SidebarTarget(in ChromePress press) =>
-        (uint)press.Index < (uint)_sidebar.Rows.Length && _sidebar.Rows[press.Index] is { Enabled: true } row ? row.Target : null;
 
     /// <summary>Takes the start view away when a document opened.</summary>
     internal void CloseStart()
@@ -572,7 +581,8 @@ public sealed class ViewerChrome : IDisposable
     /// <summary>Tells whether a control is a row of a dialog's list, rather than one of its buttons.</summary>
     /// <param name="item">The control.</param>
     /// <returns><see langword="true"/> for a row.</returns>
-    private static bool IsListRow(ChromeItem item) => item.Command is ChromeCommand.PickRow or ChromeCommand.MenuEntry;
+    private static bool IsListRow(ChromeItem item) =>
+        item.Action is OverlayAction.PickRow or OverlayAction.PickOption || item is { Kind: ChromeItemKind.Row, Command: not null };
 
     /// <summary>Finds the control at a point that can be pressed.</summary>
     /// <param name="items">The controls, back to front.</param>
@@ -584,7 +594,7 @@ public sealed class ViewerChrome : IDisposable
         for (var i = items.Count - 1; i >= 0; i--)
         {
             var item = items[i];
-            if (item.Command != ChromeCommand.None && item.Enabled && item.Bounds.Contains(x, y))
+            if (item.IsPressable && item.Enabled && item.Bounds.Contains(x, y))
             {
                 return item;
             }
@@ -672,25 +682,10 @@ public sealed class ViewerChrome : IDisposable
         }
     }
 
-    /// <summary>Opens the main menu under the button that was pressed.</summary>
-    /// <param name="press">The press of the menu button.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void ShowMainMenu(ChromePress press) => ShowMenu(MainMenu.Build(_main), new((int)press.Bounds.X, (int)press.Bounds.Bottom));
-
-    /// <summary>Opens the menu of the extra marking tools and text settings under the button that was pressed.</summary>
-    /// <param name="press">The press of the button.</param>
-    private void ShowMoreMarks(ChromePress press)
-    {
-        if (_main.SelectedTab is { } tab)
-        {
-            ShowMenu(ToolMenus.MoreMarks(tab.Annotations), new((int)press.Bounds.X, (int)press.Bounds.Bottom));
-        }
-    }
-
-    /// <summary>Joins the presses of the controls to the tab shown.</summary>
+    /// <summary>Joins what the controls follow of the tab shown.</summary>
     /// <param name="tab">The tab, or <see langword="null"/> when none is open.</param>
     private void JoinTab(DocumentTabViewModel? tab) =>
-        _tabBindings.Disposable = tab is null ? null : ChromeBindings.Tab(_presses, tab, this);
+        _tabBindings.Disposable = tab is null ? null : ChromeBindings.Tab(Actions, tab, this);
 
     /// <summary>
     /// Joins the events of the window to the controls, one stream for each kind of event. An event the controls use goes no further. One
@@ -735,12 +730,27 @@ public sealed class ViewerChrome : IDisposable
         _retired.Clear();
     }
 
-    /// <summary>Sends a press of a control of the bars to whatever is joined to it.</summary>
-    /// <param name="press">The press.</param>
-    private void Emit(in ChromePress press)
+    /// <summary>Runs the command of a control that was pressed, when it can run now.</summary>
+    /// <param name="item">The control.</param>
+    private void Run(ChromeItem item)
     {
-        _presses.OnNext(press);
+        if (item.Command is { } command && command.CanExecute(item.Parameter))
+        {
+            command.Execute(item.Parameter);
+        }
+
         _window.RequestFrame();
+    }
+
+    /// <summary>
+    /// Presses a control of the open menu or dialog. The dialog hears of the press first, while it is still the one that is open,
+    /// and then the control's command runs, which may close the dialog or open another over it.
+    /// </summary>
+    /// <param name="item">The control.</param>
+    private void PressOverlayItem(ChromeItem item)
+    {
+        SendToOverlay(OverlayInput.Press(item));
+        Run(item);
     }
 
     /// <summary>Sends what the user did to the open overlay, which is then laid out again.</summary>
@@ -807,8 +817,8 @@ public sealed class ViewerChrome : IDisposable
         if (barsChanged)
         {
             _barsChanged = false;
-            _look = _look with { Metrics = ChromeMetrics.For(_window.Scale) };
-            var laid = ChromeBars.Build(_bars, _main, _look, _sidebar, _window.ClientSize, _toolActions);
+            _look = WindowFrame.Follow(_look with { Metrics = ChromeMetrics.For(_window.Scale) }, _window, _fullScreen);
+            var laid = ChromeBars.Build(_bars, _main, _look, _sidebar, _window.ClientSize, Actions);
             _canvasBounds = laid.Canvas;
             _sidebar = laid.Sidebar;
             if (!_focus.InOverlay)
@@ -922,7 +932,7 @@ public sealed class ViewerChrome : IDisposable
 
         if (Find(_overlayItems, x, y) is { } pressed)
         {
-            SendToOverlay(OverlayInput.Press(pressed));
+            PressOverlayItem(pressed);
             return;
         }
 
@@ -944,7 +954,7 @@ public sealed class ViewerChrome : IDisposable
         // A tab let go over another tab takes that tab's place, which is how tabs are put in a new order.
         var dragged = _tabDragFrom;
         _tabDragFrom = -1;
-        if (dragged >= 0 && Find(_bars, x, y) is { Command: ChromeCommand.SelectTab } target && target.Index != dragged)
+        if (dragged >= 0 && Find(_bars, x, y) is { Kind: ChromeItemKind.Tab } target && target.Index != dragged)
         {
             _main.MoveTab(dragged, target.Index);
             return true;
@@ -965,7 +975,7 @@ public sealed class ViewerChrome : IDisposable
     private void DrawTabPreview(IFramePass pass)
     {
         _previewTab = null;
-        if (_hover is not { Command: ChromeCommand.SelectTab } hovered || (uint)hovered.Index >= (uint)_main.Tabs.Count)
+        if (_hover is not { Kind: ChromeItemKind.Tab } hovered || (uint)hovered.Index >= (uint)_main.Tabs.Count)
         {
             return;
         }
@@ -993,7 +1003,7 @@ public sealed class ViewerChrome : IDisposable
     {
         if ((buttons & ViewerButtons.Middle) != 0)
         {
-            Emit(new(ChromeCommand.CloseTab, tabItem.Index, tabItem.Bounds));
+            Run(tabItem with { Command = _main.CloseTabCommand });
             return true;
         }
 
@@ -1016,6 +1026,12 @@ public sealed class ViewerChrome : IDisposable
         _pointer = new(x, y);
         _pointerSeen = true;
         Layout();
+        if (WindowFrame.EdgesAt(_look, _window.ClientSize, x, y) is not WindowEdges.None and var edges)
+        {
+            _window.BeginResize(edges);
+            return true;
+        }
+
         if (_overlay is { } overlay)
         {
             if (IsOverOverlay(x, y))
@@ -1055,10 +1071,17 @@ public sealed class ViewerChrome : IDisposable
     {
         if (Find(_bars, x, y) is not { } item)
         {
+            // The empty part of the bar at the top is the title bar of a window the system gives none: it moves the window, and a second press sizes it.
+            if (_look.OwnsFrame && y < _look.Metrics.TabHeight && (buttons & ViewerButtons.Left) != 0)
+            {
+                _framePresses = _framePresses.Press(x, y, Stopwatch.GetTimestamp());
+                WindowFrame.PressTitle(_window, _framePresses.Count);
+            }
+
             return;
         }
 
-        if (item.Command == ChromeCommand.SelectTab && PressTabWithAnotherButton(buttons, item))
+        if (item.Kind == ChromeItemKind.Tab && PressTabWithAnotherButton(buttons, item))
         {
             return;
         }
@@ -1068,8 +1091,8 @@ public sealed class ViewerChrome : IDisposable
             return;
         }
 
-        _tabDragFrom = item.Command == ChromeCommand.SelectTab ? item.Index : -1;
-        Emit(new(item.Command, item.Index, item.Bounds));
+        _tabDragFrom = item.Kind == ChromeItemKind.Tab ? item.Index : -1;
+        Run(item);
     }
 
     /// <summary>Handles a scroll.</summary>
@@ -1219,12 +1242,12 @@ public sealed class ViewerChrome : IDisposable
     /// <returns><see langword="true"/> when the menu was opened.</returns>
     private bool OpenMenuByKey(ViewerKey key)
     {
-        if (key != ViewerKey.F10 || _bars.Find(static item => item.Command == ChromeCommand.Menu) is not { } menu)
+        if (key != ViewerKey.F10 || !_bars.Exists(item => ReferenceEquals(item.Command, Actions.ShowMenu)))
         {
             return false;
         }
 
-        Emit(new(menu.Command, menu.Index, menu.Bounds));
+        ChromeActions.Run(Actions.ShowMenu);
         return true;
     }
 
@@ -1286,7 +1309,7 @@ public sealed class ViewerChrome : IDisposable
 
             case ViewerKey.Enter or ViewerKey.Space when _focus.Item(_bars) is { } item:
                 {
-                    Emit(new(item.Command, item.Index, item.Bounds));
+                    Run(item);
                     break;
                 }
 
@@ -1423,7 +1446,7 @@ public sealed class ViewerChrome : IDisposable
             return false;
         }
 
-        SendToOverlay(OverlayInput.Press(focused));
+        PressOverlayItem(focused);
         return true;
     }
 

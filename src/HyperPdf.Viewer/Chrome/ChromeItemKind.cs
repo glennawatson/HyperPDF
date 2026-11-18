@@ -42,4 +42,7 @@ public enum ChromeItemKind
 
     /// <summary>A line under a misspelled word of a typing box.</summary>
     Underline = 11,
+
+    /// <summary>An icon or text that is only drawn: the control it sits on is the one read out and pressed.</summary>
+    Picture = 12,
 }

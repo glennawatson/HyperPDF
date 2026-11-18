@@ -30,11 +30,9 @@ internal static class ChromeToolBars
     /// <param name="look">The text measurer and the sizes.</param>
     /// <param name="top">The top of the first bar.</param>
     /// <param name="width">The window width.</param>
-    /// <param name="actions">Receives the command of each button, at the place the button names.</param>
     /// <returns>The height the bars take together.</returns>
-    internal static int Add(List<ChromeItem> items, DocumentTabViewModel tab, ChromeLook look, int top, int width, List<MenuEntry> actions)
+    internal static int Add(List<ChromeItem> items, DocumentTabViewModel tab, ChromeLook look, int top, int width)
     {
-        actions.Clear();
         var bars = new List<ToolBar>();
         AddNotices(bars, tab);
         AddReadingAids(bars, tab);
@@ -42,7 +40,7 @@ internal static class ChromeToolBars
         var height = 0;
         foreach (var bar in bars)
         {
-            height += AddBar(items, bar, look, top + height, width, actions);
+            height += AddBar(items, bar, look, top + height, width);
         }
 
         return height;
@@ -238,13 +236,12 @@ internal static class ChromeToolBars
     /// <param name="look">The text measurer and the sizes.</param>
     /// <param name="top">The top of the bar.</param>
     /// <param name="width">The window width.</param>
-    /// <param name="actions">Receives the command of each button.</param>
     /// <returns>The height the bar takes, which is more than one line when the window is too narrow.</returns>
-    private static int AddBar(List<ChromeItem> items, ToolBar bar, ChromeLook look, int top, int width, List<MenuEntry> actions)
+    private static int AddBar(List<ChromeItem> items, ToolBar bar, ChromeLook look, int top, int width)
     {
         var metrics = look.Metrics;
         var panel = items.Count;
-        items.Add(new(ChromeItemKind.Panel, ChromeCommand.None, 0, string.Empty, default, true, false));
+        items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, default, true, false));
         var tight = metrics with { Padding = metrics.Gap + metrics.Gap };
         var row = new ChromeRow(items, look.Runs, tight, tight.Gap, top + tight.Gap, tight.ToolbarHeight - tight.Gap - tight.Gap) { Limit = width - tight.Gap };
         row = row.Label(ChromeText.Fit(bar.Text, ChromeBars.Style(metrics), Math.Max(metrics.PopupWidth, width >> 1), look.Runs));
@@ -257,8 +254,8 @@ internal static class ChromeToolBars
                 continue;
             }
 
-            row = row.Button(action.Header, ChromeCommand.ToolAction, actions.Count, false);
-            actions.Add(action);
+            // The button runs the action's own command. Its place among the controls tells it from another button of the same command.
+            row = row.Control(new(ChromeItemKind.Button, action.Command, items.Count, action.Header, default, true, false) { Parameter = action.Parameter });
         }
 
         var height = row.Lines * metrics.ToolbarHeight;

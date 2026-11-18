@@ -40,8 +40,8 @@ internal static class ConfirmOverlays
     /// <returns>The state after.</returns>
     private static ConfirmState Reduce(ConfirmState state, OverlayInput input) => state.Answered ? state : input switch
     {
-        { Kind: OverlayInputKind.Press, Item.Command: ChromeCommand.Accept } or { Kind: OverlayInputKind.Key, Key: ViewerKey.Enter } => state with { Answered = true, Agreed = true },
-        { Kind: OverlayInputKind.Press, Item.Command: ChromeCommand.Cancel }
+        { Kind: OverlayInputKind.Press, Item.Action: OverlayAction.Accept } or { Kind: OverlayInputKind.Key, Key: ViewerKey.Enter } => state with { Answered = true, Agreed = true },
+        { Kind: OverlayInputKind.Press, Item.Action: OverlayAction.Cancel }
             or { Kind: OverlayInputKind.Key, Key: ViewerKey.Escape }
             or { Kind: OverlayInputKind.Dismiss } => state with { Answered = true },
         _ => state,
@@ -64,18 +64,18 @@ internal static class ConfirmOverlays
         var height = (metrics.RowHeight * (lines.Count + 1)) + metrics.ToolbarHeight + metrics.Padding + metrics.Padding;
         var left = (size.Width - width) >> 1;
         var top = Math.Max(0, (size.Height - height) >> 1);
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, new(left, top, width, height), true, false));
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(left, top, width, height), true, false));
         var y = top + metrics.Padding;
-        items.Add(new(ChromeItemKind.Heading, ChromeCommand.None, 0, ChromeText.Fit(request.Title, ChromeBars.Style(metrics), inner, runs), new(left, y, width, metrics.RowHeight), true, false));
+        items.Add(new(ChromeItemKind.Heading, null, 0, ChromeText.Fit(request.Title, ChromeBars.Style(metrics), inner, runs), new(left, y, width, metrics.RowHeight), true, false));
         y += metrics.RowHeight;
         for (var i = 0; i < lines.Count; i++)
         {
-            items.Add(new(ChromeItemKind.Label, ChromeCommand.None, i, lines[i], new(left, y, width, metrics.RowHeight), true, false));
+            items.Add(new(ChromeItemKind.Label, null, i, lines[i], new(left, y, width, metrics.RowHeight), true, false));
             y += metrics.RowHeight;
         }
 
         var row = new ChromeRow(items, runs, metrics, left + metrics.Padding, y + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap);
-        row = row.Button(request.ConfirmText, ChromeCommand.Accept, true);
-        row = row.Button(UiText.Get("Cancel"), ChromeCommand.Cancel, true);
+        row = row.Button(request.ConfirmText, OverlayAction.Accept, true);
+        row = row.Button(UiText.Get("Cancel"), OverlayAction.Cancel, true);
     }
 }

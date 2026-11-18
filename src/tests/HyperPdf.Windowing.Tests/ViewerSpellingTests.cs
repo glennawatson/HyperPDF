@@ -111,7 +111,7 @@ public sealed class ViewerSpellingTests
     /// <param name="chrome">The window's controls.</param>
     /// <returns>The rows.</returns>
     private static IEnumerable<ChromeItem> Corrections(ViewerChrome chrome) =>
-        chrome.OverlayItems.Where(static item => item.Kind == ChromeItemKind.Row && item.Command == ChromeCommand.PickRow);
+        chrome.OverlayItems.Where(static item => item.Kind == ChromeItemKind.Row && item.Action == OverlayAction.PickRow);
 
     /// <summary>Finds the text field of the sample form by looking down the page.</summary>
     /// <param name="forms">The form.</param>

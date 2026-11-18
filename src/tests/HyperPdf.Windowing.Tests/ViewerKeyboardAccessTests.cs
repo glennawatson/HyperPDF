@@ -12,6 +12,7 @@ using HyperPdf.ViewModels.Services;
 using HyperPdf.Viewer;
 using HyperPdf.Viewer.Accessibility;
 using HyperPdf.Viewer.Chrome;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Windowing.Windows;
 using ReactiveUI.Primitives;
 
@@ -71,7 +72,7 @@ public sealed class ViewerKeyboardAccessTests
             var moved = PumpUntil(session, () => chrome.FocusedControl != first);
 
             // The next page button is reached by Tab alone and pressed with Enter.
-            var next = IndexOf(chrome.Bars, ChromeCommand.NextPage);
+            var next = IndexOf(chrome.Bars, "Next");
             for (var tries = 0; tries < chrome.Bars.Count && chrome.FocusedControl != next; tries++)
             {
                 Key(window, ViewerKey.Tab, ViewerModifiers.None);
@@ -101,7 +102,7 @@ public sealed class ViewerKeyboardAccessTests
         {
             var chrome = session.Chrome;
             Wake(session);
-            var target = IndexOf(chrome.Bars, ChromeCommand.NextPage);
+            var target = IndexOf(chrome.Bars, "Next");
             var accepted = session.Accessibility.Focus(ViewerNodes.FirstControlId + target);
             var moved = PumpUntil(session, () => chrome.FocusedControl == target && !chrome.FocusIsInOverlay);
             var reported = PumpUntil(session, () => session.Accessibility.FocusedId == ViewerNodes.FirstControlId + target);
@@ -230,19 +231,19 @@ public sealed class ViewerKeyboardAccessTests
                 return default;
             }
 
-            var none = !chrome.Bars.Any(static item => item.Command == ChromeCommand.ToolAction);
+            var none = !chrome.Bars.Any(item => ReferenceEquals(item.Command, tab.Measure.ToggleCommand));
             ((System.Windows.Input.ICommand)tab.Measure.ToggleCommand).Execute(null);
-            var shown = PumpUntil(session, () => chrome.Bars.Any(static item => item.Command == ChromeCommand.ToolAction));
+            var shown = PumpUntil(session, () => chrome.Bars.Any(item => ReferenceEquals(item.Command, tab.Measure.ToggleCommand)));
 
             // The last button of the measuring bar is the one that ends measuring.
             var done = -1;
             for (var i = 0; i < chrome.Bars.Count; i++)
             {
-                done = chrome.Bars[i].Command == ChromeCommand.ToolAction ? i : done;
+                done = ReferenceEquals(chrome.Bars[i].Command, tab.Measure.ToggleCommand) ? i : done;
             }
 
             var pressed = chrome.PressControl(false, done);
-            var ended = PumpUntil(session, () => !tab.Measure.IsOn && !chrome.Bars.Any(static item => item.Command == ChromeCommand.ToolAction));
+            var ended = PumpUntil(session, () => !tab.Measure.IsOn && !chrome.Bars.Any(item => ReferenceEquals(item.Command, tab.Measure.ToggleCommand)));
             return new ToolOutcome(none, shown, pressed, ended);
         });
 
@@ -262,7 +263,7 @@ public sealed class ViewerKeyboardAccessTests
             var chrome = session.Chrome;
             Key(window, ViewerKey.Digit4, ViewerModifiers.Control);
             var opened = PumpUntil(session, () => chrome.HasOverlay && session.Main.SelectedTab is { FocusMode.IsOn: true });
-            var text = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item is { Command: ChromeCommand.PickRow, Text.Length: > 0 }));
+            var text = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item is { Action: OverlayAction.PickRow, Text.Length: > 0 }));
             var larger = chrome.OverlayItems.Any(static item => item.TextSize > 0);
             Key(window, ViewerKey.Escape, ViewerModifiers.None);
             var left = PumpUntil(session, () => !chrome.HasOverlay && session.Main.SelectedTab is { FocusMode.IsOn: false });
@@ -285,11 +286,11 @@ public sealed class ViewerKeyboardAccessTests
             var chrome = session.Chrome;
             var hidden = !chrome.HasOverlay;
             Key(window, ViewerKey.W, ViewerModifiers.Control);
-            var shown = PumpUntil(session, () => session.Main.Tabs.Count == 0 && chrome.OverlayItems.Any(static item => item is { Kind: ChromeItemKind.Button, Command: ChromeCommand.PickRow }));
+            var shown = PumpUntil(session, () => session.Main.Tabs.Count == 0 && chrome.OverlayItems.Any(static item => item is { Kind: ChromeItemKind.Button, Icon: ChromeIcon.Open }));
             Key(window, ViewerKey.F10, ViewerModifiers.None);
-            var menu = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item.Command == ChromeCommand.MenuEntry));
+            var menu = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item.Action == OverlayAction.PickOption));
             Key(window, ViewerKey.Escape, ViewerModifiers.None);
-            var back = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item is { Kind: ChromeItemKind.Button, Command: ChromeCommand.PickRow }));
+            var back = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item is { Kind: ChromeItemKind.Button, Icon: ChromeIcon.Open }));
             return new StartOutcome(hidden, shown, menu, back);
         });
 
@@ -414,13 +415,13 @@ public sealed class ViewerKeyboardAccessTests
 
     /// <summary>Finds the first control that does one thing.</summary>
     /// <param name="items">The controls.</param>
-    /// <param name="command">What the control does.</param>
+    /// <param name="text">The control's name.</param>
     /// <returns>Its place in the list, or -1.</returns>
-    private static int IndexOf(IReadOnlyList<ChromeItem> items, ChromeCommand command)
+    private static int IndexOf(IReadOnlyList<ChromeItem> items, string text)
     {
         for (var i = 0; i < items.Count; i++)
         {
-            if (items[i].Command == command)
+            if (items[i].Text == text)
             {
                 return i;
             }

@@ -2,21 +2,27 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using ReactiveUI;
 
 namespace HyperPdf.ViewModels.Output;
 
 /// <summary>One format choice in the "Save a Copy" window, with its plain-English explanation.</summary>
-/// <param name="Format">The format to write.</param>
-/// <param name="NameKey">The short name shown on the choice.</param>
-/// <param name="DescriptionKey">What this format does and when to choose it.</param>
+/// <param name="format">The format to write.</param>
+/// <param name="nameKey">The short name shown on the choice.</param>
+/// <param name="descriptionKey">What this format does and when to choose it.</param>
 [DebuggerDisplay("{Name} ({Format})")]
-public sealed record SaveCopyFormatChoice(SaveCopyFormat Format, string NameKey, string DescriptionKey) : INotifyPropertyChanged, ILocalisationChildren
+public sealed class SaveCopyFormatChoice(SaveCopyFormat format, string nameKey, string descriptionKey) : ReactiveObject, IEquatable<SaveCopyFormatChoice>, ILocalisationChildren
 {
-    /// <inheritdoc/>
-    public event PropertyChangedEventHandler? PropertyChanged;
+    /// <summary>Gets the format to write.</summary>
+    public SaveCopyFormat Format { get; } = format;
+
+    /// <summary>Gets the short name shown on the choice.</summary>
+    public string NameKey { get; } = nameKey;
+
+    /// <summary>Gets what this format does and when to choose it.</summary>
+    public string DescriptionKey { get; } = descriptionKey;
 
     /// <summary>Gets the localized name.</summary>
     public string Name => UiText.Get(NameKey);
@@ -30,12 +36,16 @@ public sealed record SaveCopyFormatChoice(SaveCopyFormat Format, string NameKey,
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override bool Equals(object? obj) => Equals(obj as SaveCopyFormatChoice);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override int GetHashCode() => HashCode.Combine(Format, NameKey, DescriptionKey);
 
     /// <inheritdoc/>
     void ILocalisationChildren.Refresh(HashSet<object> visited)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Description)));
+        this.RaisePropertyChanged(nameof(Name));
+        this.RaisePropertyChanged(nameof(Description));
     }
 }

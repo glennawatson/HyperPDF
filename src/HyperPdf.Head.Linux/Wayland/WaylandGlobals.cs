@@ -34,6 +34,9 @@ internal sealed class WaylandGlobals
     /// <summary>Gets the global that shows a surface at another size than its buffer, empty when the compositor has none.</summary>
     internal WaylandGlobal Viewporter { get; private set; }
 
+    /// <summary>Gets the global that lets the compositor draw the window's title bar and frame, empty when the compositor has none.</summary>
+    internal WaylandGlobal Decoration { get; private set; }
+
     /// <summary>Keeps a global when it is one the head uses.</summary>
     /// <param name="interfaceName">The interface name.</param>
     /// <param name="global">The advertised global.</param>
@@ -86,6 +89,12 @@ internal sealed class WaylandGlobals
             case WaylandProtocol.ViewporterInterface:
                 {
                     Viewporter = global;
+                    break;
+                }
+
+            case WaylandProtocol.DecorationManagerInterface:
+                {
+                    Decoration = global;
                     break;
                 }
 

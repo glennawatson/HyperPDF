@@ -159,6 +159,21 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable, ILoca
         }
     }
 
+    /// <summary>Turns matching of capital and small letters on or off.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void ToggleMatchCase() => MatchCase = !MatchCase;
+
+    /// <summary>Turns matching of whole words only on or off.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void ToggleWholeWord() => WholeWord = !WholeWord;
+
+    /// <summary>Turns ignoring of accents on or off.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void ToggleIgnoreDiacritics() => IgnoreDiacritics = !IgnoreDiacritics;
+
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose()

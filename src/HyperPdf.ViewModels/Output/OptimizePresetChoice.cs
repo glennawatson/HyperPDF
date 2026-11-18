@@ -2,22 +2,28 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Optimizing;
+using ReactiveUI;
 
 namespace HyperPdf.ViewModels.Output;
 
 /// <summary>A size choice offered in the optimised copy dialog.</summary>
-/// <param name="Preset">The preset.</param>
-/// <param name="NameKey">The short name.</param>
-/// <param name="DescriptionKey">What the choice does, in plain words.</param>
+/// <param name="preset">The preset.</param>
+/// <param name="nameKey">The short name.</param>
+/// <param name="descriptionKey">What the choice does, in plain words.</param>
 [DebuggerDisplay("OptimizePresetChoice: {Name}")]
-public sealed record OptimizePresetChoice(OptimizePreset Preset, string NameKey, string DescriptionKey) : INotifyPropertyChanged, ILocalisationChildren
+public sealed class OptimizePresetChoice(OptimizePreset preset, string nameKey, string descriptionKey) : ReactiveObject, IEquatable<OptimizePresetChoice>, ILocalisationChildren
 {
-    /// <inheritdoc/>
-    public event PropertyChangedEventHandler? PropertyChanged;
+    /// <summary>Gets the preset.</summary>
+    public OptimizePreset Preset { get; } = preset;
+
+    /// <summary>Gets the short name.</summary>
+    public string NameKey { get; } = nameKey;
+
+    /// <summary>Gets what the choice does, in plain words.</summary>
+    public string DescriptionKey { get; } = descriptionKey;
 
     /// <summary>Gets the localized name.</summary>
     public string Name => UiText.Get(NameKey);
@@ -31,12 +37,16 @@ public sealed record OptimizePresetChoice(OptimizePreset Preset, string NameKey,
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override bool Equals(object? obj) => Equals(obj as OptimizePresetChoice);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override int GetHashCode() => HashCode.Combine(Preset, NameKey, DescriptionKey);
 
     /// <inheritdoc/>
     void ILocalisationChildren.Refresh(HashSet<object> visited)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Description)));
+        this.RaisePropertyChanged(nameof(Name));
+        this.RaisePropertyChanged(nameof(Description));
     }
 }

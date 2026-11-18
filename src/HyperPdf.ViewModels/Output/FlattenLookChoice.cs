@@ -2,22 +2,28 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Flattening;
+using ReactiveUI;
 
 namespace HyperPdf.ViewModels.Output;
 
 /// <summary>Which look to keep, as offered in the flattened copy window.</summary>
-/// <param name="Look">The look.</param>
-/// <param name="NameKey">The short name.</param>
-/// <param name="DescriptionKey">What the choice means, in plain words.</param>
+/// <param name="look">The look.</param>
+/// <param name="nameKey">The short name.</param>
+/// <param name="descriptionKey">What the choice means, in plain words.</param>
 [DebuggerDisplay("FlattenLookChoice: {Name}")]
-public sealed record FlattenLookChoice(FlattenCopyLook Look, string NameKey, string DescriptionKey) : INotifyPropertyChanged, ILocalisationChildren
+public sealed class FlattenLookChoice(FlattenCopyLook look, string nameKey, string descriptionKey) : ReactiveObject, IEquatable<FlattenLookChoice>, ILocalisationChildren
 {
-    /// <inheritdoc/>
-    public event PropertyChangedEventHandler? PropertyChanged;
+    /// <summary>Gets the look.</summary>
+    public FlattenCopyLook Look { get; } = look;
+
+    /// <summary>Gets the short name.</summary>
+    public string NameKey { get; } = nameKey;
+
+    /// <summary>Gets what the choice means, in plain words.</summary>
+    public string DescriptionKey { get; } = descriptionKey;
 
     /// <summary>Gets the localized name.</summary>
     public string Name => UiText.Get(NameKey);
@@ -31,12 +37,16 @@ public sealed record FlattenLookChoice(FlattenCopyLook Look, string NameKey, str
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override bool Equals(object? obj) => Equals(obj as FlattenLookChoice);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override int GetHashCode() => HashCode.Combine(Look, NameKey, DescriptionKey);
 
     /// <inheritdoc/>
     void ILocalisationChildren.Refresh(HashSet<object> visited)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Description)));
+        this.RaisePropertyChanged(nameof(Name));
+        this.RaisePropertyChanged(nameof(Description));
     }
 }

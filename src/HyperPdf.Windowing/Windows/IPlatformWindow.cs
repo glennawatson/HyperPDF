@@ -45,6 +45,12 @@ public interface IPlatformWindow : IDisposable
     /// <summary>Gets a value indicating whether the window is maximised: made as big as the screen allows while keeping its frame.</summary>
     bool IsMaximized => false;
 
+    /// <summary>
+    /// Gets a value indicating whether the system draws the window's title bar and frame. Where it does not, as on a Wayland
+    /// compositor that leaves them to the application, the viewer draws its own buttons and moves and sizes the window itself.
+    /// </summary>
+    bool HasSystemFrame => true;
+
     /// <summary>Sets the window title.</summary>
     /// <param name="title">The title.</param>
     void SetTitle(string title);
@@ -78,6 +84,31 @@ public interface IPlatformWindow : IDisposable
     void SetMaximized(bool on)
     {
         // A window the system sizes keeps the size it was given.
+    }
+
+    /// <summary>Starts moving the window with the pointer, from the press that is being handled. Only a window without a system frame needs it.</summary>
+    void BeginMove()
+    {
+        // A window with a system frame is moved by its title bar.
+    }
+
+    /// <summary>Starts sizing the window with the pointer, from the press that is being handled. Only a window without a system frame needs it.</summary>
+    /// <param name="edges">The edges the pointer drags.</param>
+    void BeginResize(WindowEdges edges)
+    {
+        // A window with a system frame is sized by its border.
+    }
+
+    /// <summary>Puts the window away to the task bar or dock.</summary>
+    void Minimize()
+    {
+        // A window with a system frame is minimised by its title bar.
+    }
+
+    /// <summary>Asks to close the window as the system's own close button does, so unsaved work is asked about first.</summary>
+    void AskToClose()
+    {
+        // A window with a system frame is closed by its title bar.
     }
 
     /// <summary>Sets the pointer shape over the canvas.</summary>

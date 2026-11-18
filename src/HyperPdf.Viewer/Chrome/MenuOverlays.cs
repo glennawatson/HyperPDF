@@ -63,7 +63,7 @@ internal static class MenuOverlays
     /// <returns>The state after.</returns>
     private static MenuState Reduce(MenuState state, OverlayInput input) => state.Done ? state : input switch
     {
-        { Kind: OverlayInputKind.Press, Item: { Command: ChromeCommand.MenuEntry } item } => Press(state, item.Index),
+        { Kind: OverlayInputKind.Press, Item: { Action: OverlayAction.PickOption } item } => Press(state, item.Index),
         { Kind: OverlayInputKind.Key } => PressKey(state, input.Key),
         { Kind: OverlayInputKind.Scroll } => MoveCursor(state, Math.Sign(input.Value)),
         { Kind: OverlayInputKind.Dismiss } => state with { Done = true },
@@ -185,11 +185,11 @@ internal static class MenuOverlays
 
         var left = Math.Max(0, Math.Min(anchor.X, size.Width - width));
         var top = Math.Max(0, Math.Min(anchor.Y, size.Height - height));
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, new(left, top, width, height), true, false));
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(left, top, width, height), true, false));
         var y = top;
         if (state.Parents.Length > 0)
         {
-            items.Add(new(ChromeItemKind.Row, ChromeCommand.MenuEntry, BackIndex, UiText.Get("‹ Back"), new(left, y, width, metrics.RowHeight), true, state.Cursor == BackIndex));
+            items.Add(new(ChromeItemKind.Row, OverlayAction.PickOption, BackIndex, UiText.Get("‹ Back"), new(left, y, width, metrics.RowHeight), true, state.Cursor == BackIndex));
             y += metrics.RowHeight;
         }
 
@@ -276,18 +276,18 @@ internal static class MenuOverlays
         var entry = state.Shown[index];
         if (entry.Kind == MenuEntryKind.Separator)
         {
-            items.Add(new(ChromeItemKind.Separator, ChromeCommand.None, index, string.Empty, bounds, true, false));
+            items.Add(new(ChromeItemKind.Separator, null, index, string.Empty, bounds, true, false));
             return;
         }
 
         var pressable = entry.IsEnabled && (entry.Command is not null || entry.Kind == MenuEntryKind.Submenu);
-        items.Add(new(ChromeItemKind.Row, pressable ? ChromeCommand.MenuEntry : ChromeCommand.None, index, Header(entry), bounds, entry.IsEnabled, index == state.Cursor) { Trait = TraitOf(entry) });
+        items.Add(new(ChromeItemKind.Row, pressable ? OverlayAction.PickOption : OverlayAction.None, index, Header(entry), bounds, entry.IsEnabled, index == state.Cursor) { Trait = TraitOf(entry) });
         if (entry.Gesture is not { } keys)
         {
             return;
         }
 
         var keysWidth = runs.Measure(keys, ChromeBars.Style(metrics)) + metrics.Padding + metrics.Padding;
-        items.Add(new(ChromeItemKind.Label, ChromeCommand.None, index, keys, new(bounds.Right - keysWidth, bounds.Y, keysWidth, bounds.Height), false, false));
+        items.Add(new(ChromeItemKind.Label, null, index, keys, new(bounds.Right - keysWidth, bounds.Y, keysWidth, bounds.Height), false, false));
     }
 }

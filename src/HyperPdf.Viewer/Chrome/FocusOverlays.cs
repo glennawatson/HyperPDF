@@ -86,7 +86,7 @@ internal static class FocusOverlays
                 loads,
                 state,
                 input.SelectPressedItems()
-                    .Where(item => item.Command == ChromeCommand.PickRow && (uint)item.Index < (uint)state.Value.Blocks.Length)
+                    .Where(item => item.Action == OverlayAction.PickRow && (uint)item.Index < (uint)state.Value.Blocks.Length)
                     .Select(item => state.Value.Blocks[item.Index])
                     .InvokeCommand(focus.ReadFromHereCommand),
                 keys.Where(static key => key.Key == ViewerKey.Escape).AsSignal().InvokeCommand(focus.ToggleCommand),
@@ -148,7 +148,7 @@ internal static class FocusOverlays
     {
         var area = place.Area;
         var layout = LayoutOf(focus, place);
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, area, true, false) { Ground = layout.Tone.Ground });
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, area, true, false) { Ground = layout.Tone.Ground });
         if (layout.Width <= 0 || layout.RowHeight <= 0)
         {
             return;
@@ -204,7 +204,7 @@ internal static class FocusOverlays
             if (line.Text.Length > 0)
             {
                 AddWordMark(items, line, block, focus, layout, place, y);
-                var command = line.Starts ? ChromeCommand.PickRow : ChromeCommand.None;
+                var command = line.Starts ? OverlayAction.PickRow : OverlayAction.None;
                 var bounds = new LayoutRect(layout.Left, y, layout.Width, layout.RowHeight);
                 items.Add(
                     new(line.Kind, command, line.Block, line.Text, bounds, true, block is { Spoken.IsEmpty: false })
@@ -250,7 +250,7 @@ internal static class FocusOverlays
         var before = place.Runs.Measure(line.Text.AsSpan(0, from), style);
         var through = place.Runs.Measure(line.Text.AsSpan(0, to), style);
         var x = layout.Left + place.Metrics.Padding + before;
-        items.Add(new(ChromeItemKind.Panel, ChromeCommand.None, 0, string.Empty, new(x, y, through - before, layout.RowHeight), true, false) { Ground = WordMarkColor });
+        items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, new(x, y, through - before, layout.RowHeight), true, false) { Ground = WordMarkColor });
     }
 
     /// <summary>Wraps the text into lines again when the width, the text size or the text of a page changed since the last time.</summary>

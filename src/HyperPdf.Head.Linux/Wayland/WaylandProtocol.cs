@@ -133,6 +133,30 @@ internal static class WaylandProtocol
     /// <summary>The interface name of the global that lets a surface be shown at another size than its buffer.</summary>
     internal const string ViewporterInterface = "wp_viewporter";
 
+    /// <summary>The interface name of the global that lets the compositor draw a window's title bar and frame.</summary>
+    internal const string DecorationManagerInterface = "zxdg_decoration_manager_v1";
+
+    /// <summary>The zxdg_decoration_manager_v1.get_toplevel_decoration request.</summary>
+    internal const int DecorationManagerGetToplevelDecoration = 1;
+
+    /// <summary>The zxdg_toplevel_decoration_v1.set_mode request.</summary>
+    internal const int ToplevelDecorationSetMode = 1;
+
+    /// <summary>The xdg_toplevel.move request.</summary>
+    internal const int ToplevelMove = 5;
+
+    /// <summary>The xdg_toplevel.resize request.</summary>
+    internal const int ToplevelResize = 6;
+
+    /// <summary>The xdg_toplevel.set_minimized request.</summary>
+    internal const int ToplevelSetMinimized = 13;
+
+    /// <summary>The zxdg_toplevel_decoration_v1.configure event, which says who draws the title bar and frame.</summary>
+    internal const int ToplevelDecorationConfigure = 0;
+
+    /// <summary>The zxdg_toplevel_decoration_v1 mode in which the compositor draws the title bar and frame.</summary>
+    internal const uint DecorationModeServerSide = 2;
+
     /// <summary>The wp_fractional_scale_manager_v1.get_fractional_scale request.</summary>
     internal const int FractionalScaleManagerGetScale = 1;
 

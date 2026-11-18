@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Viewer.Chrome.Forms;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 
 namespace HyperPdf.Viewer.Chrome;
@@ -16,4 +17,20 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="Thumbnail">Gets the picture of the page a row of the pages panel shows, or <see langword="null"/> while it is being made.</param>
 /// <param name="Ink">Gets what is drawn on the drawing pad of the open dialog, or <see langword="null"/> when it has no pad.</param>
 [DebuggerDisplay("ChromeLook: text {Metrics.TextSize} px")]
-internal sealed record ChromeLook(TextRuns Runs, ChromeTheme Theme, ChromeMetrics Metrics, Func<int, IRenderSurface?> Thumbnail, Func<PadInk?> Ink);
+internal sealed record ChromeLook(TextRuns Runs, ChromeTheme Theme, ChromeMetrics Metrics, Func<int, IRenderSurface?> Thumbnail, Func<PadInk?> Ink)
+{
+    /// <summary>Gets the drawn icons, or <see langword="null"/> to draw none.</summary>
+    internal IconRuns? Icons { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the window has no title bar of the system's, so the tab strip carries the buttons that put it
+    /// away, make it as big as the screen and close it.
+    /// </summary>
+    internal bool OwnsFrame { get; init; }
+
+    /// <summary>Gets a value indicating whether the window is as big as the screen allows, which the button that changes it shows.</summary>
+    internal bool IsMaximized { get; init; }
+
+    /// <summary>Gets a value indicating whether tool bar buttons show their names beside their icons.</summary>
+    internal bool ShowLabels { get; init; } = true;
+}

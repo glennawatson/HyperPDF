@@ -17,6 +17,12 @@
     <ProjectReference Include="..\HyperPdf.Platform.Windows\HyperPdf.Platform.Windows.csproj" />
   </ItemGroup>
 
+  <!-- Each SVG file is one icon. The generator makes the ChromeIcon enum and the table the viewer draws from, on every build. -->
+  <ItemGroup Label="Icons">
+    <ProjectReference Include="..\HyperPdf.Viewer.Generator\HyperPdf.Viewer.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <AdditionalFiles Include="Icons\Svg\*.svg" />
+  </ItemGroup>
+
   <ItemGroup Label="Reactive namespaces">
     <Using Include="ReactiveUI" />
     <Using Include="ReactiveUI.Primitives" />
