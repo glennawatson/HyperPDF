@@ -9,6 +9,7 @@ using HyperPdf.Core.Layout;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Viewing;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 using HyperPdf.Windowing.Rendering;
 
@@ -28,12 +29,6 @@ internal static class ChromeBars
 
     /// <summary>The edges of a bar's contents: one on each side.</summary>
     private const int ReadBarEdges = 2;
-
-    /// <summary>The text of the button that closes a tab.</summary>
-    private const string CloseText = "×";
-
-    /// <summary>The text of the button that opens a file in a new tab.</summary>
-    private const string NewTabText = "+";
 
     /// <summary>One hundred, to show a zoom as a percentage.</summary>
     private const double Percent = 100;
@@ -112,7 +107,7 @@ internal static class ChromeBars
         }
 
         AddTabs(items, main, runs, metrics, size.Width);
-        var top = metrics.TabHeight + AddToolbar(items, main, runs, metrics, size.Width);
+        var top = metrics.TabHeight + AddToolbar(items, main, runs, metrics, size.Width, look.ShowLabels);
         if (main.SelectedTab is { IsLoaded: true, Annotations.IsAnnotating: true } marking)
         {
             top += ChromeMarkBar.Add(items, marking.Annotations, look, top, size.Width);
@@ -277,10 +272,11 @@ internal static class ChromeBars
             var selected = ReferenceEquals(tab, main.SelectedTab);
             items.Add(new(ChromeItemKind.Tab, ChromeCommand.SelectTab, i, ChromeText.Fit(name, style, textRoom, runs), new(x, 0, tabWidth, metrics.TabHeight), true, selected));
             var close = new LayoutRect(x + tabWidth - closeWidth - metrics.Gap, metrics.Gap, closeWidth, closeWidth);
-            items.Add(new(ChromeItemKind.Button, ChromeCommand.CloseTab, i, CloseText, close, true, false));
+            items.Add(new(ChromeItemKind.Button, ChromeCommand.CloseTab, i, UiText.Get("Close tab"), close, true, false) { Icon = ChromeIcon.Close, HidesText = true });
         }
 
-        items.Add(new(ChromeItemKind.Button, ChromeCommand.Open, 0, NewTabText, new(Math.Min(x, room), 0, newTabWidth, metrics.TabHeight), true, false));
+        var open = new LayoutRect(Math.Min(x, room), 0, newTabWidth, metrics.TabHeight);
+        items.Add(new(ChromeItemKind.Button, ChromeCommand.Open, 0, UiText.Get("Open"), open, true, false) { Icon = ChromeIcon.Add, HidesText = true });
     }
 
     /// <summary>Adds the toolbar.</summary>
@@ -289,34 +285,58 @@ internal static class ChromeBars
     /// <param name="runs">The text measurer.</param>
     /// <param name="metrics">The sizes.</param>
     /// <param name="width">The window width.</param>
+    /// <param name="showLabels">Whether the buttons show their names beside their icons.</param>
     /// <returns>The height the toolbar takes, which is more than one line when the window is too narrow for every button.</returns>
-    private static int AddToolbar(List<ChromeItem> items, MainViewModel main, TextRuns runs, in ChromeMetrics metrics, int width)
+    private static int AddToolbar(List<ChromeItem> items, MainViewModel main, TextRuns runs, in ChromeMetrics metrics, int width, bool showLabels)
     {
         var panel = items.Count;
         items.Add(new(ChromeItemKind.Panel, ChromeCommand.None, 0, string.Empty, default, true, false));
-        var row = new ChromeRow(items, runs, metrics, metrics.Gap, metrics.TabHeight + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap) { Limit = width - metrics.Gap };
+        var row = new ChromeRow(items, runs, metrics, metrics.Gap, metrics.TabHeight + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap)
+        {
+            Limit = width - metrics.Gap,
+            ShowLabels = showLabels,
+        };
         var tab = main.SelectedTab;
         var loaded = tab is { IsLoaded: true };
-        row = row.Button(UiText.Get("Menu"), ChromeCommand.Menu, true);
-        row = row.Button(UiText.Get("Open"), ChromeCommand.Open, true);
-        row = row.Button(UiText.Get("Save"), ChromeCommand.Save, tab is { HasUnsavedChanges: true });
-        row = row.Space();
-        row = row.Button(UiText.Get("Previous"), ChromeCommand.PreviousPage, loaded && tab!.CurrentPageIndex > 0);
+        row = row.Button(ChromeIcon.Menu, UiText.Get("Menu"), ChromeCommand.Menu, true);
+        row = row.Button(ChromeIcon.Open, UiText.Get("Open"), ChromeCommand.Open, true);
+        row = row.Button(ChromeIcon.Save, UiText.Get("Save"), ChromeCommand.Save, tab is { HasUnsavedChanges: true });
+        row = row.Button(ChromeIcon.Print, UiText.Get("Print"), ChromeCommand.Print, loaded);
+        row = row.Divider();
+        row = AddTools(row, tab, loaded);
+        row = row.Divider();
+        row = row.Button(ChromeIcon.Back, UiText.Get("Back"), ChromeCommand.Back, loaded && tab!.CanGoBack);
+        row = row.Button(ChromeIcon.Forward, UiText.Get("Forward"), ChromeCommand.Forward, loaded && tab!.CanGoForward);
+        row = row.Divider();
+        row = row.IconButton(ChromeIcon.PageUp, UiText.Get("Previous"), ChromeCommand.PreviousPage, loaded && tab!.CurrentPageIndex > 0);
+        row = row.IconButton(ChromeIcon.PageDown, UiText.Get("Next"), ChromeCommand.NextPage, loaded && tab!.CurrentPageIndex < tab.PageCount - 1);
         row = row.Button(PageText(tab), ChromeCommand.GoToPage, loaded);
-        row = row.Button(UiText.Get("Next"), ChromeCommand.NextPage, loaded && tab!.CurrentPageIndex < tab.PageCount - 1);
-        row = row.Space();
-        row = row.Button(UiText.Get("Zoom out"), ChromeCommand.ZoomOut, loaded);
+        row = row.Divider();
+        row = row.IconButton(ChromeIcon.ZoomOut, UiText.Get("Zoom out"), ChromeCommand.ZoomOut, loaded);
         row = row.Label(ZoomText(tab));
-        row = row.Button(UiText.Get("Zoom in"), ChromeCommand.ZoomIn, loaded);
-        row = row.Button(UiText.Get("Fit width"), ChromeCommand.FitWidth, loaded);
-        row = row.Button(UiText.Get("Fit page"), ChromeCommand.FitPage, loaded);
-        row = row.Space();
-        row = row.Button(UiText.Get("Find"), ChromeCommand.Find, loaded);
-        row = row.Button(UiText.Get("Side panel"), ChromeCommand.Sidebar, loaded);
-        row = row.Button(UiText.Get("Annotate"), ChromeCommand.Annotate, loaded && tab!.Annotations.CanAnnotate);
+        row = row.IconButton(ChromeIcon.ZoomIn, UiText.Get("Zoom in"), ChromeCommand.ZoomIn, loaded);
+        row = row.IconButton(ChromeIcon.FitWidth, UiText.Get("Fit width"), ChromeCommand.FitWidth, loaded);
+        row = row.IconButton(ChromeIcon.FitPage, UiText.Get("Fit page"), ChromeCommand.FitPage, loaded);
         var height = row.Lines * metrics.ToolbarHeight;
         items[panel] = items[panel] with { Bounds = new(0, metrics.TabHeight, width, height) };
         return height;
+    }
+
+    /// <summary>Adds the buttons of the tools that change the document or how it is read: marking, filling and signing, editing, finding, focus mode, read aloud and the side panel.</summary>
+    /// <param name="row">The toolbar so far.</param>
+    /// <param name="tab">The tab shown, or <see langword="null"/>.</param>
+    /// <param name="loaded">Whether the tab's document is open.</param>
+    /// <returns>The toolbar with the buttons in it.</returns>
+    private static ChromeRow AddTools(ChromeRow row, DocumentTabViewModel? tab, bool loaded)
+    {
+        row = row.Button(ChromeIcon.Highlight, UiText.Get("Annotate"), ChromeCommand.Annotate, loaded && tab!.Annotations.CanAnnotate);
+        row = row.Button(ChromeIcon.FillSign, UiText.Get("Fill & Sign"), ChromeCommand.FillSign, loaded);
+        row = row.Button(ChromeIcon.Cursor, UiText.Get("Edit"), ChromeCommand.EditContent, loaded);
+        row = row.Divider();
+        row = row.Button(ChromeIcon.Search, UiText.Get("Find"), ChromeCommand.Find, loaded);
+        row = row.Button(ChromeIcon.Focus, UiText.Get("Focus"), ChromeCommand.FocusMode, loaded);
+        row = row.Button(ChromeIcon.Speaker, UiText.Get("Read Aloud"), ChromeCommand.ReadAloud, loaded);
+        return row.Button(ChromeIcon.Sidebar, UiText.Get("Side panel"), ChromeCommand.Sidebar, loaded);
     }
 
     /// <summary>Says which page is shown.</summary>

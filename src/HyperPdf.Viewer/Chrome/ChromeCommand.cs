@@ -144,4 +144,25 @@ public enum ChromeCommand
 
     /// <summary>Leaves reading mode and brings the bars back.</summary>
     LeaveReadMode = 45,
+
+    /// <summary>Open the print window.</summary>
+    Print = 46,
+
+    /// <summary>Go back to the place shown before a jump.</summary>
+    Back = 47,
+
+    /// <summary>Go forward again after going back.</summary>
+    Forward = 48,
+
+    /// <summary>Turn filling and signing on or off.</summary>
+    FillSign = 49,
+
+    /// <summary>Turn editing of the page's own content on or off.</summary>
+    EditContent = 50,
+
+    /// <summary>Turn focus mode on or off.</summary>
+    FocusMode = 51,
+
+    /// <summary>Open or close read aloud.</summary>
+    ReadAloud = 52,
 }

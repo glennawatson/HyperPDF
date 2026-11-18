@@ -182,7 +182,7 @@ internal static class ViewerNodes
     /// <summary>Tells whether a control is published to assistive technology. Backgrounds and lines are not.</summary>
     /// <param name="kind">How the control is drawn.</param>
     /// <returns><see langword="true"/> for a control with text to read or something to press.</returns>
-    internal static bool IsPublished(ChromeItemKind kind) => kind is not (ChromeItemKind.Panel or ChromeItemKind.Popup or ChromeItemKind.Separator);
+    internal static bool IsPublished(ChromeItemKind kind) => kind is not (ChromeItemKind.Panel or ChromeItemKind.Popup or ChromeItemKind.Separator or ChromeItemKind.Picture);
 
     /// <summary>Finds the states a control's trait adds: ticked for a switch that is on or a ticked entry, and whether a list is open.</summary>
     /// <param name="item">The control.</param>

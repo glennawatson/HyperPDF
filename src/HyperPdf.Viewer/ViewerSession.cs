@@ -97,6 +97,7 @@ public sealed class ViewerSession : IDisposable
 
         // The controls sit over the pages, so they take the events first and pass on what they did not use.
         Chrome = new(window, Main, ChromeTheme.From(services.CurrentTheme.Scheme), window.Events.Where(static e => e.Kind != WindowEventKind.CloseRequested));
+        Chrome.ShowLabels = services.CurrentTheme.ShowLabels;
         Canvas = new(window) { Colors = ViewerColors.From(services.CurrentTheme.Scheme), Chrome = Chrome };
         Accessibility = new(window);
         window.Accessibility.Attach(Accessibility);
@@ -614,6 +615,7 @@ public sealed class ViewerSession : IDisposable
         }
 
         Chrome.Theme = ChromeTheme.From(theme.Scheme);
+        Chrome.ShowLabels = theme.ShowLabels;
         _window.RequestFrame();
     }
 

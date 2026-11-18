@@ -68,6 +68,15 @@ public readonly record struct ChromeMetrics(
     /// <summary>The dialog width at a scale of one.</summary>
     private const double DialogUnits = 560;
 
+    /// <summary>The parts of the text size an icon is as tall as: ten sevenths, so text of 14 has icons of 20.</summary>
+    private const int IconParts = 10;
+
+    /// <summary>The parts the text size is divided into for the size of an icon.</summary>
+    private const int TextParts = 7;
+
+    /// <summary>Gets the side of an icon beside text, in device pixels.</summary>
+    public int IconSize => TextSize * IconParts / TextParts;
+
     /// <summary>Makes the sizes for a display scale.</summary>
     /// <param name="scale">The device pixels of one unit.</param>
     /// <returns>The sizes.</returns>

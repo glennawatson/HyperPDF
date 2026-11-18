@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using HyperPdf.Core.Layout;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome;
 
@@ -32,6 +33,15 @@ public sealed record ChromeItem(ChromeItemKind Kind, ChromeCommand Command, int 
 
     /// <summary>Gets a value indicating whether the text is drawn faint, as text away from what is being read is.</summary>
     public bool Dimmed { get; init; }
+
+    /// <summary>Gets the icon drawn before the text, or in place of it when <see cref="HidesText"/> is set.</summary>
+    public ChromeIcon Icon { get; init; }
+
+    /// <summary>Gets the side of the icon in device pixels, or 0 for the size of the window's own icons.</summary>
+    public int IconSize { get; init; }
+
+    /// <summary>Gets a value indicating whether only the icon is drawn. The text is still the name a screen reader says.</summary>
+    public bool HidesText { get; init; }
 
     /// <summary>Gets a value indicating whether the text is set in the serif font.</summary>
     public bool Serif { get; init; }

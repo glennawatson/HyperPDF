@@ -16,6 +16,7 @@ using HyperPdf.ViewModels.Services;
 using HyperPdf.ViewModels.Sidebar;
 using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer.Chrome.Forms;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 using HyperPdf.Windowing.Rendering;
 using HyperPdf.Windowing.Windows;
@@ -43,6 +44,9 @@ public sealed class ViewerChrome : IDisposable
 
     /// <summary>The drawn text.</summary>
     private readonly TextRuns _runs;
+
+    /// <summary>The drawn icons of the controls.</summary>
+    private readonly IconRuns _icons;
 
     /// <summary>The controls of the bars, back to front.</summary>
     private readonly List<ChromeItem> _bars = [];
@@ -156,7 +160,8 @@ public sealed class ViewerChrome : IDisposable
         _window = window;
         _main = main;
         _runs = new(window.Backend.Surfaces);
-        _look = new(_runs, theme, ChromeMetrics.For(window.Scale), ThumbnailOf, InkOf);
+        _icons = new(window.Backend.Surfaces);
+        _look = new(_runs, theme, ChromeMetrics.For(window.Scale), ThumbnailOf, InkOf) { Icons = _icons };
 
         // The view models say when something the controls show has changed, on whichever thread changed it. The layout runs on the
         // window's thread, so the signal is brought there first.
@@ -191,6 +196,22 @@ public sealed class ViewerChrome : IDisposable
         {
             _look = _look with { Theme = value };
             _window.RequestFrame();
+        }
+    }
+
+    /// <summary>Gets or sets a value indicating whether tool bar buttons show their names beside their icons.</summary>
+    public bool ShowLabels
+    {
+        get => _look.ShowLabels;
+        set
+        {
+            if (_look.ShowLabels == value)
+            {
+                return;
+            }
+
+            _look = _look with { ShowLabels = value };
+            InvalidateBars();
         }
     }
 
@@ -490,6 +511,7 @@ public sealed class ViewerChrome : IDisposable
         SheetFrames.Release(_sheetFrame);
         MediaFrames.Release(_mediaFrame);
         _runs.Dispose();
+        _icons.Dispose();
     }
 
     /// <summary>Shows a window made of rows when subscribed to.</summary>

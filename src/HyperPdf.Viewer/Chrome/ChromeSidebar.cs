@@ -5,6 +5,7 @@
 using HyperPdf.Core.Layout;
 using HyperPdf.ViewModels.Sidebar;
 using HyperPdf.ViewModels.Viewing;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome;
 
@@ -69,14 +70,36 @@ internal static class ChromeSidebar
         // The five names share the panel's width, so they stand closer together than toolbar buttons.
         var tight = look.Metrics with { Padding = look.Metrics.Gap + look.Metrics.Gap };
         var height = tight.ToolbarHeight - tight.Gap - tight.Gap;
-        var row = new ChromeRow(items, look.Runs, tight, (int)area.X + tight.Gap, (int)area.Y + tight.Gap, height) { Limit = (int)area.Right - tight.Gap };
+        var row = new ChromeRow(items, look.Runs, tight, (int)area.X + tight.Gap, (int)area.Y + tight.Gap, height) { Limit = (int)area.Right - tight.Gap, ShowLabels = false };
         foreach (var mode in SidebarRows.Modes)
         {
-            row = row.Button(SidebarRows.NameOf(mode), ChromeCommand.SidebarMode, (int)mode, mode == tab.SidebarMode);
+            row = row.Button(IconOf(mode), SidebarRows.NameOf(mode), ChromeCommand.SidebarMode, (int)mode, mode == tab.SidebarMode);
         }
 
-        return row.Lines * tight.ToolbarHeight;
+        // The tabs show icons alone so all nine fit on one line; the name of the list shown stands under them, over a rule.
+        var top = (int)area.Y + (row.Lines * tight.ToolbarHeight);
+        var name = ChromeText.Fit(SidebarRows.NameOf(tab.SidebarMode), ChromeBars.Style(look.Metrics) with { Bold = true }, (int)area.Width - look.Metrics.Padding - look.Metrics.Padding, look.Runs);
+        items.Add(new(ChromeItemKind.Heading, ChromeCommand.None, 0, name, new(area.X, top, area.Width, look.Metrics.RowHeight), true, false));
+        top += look.Metrics.RowHeight;
+        items.Add(new(ChromeItemKind.Separator, ChromeCommand.None, 0, string.Empty, new(area.X, top, area.Width, look.Metrics.Line), true, false));
+        return top + look.Metrics.Line - (int)area.Y;
     }
+
+    /// <summary>Gets the icon of a tab of the side panel.</summary>
+    /// <param name="mode">The tab.</param>
+    /// <returns>The icon.</returns>
+    private static ChromeIcon IconOf(SidebarMode mode) => mode switch
+    {
+        SidebarMode.Thumbnails => ChromeIcon.Thumbnails,
+        SidebarMode.Outline => ChromeIcon.Outline,
+        SidebarMode.Search => ChromeIcon.Search,
+        SidebarMode.Annotations => ChromeIcon.Annotations,
+        SidebarMode.Attachments => ChromeIcon.Attachment,
+        SidebarMode.Layers => ChromeIcon.Layers,
+        SidebarMode.Tags => ChromeIcon.Tags,
+        SidebarMode.Parts => ChromeIcon.Parts,
+        _ => ChromeIcon.Media,
+    };
 
     /// <summary>Adds one row of the list when it fits: a page with its picture and number, or a line of text.</summary>
     /// <param name="items">Receives the controls.</param>
@@ -91,14 +114,16 @@ internal static class ChromeSidebar
         var metrics = look.Metrics;
         if (row.Page < 0)
         {
-            if (room.Height < metrics.RowHeight)
+            if (room.Height < metrics.RowHeight + metrics.Line)
             {
                 return 0;
             }
 
+            // Each row ends in a rule, so one entry of the list is told from the next without reading both.
             var text = ChromeText.Fit(row.Text, ChromeBars.Style(metrics), (int)room.Width - metrics.Padding - metrics.Padding, look.Runs);
             items.Add(new(ChromeItemKind.Row, ChromeCommand.PickRow, index, text, new(room.X, room.Y, room.Width, metrics.RowHeight), row.Enabled, row.Selected));
-            return metrics.RowHeight;
+            items.Add(new(ChromeItemKind.Separator, ChromeCommand.None, 0, string.Empty, new(room.X, room.Y + metrics.RowHeight, room.Width, metrics.Line), true, false));
+            return metrics.RowHeight + metrics.Line;
         }
 
         var size = tab.Source.PageSizes[row.Page];

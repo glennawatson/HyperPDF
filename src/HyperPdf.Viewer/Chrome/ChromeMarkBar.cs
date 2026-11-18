@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.ViewModels.Markup;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome;
 
@@ -34,21 +35,39 @@ internal static class ChromeMarkBar
         var row = new ChromeRow(items, look.Runs, tight, tight.Gap, top + tight.Gap, tight.ToolbarHeight - tight.Gap - tight.Gap) { Limit = width - tight.Gap };
         foreach (var tool in Tools)
         {
-            row = row.Button(NameOf(tool), ChromeCommand.MarkTool, (int)tool, marks.Tool == tool);
+            row = row.Button(IconOf(tool), NameOf(tool), ChromeCommand.MarkTool, (int)tool, marks.Tool == tool);
         }
 
-        row = row.Button(UiText.Get("More…"), ChromeCommand.MarkMore, true);
-        row = row.Space();
+        row = row.Button(ChromeIcon.More, UiText.Get("More…"), ChromeCommand.MarkMore, true);
+        row = row.Divider();
         row = row.Button(UiText.Format("Colour: {0}", marks.ColorName), ChromeCommand.MarkColor, true);
-        row = row.Button(marks.LineWidthName, ChromeCommand.MarkWidth, true);
-        row = row.Space();
-        row = row.Button(UiText.Get("Undo"), ChromeCommand.Undo, marks.CanUndo);
-        row = row.Button(UiText.Get("Redo"), ChromeCommand.Redo, marks.CanRedo);
-        row = row.Button(UiText.Get("Delete"), ChromeCommand.DeleteMark, marks.Selected is not null);
+        row = row.Button(ChromeIcon.LineWidth, marks.LineWidthName, ChromeCommand.MarkWidth, true);
+        row = row.Divider();
+        row = row.Button(ChromeIcon.Undo, UiText.Get("Undo"), ChromeCommand.Undo, marks.CanUndo);
+        row = row.Button(ChromeIcon.Redo, UiText.Get("Redo"), ChromeCommand.Redo, marks.CanRedo);
+        row = row.Button(ChromeIcon.Close, UiText.Get("Delete"), ChromeCommand.DeleteMark, marks.Selected is not null);
         var height = row.Lines * metrics.ToolbarHeight;
         items[panel] = items[panel] with { Bounds = new(0, top, width, height) };
         return height;
     }
+
+    /// <summary>Gets the icon of a tool.</summary>
+    /// <param name="tool">The tool.</param>
+    /// <returns>The icon.</returns>
+    private static ChromeIcon IconOf(AnnotationTool tool) => tool switch
+    {
+        AnnotationTool.Select => ChromeIcon.Cursor,
+        AnnotationTool.Highlight => ChromeIcon.Highlight,
+        AnnotationTool.Underline => ChromeIcon.Underline,
+        AnnotationTool.StrikeOut => ChromeIcon.Strike,
+        AnnotationTool.Draw => ChromeIcon.Draw,
+        AnnotationTool.Note => ChromeIcon.Note,
+        AnnotationTool.Text => ChromeIcon.Text,
+        AnnotationTool.Rectangle => ChromeIcon.Box,
+        AnnotationTool.Ellipse => ChromeIcon.Oval,
+        AnnotationTool.Arrow => ChromeIcon.Arrow,
+        _ => ChromeIcon.Line,
+    };
 
     /// <summary>Gets the name of a tool as its button shows it.</summary>
     /// <param name="tool">The tool.</param>

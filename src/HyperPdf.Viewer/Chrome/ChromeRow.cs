@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 
 namespace HyperPdf.Viewer.Chrome;
@@ -38,13 +39,26 @@ internal sealed record ChromeRow(List<ChromeItem> Items, TextRuns Runs, ChromeMe
     /// <summary>Gets how far across a control may reach before a new line starts.</summary>
     internal int Limit { get; init; } = int.MaxValue;
 
+    /// <summary>Gets a value indicating whether a button with an icon shows its text beside it.</summary>
+    internal bool ShowLabels { get; init; } = true;
+
     /// <summary>Adds a button.</summary>
     /// <param name="text">The text.</param>
     /// <param name="command">What the button does.</param>
     /// <param name="enabled">Whether it can be pressed.</param>
     /// <returns>The row with the button in it.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ChromeRow Button(string text, ChromeCommand command, bool enabled) => Add(ChromeItemKind.Button, text, command, enabled);
+    internal ChromeRow Button(string text, ChromeCommand command, bool enabled) => Add(new(ChromeItemKind.Button, command, 0, text, default, enabled, false));
+
+    /// <summary>Adds a button with an icon before its text.</summary>
+    /// <param name="icon">The icon.</param>
+    /// <param name="text">The text, which is also the name a screen reader says.</param>
+    /// <param name="command">What the button does.</param>
+    /// <param name="enabled">Whether it can be pressed.</param>
+    /// <returns>The row with the button in it.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow Button(ChromeIcon icon, string text, ChromeCommand command, bool enabled) =>
+        Add(new(ChromeItemKind.Button, command, 0, text, default, enabled, false) { Icon = icon });
 
     /// <summary>Adds a button that is one of a group, which shows whether it is the chosen one.</summary>
     /// <param name="text">The text.</param>
@@ -52,39 +66,85 @@ internal sealed record ChromeRow(List<ChromeItem> Items, TextRuns Runs, ChromeMe
     /// <param name="index">Which member of the group it stands for.</param>
     /// <param name="selected">Whether it is the chosen one.</param>
     /// <returns>The row with the button in it.</returns>
-    internal ChromeRow Button(string text, ChromeCommand command, int index, bool selected)
-    {
-        var next = Add(ChromeItemKind.Button, text, command, true);
-        Items[^1] = Items[^1] with { Index = index, Selected = selected };
-        return next;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow Button(string text, ChromeCommand command, int index, bool selected) => Add(new(ChromeItemKind.Button, command, index, text, default, true, selected));
+
+    /// <summary>Adds a button of a group with an icon before its text.</summary>
+    /// <param name="icon">The icon.</param>
+    /// <param name="text">The text, which is also the name a screen reader says.</param>
+    /// <param name="command">What the button does.</param>
+    /// <param name="index">Which member of the group it stands for.</param>
+    /// <param name="selected">Whether it is the chosen one.</param>
+    /// <returns>The row with the button in it.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow Button(ChromeIcon icon, string text, ChromeCommand command, int index, bool selected) =>
+        Add(new(ChromeItemKind.Button, command, index, text, default, true, selected) { Icon = icon });
+
+    /// <summary>Adds a button that shows its icon alone, whatever the setting for names beside icons. What it does is plain from the text next to it.</summary>
+    /// <param name="icon">The icon.</param>
+    /// <param name="text">The name a screen reader says.</param>
+    /// <param name="command">What the button does.</param>
+    /// <param name="enabled">Whether it can be pressed.</param>
+    /// <returns>The row with the button in it.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow IconButton(ChromeIcon icon, string text, ChromeCommand command, bool enabled) =>
+        Add(new(ChromeItemKind.Button, command, 0, text, default, enabled, false) { Icon = icon, HidesText = true });
 
     /// <summary>Adds plain text.</summary>
     /// <param name="text">The text.</param>
     /// <returns>The row with the text in it.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ChromeRow Label(string text) => Add(ChromeItemKind.Label, text, ChromeCommand.None, true);
+    internal ChromeRow Label(string text) => Add(new(ChromeItemKind.Label, ChromeCommand.None, 0, text, default, true, false));
 
     /// <summary>Leaves a space.</summary>
     /// <returns>The row after the space.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal ChromeRow Space() => this with { Next = Next + Metrics.Padding };
 
-    /// <summary>Adds a control, on a new line when it would pass the limit.</summary>
-    /// <param name="kind">What kind of control.</param>
-    /// <param name="text">The text.</param>
-    /// <param name="command">What the control does.</param>
-    /// <param name="enabled">Whether it can be pressed.</param>
-    /// <returns>The row with the control in it.</returns>
-    private ChromeRow Add(ChromeItemKind kind, string text, ChromeCommand command, bool enabled)
+    /// <summary>Adds an upright line between two groups of controls.</summary>
+    /// <returns>The row after the line.</returns>
+    internal ChromeRow Divider()
     {
-        var width = Runs.Measure(text, ChromeBars.Style(Metrics)) + Metrics.Padding + Metrics.Padding;
+        Items.Add(new(ChromeItemKind.Separator, ChromeCommand.None, 0, string.Empty, new(Next, Top, Metrics.Padding, Height), true, false));
+        return this with { Next = Next + Metrics.Padding + Metrics.Gap };
+    }
+
+    /// <summary>Measures a control: its icon, its text and the space each side of them.</summary>
+    /// <param name="item">The control.</param>
+    /// <param name="hidesText">Whether only its icon shows.</param>
+    /// <returns>The width in device pixels.</returns>
+    private int WidthOf(ChromeItem item, bool hidesText)
+    {
+        var textWidth = hidesText ? 0 : Runs.Measure(item.Text, ChromeBars.Style(Metrics));
+        if (item.Icon == ChromeIcon.None)
+        {
+            return textWidth + Metrics.Padding + Metrics.Padding;
+        }
+
+        // A button with an icon stands closer to its neighbours, as the icon already sets it apart.
+        var padding = IconPadding(hidesText);
+        return Metrics.IconSize + (textWidth > 0 ? ChromePainter.IconGap(Metrics) : 0) + textWidth + padding + padding;
+    }
+
+    /// <summary>Gets the space each side of a button with an icon: a little less when the icon stands alone, so a row of them stays compact.</summary>
+    /// <param name="iconAlone">Whether the button shows no text.</param>
+    /// <returns>The space in device pixels.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int IconPadding(bool iconAlone) => iconAlone ? Metrics.Gap + (Metrics.Gap >> 1) : Metrics.Gap + Metrics.Gap;
+
+    /// <summary>Adds a control, on a new line when it would pass the limit.</summary>
+    /// <param name="item">The control, without its place.</param>
+    /// <returns>The row with the control in it.</returns>
+    private ChromeRow Add(ChromeItem item)
+    {
+        var hidesText = item.Icon != ChromeIcon.None && (item.HidesText || !ShowLabels);
+        var width = WidthOf(item, hidesText);
         var wraps = Next + width > Limit && Next > Start;
 
         // A line is as tall as a bar: the control's height and the gap above and below it.
         var x = wraps ? Start : Next;
         var y = wraps ? Top + Height + Metrics.Gap + Metrics.Gap : Top;
-        Items.Add(new(kind, command, 0, text, new(x, y, width, Height), enabled, false));
+        Items.Add(item with { Bounds = new(x, y, width, Height), HidesText = hidesText });
         return this with { Next = x + width + Metrics.Gap, Top = y, Lines = wraps ? Lines + 1 : Lines };
     }
 }

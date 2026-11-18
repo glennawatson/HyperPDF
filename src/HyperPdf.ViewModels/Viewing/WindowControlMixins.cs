@@ -49,6 +49,8 @@ public static class WindowControlMixins
             tab.WhenChanged(static t => t.Thumbnails).AsSignal(),
             tab.WhenChanged(static t => t.Outline).AsSignal(),
             tab.WhenChanged(static t => t.SelectedOutlineItem).AsSignal(),
+            tab.WhenChanged(static t => t.CanGoBack).AsSignal(),
+            tab.WhenChanged(static t => t.CanGoForward).AsSignal(),
             tab.PanelListChanges,
             tab.Annotations.ControlChanges,
             tab.ToolChanges);

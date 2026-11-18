@@ -130,7 +130,7 @@ public sealed class TextRuns : IDisposable
     /// <param name="target">The surface pixels.</param>
     /// <param name="ink">The coverage and the colour.</param>
     /// <returns>Always <see langword="true"/>.</returns>
-    private static bool WriteInk(RenderTarget target, in TextInk ink)
+    internal static bool WriteInk(RenderTarget target, in TextInk ink)
     {
         var row = ArrayPool<byte>.Shared.Rent(target.Width);
         var alpha = ink.Color >> AlphaShift;

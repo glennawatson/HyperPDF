@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using HyperPdf.Core.Theming;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome;
 
@@ -31,6 +32,9 @@ public readonly record struct ChromeTheme(uint Bar, uint Surface, uint Text, uin
     /// <summary>The scrim: a see-through black that dims the window without hiding it.</summary>
     private const uint ScrimColor = 0x66000000;
 
+    /// <summary>Gets the colours of icons by what their action does, as 0xRRGGBB. A colour of zero stands for the text colour.</summary>
+    public IconTints Tints { get; init; }
+
     /// <summary>Makes the colours of a colour scheme.</summary>
     /// <param name="scheme">The scheme.</param>
     /// <returns>The colours.</returns>
@@ -45,6 +49,22 @@ public readonly record struct ChromeTheme(uint Bar, uint Surface, uint Text, uin
             Opaque | (scheme.Border & ColorMask),
             Opaque | (scheme.Accent & ColorMask),
             HoverAlpha | (scheme.Accent & ColorMask),
-            ScrimColor);
+            ScrimColor) { Tints = scheme.Tints };
+    }
+
+    /// <summary>Gets the colour an icon is drawn in.</summary>
+    /// <param name="tone">The kind of action the icon stands for.</param>
+    /// <returns>The colour as ARGB: the tint of the tone, or the text colour for a plain icon or a theme with no tints.</returns>
+    public uint IconColor(IconTone tone)
+    {
+        var tint = tone switch
+        {
+            IconTone.Navigation => Tints.Navigation,
+            IconTone.Add => Tints.Add,
+            IconTone.Edit => Tints.Edit,
+            IconTone.Remove => Tints.Remove,
+            _ => 0U,
+        };
+        return tint == 0 ? Text : Opaque | (tint & ColorMask);
     }
 }
