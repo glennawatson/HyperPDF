@@ -368,14 +368,14 @@ internal static class ChromeBars
     private static ChromeRow AddTools(ChromeRow row, DocumentTabViewModel? tab, ChromeActions actions)
     {
         var open = tab is not null;
-        row = row.Button(ChromeIcon.Highlight, UiText.Get("Annotate"), open ? actions.ToggleAnnotate : null, tab is { Annotations.CanAnnotate: true });
-        row = row.Button(ChromeIcon.FillSign, UiText.Get("Fill & Sign"), tab?.FillAndSign.ToggleCommand, open);
-        row = row.Button(ChromeIcon.Cursor, UiText.Get("Edit"), tab?.ContentEdit.ToggleEditingCommand, open);
+        row = row.Toggle(ChromeIcon.Highlight, UiText.Get("Annotate"), tab is { Annotations.CanAnnotate: true } ? actions.ToggleAnnotate : null, tab is { Annotations.IsAnnotating: true });
+        row = row.Toggle(ChromeIcon.FillSign, UiText.Get("Fill & Sign"), tab?.FillAndSign.ToggleCommand, tab is { FillAndSign.IsActive: true });
+        row = row.Toggle(ChromeIcon.Cursor, UiText.Get("Edit"), tab?.ContentEdit.ToggleEditingCommand, tab is { ContentEdit.IsEditing: true });
         row = row.Divider();
         row = row.Button(ChromeIcon.Search, UiText.Get("Find"), open ? actions.ShowFind : null, open);
-        row = row.Button(ChromeIcon.Focus, UiText.Get("Focus"), tab?.FocusMode.ToggleCommand, open);
-        row = row.Button(ChromeIcon.Speaker, UiText.Get("Read Aloud"), tab?.ReadAloud.ToggleCommand, open);
-        return row.Button(ChromeIcon.Sidebar, UiText.Get("Side panel"), tab?.ToggleSidebarCommand, open);
+        row = row.Toggle(ChromeIcon.Focus, UiText.Get("Focus"), tab?.FocusMode.ToggleCommand, tab is { FocusMode.IsOn: true });
+        row = row.Toggle(ChromeIcon.Speaker, UiText.Get("Read Aloud"), tab?.ReadAloud.ToggleCommand, tab is { ReadAloud.IsOpen: true });
+        return row.Toggle(ChromeIcon.Sidebar, UiText.Get("Side panel"), tab?.ToggleSidebarCommand, tab is { SidebarVisible: true });
     }
 
     /// <summary>Says which page is shown.</summary>

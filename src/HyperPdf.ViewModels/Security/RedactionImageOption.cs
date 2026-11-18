@@ -2,22 +2,28 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Redaction;
+using ReactiveUI;
 
 namespace HyperPdf.ViewModels.Security;
 
 /// <summary>One choice for what happens to pictures under a mark.</summary>
-/// <param name="Choice">The choice.</param>
-/// <param name="NameKey">The name shown.</param>
-/// <param name="DescriptionKey">What it does, in plain words.</param>
+/// <param name="choice">The choice.</param>
+/// <param name="nameKey">The name shown.</param>
+/// <param name="descriptionKey">What it does, in plain words.</param>
 [DebuggerDisplay("RedactionImageOption: {Name}")]
-public sealed record RedactionImageOption(RedactionImageChoice Choice, string NameKey, string DescriptionKey) : INotifyPropertyChanged, ILocalisationChildren
+public sealed class RedactionImageOption(RedactionImageChoice choice, string nameKey, string descriptionKey) : ReactiveObject, IEquatable<RedactionImageOption>, ILocalisationChildren
 {
-    /// <inheritdoc/>
-    public event PropertyChangedEventHandler? PropertyChanged;
+    /// <summary>Gets the choice.</summary>
+    public RedactionImageChoice Choice { get; } = choice;
+
+    /// <summary>Gets the name shown.</summary>
+    public string NameKey { get; } = nameKey;
+
+    /// <summary>Gets what it does, in plain words.</summary>
+    public string DescriptionKey { get; } = descriptionKey;
 
     /// <summary>Gets the localized name.</summary>
     public string Name => UiText.Get(NameKey);
@@ -31,12 +37,16 @@ public sealed record RedactionImageOption(RedactionImageChoice Choice, string Na
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override bool Equals(object? obj) => Equals(obj as RedactionImageOption);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override int GetHashCode() => HashCode.Combine(Choice, NameKey, DescriptionKey);
 
     /// <inheritdoc/>
     void ILocalisationChildren.Refresh(HashSet<object> visited)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Description)));
+        this.RaisePropertyChanged(nameof(Name));
+        this.RaisePropertyChanged(nameof(Description));
     }
 }

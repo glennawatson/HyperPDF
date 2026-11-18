@@ -2,8 +2,8 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdf.Core.Annotations;
 
@@ -14,13 +14,10 @@ namespace HyperPdf.ViewModels.Markup;
 /// <param name="PageLabel">The page label shown, for example "iv" or "12".</param>
 /// <param name="Replies">The replies to it and its review status changes, oldest first.</param>
 [DebuggerDisplay("AnnotationItemViewModel: {Summary}")]
-public sealed record AnnotationItemViewModel(PageAnnotation Annotation, string PageLabel, IReadOnlyList<AnnotationReply> Replies) : INotifyPropertyChanged, ILocalisationChildren
+public sealed record AnnotationItemViewModel(PageAnnotation Annotation, string PageLabel, IReadOnlyList<AnnotationReply> Replies) : ILocalisationChildren
 {
-    /// <summary>The cached words used by the text filter.</summary>
+    /// <summary>The cached words used by the text filter, which are made again after the language changes.</summary>
     private string? _searchText;
-
-    /// <inheritdoc/>
-    public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>Gets the kind in words, so colour is never the only cue.</summary>
     public string KindName => AnnotationNames.Get(Annotation.Kind);
@@ -113,19 +110,8 @@ public sealed record AnnotationItemViewModel(PageAnnotation Annotation, string P
     public override int GetHashCode() => HashCode.Combine(Annotation, PageLabel, Replies);
 
     /// <inheritdoc/>
-    void ILocalisationChildren.Refresh(HashSet<object> visited)
-    {
-        _searchText = null;
-        string[] properties =
-        [
-            nameof(KindName), nameof(Summary), nameof(RepliesText), nameof(Heading), nameof(PageCaption),
-            nameof(ColorName), nameof(AuthorName), nameof(Details), nameof(SearchText), nameof(SpokenText)
-        ];
-        foreach (var property in properties)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
-        }
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ILocalisationChildren.Refresh(HashSet<object> visited) => _searchText = null;
 
     /// <summary>Appends one reply as "author: text"; bare status changes are left out.</summary>
     /// <param name="text">The text so far.</param>

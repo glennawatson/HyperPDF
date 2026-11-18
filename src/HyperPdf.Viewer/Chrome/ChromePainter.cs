@@ -39,11 +39,20 @@ internal static class ChromePainter
     /// <param name="hover">The control under the pointer, or <see langword="null"/>.</param>
     internal static void Draw(IFramePass pass, List<ChromeItem> items, ChromeLook look, ChromeItem? hover)
     {
+        var hovered = false;
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            DrawBackground(pass, item, look, ReferenceEquals(item, hover));
+            var under = ReferenceEquals(item, hover);
+            hovered |= under;
+            DrawBackground(pass, item, look, under);
             DrawText(pass, item, look);
+        }
+
+        // The control under the pointer may be one of an older layout. Its name is only shown while it is one of these.
+        if (hovered)
+        {
+            DrawHint(pass, hover, look);
         }
     }
 

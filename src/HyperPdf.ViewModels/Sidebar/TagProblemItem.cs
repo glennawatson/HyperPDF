@@ -2,7 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
@@ -12,11 +11,8 @@ namespace HyperPdf.ViewModels.Sidebar;
 /// <summary>One thing the accessibility check found, worded for a list.</summary>
 /// <param name="Problem">The problem.</param>
 [DebuggerDisplay("TagProblemItem: {Text}")]
-public sealed record TagProblemItem(DocumentTagProblem Problem) : INotifyPropertyChanged, ILocalisationChildren
+public sealed record TagProblemItem(DocumentTagProblem Problem)
 {
-    /// <inheritdoc/>
-    public event PropertyChangedEventHandler? PropertyChanged;
-
     /// <summary>Gets the tag the problem is about; 0 when there is none to select.</summary>
     public int TagId => Problem.TagId;
 
@@ -49,8 +45,4 @@ public sealed record TagProblemItem(DocumentTagProblem Problem) : INotifyPropert
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public override int GetHashCode() => Problem.GetHashCode();
-
-    /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void ILocalisationChildren.Refresh(HashSet<object> visited) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Text)));
 }

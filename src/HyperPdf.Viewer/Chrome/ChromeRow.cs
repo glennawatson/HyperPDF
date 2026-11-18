@@ -79,6 +79,16 @@ internal sealed record ChromeRow(List<ChromeItem> Items, TextRuns Runs, ChromeMe
     internal ChromeRow IconButton(ChromeIcon icon, string text, ICommand? command, bool enabled) =>
         Add(new(ChromeItemKind.Button, command, 0, text, default, enabled, false) { Icon = icon, HidesText = true });
 
+    /// <summary>Adds a button that turns something on or off, and shows whether it is on.</summary>
+    /// <param name="icon">The icon.</param>
+    /// <param name="text">The text, which is also the name a screen reader says.</param>
+    /// <param name="command">The command a press runs, or <see langword="null"/> when there is nothing to turn on.</param>
+    /// <param name="on">Whether it is on now.</param>
+    /// <returns>The row with the button in it.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow Toggle(ChromeIcon icon, string text, ICommand? command, bool on) =>
+        Add(new(ChromeItemKind.Button, command, 0, text, default, command is not null, on) { Icon = icon, Trait = ChromeItemTrait.Switch });
+
     /// <summary>Adds a control the caller made, such as a button of a group that passes its own value to a shared command. Its place is set here.</summary>
     /// <param name="item">The control, without its place.</param>
     /// <returns>The row with the control in it.</returns>

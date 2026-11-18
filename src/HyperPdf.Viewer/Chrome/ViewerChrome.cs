@@ -462,7 +462,6 @@ public sealed class ViewerChrome : IDisposable
         {
             DrawFocus(pass, _bars, false);
             DrawTabPreview(pass);
-            ChromePainter.DrawHint(pass, _hover, _look);
             return;
         }
 
@@ -474,7 +473,6 @@ public sealed class ViewerChrome : IDisposable
 
         ChromePainter.Draw(pass, _overlayItems, _look, _hover);
         DrawFocus(pass, _overlayItems, true);
-        ChromePainter.DrawHint(pass, _hover, _look);
     }
 
     /// <inheritdoc/>
