@@ -75,7 +75,7 @@ public sealed class ViewerFullViewTests
             Turn(session);
             var buttons = session.Chrome.Bars.Where(static item => item.Kind == ChromeItemKind.Button).ToArray();
             var tabs = session.Chrome.Bars.Count(static item => item.Kind == ChromeItemKind.Tab);
-            var leave = Array.Find(buttons, static item => item.Command == ChromeCommand.LeaveReadMode);
+            var leave = Array.Find(buttons, item => ReferenceEquals(item.Command, tab.ReadModeCommand));
             if (leave is null)
             {
                 return new ReadOutcome(buttons.Length, tabs, false);

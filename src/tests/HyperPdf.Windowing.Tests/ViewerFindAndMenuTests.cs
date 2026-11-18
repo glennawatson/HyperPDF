@@ -65,7 +65,7 @@ public sealed class ViewerFindAndMenuTests
     {
         var inside = await WithTab(ShortHeight, static (session, window, _) =>
         {
-            var menu = session.Chrome.Bars.First(static item => item.Command == ChromeCommand.Menu);
+            var menu = session.Chrome.Bars.First(static item => item.Text == "Menu");
             var x = (int)(menu.Bounds.X + (menu.Bounds.Width / Half));
             var y = (int)(menu.Bounds.Y + (menu.Bounds.Height / Half));
             window.Send(new(WindowEventKind.PointerMoved, x, y, 0, 0));

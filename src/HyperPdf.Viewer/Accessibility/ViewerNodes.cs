@@ -160,7 +160,7 @@ internal static class ViewerNodes
     /// <returns>The element.</returns>
     internal static AccessibleNode CreateControl(int id, ChromeItem item, in AccessibleBounds bounds, bool focused)
     {
-        var pressable = item.Command != ChromeCommand.None && item.Enabled;
+        var pressable = item.IsPressable && item.Enabled;
         return new(
             id,
             WindowId,

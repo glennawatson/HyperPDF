@@ -3,10 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections;
+using System.Windows.Input;
 using HyperPdf.Presentation.Input;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Finding;
 using HyperPdf.ViewModels.Services;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -35,7 +37,7 @@ internal static class FindOverlays
         var keys = input.WhereKeyPress();
         var enters = keys.Where(static key => key.Key == ViewerKey.Enter);
         var closes = Signal.Merge(
-            presses.Where(static item => item.Command == ChromeCommand.Cancel).AsSignal(),
+            presses.Where(static item => item.Action == OverlayAction.Cancel).AsSignal(),
             keys.Where(static key => key.Key == ViewerKey.Escape).AsSignal(),
             input.SelectDismissals());
         return new(
@@ -53,15 +55,8 @@ internal static class FindOverlays
             closes,
             new MultipleDisposable(
                 input,
-                Signal.Merge(
-                    presses.Where(static item => item.Command == ChromeCommand.FindNext).AsSignal(),
-                    enters.Where(static key => (key.Modifiers & ViewerModifiers.Shift) == 0).AsSignal()).SubscribeSafe(_ => search.Next(), ErrorTrace.Write),
-                Signal.Merge(
-                    presses.Where(static item => item.Command == ChromeCommand.FindPrevious).AsSignal(),
-                    enters.Where(static key => (key.Modifiers & ViewerModifiers.Shift) != 0).AsSignal()).SubscribeSafe(_ => search.Previous(), ErrorTrace.Write),
-                presses.Where(static item => item.Command == ChromeCommand.FindMatchCase).SubscribeSafe(_ => search.MatchCase = !search.MatchCase, ErrorTrace.Write),
-                presses.Where(static item => item.Command == ChromeCommand.FindWholeWord).SubscribeSafe(_ => search.WholeWord = !search.WholeWord, ErrorTrace.Write),
-                presses.Where(static item => item.Command == ChromeCommand.FindIgnoreAccents).SubscribeSafe(_ => search.IgnoreDiacritics = !search.IgnoreDiacritics, ErrorTrace.Write),
+                enters.Where(static key => (key.Modifiers & ViewerModifiers.Shift) == 0).AsSignal().InvokeCommand(search.NextCommand),
+                enters.Where(static key => (key.Modifiers & ViewerModifiers.Shift) != 0).AsSignal().InvokeCommand(search.PreviousCommand),
                 keys.Where(static key => key.Key == ViewerKey.Back).SubscribeSafe(_ => search.Query = ChromeText.WithoutLast(search.Query), ErrorTrace.Write),
                 input.SelectTypedRunes().SubscribeSafe(rune => search.Query = string.Concat(search.Query, rune.ToString()), ErrorTrace.Write),
                 closes.SubscribeSafe(_ => search.Close(), ErrorTrace.Write)));
@@ -81,15 +76,15 @@ internal static class FindOverlays
         var height = metrics.ToolbarHeight;
         var top = Math.Max((int)place.Area.Y, metrics.TabHeight + metrics.ToolbarHeight);
         var panelIndex = items.Count;
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, default, true, false));
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, default, true, false));
         var row = new ChromeRow(items, runs, metrics, 0, top + metrics.Gap, height - metrics.Gap - metrics.Gap);
-        row = row.Button(UiText.Get("Previous match"), ChromeCommand.FindPrevious, search.Results.Count > 0);
-        row = row.Button(UiText.Get("Next match"), ChromeCommand.FindNext, search.Results.Count > 0);
-        row = row.Button(UiText.Get("Match case"), ChromeCommand.FindMatchCase, 0, search.MatchCase);
-        row = row.Button(UiText.Get("Whole words"), ChromeCommand.FindWholeWord, 0, search.WholeWord);
-        row = row.Button(UiText.Get("Ignore accents"), ChromeCommand.FindIgnoreAccents, 0, search.IgnoreDiacritics);
+        row = row.IconButton(ChromeIcon.PageUp, UiText.Get("Previous match"), search.PreviousCommand, search.Results.Count > 0);
+        row = row.IconButton(ChromeIcon.PageDown, UiText.Get("Next match"), search.NextCommand, search.Results.Count > 0);
+        row = row.Control(Toggle(ChromeIcon.Case, UiText.Get("Match case"), search.ToggleMatchCaseCommand, search.MatchCase));
+        row = row.Control(Toggle(ChromeIcon.WholeWord, UiText.Get("Whole words"), search.ToggleWholeWordCommand, search.WholeWord));
+        row = row.Control(Toggle(ChromeIcon.Accent, UiText.Get("Ignore accents"), search.ToggleIgnoreDiacriticsCommand, search.IgnoreDiacritics));
         row = row.Label(search.Status.Length > 0 ? search.Status : UiText.Get("Type to find"));
-        row = row.Button(UiText.Get("Close"), ChromeCommand.Cancel, true);
+        row = row.Control(new(ChromeItemKind.Button, OverlayAction.Cancel, 0, UiText.Get("Close"), default, true, false) { Icon = ChromeIcon.Close, HidesText = true });
 
         // The bar sits against the right edge, so the controls laid out from zero are moved across once their width is known.
         var width = fieldWidth + metrics.Padding + row.Next;
@@ -102,6 +97,15 @@ internal static class FindOverlays
         }
 
         var shown = ChromeText.Fit(search.Query, style, fieldWidth - metrics.Padding - metrics.Padding - metrics.Gap, runs);
-        items.Add(new(ChromeItemKind.Field, ChromeCommand.None, 0, shown, new(left + metrics.Gap, top + metrics.Gap, fieldWidth, height - metrics.Gap - metrics.Gap), true, true));
+        items.Add(new(ChromeItemKind.Field, null, 0, shown, new(left + metrics.Gap, top + metrics.Gap, fieldWidth, height - metrics.Gap - metrics.Gap), true, true));
     }
+
+    /// <summary>Makes a button that turns one way of matching on or off, and shows whether it is on.</summary>
+    /// <param name="icon">The icon.</param>
+    /// <param name="text">The name, which is shown beside the icon.</param>
+    /// <param name="command">The command that turns it on or off.</param>
+    /// <param name="on">Whether it is on.</param>
+    /// <returns>The button, without its place.</returns>
+    private static ChromeItem Toggle(ChromeIcon icon, string text, ICommand command, bool on) =>
+        new(ChromeItemKind.Button, command, 0, text, default, true, on) { Icon = icon, Trait = ChromeItemTrait.Switch };
 }

@@ -3,10 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections;
+using System.Windows.Input;
 using HyperPdf.Core.Layout;
+using HyperPdf.Core.Platform;
 using HyperPdf.ViewModels;
-using HyperPdf.ViewModels.Services;
 using HyperPdf.Viewer.Icons;
+using ReactiveUI;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
 using ReactiveUI.Primitives.Extensions;
@@ -23,15 +25,6 @@ internal static class StartOverlays
     /// <summary>The most recent documents listed.</summary>
     private const int RecentLimit = 12;
 
-    /// <summary>The index of the row that opens the file dialog.</summary>
-    private const int OpenIndex = -1;
-
-    /// <summary>The index of the row that clears the list of documents opened lately.</summary>
-    private const int ClearIndex = -2;
-
-    /// <summary>The index of the button that forgets the first document opened lately; the buttons of the ones after it have indexes below it.</summary>
-    private const int RemoveIndex = -3;
-
     /// <summary>The paddings in the width of the button that forgets a document: one on each side and one between its icon and its text.</summary>
     private const int RemovePaddings = 3;
 
@@ -39,45 +32,39 @@ internal static class StartOverlays
     private const int RowLines = 2;
 
     /// <summary>
-    /// Opens the start view. A press on the open row runs the open command, and a press on a document opened lately opens it again.
-    /// The view never closes by itself: the window takes it away when a document opens.
+    /// Opens the start view. Each control runs a command of the main view model: the button opens a file, a document opened lately
+    /// opens again, and its own button forgets it. The view never closes by itself: the window takes it away when a document opens.
     /// </summary>
     /// <param name="main">The main view model.</param>
     /// <returns>The start view.</returns>
     internal static Overlay Open(MainViewModel main)
     {
         var input = new Signal<OverlayInput>();
-        var rows = input.SelectPressedItems().Where(static item => item.Command == ChromeCommand.PickRow).Select(static item => item.Index);
+        var remove = ReactiveCommand.Create<RecentDocument>(main.RemoveRecent);
+        var actions = new StartActions(main.OpenCommand, main.OpenRecentCommand, remove, main.ClearRecentCommand);
         return new(
             OverlayKind.Start,
             OverlayTraits.TakesAllKeys | OverlayTraits.StaysUnder,
-            (List<ChromeItem> items, in OverlayPlace place) => Build(items, main, in place),
+            (List<ChromeItem> items, in OverlayPlace place) => Build(items, main, actions, in place),
             input,
             ((IList)main.RecentDocuments).CollectionChanges.AsSignal(),
             Signal.Never<RxVoid>(),
-            new MultipleDisposable(
-                input,
-                rows.Where(static index => index == OpenIndex).AsSignal().InvokeCommand(main.OpenCommand),
-                rows.Where(static index => index == ClearIndex).AsSignal().InvokeCommand(main.ClearRecentCommand),
-                rows.Where(index => (uint)index < (uint)main.RecentDocuments.Count).Select(index => main.RecentDocuments[index]).InvokeCommand(main.OpenRecentCommand),
-                rows.Where(static index => index <= RemoveIndex)
-                    .Select(static index => RemoveIndex - index)
-                    .Where(index => (uint)index < (uint)main.RecentDocuments.Count)
-                    .SubscribeSafe(index => main.RemoveRecent(main.RecentDocuments[index]), ErrorTrace.Write)));
+            new MultipleDisposable(input, remove));
     }
 
     /// <summary>Lays the start view out over the part of the window left for the pages.</summary>
     /// <param name="items">Receives the controls, back to front.</param>
     /// <param name="main">The main view model, which knows the documents opened lately.</param>
+    /// <param name="actions">The commands the controls run.</param>
     /// <param name="place">What to lay them out with.</param>
-    private static void Build(List<ChromeItem> items, MainViewModel main, in OverlayPlace place)
+    private static void Build(List<ChromeItem> items, MainViewModel main, StartActions actions, in OverlayPlace place)
     {
         var metrics = place.Metrics;
         var area = place.Area;
         var width = (int)Math.Min(area.Width, metrics.DialogWidth);
         var left = (int)area.X + (((int)area.Width - width) >> 1);
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, area, true, false));
-        var y = AddWelcome(items, in place, left, (int)area.Y + metrics.RowHeight, width);
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, area, true, false));
+        var y = AddWelcome(items, in place, actions.Open, new(left, (int)area.Y + metrics.RowHeight, width, 0));
         var count = Math.Min(main.RecentDocuments.Count, RecentLimit);
         if (count == 0)
         {
@@ -88,17 +75,17 @@ internal static class StartOverlays
         var style = ChromeBars.Style(metrics);
         var clear = UiText.Get("Clear list");
         var clearWidth = Math.Min(width >> 1, place.Runs.Measure(clear, style) + metrics.Padding + metrics.Padding);
-        items.Add(new(ChromeItemKind.Heading, ChromeCommand.None, 0, UiText.Get("Opened lately"), new(left, y, width - clearWidth, metrics.RowHeight), true, false));
-        items.Add(new(ChromeItemKind.Button, ChromeCommand.PickRow, ClearIndex, clear, new(left + width - clearWidth, y, clearWidth, metrics.RowHeight), true, false));
+        items.Add(new(ChromeItemKind.Heading, null, 0, UiText.Get("Opened lately"), new(left, y, width - clearWidth, metrics.RowHeight), true, false));
+        items.Add(new(ChromeItemKind.Button, actions.Clear, 0, clear, new(left + width - clearWidth, y, clearWidth, metrics.RowHeight), true, false));
         y += metrics.RowHeight;
-        items.Add(new(ChromeItemKind.Separator, ChromeCommand.None, 0, string.Empty, new(left, y, width, metrics.Line), true, false));
+        items.Add(new(ChromeItemKind.Separator, null, 0, string.Empty, new(left, y, width, metrics.Line), true, false));
         y += metrics.Line;
         var rowHeight = metrics.RowHeight + (metrics.RowHeight >> 1);
         for (var i = 0; i < count && y + rowHeight <= area.Bottom; i++)
         {
-            AddRecent(items, in place, main.RecentDocuments[i].FilePath, i, new(left, y, width, rowHeight));
+            AddRecent(items, in place, actions, main.RecentDocuments[i], i, new(left, y, width, rowHeight));
             y += rowHeight;
-            items.Add(new(ChromeItemKind.Separator, ChromeCommand.None, 0, string.Empty, new(left, y, width, metrics.Line), true, false));
+            items.Add(new(ChromeItemKind.Separator, null, 0, string.Empty, new(left, y, width, metrics.Line), true, false));
             y += metrics.Line;
         }
     }
@@ -106,43 +93,46 @@ internal static class StartOverlays
     /// <summary>Adds the top of the start view: a large document icon, what to do, the button that opens a file and a hint, each in the middle.</summary>
     /// <param name="items">Receives the controls.</param>
     /// <param name="place">What to lay them out with.</param>
-    /// <param name="left">The left edge of the column.</param>
-    /// <param name="top">The top of the first control.</param>
-    /// <param name="width">The width of the column.</param>
+    /// <param name="open">The command that asks for a file and opens it.</param>
+    /// <param name="column">The left edge, the top and the width of the column the controls are in.</param>
     /// <returns>The top of what comes after.</returns>
-    private static int AddWelcome(List<ChromeItem> items, in OverlayPlace place, int left, int top, int width)
+    private static int AddWelcome(List<ChromeItem> items, in OverlayPlace place, ICommand open, in LayoutRect column)
     {
         var runs = place.Runs;
         var metrics = place.Metrics;
         var style = ChromeBars.Style(metrics);
-        var y = top;
+        var left = (int)column.X;
+        var width = (int)column.Width;
+        var y = (int)column.Y;
         var picture = metrics.RowHeight + metrics.RowHeight;
-        items.Add(new(ChromeItemKind.Picture, ChromeCommand.None, 0, string.Empty, new(left, y, width, picture), false, false) { Icon = ChromeIcon.Document, IconSize = picture });
+        items.Add(new(ChromeItemKind.Picture, null, 0, string.Empty, new(left, y, width, picture), false, false) { Icon = ChromeIcon.Document, IconSize = picture });
         y += picture + metrics.Gap;
         var title = ChromeText.Fit(UiText.Get("No document is open"), style with { Bold = true }, width - metrics.Padding - metrics.Padding, runs);
-        items.Add(new(ChromeItemKind.Heading, ChromeCommand.None, 0, title, Centred(runs.Measure(title, style with { Bold = true }), left, y, width, metrics), true, false));
+        items.Add(new(ChromeItemKind.Heading, null, 0, title, Centred(runs.Measure(title, style with { Bold = true }), left, y, width, metrics), true, false));
         y += metrics.RowHeight;
         var hint = ChromeText.Fit(UiText.Get("Drop PDF files here, or choose them from a folder."), style, width - metrics.Padding - metrics.Padding, runs);
-        items.Add(new(ChromeItemKind.Label, ChromeCommand.None, 0, hint, Centred(runs.Measure(hint, style), left, y, width, metrics), true, false));
+        items.Add(new(ChromeItemKind.Label, null, 0, hint, Centred(runs.Measure(hint, style), left, y, width, metrics), true, false));
         y += metrics.RowHeight + metrics.Gap;
 
         // The button has a box of its own, so the one thing to do first stands out from the text round it.
-        var open = UiText.Get("Open a document…");
+        var text = UiText.Get("Open a document…");
         var buttonHeight = metrics.RowHeight + metrics.Gap + metrics.Gap;
-        var box = Centred(runs.Measure(open, style) + metrics.IconSize + metrics.Padding + metrics.Padding, left, y, width, metrics) with { Height = buttonHeight };
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, box, true, false));
-        items.Add(new(ChromeItemKind.Button, ChromeCommand.PickRow, OpenIndex, open, box, true, false) { Icon = ChromeIcon.Open });
+        var box = Centred(runs.Measure(text, style) + metrics.IconSize + metrics.Padding + metrics.Padding, left, y, width, metrics) with { Height = buttonHeight };
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, box, true, false));
+        items.Add(new(ChromeItemKind.Button, open, 0, text, box, true, false) { Icon = ChromeIcon.Open });
         return y + buttonHeight + metrics.RowHeight;
     }
 
     /// <summary>Adds one document opened lately: its icon, its name over the folder it is in, and the button that forgets it.</summary>
     /// <param name="items">Receives the controls.</param>
     /// <param name="place">What to lay them out with.</param>
-    /// <param name="path">The document's path.</param>
+    /// <param name="actions">The commands the controls run.</param>
+    /// <param name="recent">The document.</param>
     /// <param name="index">Its place in the list.</param>
     /// <param name="bounds">Where the row goes.</param>
-    private static void AddRecent(List<ChromeItem> items, in OverlayPlace place, string path, int index, in LayoutRect bounds)
+    private static void AddRecent(List<ChromeItem> items, in OverlayPlace place, StartActions actions, RecentDocument recent, int index, in LayoutRect bounds)
     {
+        var path = recent.FilePath;
         var runs = place.Runs;
         var metrics = place.Metrics;
         var style = ChromeBars.Style(metrics);
@@ -155,15 +145,16 @@ internal static class StartOverlays
 
         // The row itself carries the name for a screen reader and draws the icon; the name and the folder are drawn over it on two lines.
         var name = Path.GetFileName(path);
-        items.Add(new(ChromeItemKind.Row, ChromeCommand.PickRow, index, name, new(bounds.X, bounds.Y, rowWidth, bounds.Height), true, false) { Icon = ChromeIcon.Document, HidesText = true });
+        var row = new LayoutRect(bounds.X, bounds.Y, rowWidth, bounds.Height);
+        items.Add(new(ChromeItemKind.Row, actions.OpenRecent, index, name, row, true, false) { Parameter = recent, Icon = ChromeIcon.Document, HidesText = true });
         var nameBounds = new LayoutRect(bounds.X + textLeft, bounds.Y + metrics.Line, textRoom + metrics.Padding + metrics.Padding, half);
-        items.Add(new(ChromeItemKind.Picture, ChromeCommand.None, index, ChromeText.Fit(name, style, textRoom, runs), nameBounds, true, false));
+        items.Add(new(ChromeItemKind.Picture, null, index, ChromeText.Fit(name, style, textRoom, runs), nameBounds, true, false));
         var small = style with { Size = metrics.TextSize - metrics.Line - metrics.Line };
         var folder = ChromeText.Fit(Path.GetDirectoryName(path) ?? string.Empty, small, textRoom, runs);
         var folderBounds = new LayoutRect(nameBounds.X, bounds.Y + half - metrics.Line, nameBounds.Width, half);
-        items.Add(new(ChromeItemKind.Label, ChromeCommand.None, index, folder, folderBounds, false, false) { TextSize = small.Size });
+        items.Add(new(ChromeItemKind.Label, null, index, folder, folderBounds, false, false) { TextSize = small.Size });
         var forget = new LayoutRect(bounds.X + rowWidth, bounds.Y, removeWidth, bounds.Height);
-        items.Add(new(ChromeItemKind.Button, ChromeCommand.PickRow, RemoveIndex - index, remove, forget, true, false) { Icon = ChromeIcon.Close });
+        items.Add(new(ChromeItemKind.Button, actions.Remove, index, remove, forget, true, false) { Parameter = recent, Icon = ChromeIcon.Close });
     }
 
     /// <summary>Finds the place of a control one row high whose text sits in the middle of the column.</summary>

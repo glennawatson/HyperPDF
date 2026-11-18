@@ -58,7 +58,7 @@ internal static class ChromeFocusMixins
             for (var i = 0; i < items.Count; i++)
             {
                 var item = items[i];
-                if (item.Command == focus.Command && item.Index == focus.Target && item.Kind == focus.Kind && ChromeFocus.CanStopOn(item))
+                if (ReferenceEquals(item.Command, focus.Command) && item.Action == focus.Action && item.Index == focus.Target && item.Kind == focus.Kind && ChromeFocus.CanStopOn(item))
                 {
                     return focus with { Index = i };
                 }

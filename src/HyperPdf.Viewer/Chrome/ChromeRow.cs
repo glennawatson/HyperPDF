@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 
@@ -42,59 +43,53 @@ internal sealed record ChromeRow(List<ChromeItem> Items, TextRuns Runs, ChromeMe
     /// <summary>Gets a value indicating whether a button with an icon shows its text beside it.</summary>
     internal bool ShowLabels { get; init; } = true;
 
-    /// <summary>Adds a button.</summary>
+    /// <summary>Adds a button that runs a command.</summary>
     /// <param name="text">The text.</param>
-    /// <param name="command">What the button does.</param>
+    /// <param name="command">The command a press runs.</param>
     /// <param name="enabled">Whether it can be pressed.</param>
     /// <returns>The row with the button in it.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ChromeRow Button(string text, ChromeCommand command, bool enabled) => Add(new(ChromeItemKind.Button, command, 0, text, default, enabled, false));
+    internal ChromeRow Button(string text, ICommand? command, bool enabled) => Add(new(ChromeItemKind.Button, command, 0, text, default, enabled, false));
 
-    /// <summary>Adds a button with an icon before its text.</summary>
+    /// <summary>Adds a button that runs a command, with an icon before its text.</summary>
     /// <param name="icon">The icon.</param>
     /// <param name="text">The text, which is also the name a screen reader says.</param>
-    /// <param name="command">What the button does.</param>
+    /// <param name="command">The command a press runs.</param>
     /// <param name="enabled">Whether it can be pressed.</param>
     /// <returns>The row with the button in it.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ChromeRow Button(ChromeIcon icon, string text, ChromeCommand command, bool enabled) =>
+    internal ChromeRow Button(ChromeIcon icon, string text, ICommand? command, bool enabled) =>
         Add(new(ChromeItemKind.Button, command, 0, text, default, enabled, false) { Icon = icon });
 
-    /// <summary>Adds a button that is one of a group, which shows whether it is the chosen one.</summary>
+    /// <summary>Adds a button of a dialog, whose press is an input to that dialog.</summary>
     /// <param name="text">The text.</param>
-    /// <param name="command">What the button does.</param>
-    /// <param name="index">Which member of the group it stands for.</param>
-    /// <param name="selected">Whether it is the chosen one.</param>
+    /// <param name="action">What a press means to the dialog.</param>
+    /// <param name="enabled">Whether it can be pressed.</param>
     /// <returns>The row with the button in it.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ChromeRow Button(string text, ChromeCommand command, int index, bool selected) => Add(new(ChromeItemKind.Button, command, index, text, default, true, selected));
-
-    /// <summary>Adds a button of a group with an icon before its text.</summary>
-    /// <param name="icon">The icon.</param>
-    /// <param name="text">The text, which is also the name a screen reader says.</param>
-    /// <param name="command">What the button does.</param>
-    /// <param name="index">Which member of the group it stands for.</param>
-    /// <param name="selected">Whether it is the chosen one.</param>
-    /// <returns>The row with the button in it.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ChromeRow Button(ChromeIcon icon, string text, ChromeCommand command, int index, bool selected) =>
-        Add(new(ChromeItemKind.Button, command, index, text, default, true, selected) { Icon = icon });
+    internal ChromeRow Button(string text, OverlayAction action, bool enabled) => Add(new(ChromeItemKind.Button, action, 0, text, default, enabled, false));
 
     /// <summary>Adds a button that shows its icon alone, whatever the setting for names beside icons. What it does is plain from the text next to it.</summary>
     /// <param name="icon">The icon.</param>
     /// <param name="text">The name a screen reader says.</param>
-    /// <param name="command">What the button does.</param>
+    /// <param name="command">The command a press runs.</param>
     /// <param name="enabled">Whether it can be pressed.</param>
     /// <returns>The row with the button in it.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ChromeRow IconButton(ChromeIcon icon, string text, ChromeCommand command, bool enabled) =>
+    internal ChromeRow IconButton(ChromeIcon icon, string text, ICommand? command, bool enabled) =>
         Add(new(ChromeItemKind.Button, command, 0, text, default, enabled, false) { Icon = icon, HidesText = true });
+
+    /// <summary>Adds a control the caller made, such as a button of a group that passes its own value to a shared command. Its place is set here.</summary>
+    /// <param name="item">The control, without its place.</param>
+    /// <returns>The row with the control in it.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow Control(ChromeItem item) => Add(item);
 
     /// <summary>Adds plain text.</summary>
     /// <param name="text">The text.</param>
     /// <returns>The row with the text in it.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal ChromeRow Label(string text) => Add(new(ChromeItemKind.Label, ChromeCommand.None, 0, text, default, true, false));
+    internal ChromeRow Label(string text) => Add(new(ChromeItemKind.Label, null, 0, text, default, true, false));
 
     /// <summary>Leaves a space.</summary>
     /// <returns>The row after the space.</returns>
@@ -105,7 +100,7 @@ internal sealed record ChromeRow(List<ChromeItem> Items, TextRuns Runs, ChromeMe
     /// <returns>The row after the line.</returns>
     internal ChromeRow Divider()
     {
-        Items.Add(new(ChromeItemKind.Separator, ChromeCommand.None, 0, string.Empty, new(Next, Top, Metrics.Padding, Height), true, false));
+        Items.Add(new(ChromeItemKind.Separator, null, 0, string.Empty, new(Next, Top, Metrics.Padding, Height), true, false));
         return this with { Next = Next + Metrics.Padding + Metrics.Gap };
     }
 

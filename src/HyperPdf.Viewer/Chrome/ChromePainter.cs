@@ -62,6 +62,37 @@ internal static class ChromePainter
         pass.FillRect(new(bounds.Right - weight, bounds.Y, weight, bounds.Height), color);
     }
 
+    /// <summary>
+    /// Draws the name of a control that shows its icon alone, in a small box by the control, while the pointer is over it. An icon
+    /// is never the only way to tell what a control does.
+    /// </summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="hovered">The control under the pointer, or <see langword="null"/>.</param>
+    /// <param name="look">The text, colours and sizes.</param>
+    internal static void DrawHint(IFramePass pass, ChromeItem? hovered, ChromeLook look)
+    {
+        if (hovered is not { HidesText: true, Text.Length: > 0 })
+        {
+            return;
+        }
+
+        var metrics = look.Metrics;
+        var run = look.Runs.Get(hovered.Text, new(metrics.TextSize, false, look.Theme.Text));
+        var width = run.Width + metrics.Padding + metrics.Padding;
+        var height = metrics.RowHeight;
+        var size = pass.Size;
+
+        // The box sits under the control, kept inside the window, and above it when there is no room below.
+        var x = Math.Clamp(hovered.Bounds.X, 0, Math.Max(0, size.Width - width));
+        var below = hovered.Bounds.Bottom + metrics.Gap;
+        var y = below + height <= size.Height ? below : hovered.Bounds.Y - metrics.Gap - height;
+        DrawBox(pass, new(x, y, width, height), look.Theme.Surface, look.Theme.Border, metrics.Line);
+        if (run.Surface is { } surface)
+        {
+            pass.DrawSurface(surface, new(x + metrics.Padding, y + ((height - run.Height) >> 1), run.Width, run.Height), false);
+        }
+    }
+
     /// <summary>Gets the space between an icon and the text after it.</summary>
     /// <param name="metrics">The sizes.</param>
     /// <returns>The space in device pixels.</returns>
@@ -181,7 +212,7 @@ internal static class ChromePainter
     /// <param name="hovered">Whether the pointer is over it.</param>
     private static void DrawState(IFramePass pass, ChromeItem item, ChromeLook look, bool hovered)
     {
-        if (item.Command == ChromeCommand.None || !item.Enabled)
+        if (!item.IsPressable || !item.Enabled)
         {
             return;
         }

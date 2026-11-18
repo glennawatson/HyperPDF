@@ -47,8 +47,8 @@ internal static class PromptOverlays
     {
         { IsTypedCharacter: true } => state with { Entry = string.Concat(state.Entry, input.TypedText) },
         { Kind: OverlayInputKind.Key, Key: ViewerKey.Back } => state with { Entry = ChromeText.WithoutLast(state.Entry) },
-        { Kind: OverlayInputKind.Press, Item.Command: ChromeCommand.Accept } or { Kind: OverlayInputKind.Key, Key: ViewerKey.Enter } => state with { Answered = true, Answer = state.Entry },
-        { Kind: OverlayInputKind.Press, Item.Command: ChromeCommand.Cancel }
+        { Kind: OverlayInputKind.Press, Item.Action: OverlayAction.Accept } or { Kind: OverlayInputKind.Key, Key: ViewerKey.Enter } => state with { Answered = true, Answer = state.Entry },
+        { Kind: OverlayInputKind.Press, Item.Action: OverlayAction.Cancel }
             or { Kind: OverlayInputKind.Key, Key: ViewerKey.Escape }
             or { Kind: OverlayInputKind.Dismiss } => state with { Answered = true },
         _ => state,
@@ -70,20 +70,20 @@ internal static class PromptOverlays
         var height = (metrics.RowHeight * Rows) + metrics.ToolbarHeight + metrics.Padding + metrics.Padding;
         var left = (size.Width - width) >> 1;
         var top = Math.Max(0, (size.Height - height) >> 1);
-        items.Add(new(ChromeItemKind.Popup, ChromeCommand.None, 0, string.Empty, new(left, top, width, height), true, false));
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(left, top, width, height), true, false));
         var y = top + metrics.Padding;
-        items.Add(new(ChromeItemKind.Heading, ChromeCommand.None, 0, ChromeText.Fit(request.Title, style, inner, runs), new(left, y, width, metrics.RowHeight), true, false));
+        items.Add(new(ChromeItemKind.Heading, null, 0, ChromeText.Fit(request.Title, style, inner, runs), new(left, y, width, metrics.RowHeight), true, false));
         y += metrics.RowHeight;
-        items.Add(new(ChromeItemKind.Label, ChromeCommand.None, 0, ChromeText.Fit(request.Label, style, inner, runs), new(left, y, width, metrics.RowHeight), true, false));
+        items.Add(new(ChromeItemKind.Label, null, 0, ChromeText.Fit(request.Label, style, inner, runs), new(left, y, width, metrics.RowHeight), true, false));
         y += metrics.RowHeight;
 
         // A password is never drawn or handed to a screen reader: each character shows as a dot.
         var shown = request.Masked ? new string(MaskCharacter, state.Entry.Length) : state.Entry;
         var fitted = ChromeText.FitEnd(shown, style, inner - metrics.Padding - metrics.Padding, runs);
-        items.Add(new(ChromeItemKind.Field, ChromeCommand.None, 0, fitted, new(left + metrics.Padding, y, inner, metrics.RowHeight), true, true));
+        items.Add(new(ChromeItemKind.Field, null, 0, fitted, new(left + metrics.Padding, y, inner, metrics.RowHeight), true, true));
         y += metrics.RowHeight;
         var buttons = new ChromeRow(items, runs, metrics, left + metrics.Padding, y + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap);
-        buttons = buttons.Button(request.AcceptText, ChromeCommand.Accept, true);
-        buttons = buttons.Button(UiText.Get("Cancel"), ChromeCommand.Cancel, true);
+        buttons = buttons.Button(request.AcceptText, OverlayAction.Accept, true);
+        buttons = buttons.Button(UiText.Get("Cancel"), OverlayAction.Cancel, true);
     }
 }
