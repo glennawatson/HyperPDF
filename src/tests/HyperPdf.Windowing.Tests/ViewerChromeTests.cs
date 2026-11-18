@@ -196,6 +196,29 @@ public sealed class ViewerChromeTests
         await Assert.That(outcome.Picked).IsEqualTo(TwoFiles);
     }
 
+    /// <summary>A double click on a file in the file dialog opens that file at once, without a press on the open button.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DoubleClickOnAFileOpensIt()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"hyperpdf-double-{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(folder);
+        var before = SynchronizationContext.Current;
+        string[] opened;
+        try
+        {
+            opened = RunDoubleClick(folder);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(before);
+            Directory.Delete(folder, true);
+        }
+
+        await Assert.That(opened.Length).IsEqualTo(1);
+        await Assert.That(opened[0]).IsEqualTo(SecondFile);
+    }
+
     /// <summary>Starting to fill in a form's text field opens a typing box over the field on the page, and what is typed there is written to the field.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -586,6 +609,28 @@ public sealed class ViewerChromeTests
         Click(window, chrome.OverlayItems.FirstOrDefault(static item => item.Action == OverlayAction.Accept));
         _ = PumpUntil(session, () => chosen is not null);
         return new(pdfRows, allRows, stayedOpen, chosen?.Count ?? 0);
+    }
+
+    /// <summary>Double clicks the second file of the file dialog.</summary>
+    /// <param name="folder">A folder for the settings and the documents.</param>
+    /// <returns>The names of the files the dialog answered with.</returns>
+    private static string[] RunDoubleClick(string folder)
+    {
+        File.WriteAllBytes(Path.Combine(folder, FirstFile), TestPdf.CreateTextFilled(Pages, Lines));
+        File.WriteAllBytes(Path.Combine(folder, SecondFile), TestPdf.CreateTextFilled(Pages, Lines));
+        using var window = new HeadlessWindow(Width, Height);
+        var context = ViewerSession.UseWindowThread(window);
+        using var services = new AppServices(new SettingsStore(Path.Combine(folder, SettingsFile)), new HyperPdfEngine(), new FallbackPlatform(), new ViewerRenderHead(window));
+        using var session = new ViewerSession(window, services, context);
+        var chrome = session.Chrome;
+        IReadOnlyList<string>? chosen = null;
+        using var picking = chrome.PickFiles(folder).Subscribe(paths => chosen = paths);
+        _ = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item is { Action: OverlayAction.PickRow, Text: SecondFile }));
+        var row = chrome.OverlayItems.FirstOrDefault(static item => item is { Action: OverlayAction.PickRow, Text: SecondFile });
+        Click(window, row);
+        Click(window, row);
+        _ = PumpUntil(session, () => chosen is not null);
+        return [.. (chosen ?? []).Select(Path.GetFileName)!];
     }
 
     /// <summary>Finds the first control that does something.</summary>

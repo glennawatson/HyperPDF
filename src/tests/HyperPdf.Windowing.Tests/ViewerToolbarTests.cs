@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Windows.Input;
 using HyperPdf.Core.Settings;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
@@ -11,6 +12,7 @@ using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer;
 using HyperPdf.Viewer.Chrome;
 using HyperPdf.Viewer.Icons;
+using ReactiveUI;
 
 namespace HyperPdf.Windowing.Tests;
 
@@ -41,6 +43,18 @@ public sealed class ViewerToolbarTests
 
     /// <summary>The fewest lines that set the toolbar's groups apart.</summary>
     private const int FewestDividers = 4;
+
+    /// <summary>The turns of the session pumped so work the failure posted has run.</summary>
+    private const int Turns = 5;
+
+    /// <summary>The name of the edit bar's button that retypes the picked text.</summary>
+    private const string RetypeName = "Retype text";
+
+    /// <summary>The name of the fill and sign bar's button that makes initials.</summary>
+    private const string InitialsName = "Initials";
+
+    /// <summary>The height below the toolbar that the bars under it are searched in, in pixels.</summary>
+    private const int BarsRoom = 200;
 
     /// <summary>The name of the button that saves.</summary>
     private const string SaveName = "Save";
@@ -152,6 +166,64 @@ public sealed class ViewerToolbarTests
         await Assert.That(outcome.BackEnabled).IsFalse();
     }
 
+    /// <summary>A command that fails with nobody watching is logged and the window carries on; it does not end the program.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task UnobservedCommandErrorDoesNotEndTheWindow()
+    {
+        var survived = await WithTab(WideWidth, static (session, tab) =>
+        {
+            using var failing = ReactiveCommand.Create(static () => throw new InvalidOperationException("The command failed."));
+            ((ICommand)failing).Execute(null);
+            for (var turn = 0; turn < Turns; turn++)
+            {
+                _ = session.PumpOnce(PumpMilliseconds);
+            }
+
+            return tab.IsLoaded;
+        });
+
+        await Assert.That(survived).IsTrue();
+    }
+
+    /// <summary>Turning on Edit or Fill and Sign shows a bar under the toolbar, and every button of it that can run has an icon.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ToolBarsAppearWithIconsWhenAToolIsTurnedOn()
+    {
+        var outcome = await WithTab(WideWidth, static (session, tab) =>
+        {
+            var chrome = session.Chrome;
+            var toolbarBottom = chrome.Bars.First(static item => item.Icon == ChromeIcon.FitPage).Bounds.Bottom;
+            ((ICommand)tab.ContentEdit.ToggleEditingCommand).Execute(null);
+            var editShown = PumpUntil(session, () => chrome.Bars.Any(static item => item.Text == RetypeName));
+            var editButtons = BarButtons(chrome.Bars, toolbarBottom);
+
+            ((ICommand)tab.ContentEdit.ToggleEditingCommand).Execute(null);
+            var editGone = PumpUntil(session, () => chrome.Bars.All(static item => item.Text != RetypeName));
+
+            ((ICommand)tab.FillAndSign.ToggleCommand).Execute(null);
+            var signShown = PumpUntil(session, () => chrome.Bars.Any(static item => item.Text == InitialsName));
+            var signButtons = BarButtons(chrome.Bars, toolbarBottom);
+            return new BarOutcome(
+                editShown,
+                editButtons.Length,
+                editButtons.Count(static item => item.Icon != ChromeIcon.None),
+                editGone,
+                signShown,
+                signButtons.Length,
+                signButtons.Count(static item => item.Icon != ChromeIcon.None));
+        });
+
+        await Assert.That(outcome.EditShown).IsTrue();
+        await Assert.That(outcome.EditButtons).IsGreaterThan(0);
+        await Assert.That(outcome.EditWithIcons).IsEqualTo(outcome.EditButtons);
+        await Assert.That(outcome.EditGone).IsTrue();
+        await Assert.That(outcome.SignShown).IsTrue();
+        await Assert.That(outcome.SignButtons).IsGreaterThan(0);
+        await Assert.That(outcome.SignWithIcons).IsEqualTo(outcome.SignButtons);
+    }
+
     /// <summary>The search bar's switches run the search's own commands, and each shows whether it is on.</summary>
     /// <returns>A task.</returns>
     [Test]
@@ -188,6 +260,13 @@ public sealed class ViewerToolbarTests
         var fit = bars.First(static item => item.Icon == ChromeIcon.FitPage);
         return [.. bars.Where(item => item.Kind == ChromeItemKind.Button && item.Bounds.Y >= menu.Bounds.Y && item.Bounds.Y <= fit.Bounds.Y)];
     }
+
+    /// <summary>Finds the buttons of the bars under the toolbar.</summary>
+    /// <param name="bars">The controls of the bars.</param>
+    /// <param name="toolbarBottom">The bottom of the toolbar.</param>
+    /// <returns>The buttons.</returns>
+    private static ChromeItem[] BarButtons(IReadOnlyList<ChromeItem> bars, double toolbarBottom) =>
+        [.. bars.Where(item => item.Kind == ChromeItemKind.Button && item.Bounds.Y >= toolbarBottom && item.Bounds.Y < toolbarBottom + BarsRoom)];
 
     /// <summary>Finds the place of the first control with a name.</summary>
     /// <param name="items">The controls.</param>
@@ -255,6 +334,16 @@ public sealed class ViewerToolbarTests
 
         return true;
     }
+
+    /// <summary>What the bars under the toolbar showed.</summary>
+    /// <param name="EditShown">Whether the edit bar appeared.</param>
+    /// <param name="EditButtons">The buttons of the edit bar.</param>
+    /// <param name="EditWithIcons">The buttons of the edit bar that have an icon.</param>
+    /// <param name="EditGone">Whether the edit bar went away again.</param>
+    /// <param name="SignShown">Whether the fill and sign bar appeared.</param>
+    /// <param name="SignButtons">The buttons of the fill and sign bar.</param>
+    /// <param name="SignWithIcons">The buttons of the fill and sign bar that have an icon.</param>
+    private readonly record struct BarOutcome(bool EditShown, int EditButtons, int EditWithIcons, bool EditGone, bool SignShown, int SignButtons, int SignWithIcons);
 
     /// <summary>What the toolbar was laid out as.</summary>
     /// <param name="Buttons">The buttons on the toolbar.</param>

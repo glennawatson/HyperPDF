@@ -131,7 +131,7 @@ internal static class ChromeBars
             return new(between, sidebar with { Bounds = default });
         }
 
-        var panel = ChromeSidebar.Build(items, tab, sidebar, look, between, actions);
+        var panel = ChromeSidebar.Build(items, tab, sidebar, look, between, actions, main.SidebarFollowsPage);
         return new(new(panel.Width, top, size.Width - panel.Width, between.Height), panel.View);
     }
 

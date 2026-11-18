@@ -23,6 +23,7 @@ using HyperPdf.Viewer.Chrome.Forms;
 using HyperPdf.Windowing.Windows;
 using ReactiveUI;
 using ReactiveUI.Binding;
+using ReactiveUI.Builder;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Concurrency;
 using ReactiveUI.Primitives.Disposables;
@@ -160,7 +161,16 @@ public sealed class ViewerSession : IDisposable
     {
         var context = new WindowThreadContext(window);
         SynchronizationContext.SetSynchronizationContext(context);
-        RxSchedulers.MainThreadScheduler = new SynchronizationContextSequencer(context);
+
+        // Without this ReactiveUI logs through a Splat log manager that nobody set up, which throws while it reports an error,
+        // and an error nobody observes ends the program.
+        var scheduler = new SynchronizationContextSequencer(context);
+        _ = RxAppBuilder.CreateReactiveUIBuilder()
+            .WithMainThreadScheduler(scheduler)
+            .WithExceptionHandler(ErrorLogObserver.Instance)
+            .WithCoreServices()
+            .BuildApp();
+        RxSchedulers.MainThreadScheduler = scheduler;
         return context;
     }
 

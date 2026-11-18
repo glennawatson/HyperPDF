@@ -19,6 +19,10 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="PicksFolder">Whether the dialog asks for a folder rather than a file. The answer is then the folder shown.</param>
 /// <param name="Answered">Whether the dialog was answered. Only the first answer counts.</param>
 /// <param name="Answer">The paths chosen, or none when the dialog was cancelled.</param>
+/// <param name="Pressed">
+/// The name of the file pressed last in the folder shown, or empty. A double click opens a file only when the press before it was on
+/// the same file, so the second press of a double click on a folder cannot open a file of the folder it led to.
+/// </param>
 [DebuggerDisplay("FileState: {Folder}, {Names.Length} names, answered {Answered}")]
 internal sealed record FileState(
     string Folder,
@@ -32,4 +36,5 @@ internal sealed record FileState(
     bool Many,
     bool PicksFolder,
     bool Answered,
-    string[] Answer);
+    string[] Answer,
+    string Pressed);

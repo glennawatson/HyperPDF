@@ -3,12 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using HyperPdf.ViewModels.Dialogs;
 
 namespace HyperPdf.Viewer.Chrome;
 
 /// <summary>One bar under the toolbar that tells what a tool or a notice says now and offers what can be done about it.</summary>
 /// <param name="Text">What the tool or notice says.</param>
-/// <param name="Actions">What can be done, each with the command it runs.</param>
+/// <param name="Actions">What can be done, each with the command it runs and the icon that shows it.</param>
 [DebuggerDisplay("ToolBar: {Text}")]
-internal sealed record ToolBar(string Text, IReadOnlyList<MenuEntry> Actions);
+internal sealed record ToolBar(string Text, IReadOnlyList<BarAction> Actions);

@@ -203,6 +203,12 @@ public sealed class AppSettings
     /// </summary>
     public bool FollowPageTimings { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the list of pages in the side panel scrolls to keep the page being read in view.
+    /// It moves only when the reader reaches the edge of the list, one page at a time, so the list does not jump about.
+    /// </summary>
+    public bool SidebarFollowsPage { get; set; } = true;
+
     /// <summary>Gets the page each recent document was closed at, newest last.</summary>
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public List<LastViewedPage> LastPages { get; } = [];

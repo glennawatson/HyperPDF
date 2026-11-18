@@ -8,6 +8,7 @@ using System.Windows.Input;
 using HyperPdf.Core.Text;
 using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Viewing;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome;
 
@@ -52,18 +53,22 @@ internal static class ChromeToolBars
     private static void AddNotices(List<ToolBar> bars, DocumentTabViewModel tab)
     {
         var notices = tab.Notices;
-        AddNotice(bars, tab.Notice, Item(DismissText, tab.DismissNoticeCommand));
-        AddNotice(bars, notices.ContentWarning, Item(DismissText, notices.DismissContentWarningCommand));
-        AddNotice(bars, notices.IntegrityNotice, Item(DismissText, notices.DismissIntegrityNoticeCommand));
-        AddNotice(bars, Join(notices.RepairNotice, notices.RepairDetails), Item("Details", notices.ToggleRepairDetailsCommand), Item(DismissText, notices.DismissRepairNoticeCommand));
+        AddNotice(bars, tab.Notice, Item(ChromeIcon.Close, DismissText, tab.DismissNoticeCommand));
+        AddNotice(bars, notices.ContentWarning, Item(ChromeIcon.Close, DismissText, notices.DismissContentWarningCommand));
+        AddNotice(bars, notices.IntegrityNotice, Item(ChromeIcon.Close, DismissText, notices.DismissIntegrityNoticeCommand));
+        AddNotice(
+            bars,
+            Join(notices.RepairNotice, notices.RepairDetails),
+            Item(ChromeIcon.More, "Details", notices.ToggleRepairDetailsCommand),
+            Item(ChromeIcon.Close, DismissText, notices.DismissRepairNoticeCommand));
         AddNotice(
             bars,
             Join(notices.RequirementNotice, notices.RequirementDetails),
-            Item("Details", notices.ToggleRequirementDetailsCommand),
-            Item(DismissText, notices.DismissRequirementNoticeCommand));
+            Item(ChromeIcon.More, "Details", notices.ToggleRequirementDetailsCommand),
+            Item(ChromeIcon.Close, DismissText, notices.DismissRequirementNoticeCommand));
         if (tab.HasPendingReload)
         {
-            bars.Add(new(UiText.Get("This file has changed on disk."), [Item("Reload", tab.ReloadCommand), Item("Keep this version", tab.DismissReloadCommand)]));
+            bars.Add(new(UiText.Get("This file has changed on disk."), [Item(ChromeIcon.Redo, "Reload", tab.ReloadCommand), Item(ChromeIcon.Done, "Keep this version", tab.DismissReloadCommand)]));
         }
     }
 
@@ -79,25 +84,25 @@ internal static class ChromeToolBars
             bars.Add(new(
                 Label(UiText.Get("Read aloud"), status),
                 [
-                    Item(aloud.PlayPauseText, aloud.PlayPauseCommand),
-                    Item("Sentence before", aloud.PreviousCommand),
-                    Item("Next sentence", aloud.NextCommand),
-                    Item("Read this page", aloud.ReadThisPageCommand),
-                    Item("Read to the end", aloud.ReadToEndCommand),
-                    Item("Get a better voice", aloud.DownloadVoiceCommand),
-                    Item("Close", aloud.CloseCommand),
+                    Item(ChromeIcon.Play, aloud.PlayPauseText, aloud.PlayPauseCommand),
+                    Item(ChromeIcon.PreviousSentence, "Sentence before", aloud.PreviousCommand),
+                    Item(ChromeIcon.NextSentence, "Next sentence", aloud.NextCommand),
+                    Item(ChromeIcon.Speaker, "Read this page", aloud.ReadThisPageCommand),
+                    Item(ChromeIcon.PageDown, "Read to the end", aloud.ReadToEndCommand),
+                    Item(ChromeIcon.Add, "Get a better voice", aloud.DownloadVoiceCommand),
+                    Item(ChromeIcon.Close, "Close", aloud.CloseCommand),
                 ]));
         }
 
         var text = tab.TextRecognition;
         if (text.IsBusy)
         {
-            bars.Add(new(Share(Label(UiText.Get("Recognising text"), text.ProgressText), text.Progress), [Item("Stop", text.StopCommand)]));
+            bars.Add(new(Share(Label(UiText.Get("Recognising text"), text.ProgressText), text.Progress), [Item(ChromeIcon.Stop, "Stop", text.StopCommand)]));
         }
 
         if (text.IsLanguageBarOpen)
         {
-            bars.Add(new(text.LanguageBarText, [Item(text.LanguageActionText, text.ConfirmLanguageCommand), Item("Close", text.CloseLanguageBarCommand)]));
+            bars.Add(new(text.LanguageBarText, [Item(ChromeIcon.Done, text.LanguageActionText, text.ConfirmLanguageCommand), Item(ChromeIcon.Close, "Close", text.CloseLanguageBarCommand)]));
         }
 
         AddInks(bars, tab.Separations);
@@ -106,7 +111,12 @@ internal static class ChromeToolBars
         {
             bars.Add(new(
                 UiText.Get("Focus mode: one column of plain text."),
-                [Item("Larger", focus.LargerCommand), Item("Smaller", focus.SmallerCommand), Item("Text settings", focus.ShowSettingsCommand), Item("Back to the pages", focus.ToggleCommand)]));
+                [
+                    Item(ChromeIcon.ZoomIn, "Larger", focus.LargerCommand),
+                    Item(ChromeIcon.ZoomOut, "Smaller", focus.SmallerCommand),
+                    Item(ChromeIcon.TextSize, "Text settings", focus.ShowSettingsCommand),
+                    Item(ChromeIcon.Back, "Back to the pages", focus.ToggleCommand),
+                ]));
         }
     }
 
@@ -120,10 +130,10 @@ internal static class ChromeToolBars
             return;
         }
 
-        var actions = new List<MenuEntry>(inks.Colorants.Count);
+        var actions = new List<BarAction>(inks.Colorants.Count);
         for (var i = 0; i < inks.Colorants.Count; i++)
         {
-            actions.Add(MenuEntry.Item(UiText.Format("Show {0}", inks.Colorants[i]), null, inks.ShowInkCommand, i, i != inks.SelectedIndex));
+            actions.Add(new(ChromeIcon.Layers, MenuEntry.Item(UiText.Format("Show {0}", inks.Colorants[i]), null, inks.ShowInkCommand, i, i != inks.SelectedIndex)));
         }
 
         bars.Add(new(Label(UiText.Get("Inks"), description), [.. actions]));
@@ -139,14 +149,20 @@ internal static class ChromeToolBars
         {
             bars.Add(new(
                 UiText.Format("Scrolling by itself at speed {0}.", tools.AutoScrollSpeed),
-                [Item("Slower", tools.SlowerAutoScrollCommand), Item("Faster", tools.FasterAutoScrollCommand), Item("Stop", tools.StopAutoScrollCommand)]));
+                [
+                    Item(ChromeIcon.Back, "Slower", tools.SlowerAutoScrollCommand),
+                    Item(ChromeIcon.Forward, "Faster", tools.FasterAutoScrollCommand),
+                    Item(ChromeIcon.Stop, "Stop", tools.StopAutoScrollCommand),
+                ]));
         }
 
         var measure = tab.Measure;
         if (measure.IsOn)
         {
             var result = measure.Result.Length > 0 ? measure.Result : UiText.Get("Click the points to measure between.");
-            bars.Add(new(Label(UiText.Get("Measure"), result), [Item("Keep as a mark", measure.KeepCommand), Item("Clear", measure.ClearCommand), Item("Done", measure.ToggleCommand)]));
+            bars.Add(new(
+                Label(UiText.Get("Measure"), result),
+                [Item(ChromeIcon.Add, "Keep as a mark", measure.KeepCommand), Item(ChromeIcon.Close, "Clear", measure.ClearCommand), Item(ChromeIcon.Done, "Done", measure.ToggleCommand)]));
         }
 
         AddEditTools(bars, tab);
@@ -157,13 +173,13 @@ internal static class ChromeToolBars
             bars.Add(new(
                 sign.Hint,
                 [
-                    Item("Signature", sign.SignatureCommand),
-                    Item("Initials", sign.InitialsCommand),
-                    Item("Put it down", sign.PlaceCommand),
-                    Item("Bigger", sign.BiggerCommand),
-                    Item("Smaller", sign.SmallerCommand),
-                    Item("Remove", sign.RemoveMarkCommand),
-                    Item("Done", sign.ToggleCommand),
+                    Item(ChromeIcon.Signature, "Signature", sign.SignatureCommand),
+                    Item(ChromeIcon.Text, "Initials", sign.InitialsCommand),
+                    Item(ChromeIcon.Stamp, "Put it down", sign.PlaceCommand),
+                    Item(ChromeIcon.ZoomIn, "Bigger", sign.BiggerCommand),
+                    Item(ChromeIcon.ZoomOut, "Smaller", sign.SmallerCommand),
+                    Item(ChromeIcon.Close, "Remove", sign.RemoveMarkCommand),
+                    Item(ChromeIcon.Done, "Done", sign.ToggleCommand),
                 ]));
         }
     }
@@ -182,16 +198,16 @@ internal static class ChromeToolBars
         bars.Add(new(
             UiText.Get("Text format"),
             [
-                Item("Bold", marks.ToggleBoldCommand),
-                Item("Italic", marks.ToggleItalicCommand),
-                Item("Underline", marks.ToggleUnderlineCommand),
-                MenuEntry.Item(UiText.Get("Align left"), null, marks.SetAlignmentCommand, TextBoxAlignment.Left, true),
-                MenuEntry.Item(UiText.Get("Align centre"), null, marks.SetAlignmentCommand, TextBoxAlignment.Center, true),
-                MenuEntry.Item(UiText.Get("Align right"), null, marks.SetAlignmentCommand, TextBoxAlignment.Right, true),
-                Item("Larger text", marks.GrowTextCommand),
-                Item("Smaller text", marks.ShrinkTextCommand),
-                Item("Text properties…", marks.EditTextPropertiesCommand),
-                Item("Finish text", marks.FinishTextCommand),
+                Item(ChromeIcon.Bold, "Bold", marks.ToggleBoldCommand),
+                Item(ChromeIcon.Italic, "Italic", marks.ToggleItalicCommand),
+                Item(ChromeIcon.Underline, "Underline", marks.ToggleUnderlineCommand),
+                new(ChromeIcon.AlignLeft, MenuEntry.Item(UiText.Get("Align left"), null, marks.SetAlignmentCommand, TextBoxAlignment.Left, true)),
+                new(ChromeIcon.AlignCentre, MenuEntry.Item(UiText.Get("Align centre"), null, marks.SetAlignmentCommand, TextBoxAlignment.Center, true)),
+                new(ChromeIcon.AlignRight, MenuEntry.Item(UiText.Get("Align right"), null, marks.SetAlignmentCommand, TextBoxAlignment.Right, true)),
+                Item(ChromeIcon.ZoomIn, "Larger text", marks.GrowTextCommand),
+                Item(ChromeIcon.ZoomOut, "Smaller text", marks.ShrinkTextCommand),
+                Item(ChromeIcon.More, "Text properties…", marks.EditTextPropertiesCommand),
+                Item(ChromeIcon.Done, "Finish text", marks.FinishTextCommand),
             ]));
     }
 
@@ -209,12 +225,12 @@ internal static class ChromeToolBars
         bars.Add(new(
             UiText.Get("Edit tools"),
             [
-                Item("Retype text", edit.EditPickedTextCommand),
-                Item("Remove picked", edit.RemovePickedCommand),
-                Item("Undo", tab.Pages.UndoCommand),
-                Item("Redo", tab.Pages.RedoCommand),
-                Item("Save PDF 2.0 copy", tab.Copies.Pdf20.RunCommand),
-                Item("Done", edit.ToggleEditingCommand),
+                Item(ChromeIcon.Text, "Retype text", edit.EditPickedTextCommand),
+                Item(ChromeIcon.Close, "Remove picked", edit.RemovePickedCommand),
+                Item(ChromeIcon.Undo, "Undo", tab.Pages.UndoCommand),
+                Item(ChromeIcon.Redo, "Redo", tab.Pages.RedoCommand),
+                Item(ChromeIcon.Save, "Save PDF 2.0 copy", tab.Copies.Pdf20.RunCommand),
+                Item(ChromeIcon.Done, "Done", edit.ToggleEditingCommand),
             ]));
     }
 
@@ -222,7 +238,7 @@ internal static class ChromeToolBars
     /// <param name="bars">Receives the bar.</param>
     /// <param name="text">The notice, or <see langword="null"/> or empty for none.</param>
     /// <param name="actions">What can be done about it.</param>
-    private static void AddNotice(List<ToolBar> bars, string? text, params MenuEntry[] actions)
+    private static void AddNotice(List<ToolBar> bars, string? text, params BarAction[] actions)
     {
         if (text is { Length: > 0 })
         {
@@ -249,13 +265,14 @@ internal static class ChromeToolBars
         foreach (var action in bar.Actions)
         {
             // A button that cannot do anything now is left out, so the bar only offers what works.
-            if (!action.IsEnabled)
+            var entry = action.Entry;
+            if (!entry.IsEnabled)
             {
                 continue;
             }
 
             // The button runs the action's own command. Its place among the controls tells it from another button of the same command.
-            row = row.Control(new(ChromeItemKind.Button, action.Command, items.Count, action.Header, default, true, false) { Parameter = action.Parameter });
+            row = row.Control(new(ChromeItemKind.Button, entry.Command, items.Count, entry.Header, default, true, false) { Parameter = entry.Parameter, Icon = action.Icon });
         }
 
         var height = row.Lines * metrics.ToolbarHeight;
@@ -264,11 +281,12 @@ internal static class ChromeToolBars
     }
 
     /// <summary>Makes a button that runs a command, offered only while the command can run.</summary>
+    /// <param name="icon">The icon drawn before the text.</param>
     /// <param name="text">The button's text in English, which is looked up in the language shown.</param>
     /// <param name="command">The command.</param>
     /// <returns>The button.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static MenuEntry Item(string text, ICommand command) => MenuEntry.Item(UiText.Get(text), null, command, null, command.CanExecute(null));
+    private static BarAction Item(ChromeIcon icon, string text, ICommand command) => new(icon, MenuEntry.Item(UiText.Get(text), null, command, null, command.CanExecute(null)));
 
     /// <summary>Puts a tool's name before what it says.</summary>
     /// <param name="name">The tool's name.</param>

@@ -144,6 +144,9 @@ public sealed class ViewerChrome : IDisposable
     /// <summary>The presses on the empty part of the top bar, which tell a second press from a first.</summary>
     private ClickCounter _framePresses;
 
+    /// <summary>The presses on the controls of the open menu or dialog, which tell a double click from a single one.</summary>
+    private ClickCounter _overlayPresses;
+
     /// <summary>The place of the tab the pointer was pressed on, or -1 when it was not pressed on a tab.</summary>
     private int _tabDragFrom = -1;
 
@@ -430,7 +433,7 @@ public sealed class ViewerChrome : IDisposable
             return false;
         }
 
-        PressOverlayItem(item);
+        PressOverlayItem(item, 1);
         return true;
     }
 
@@ -535,7 +538,7 @@ public sealed class ViewerChrome : IDisposable
     internal void ShowStart(MainViewModel main) => Show(StartOverlays.Open(main));
 
     /// <summary>Shows the side panel's list from its start again, as when another list is chosen.</summary>
-    internal void ResetSidebarScroll() => _sidebar = _sidebar with { First = 0 };
+    internal void ResetSidebarScroll() => _sidebar = _sidebar with { First = 0, FollowedTab = null, FollowedPage = -1 };
 
     /// <summary>Takes the start view away when a document opened.</summary>
     internal void CloseStart()
@@ -747,9 +750,10 @@ public sealed class ViewerChrome : IDisposable
     /// and then the control's command runs, which may close the dialog or open another over it.
     /// </summary>
     /// <param name="item">The control.</param>
-    private void PressOverlayItem(ChromeItem item)
+    /// <param name="clicks">The presses counted close together, this one included.</param>
+    private void PressOverlayItem(ChromeItem item, int clicks)
     {
-        SendToOverlay(OverlayInput.Press(item));
+        SendToOverlay(OverlayInput.Press(item, clicks));
         Run(item);
     }
 
@@ -932,7 +936,9 @@ public sealed class ViewerChrome : IDisposable
 
         if (Find(_overlayItems, x, y) is { } pressed)
         {
-            PressOverlayItem(pressed);
+            // Presses close together on the same place are a double click, which a list of files takes as "open this one".
+            _overlayPresses = _overlayPresses.Press(x, y, Stopwatch.GetTimestamp());
+            PressOverlayItem(pressed, _overlayPresses.Count);
             return;
         }
 
@@ -1446,7 +1452,7 @@ public sealed class ViewerChrome : IDisposable
             return false;
         }
 
-        PressOverlayItem(focused);
+        PressOverlayItem(focused, 1);
         return true;
     }
 

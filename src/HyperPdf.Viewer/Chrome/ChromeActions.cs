@@ -33,6 +33,11 @@ internal sealed class ChromeActions : IDisposable
         ToggleAnnotate = ReactiveCommand.Create(() => ToggleMarking(main));
         ShowSidebarList = ReactiveCommand.Create<SidebarMode>(mode => ShowList(main, chrome, mode));
         PickSidebarRow = ReactiveCommand.Create<object, object>(static target => target);
+        ToggleFollowPage = ReactiveCommand.Create(() =>
+        {
+            main.SidebarFollowsPage = !main.SidebarFollowsPage;
+            chrome.InvalidateBars();
+        });
         Minimize = ReactiveCommand.Create(window.Minimize);
         ToggleMaximize = ReactiveCommand.Create(() =>
         {
@@ -74,6 +79,9 @@ internal sealed class ChromeActions : IDisposable
     /// <summary>Gets the command that shows one list of the side panel, which is its parameter, from its start.</summary>
     internal ReactiveCommand<SidebarMode, RxVoid> ShowSidebarList { get; }
 
+    /// <summary>Gets the command that makes the list of pages follow the page being read, or stops it.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> ToggleFollowPage { get; }
+
     /// <summary>
     /// Gets the command of a row of the side panel. Its parameter is what the row stands for: a page, a bookmark, a note, an attached
     /// file or a layer. The command hands it on, so each kind of row is one stream that the tab shown is joined to.
@@ -91,6 +99,7 @@ internal sealed class ChromeActions : IDisposable
         ToggleAnnotate.Dispose();
         ShowSidebarList.Dispose();
         PickSidebarRow.Dispose();
+        ToggleFollowPage.Dispose();
         Minimize.Dispose();
         ToggleMaximize.Dispose();
         CloseWindow.Dispose();

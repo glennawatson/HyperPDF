@@ -2265,6 +2265,9 @@
   <data name="Follow the page a document opens at" xml:space="preserve">
     <value>遵循文档指定的打开页面</value>
   </data>
+  <data name="Follow the page being read" xml:space="preserve">
+    <value>跟随正在阅读的页面</value>
+  </data>
   <data name="Font" xml:space="preserve">
     <value>字体</value>
   </data>
