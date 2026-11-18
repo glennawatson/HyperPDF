@@ -123,7 +123,9 @@ internal sealed class TestServices : IDisposable
     {
         main.Open(items);
         var selected = main.SelectedTab ?? throw new InvalidOperationException("Opening did not select a document.");
-        _ = await TestWait.UntilAsync(() => selected.IsLoaded, () => selected.ErrorMessage ?? "Document has not loaded.");
+
+        // A tab flags itself loaded before it bumps its layout version, and Edit mode drops its picks on that bump, so a test that picked in between would lose them.
+        _ = await TestWait.UntilAsync(() => selected.IsLoaded && selected.LayoutVersion > 0, () => selected.ErrorMessage ?? "Document has not loaded.");
     }
 
     /// <summary>Writes a generated document.</summary>
