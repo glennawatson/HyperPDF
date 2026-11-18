@@ -572,7 +572,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Binding
-- Version: 10.0.0
+- Version: 10.1.0
 - Origin: NuGet package
 - Copyright: Copyright (c) 2026 ReactiveUI and Contributors
 - Link: https://github.com/reactiveui/ReactiveUI.Binding.SourceGenerators
@@ -722,7 +722,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.SourceGenerators
-- Version: 5.0.0
+- Version: 5.1.0
 - Origin: NuGet package
 - Copyright: Copyright (c) 2026 ReactiveUI and Contributors
 - Link: https://github.com/reactiveui/ReactiveUI.Binding.SourceGenerators
