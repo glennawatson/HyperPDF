@@ -20,7 +20,7 @@ public sealed record TestCffOptions
     public int EmbeddingFlags { get; init; }
 
     /// <summary>Gets the tags of extra four-byte tables to add, such as <c>fvar</c> or <c>CFF2</c> to make a font that cannot be embedded.</summary>
-    public IReadOnlyList<string> ExtraTables { get; init; } = [];
+    public string[] ExtraTables { get; init; } = [];
 
     /// <summary>Gets the family name.</summary>
     public string Family { get; init; } = "PVL Test Sans CFF";

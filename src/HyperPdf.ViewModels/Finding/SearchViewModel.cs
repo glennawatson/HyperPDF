@@ -308,7 +308,7 @@ public sealed partial class SearchViewModel : ReactiveObject, IDisposable, ILoca
     /// <param name="page">The page's hits.</param>
     private void AddPage(IDocument document, SearchPageResult page)
     {
-        var list = new List<SearchHit>(page.Hits.Count);
+        var list = new List<SearchHit>(page.Hits.Length);
         foreach (var hit in page.Hits)
         {
             list.Add(hit);

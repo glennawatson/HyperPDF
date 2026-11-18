@@ -72,7 +72,7 @@ public sealed class DocumentSource
     public int PageCount => PageSizes.Length;
 
     /// <summary>Gets the cached outline, or <see langword="null"/> before the first open.</summary>
-    public IReadOnlyList<OutlineNode>? Outline { get; private set; }
+    public OutlineNode[]? Outline { get; private set; }
 
     /// <summary>Gets the cached metadata, or <see langword="null"/> before the first open.</summary>
     public DocumentMetadata? Metadata { get; private set; }

@@ -18,7 +18,7 @@ internal static class HyperPdfDocumentAttachments
     /// <summary>Gets the embedded files, read once.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The attachments.</returns>
-    internal static IReadOnlyList<DocumentAttachment> GetAttachments(HyperPdfDocument self)
+    internal static DocumentAttachment[] GetAttachments(HyperPdfDocument self)
     {
         // An edit drops this cache under the page write lock, so a list read here is never published after that drop.
         using var access = HyperPdfNavigation.EnterPageRead(self);

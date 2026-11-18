@@ -47,8 +47,8 @@ internal static class SigningMapping
         preview.LocksDocument,
         preview.LaterChanges,
         preview.TimestampRequired,
-        preview.Problems,
-        preview.Notes);
+        [..preview.Problems],
+        [..preview.Notes]);
 
     /// <summary>Maps a digest of the app to the library's.</summary>
     /// <param name="digest">The digest.</param>

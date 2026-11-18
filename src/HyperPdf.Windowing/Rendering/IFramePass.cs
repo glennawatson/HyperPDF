@@ -55,4 +55,32 @@ public interface IFramePass : IDisposable
     {
         // A pass that does not fade draws opaque.
     }
+
+    /// <summary>
+    /// Starts a trial of a group of draws that is the same in most frames, such as the window's own controls. Until
+    /// <see cref="EndKeptTrial"/> the pass draws nothing and only follows what the group would draw. A pass that keeps no pixels
+    /// between frames, or has none kept yet, answers <see langword="false"/>, and the group is then drawn between
+    /// <see cref="BeginKeptGroup"/> and <see cref="EndKeptGroup"/>.
+    /// </summary>
+    /// <returns><see langword="true"/> when the trial has started.</returns>
+    bool BeginKeptTrial() => false;
+
+    /// <summary>
+    /// Ends the trial. When the group is draw for draw the one whose pixels the pass kept, the pixels are put back in the frame
+    /// and the group is done. Otherwise the caller draws the group between <see cref="BeginKeptGroup"/> and <see cref="EndKeptGroup"/>.
+    /// </summary>
+    /// <returns><see langword="true"/> when the kept pixels were put back.</returns>
+    bool EndKeptTrial() => false;
+
+    /// <summary>Starts the real drawing of a group whose pixels the pass keeps for later frames.</summary>
+    void BeginKeptGroup()
+    {
+        // A pass that keeps no pixels draws the group like anything else.
+    }
+
+    /// <summary>Ends the group and keeps the pixels it left in the frame.</summary>
+    void EndKeptGroup()
+    {
+        // A pass that keeps no pixels has nothing to keep.
+    }
 }

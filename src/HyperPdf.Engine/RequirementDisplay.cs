@@ -43,7 +43,7 @@ internal static class RequirementDisplay
             return string.Empty;
         }
 
-        var names = Names(assessment.Results);
+        var names = Names([..assessment.Results]);
         return assessment.Decision == PdfRequirementDecision.Critical
             ? UiText.Format("This file says it needs features HyperPDF cannot provide: {0}. It cannot look or work as its author meant.", names)
             : UiText.Format("This file uses features HyperPDF does not fully support: {0}. HyperPDF shows what it can and leaves out the rest.", names);
@@ -52,7 +52,7 @@ internal static class RequirementDisplay
     /// <summary>Builds a translated list of unmet feature names.</summary>
     /// <param name="results">The checked requirements.</param>
     /// <returns>The names and any remaining count.</returns>
-    private static string Names(IReadOnlyList<PdfRequirementResult> results)
+    private static string Names(ReadOnlySpan<PdfRequirementResult> results)
     {
         var builder = new StringBuilder();
         var unmet = 0;

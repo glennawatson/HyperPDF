@@ -88,6 +88,6 @@ public sealed class FormScriptProgram
         }
 
         var value = context.EventValue;
-        return new(true, value.Kind == SandboxValueKind.Undefined ? input.Value : value.ToText(), context.ReturnCode.IsTruthy, context.Messages);
+        return new(true, value.Kind == SandboxValueKind.Undefined ? input.Value : value.ToText(), context.ReturnCode.IsTruthy, [..context.Messages]);
     }
 }

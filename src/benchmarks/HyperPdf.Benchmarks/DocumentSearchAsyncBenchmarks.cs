@@ -54,7 +54,7 @@ public class DocumentSearchAsyncBenchmarks
         var hits = 0;
         foreach (var result in await DocumentSearch.Search(_document.Document, CommonTerm, SearchOptions.None, StartPage, false).ToList().ToTask())
         {
-            hits += result.Hits.Count;
+            hits += result.Hits.Length;
         }
 
         return hits;
@@ -68,7 +68,7 @@ public class DocumentSearchAsyncBenchmarks
         var hits = 0;
         foreach (var result in await DocumentSearch.Search(_document.Document, query, SearchOptions.None, StartPage).ToList().ToTask())
         {
-            hits += result.Hits.Count;
+            hits += result.Hits.Length;
         }
 
         return hits;

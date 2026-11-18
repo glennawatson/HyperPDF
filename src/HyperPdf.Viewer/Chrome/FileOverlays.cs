@@ -39,7 +39,7 @@ internal static class FileOverlays
     /// <param name="many">Whether several files can be opened at once.</param>
     /// <param name="picksFolder">Whether the dialog asks for a folder rather than a file.</param>
     /// <returns>The dialog and its answer: the paths chosen, or none when it was cancelled.</returns>
-    internal static OpenedOverlay<IReadOnlyList<string>> Open(string folder, string? saveName, bool many, bool picksFolder)
+    internal static OpenedOverlay<string[]> Open(string folder, string? saveName, bool many, bool picksFolder)
     {
         var saving = saveName is not null;
         var start = ReadFolder(
@@ -68,7 +68,7 @@ internal static class FileOverlays
             Signal.Never<RxVoid>(),
             answered.AsSignal(),
             new MultipleDisposable(state, input));
-        return new(overlay, answered.Select(static current => (IReadOnlyList<string>)current.Answer).Take(1));
+        return new(overlay, answered.Select(static current => current.Answer).Take(1));
     }
 
     /// <summary>Makes the state that follows what the user did.</summary>

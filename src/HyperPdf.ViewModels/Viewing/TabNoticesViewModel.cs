@@ -31,7 +31,7 @@ public sealed partial class TabNoticesViewModel : ReactiveObject, ILocalisationC
     private DocumentIntegrity? _integrity;
 
     /// <summary>The repairs already read for the expanded details.</summary>
-    private IReadOnlyList<RepairNote> _repairs = [];
+    private RepairNote[] _repairs = [];
 
     /// <summary>Initializes a new instance of the <see cref="TabNoticesViewModel"/> class.</summary>
     /// <param name="source">The tab's document source.</param>

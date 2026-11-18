@@ -13,6 +13,9 @@ public class ManagedSpanBlendBenchmarks
     /// <summary>The pixels in a line: a US letter page at twice its size.</summary>
     private const int Pixels = 1224;
 
+    /// <summary>The pixels in a run of coverage, about the width of a letter.</summary>
+    private const int ShortRun = 12;
+
     /// <summary>The translucent premultiplied colour.</summary>
     private const uint Color = 0x80402010U;
 
@@ -91,6 +94,19 @@ public class ManagedSpanBlendBenchmarks
 
             var color = value == FullCoverage ? _colors[i] : SpanBlender.Scale(_colors[i], value);
             _line[i] = (color >> AlphaShift) == FullCoverage ? color : color + SpanBlender.Scale(_line[i], FullCoverage - (color >> AlphaShift));
+        }
+
+        return _line[0];
+    }
+
+    /// <summary>Blends one colour through the coverage of short runs, the length of a row of a glyph, which is how text edges are drawn.</summary>
+    /// <returns>A pixel, so the work is not optimised away.</returns>
+    [Benchmark]
+    public uint SolidInShortRuns()
+    {
+        for (var start = 0; start + ShortRun <= Pixels; start += ShortRun)
+        {
+            SpanBlender.SolidEach(_line.AsSpan(start, ShortRun), _coverage.AsSpan(start, ShortRun), Color);
         }
 
         return _line[0];

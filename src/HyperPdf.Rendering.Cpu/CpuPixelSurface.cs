@@ -27,6 +27,9 @@ public sealed class CpuPixelSurface : IRenderSurface
     /// <summary>Whether the pixels are opaque, as one of the three opacity values.</summary>
     private int _opacity;
 
+    /// <summary>Counts the times the pixels were written or given up.</summary>
+    private int _version;
+
     /// <summary>The pooled pixel array, or <see langword="null"/> once disposed.</summary>
     private byte[]? _pixels;
 
@@ -82,6 +85,12 @@ public sealed class CpuPixelSurface : IRenderSurface
     /// <summary>Gets the pixels, which are valid until the surface is disposed.</summary>
     public ReadOnlySpan<byte> Pixels => (Volatile.Read(ref _pixels) ?? throw new ObjectDisposedException(nameof(CpuPixelSurface))).AsSpan(0, Stride * Height);
 
+    /// <summary>Gets a value indicating whether the pixels have been given up, so the surface can no longer be drawn.</summary>
+    internal bool IsGone => Volatile.Read(ref _pixels) is null;
+
+    /// <summary>Gets a number that changes whenever the pixels are written or given up, so a copy made of them can be told to be stale.</summary>
+    internal int Version => Volatile.Read(ref _version);
+
     /// <inheritdoc/>
     public bool Write<TState>(in TState state, SurfaceWriter<TState> writer)
     {
@@ -91,15 +100,20 @@ public sealed class CpuPixelSurface : IRenderSurface
 
         // New pixels may be transparent where the old ones were not, so the answer is worked out again when next asked for.
         Volatile.Write(ref _opacity, OpacityUnknown);
+        _ = Interlocked.Increment(ref _version);
         return written;
     }
 
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _pixels, null) is { } pixels)
+        if (Interlocked.Exchange(ref _pixels, null) is not { } pixels)
         {
-            ArrayPool<byte>.Shared.Return(pixels);
+            return;
         }
+
+        // A scaling kept of the pixels must not be drawn in their place once they are gone.
+        _ = Interlocked.Increment(ref _version);
+        ArrayPool<byte>.Shared.Return(pixels);
     }
 }

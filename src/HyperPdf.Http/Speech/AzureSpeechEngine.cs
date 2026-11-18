@@ -70,7 +70,7 @@ public sealed class AzureSpeechEngine : ISpeechEngine
     }
 
     /// <summary>Gets the voices offered: a few of Azure's most natural English neural voices.</summary>
-    public static IReadOnlyList<SpeechVoice> AzureVoices { get; } =
+    public static SpeechVoice[] AzureVoices { get; } =
     [
         new("en-US-AvaMultilingualNeural", "Ava", "American English, expressive"),
         new("en-US-AndrewMultilingualNeural", "Andrew", "American English, warm"),
@@ -86,7 +86,7 @@ public sealed class AzureSpeechEngine : ISpeechEngine
     public bool IsReady => _settings.IsComplete;
 
     /// <inheritdoc/>
-    public IReadOnlyList<SpeechVoice> Voices => AzureVoices;
+    public SpeechVoice[] Voices => AzureVoices;
 
     /// <summary>Determines whether a region name is safe to put in a host name.</summary>
     /// <param name="region">The region.</param>

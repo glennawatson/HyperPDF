@@ -31,9 +31,8 @@ public sealed class SpeechModelDownloader : IDisposable
     /// <summary>Gets about how many bytes a set of files needs.</summary>
     /// <param name="files">The files.</param>
     /// <returns>The approximate total.</returns>
-    public static long TotalBytes(IReadOnlyList<SpeechModelFile> files)
+    public static long TotalBytes(ReadOnlySpan<SpeechModelFile> files)
     {
-        ArgumentNullException.ThrowIfNull(files);
         var total = 0L;
         foreach (var file in files)
         {
@@ -47,7 +46,7 @@ public sealed class SpeechModelDownloader : IDisposable
     /// <param name="files">The files.</param>
     /// <param name="directory">The voice folder.</param>
     /// <returns>The missing files.</returns>
-    public List<SpeechModelFile> Missing(IReadOnlyList<SpeechModelFile> files, string directory)
+    public List<SpeechModelFile> Missing(SpeechModelFile[] files, string directory)
     {
         using var snapshot = FindMissing(files, directory);
         var missing = new List<SpeechModelFile>(snapshot.Count);
@@ -68,7 +67,7 @@ public sealed class SpeechModelDownloader : IDisposable
     /// <see cref="HttpRequestException"/> when a server fails a request and with <see cref="InvalidDataException"/> when a file's name would place it
     /// outside the voice folder, or a download does not match its SHA-256.
     /// </returns>
-    public IObservable<RxVoid> Download(IReadOnlyList<SpeechModelFile> files, string directory, IProgress<double> progress)
+    public IObservable<RxVoid> Download(SpeechModelFile[] files, string directory, IProgress<double> progress)
     {
         ArgumentNullException.ThrowIfNull(progress);
         return Signal.Using(
@@ -99,21 +98,20 @@ public sealed class SpeechModelDownloader : IDisposable
     /// <param name="files">The chosen files.</param>
     /// <param name="directory">The download folder.</param>
     /// <returns>The snapshot; the caller disposes it.</returns>
-    private DownloadBatch<SpeechModelFile> FindMissing(IReadOnlyList<SpeechModelFile> files, string directory)
+    private DownloadBatch<SpeechModelFile> FindMissing(ReadOnlySpan<SpeechModelFile> files, string directory)
     {
-        ArgumentNullException.ThrowIfNull(files);
         ArgumentException.ThrowIfNullOrEmpty(directory);
-        if (files.Count == 0)
+        if (files.IsEmpty)
         {
             return new([], 0, 0);
         }
 
-        var items = ArrayPool<SpeechModelFile>.Shared.Rent(files.Count);
+        var items = ArrayPool<SpeechModelFile>.Shared.Rent(files.Length);
         try
         {
             var count = 0;
             var bytes = 0L;
-            for (var i = 0; i < files.Count; i++)
+            for (var i = 0; i < files.Length; i++)
             {
                 var file = files[i];
                 if (_files.For(directory, file.LocalName).IsCurrent(file.Bytes, file.Sha256))

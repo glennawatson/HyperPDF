@@ -24,7 +24,7 @@ public static class PageFileFormats
     ];
 
     /// <summary>Gets the formats, pictures first and then vector files.</summary>
-    public static IReadOnlyList<PageFileFormatInfo> All => FormatList;
+    public static PageFileFormatInfo[] All => FormatList;
 
     /// <summary>Finds what is known about a format.</summary>
     /// <param name="format">The format.</param>

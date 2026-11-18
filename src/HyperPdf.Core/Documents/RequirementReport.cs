@@ -11,7 +11,7 @@ namespace HyperPdf.Core.Documents;
 /// <param name="Summary">The unmet features in plain words; empty when <paramref name="Level"/> is <see cref="RequirementLevel.None"/>.</param>
 /// <param name="Details">One plain line for each unmet requirement.</param>
 [DebuggerDisplay("RequirementReport: {Level}")]
-public sealed record RequirementReport(RequirementLevel Level, string Summary, IReadOnlyList<string> Details)
+public sealed record RequirementReport(RequirementLevel Level, string Summary, string[] Details)
 {
     /// <summary>Gets the report of a document whose requirements are met or absent.</summary>
     public static RequirementReport None { get; } = new(RequirementLevel.None, string.Empty, []);

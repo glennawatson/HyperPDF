@@ -29,11 +29,11 @@ internal sealed class HyperPdfLayerSourceService : ILayerSource
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<DocumentLayer> GetLayers() => HyperPdfDocumentLayers.GetLayers(_owner);
+    public DocumentLayer[] GetLayers() => HyperPdfDocumentLayers.GetLayers(_owner);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<DocumentLayerNode> GetLayerTree() => HyperPdfDocumentLayers.GetLayerTree(_owner);
+    public DocumentLayerNode[] GetLayerTree() => HyperPdfDocumentLayers.GetLayerTree(_owner);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -41,7 +41,7 @@ internal sealed class HyperPdfLayerSourceService : ILayerSource
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<DocumentLayerConfiguration> GetConfigurations() => HyperPdfDocumentLayers.GetConfigurations(_owner);
+    public List<DocumentLayerConfiguration> GetConfigurations() => HyperPdfDocumentLayers.GetConfigurations(_owner);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -31,7 +31,7 @@ public sealed partial class LayerItemViewModel : ReactiveObject, ILocalisationCh
     /// <param name="locked">Whether the file locks it.</param>
     /// <param name="note">A visible note on the layer, such as that it is locked; empty for none.</param>
     /// <param name="children">The entries listed under this one.</param>
-    public LayerItemViewModel(int id, string name, bool visible, bool locked, string note, IReadOnlyList<LayerItemViewModel> children)
+    public LayerItemViewModel(int id, string name, bool visible, bool locked, string note, LayerItemViewModel[] children)
     {
         ArgumentNullException.ThrowIfNull(children);
         Id = id;
@@ -41,7 +41,7 @@ public sealed partial class LayerItemViewModel : ReactiveObject, ILocalisationCh
         Note = note;
         Children = children;
         IsExpanded = true;
-        SpokenName = LayerText.Speak(name, id == 0, note, children.Count);
+        SpokenName = LayerText.Speak(name, id == 0, note, children.Length);
     }
 
     /// <summary>Gets the layer's id; 0 for a label.</summary>
@@ -69,7 +69,7 @@ public sealed partial class LayerItemViewModel : ReactiveObject, ILocalisationCh
     public string SpokenName { get; }
 
     /// <summary>Gets the entries listed under this one.</summary>
-    public IReadOnlyList<LayerItemViewModel> Children { get; }
+    public LayerItemViewModel[] Children { get; }
 
     /// <summary>Gets or sets a value indicating whether the layer is shown.</summary>
     [Reactive]

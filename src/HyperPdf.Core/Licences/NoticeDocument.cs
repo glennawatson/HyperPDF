@@ -24,7 +24,7 @@ public sealed class NoticeDocument
     private readonly NoticeRow[] _rows;
 
     /// <summary>The groups once made, or <see langword="null"/>.</summary>
-    private IReadOnlyList<NoticeGroup>? _groups;
+    private NoticeGroup[]? _groups;
 
     /// <summary>Initializes a new instance of the <see cref="NoticeDocument"/> class.</summary>
     /// <param name="source">The notices text.</param>
@@ -39,7 +39,7 @@ public sealed class NoticeDocument
     public static NoticeDocument Empty { get; } = new(string.Empty, []);
 
     /// <summary>Gets the groups, this application's licence first.</summary>
-    public IReadOnlyList<NoticeGroup> Groups => Volatile.Read(ref _groups) ?? ReadGroups();
+    public NoticeGroup[] Groups => Volatile.Read(ref _groups) ?? ReadGroups();
 
     /// <summary>Reads a notices file.</summary>
     /// <param name="utf8">The file's bytes.</param>
@@ -79,7 +79,7 @@ public sealed class NoticeDocument
     {
         var all = new List<NoticeEntry>(_rows.Length);
         var groups = Groups;
-        for (var i = 0; i < groups.Count; i++)
+        for (var i = 0; i < groups.Length; i++)
         {
             all.AddRange(groups[i].Entries);
         }
@@ -89,7 +89,7 @@ public sealed class NoticeDocument
 
     /// <summary>Makes the groups and keeps them.</summary>
     /// <returns>The groups.</returns>
-    private IReadOnlyList<NoticeGroup> ReadGroups()
+    private NoticeGroup[] ReadGroups()
     {
         if (_rows.Length == 0)
         {

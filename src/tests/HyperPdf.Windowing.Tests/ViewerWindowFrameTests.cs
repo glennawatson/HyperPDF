@@ -83,7 +83,7 @@ public sealed class ViewerWindowFrameTests
     /// <param name="items">The controls.</param>
     /// <param name="icon">The icon.</param>
     /// <returns>The place, or -1.</returns>
-    private static int IndexOf(IReadOnlyList<ChromeItem> items, ChromeIcon icon)
+    private static int IndexOf(List<ChromeItem> items, ChromeIcon icon)
     {
         for (var i = 0; i < items.Count; i++)
         {

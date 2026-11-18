@@ -41,10 +41,10 @@ internal static class MenuOverlays
     /// <param name="anchor">Where the menu's top left corner is wanted, in device pixels.</param>
     /// <param name="run">Runs the command of the entry that was chosen.</param>
     /// <returns>The menu.</returns>
-    internal static Overlay Open(IReadOnlyList<MenuEntry> entries, ScreenPoint anchor, Action<MenuEntry> run)
+    internal static Overlay Open(ReadOnlySpan<MenuEntry> entries, ScreenPoint anchor, Action<MenuEntry> run)
     {
         var input = new Signal<OverlayInput>();
-        var start = new MenuState(entries, [], BackIndex - 1, null, false);
+        var start = new MenuState([..entries], [], BackIndex - 1, null, false);
         var state = OverlayStates.Track(input, start, Reduce);
         var done = state.Where(static current => current.Done);
         return new(
@@ -84,7 +84,7 @@ internal static class MenuOverlays
     {
         ViewerKey.Down => MoveCursor(state, 1),
         ViewerKey.Up => MoveCursor(state, -1),
-        ViewerKey.Enter or ViewerKey.Space or ViewerKey.Right when state.Cursor >= 0 && state.Cursor < state.Shown.Count => Run(state, state.Shown[state.Cursor]),
+        ViewerKey.Enter or ViewerKey.Space or ViewerKey.Right when state.Cursor >= 0 && state.Cursor < state.Shown.Length => Run(state, state.Shown[state.Cursor]),
         ViewerKey.Escape or ViewerKey.Left or ViewerKey.Enter => GoBack(state),
         _ => state,
     };
@@ -128,7 +128,7 @@ internal static class MenuOverlays
     private static MenuState MoveCursor(MenuState state, int step)
     {
         var first = state.Parents.Length > 0 ? BackIndex : 0;
-        var count = state.Shown.Count - first;
+        var count = state.Shown.Length - first;
         if (count <= 0)
         {
             return state;
@@ -138,7 +138,7 @@ internal static class MenuOverlays
         var at = state.Cursor;
         if (at < first)
         {
-            at = step > 0 ? first - 1 : state.Shown.Count;
+            at = step > 0 ? first - 1 : state.Shown.Length;
         }
 
         for (var tries = 0; tries < count; tries++)
@@ -166,7 +166,7 @@ internal static class MenuOverlays
         var style = ChromeBars.Style(metrics);
         var width = metrics.PopupWidth;
         var back = state.Parents.Length > 0 ? metrics.RowHeight : 0;
-        for (var i = 0; i < state.Shown.Count; i++)
+        for (var i = 0; i < state.Shown.Length; i++)
         {
             var entry = state.Shown[i];
             var gesture = entry.Gesture is { } keys ? runs.Measure(keys, style) + metrics.Padding : 0;
@@ -177,7 +177,7 @@ internal static class MenuOverlays
         var first = FirstShown(state, metrics, size.Height - back);
         var count = 0;
         var height = back;
-        while (first + count < state.Shown.Count && height + RowHeight(state.Shown[first + count], metrics) <= size.Height)
+        while (first + count < state.Shown.Length && height + RowHeight(state.Shown[first + count], metrics) <= size.Height)
         {
             height += RowHeight(state.Shown[first + count], metrics);
             count++;
@@ -215,7 +215,7 @@ internal static class MenuOverlays
         }
 
         var used = 0;
-        for (var i = 0; i <= state.Cursor && i < state.Shown.Count; i++)
+        for (var i = 0; i <= state.Cursor && i < state.Shown.Length; i++)
         {
             used += RowHeight(state.Shown[i], metrics);
         }

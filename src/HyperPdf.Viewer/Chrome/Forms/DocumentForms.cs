@@ -226,7 +226,7 @@ internal static class DocumentForms
     {
         if (print.LayoutIndex == 0)
         {
-            var counts = new string[print.PagesPerSheetChoices.Count];
+            var counts = new string[print.PagesPerSheetChoices.Length];
             for (var i = 0; i < counts.Length; i++)
             {
                 counts[i] = print.PagesPerSheetChoices[i].ToString(CultureInfo.CurrentCulture);
@@ -237,12 +237,12 @@ internal static class DocumentForms
 
         if (print.ShowsPaper)
         {
-            form.Choice(UiText.Get("Paper size"), UiText.CreateChoices(PaperChoices), (int)print.Paper, PaperRow);
+            form.Choice(UiText.Get("Paper size"), [..UiText.CreateChoices(PaperChoices)], (int)print.Paper, PaperRow);
         }
 
         if (print.ShowsScaling)
         {
-            form.Choice(UiText.Get("Page size"), UiText.CreateChoices(ScalingChoices), (int)print.Scaling, ScalingRow);
+            form.Choice(UiText.Get("Page size"), [..UiText.CreateChoices(ScalingChoices)], (int)print.Scaling, ScalingRow);
         }
 
         if (print.ShowsScalePercent)
@@ -263,7 +263,7 @@ internal static class DocumentForms
         }
 
         form.Choice(UiText.Get("Send to"), targets, print.SelectedTarget is { } target ? print.Targets.IndexOf(target) : -1, TargetRow);
-        form.Choice(UiText.Get("Pages"), UiText.CreateChoices(PageChoices), (int)print.PageChoice, PagesRow);
+        form.Choice(UiText.Get("Pages"), [..UiText.CreateChoices(PageChoices)], (int)print.PageChoice, PagesRow);
         if (print.PageChoice == PrintPageChoice.Custom)
         {
             form.Field(UiText.Get("Pages to print, such as 1-3, 7"), print.CustomPages, CustomPagesRow);
@@ -276,7 +276,7 @@ internal static class DocumentForms
         form.Toggle(UiText.Get("Print on both sides"), print.TwoSided, TwoSidedRow);
         if (print.TwoSided)
         {
-            form.Choice(UiText.Get("Turn pages"), UiText.CreateChoices(BindingChoices), (int)print.Binding, BindingRow);
+            form.Choice(UiText.Get("Turn pages"), [..UiText.CreateChoices(BindingChoices)], (int)print.Binding, BindingRow);
         }
 
         form.Toggle(UiText.Get("Include notes and marks"), print.IncludeAnnotations, MarksRow);

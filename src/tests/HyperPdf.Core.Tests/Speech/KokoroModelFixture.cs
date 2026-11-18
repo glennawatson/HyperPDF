@@ -34,7 +34,7 @@ internal static class KokoroModelFixture
     internal static async Task EnsureAsync()
     {
         using var downloader = new SpeechModelDownloader();
-        if (downloader.Missing(KokoroModel.Files, Directory).Count == 0)
+        if (downloader.Missing([..KokoroModel.Files], Directory).Count == 0)
         {
             return;
         }
@@ -47,7 +47,7 @@ internal static class KokoroModelFixture
         await Gate.WaitAsync();
         try
         {
-            await downloader.Download(KokoroModel.Files, Directory, new Progress<double>()).ToTask();
+            await downloader.Download([..KokoroModel.Files], Directory, new Progress<double>()).ToTask();
         }
         finally
         {

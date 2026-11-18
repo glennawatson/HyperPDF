@@ -19,9 +19,8 @@ internal static class SignerCertificateFiles
     /// <returns>The signer: the signing certificate first, then the certificates that lead to a root.</returns>
     /// <exception cref="CryptographicException">A file holds no certificate, or does not hold a certificate at all.</exception>
     /// <exception cref="IOException">A file could not be read.</exception>
-    internal static LoadedSigner Load(IReadOnlyList<string> paths)
+    internal static LoadedSigner Load(ReadOnlySpan<string> paths)
     {
-        ArgumentNullException.ThrowIfNull(paths);
         var found = new List<X509Certificate2>();
         try
         {

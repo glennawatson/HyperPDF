@@ -46,7 +46,7 @@ public class PageLinksReadBenchmarks
         var found = 0;
         for (var page = 0; page < PageCount; page++)
         {
-            found += _document.Document.GetLinks(page).Count;
+            found += _document.Document.GetLinks(page).Length;
         }
 
         return found;

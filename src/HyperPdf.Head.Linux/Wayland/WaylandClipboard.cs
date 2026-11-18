@@ -45,7 +45,7 @@ internal sealed unsafe class WaylandClipboard(WaylandConnection connection) : ID
     private readonly List<uint> _sources = [];
 
     /// <summary>Carries the files dropped on the window, when the window's thread reads the events.</summary>
-    private readonly Signal<IReadOnlyList<string>> _drops = new();
+    private readonly Signal<string[]> _drops = new();
 
     /// <summary>The copied text as UTF-8.</summary>
     private byte[] _text = [];
@@ -78,7 +78,7 @@ internal sealed unsafe class WaylandClipboard(WaylandConnection connection) : ID
     private bool _selectionHasText;
 
     /// <summary>Gets the files dropped on the window, one list for each drop.</summary>
-    internal IObservable<IReadOnlyList<string>> Drops => _drops;
+    internal IObservable<string[]> Drops => _drops;
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

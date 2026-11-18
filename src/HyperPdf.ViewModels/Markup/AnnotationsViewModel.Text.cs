@@ -61,10 +61,10 @@ public sealed partial class AnnotationsViewModel
     private bool _loadingFormat;
 
     /// <summary>Gets the text sizes offered in the size box, in points.</summary>
-    public static IReadOnlyList<float> TextSizes { get; } = [6, 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
+    public static float[] TextSizes { get; } = [6, 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
 
     /// <summary>Gets the text colours offered, by name.</summary>
-    public static IReadOnlyList<TextColorOption> TextColors { get; } =
+    public static TextColorOption[] TextColors { get; } =
         [
             new(nameof(Black), Black),
             new("Dark blue", AnnotationColors.Ink),
@@ -74,11 +74,11 @@ public sealed partial class AnnotationsViewModel
         ];
 
     /// <summary>Gets the line spacings offered, by name.</summary>
-    public static IReadOnlyList<LineSpacingOption> LineSpacings { get; } =
+    public static LineSpacingOption[] LineSpacings { get; } =
         [new(nameof(Single), 1F), new("Normal", TextFormat.DefaultLineSpacing), new("One and a half", OneAndAHalf), new(nameof(Double), DoubleSpacing)];
 
     /// <summary>Gets the character spacings offered, by name, in points.</summary>
-    public static IReadOnlyList<LineSpacingOption> CharacterSpacings { get; } = [new(
+    public static LineSpacingOption[] CharacterSpacings { get; } = [new(
             "Tight",
             TightSpacing), new("Normal", 0F), new("Wide", 1F), new("Wider", WiderSpacing)];
 
@@ -123,7 +123,7 @@ public sealed partial class AnnotationsViewModel
 
     /// <summary>Gets the families text can be written in: the built in three, then installed fonts once they are read.</summary>
     [Reactive]
-    public partial IReadOnlyList<string> FontFamilies { get; private set; } = StandardFontFamilies.All;
+    public partial string[] FontFamilies { get; private set; } = StandardFontFamilies.All;
 
     /// <summary>Gets the text being typed on the page, or <see langword="null"/>.</summary>
     [Reactive(nameof(IsEditingText))]
@@ -331,7 +331,7 @@ public sealed partial class AnnotationsViewModel
     /// <param name="name">The name.</param>
     /// <param name="fallback">The fallback.</param>
     /// <returns>The value.</returns>
-    private static float ValueOf(IReadOnlyList<LineSpacingOption> choices, string name, float fallback)
+    private static float ValueOf(ReadOnlySpan<LineSpacingOption> choices, string name, float fallback)
     {
         foreach (var (choiceName, value) in choices)
         {
@@ -348,7 +348,7 @@ public sealed partial class AnnotationsViewModel
     /// <param name="choices">The choices.</param>
     /// <param name="color">The colour.</param>
     /// <returns>The name, or the colour in hexadecimal.</returns>
-    private static string NameOf(IReadOnlyList<TextColorOption> choices, uint color)
+    private static string NameOf(ReadOnlySpan<TextColorOption> choices, uint color)
     {
         foreach (var (name, choice) in choices)
         {
@@ -365,7 +365,7 @@ public sealed partial class AnnotationsViewModel
     /// <param name="choices">The available choices.</param>
     /// <param name="value">The spacing value.</param>
     /// <returns>The matching name, or the value in points.</returns>
-    private static string NameOf(IReadOnlyList<LineSpacingOption> choices, float value)
+    private static string NameOf(ReadOnlySpan<LineSpacingOption> choices, float value)
     {
         foreach (var choice in choices)
         {
@@ -539,17 +539,28 @@ public sealed partial class AnnotationsViewModel
     private IDisposable[] WatchTextFormat() =>
     [
 
-        Signal.Merge(
-            this.WhenChanged(static x => x.FontFamily, static x => x.FontSize, static x => x.TextColor, static (_, _, _) => RxVoid.Default).Skip(1),
-            this.WhenChanged(static x => x.IsBold, static x => x.IsItalic, static x => x.IsUnderline, static (_, _, _) => RxVoid.Default).Skip(1),
-            this.WhenChanged(static x => x.TextAlignment, static x => x.LineSpacing, static x => x.CharacterSpacing, static (_, _, _) => RxVoid.Default).Skip(1),
-            this.WhenChanged(static x => x.CombCells).Skip(1).AsSignal())
+        // The format controls rewrite the picked text box, so they are followed only while a text box is picked. Most tabs
+        // never pick one, and following ten properties for each of them is work every open would pay for.
+        this.WhenChanged(static x => x.Selected)
+            .Select(static picked => picked is { Kind: AnnotationKind.TextBox })
+            .DistinctUntilChanged()
+            .SwitchMap(boxPicked => boxPicked ? FormatChanges() : Signal.Never<RxVoid>())
             .WhereWith(
             this,
             static (annotations, _) => !annotations._loadingFormat)
             .SubscribeSafe(_ => ReformatSelected(), ErrorTrace.Write),
         this.WhenChanged(static x => x.Selected).Skip(1).SubscribeSafe(LoadSelectedFormat, ErrorTrace.Write)
     ];
+
+    /// <summary>Follows the format controls: one value for each change to the font, the style, the layout or the comb cells.</summary>
+    /// <returns>The changes, without the values the controls hold now.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> FormatChanges() =>
+        Signal.Merge(
+            this.WhenChanged(static x => x.FontFamily, static x => x.FontSize, static x => x.TextColor, static (_, _, _) => RxVoid.Default).Skip(1),
+            this.WhenChanged(static x => x.IsBold, static x => x.IsItalic, static x => x.IsUnderline, static (_, _, _) => RxVoid.Default).Skip(1),
+            this.WhenChanged(static x => x.TextAlignment, static x => x.LineSpacing, static x => x.CharacterSpacing, static (_, _, _) => RxVoid.Default).Skip(1),
+            this.WhenChanged(static x => x.CombCells).Skip(1).AsSignal());
 
     /// <summary>Reads the installed font families off the UI thread, then offers them.</summary>
     /// <returns>A cold signal that ends once the font families are offered.</returns>

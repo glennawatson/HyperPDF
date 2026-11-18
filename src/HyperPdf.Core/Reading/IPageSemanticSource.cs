@@ -12,5 +12,5 @@ public interface IPageSemanticSource : IDocumentFeature
     /// <summary>Gets a page's semantic items.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>The items: empty cells and artifacts in the order of the page, then form fields and annotations; empty for a page that is out of range.</returns>
-    IReadOnlyList<PageSemanticItem> GetItems(int pageIndex);
+    List<PageSemanticItem> GetItems(int pageIndex);
 }

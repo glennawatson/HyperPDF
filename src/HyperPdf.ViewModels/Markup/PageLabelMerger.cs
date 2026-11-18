@@ -21,9 +21,9 @@ internal static class PageLabelMerger
     /// <param name="prefix">Text written before the number.</param>
     /// <param name="firstNumber">The number of the first page.</param>
     /// <returns>The ranges to set, in page order, starting on the first page.</returns>
-    internal static List<PageLabelRun> Apply(IReadOnlyList<PageLabelRun> existing, int pageCount, int from, int to, PageLabelStyle style, string prefix, int firstNumber)
+    internal static List<PageLabelRun> Apply(ReadOnlySpan<PageLabelRun> existing, int pageCount, int from, int to, PageLabelStyle style, string prefix, int firstNumber)
     {
-        var result = new List<PageLabelRun>(existing.Count + MostAdded);
+        var result = new List<PageLabelRun>(existing.Length + MostAdded);
         foreach (var run in existing)
         {
             if (run.StartPage < from)
@@ -59,7 +59,7 @@ internal static class PageLabelMerger
     /// <param name="ranges">The ranges.</param>
     /// <param name="page">The zero based page.</param>
     /// <returns><see langword="true"/> when one starts there.</returns>
-    private static bool StartsAt(IReadOnlyList<PageLabelRun> ranges, int page)
+    private static bool StartsAt(ReadOnlySpan<PageLabelRun> ranges, int page)
     {
         foreach (var run in ranges)
         {
@@ -76,7 +76,7 @@ internal static class PageLabelMerger
     /// <param name="ranges">The ranges the document has.</param>
     /// <param name="page">The zero based page.</param>
     /// <returns>The range.</returns>
-    private static PageLabelRun Continue(IReadOnlyList<PageLabelRun> ranges, int page)
+    private static PageLabelRun Continue(ReadOnlySpan<PageLabelRun> ranges, int page)
     {
         PageLabelRun? found = null;
         foreach (var run in ranges)

@@ -26,7 +26,7 @@ internal static class HyperPdfDocumentParts
     /// <summary>Gets the document's parts.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The top-level parts; empty when the document has none or the tree cannot be read.</returns>
-    internal static IReadOnlyList<DocumentPart> GetParts(HyperPdfDocument self)
+    internal static List<DocumentPart> GetParts(HyperPdfDocument self)
     {
         using var access = HyperPdfNavigation.EnterPageRead(self);
         if (self.IsDisposed)
@@ -55,7 +55,7 @@ internal static class HyperPdfDocumentParts
     /// <summary>Gets the document's article threads.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The threads; empty when the document has none or they cannot be read.</returns>
-    internal static IReadOnlyList<ArticleThread> GetThreads(HyperPdfDocument self)
+    internal static List<ArticleThread> GetThreads(HyperPdfDocument self)
     {
         using var access = HyperPdfNavigation.EnterPageRead(self);
         if (self.IsDisposed)
@@ -72,7 +72,7 @@ internal static class HyperPdfDocumentParts
                 var beads = ConvertBeads(self, threads[i].Beads);
                 if (beads.Count > 0)
                 {
-                    result.Add(new(threads[i].Title is { Length: > 0 } title ? title : string.Create(CultureInfo.CurrentCulture, $"Article {i + 1}"), beads));
+                    result.Add(new(threads[i].Title is { Length: > 0 } title ? title : string.Create(CultureInfo.CurrentCulture, $"Article {i + 1}"), [..beads]));
                 }
             }
 
@@ -100,7 +100,7 @@ internal static class HyperPdfDocumentParts
             var children = depth < PdfLimits.MaxNesting ? ConvertLevel(node.Children, pageCount, depth + 1, ref budget) : [];
             var (name, details) = Describe(node.Metadata, i);
             var (start, end) = PagesOf(node, pageCount);
-            result.Add(new(name, details, start, end, children));
+            result.Add(new(name, details, start, end, [..children]));
         }
 
         return result;

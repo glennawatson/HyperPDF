@@ -67,7 +67,7 @@ public sealed class WordListSpellChecker : ISpellChecker, IDisposable
     }
 
     /// <summary>Gets the folders where Linux desktops install word lists.</summary>
-    public static IReadOnlyList<string> SystemFolders { get; } = ["/usr/share/dict", "/usr/local/share/dict", "/run/host/usr/share/dict"];
+    public static string[] SystemFolders { get; } = ["/usr/share/dict", "/usr/local/share/dict", "/run/host/usr/share/dict"];
 
     /// <summary>Gets the word list's name, such as british-english, or empty when there is none.</summary>
     public string Language { get; } = string.Empty;
@@ -79,10 +79,9 @@ public sealed class WordListSpellChecker : ISpellChecker, IDisposable
     /// <param name="culture">The language.</param>
     /// <param name="folders">The folders to look in, in order.</param>
     /// <returns>The word list, or <see langword="null"/>.</returns>
-    public static string? FindWordList(CultureInfo culture, IReadOnlyList<string> folders)
+    public static string? FindWordList(CultureInfo culture, ReadOnlySpan<string> folders)
     {
         ArgumentNullException.ThrowIfNull(culture);
-        ArgumentNullException.ThrowIfNull(folders);
         foreach (var name in WordListNames.For(culture))
         {
             foreach (var folder in folders)

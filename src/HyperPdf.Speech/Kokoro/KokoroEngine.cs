@@ -89,7 +89,7 @@ public sealed class KokoroEngine : ISpeechEngine
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<SpeechVoice> Voices => KokoroModel.Voices;
+    public SpeechVoice[] Voices => KokoroModel.Voices;
 
     /// <summary>Gets a value indicating whether the ONNX session is loaded, which tests use to check that disposal frees it.</summary>
     internal bool IsSessionLoaded => Volatile.Read(ref _session) is not null;

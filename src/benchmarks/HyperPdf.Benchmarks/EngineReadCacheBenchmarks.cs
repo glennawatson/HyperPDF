@@ -83,7 +83,7 @@ public class EngineReadCacheBenchmarks
         var count = 0;
         for (var page = 0; page < Pages; page++)
         {
-            count += HyperPdfNavigation.GetLinks(_linkDocument, page).Count;
+            count += HyperPdfNavigation.GetLinks(_linkDocument, page).Length;
         }
 
         return count;
@@ -92,7 +92,7 @@ public class EngineReadCacheBenchmarks
     /// <summary>Reads the first page's links with the cache warm.</summary>
     /// <returns>The number of links.</returns>
     [Benchmark]
-    public int GetLinksWarm() => HyperPdfNavigation.GetLinks(_linkDocument, 0).Count;
+    public int GetLinksWarm() => HyperPdfNavigation.GetLinks(_linkDocument, 0).Length;
 
     /// <summary>Reads the form page's fields with nothing edited between reads.</summary>
     /// <returns>The number of fields.</returns>

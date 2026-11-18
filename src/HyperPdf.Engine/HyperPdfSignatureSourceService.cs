@@ -26,5 +26,5 @@ internal sealed class HyperPdfSignatureSourceService : ISignatureSource
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<RawSignature> GetSignatures() => HyperPdfDocumentSignatures.GetSignatures(_owner);
+    public RawSignature[] GetSignatures() => HyperPdfDocumentSignatures.GetSignatures(_owner);
 }

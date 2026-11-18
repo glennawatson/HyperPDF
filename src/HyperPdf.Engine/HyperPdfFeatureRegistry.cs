@@ -26,7 +26,7 @@ namespace HyperPdf.Engine;
 internal static class HyperPdfFeatureRegistry
 {
     /// <summary>The number of feature slots a document holds.</summary>
-    private const int SlotCount = (int)FeatureSlot.DocumentSanitizer + 1;
+    private const int SlotCount = (int)FeatureSlot.IdleRenderMemory + 1;
 
     /// <summary>Gets a stable service while leaving feature resources lazy.</summary>
     /// <param name="owner">The owning document.</param>
@@ -94,6 +94,7 @@ internal static class HyperPdfFeatureRegistry
         _ when featureType == typeof(IFlattenCopyWriter) => FeatureSlot.FlattenCopyWriter,
         _ when featureType == typeof(IDocumentSigner) => FeatureSlot.Signer,
         _ when featureType == typeof(IRenderSharpness) => FeatureSlot.RenderSharpness,
+        _ when featureType == typeof(IIdleRenderMemory) => FeatureSlot.IdleRenderMemory,
         _ when featureType == typeof(IPageTransitionSource) => FeatureSlot.PageTransitions,
         _ when featureType == typeof(IDocumentPartSource) => FeatureSlot.PartSource,
         _ when featureType == typeof(IPageSemanticSource) => FeatureSlot.PageSemantics,
@@ -154,6 +155,7 @@ internal static class HyperPdfFeatureRegistry
         FeatureSlot.Signer => new HyperPdfSignerService(owner),
         FeatureSlot.TagEditor => new HyperPdfTagEditorService(owner),
         FeatureSlot.RenderSharpness => new HyperPdfRenderSharpnessService(owner),
+        FeatureSlot.IdleRenderMemory => new HyperPdfIdleRenderMemoryService(owner),
         FeatureSlot.PageTransitions => new HyperPdfPageTransitionService(owner),
         FeatureSlot.PartSource => new HyperPdfDocumentPartSourceService(owner),
         FeatureSlot.PageSemantics => new HyperPdfPageSemanticSourceService(owner),

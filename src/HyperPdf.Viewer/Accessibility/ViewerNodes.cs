@@ -67,8 +67,8 @@ internal static class ViewerNodes
     /// <summary>Makes the application element.</summary>
     /// <param name="children">The numbers of its windows.</param>
     /// <returns>The element.</returns>
-    internal static AccessibleNode CreateApplication(IReadOnlyList<int> children) =>
-        new(ApplicationId, -1, AccessibleRole.Application, "Hyper PDF Viewer", string.Empty, Readable, default, children, 0, 0, 0, string.Empty, [], null, 0);
+    internal static AccessibleNode CreateApplication(ReadOnlySpan<int> children) =>
+        new(ApplicationId, -1, AccessibleRole.Application, "Hyper PDF Viewer", string.Empty, Readable, default, [..children], 0, 0, 0, string.Empty, [], null, 0);
 
     /// <summary>Makes the window element.</summary>
     /// <param name="title">The window title.</param>
@@ -76,8 +76,8 @@ internal static class ViewerNodes
     /// <param name="handle">The operating system's number for the window.</param>
     /// <param name="children">The numbers of the document and the controls, back to front.</param>
     /// <returns>The element.</returns>
-    internal static AccessibleNode CreateWindow(string title, in AccessibleBounds bounds, long handle, IReadOnlyList<int> children) =>
-        new(WindowId, ApplicationId, AccessibleRole.Window, title, string.Empty, Readable | AccessibleStates.Active, bounds, children, 0, 0, 0, string.Empty, [], null, handle);
+    internal static AccessibleNode CreateWindow(string title, in AccessibleBounds bounds, long handle, ReadOnlySpan<int> children) =>
+        new(WindowId, ApplicationId, AccessibleRole.Window, title, string.Empty, Readable | AccessibleStates.Active, bounds, [..children], 0, 0, 0, string.Empty, [], null, handle);
 
     /// <summary>Makes the document element, which a screen reader reads the page from.</summary>
     /// <param name="name">What the document is, such as the page and the page count.</param>
@@ -86,7 +86,7 @@ internal static class ViewerNodes
     /// <param name="text">The text of the page shown, in reading order, with the caret and the selection in it.</param>
     /// <param name="children">The numbers of the page's blocks.</param>
     /// <returns>The element.</returns>
-    internal static AccessibleNode CreateDocument(string name, string help, in AccessibleBounds bounds, AccessibleText text, IReadOnlyList<int> children) => new(
+    internal static AccessibleNode CreateDocument(string name, string help, in AccessibleBounds bounds, AccessibleText text, ReadOnlySpan<int> children) => new(
         DocumentId,
         WindowId,
         AccessibleRole.Document,
@@ -94,7 +94,7 @@ internal static class ViewerNodes
         help,
         Readable | AccessibleStates.Focusable | AccessibleStates.Focused | AccessibleStates.ReadOnly | AccessibleStates.MultiLine,
         bounds,
-        children,
+        [..children],
         0,
         0,
         0,

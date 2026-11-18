@@ -73,7 +73,7 @@ public sealed class DocumentFixTests
                 MiniPdf.Stream("/Type /EmbeddedFile", "world!")));
         var attachments = DocumentFeature<IAttachmentSource>.Cast(test.Document)!.GetAttachments();
 
-        await Assert.That(attachments.Count).IsEqualTo(AttachmentCount);
+        await Assert.That(attachments.Length).IsEqualTo(AttachmentCount);
         await Assert.That(attachments[0].Size).IsEqualTo(RecordedSize);
         await Assert.That(attachments[1].Size).IsEqualTo(0);
         await Assert.That(attachments[FinalIndex].Size).IsEqualTo(DecodedSize);
@@ -101,7 +101,7 @@ public sealed class DocumentFixTests
         var links = test.Document.GetLinks(MiddlePage);
         var outline = test.Document.GetOutline();
 
-        await Assert.That(links.Count).IsEqualTo(MiddleLinks);
+        await Assert.That(links.Length).IsEqualTo(MiddleLinks);
         await Assert.That(links[0].Target.PageIndex).IsEqualTo(FinalIndex);
         await Assert.That(links[1].Target.PageIndex).IsEqualTo(0);
         await Assert.That(links[2].Target.PageIndex).IsEqualTo(0);
@@ -123,7 +123,7 @@ public sealed class DocumentFixTests
                 "<< /Type /Annot /Subtype /Link /Rect [10 10 50 50] /Dest [3 0 R /XYZ 200 300 0] >>"));
         var links = test.Document.GetLinks(0);
 
-        await Assert.That(links.Count).IsEqualTo(1);
+        await Assert.That(links.Length).IsEqualTo(1);
         await Assert.That(links[0].Target.Location).IsEqualTo(new PagePoint(ViewerX, ViewerY));
     }
 

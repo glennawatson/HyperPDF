@@ -57,7 +57,7 @@ public sealed class SingleInstance : IDisposable
     /// <param name="paths">The files or addresses named on the command line.</param>
     /// <returns>The running viewer's pipe when this launch is the first, or <see langword="null"/> when the files went to the first and this launch should end.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static SingleInstance? Start(IReadOnlyList<string> paths) => Start(paths, NameFor(Environment.UserName));
+    public static SingleInstance? Start(ReadOnlySpan<string> paths) => Start(paths, NameFor(Environment.UserName));
 
     /// <inheritdoc/>
     public void Dispose()
@@ -77,24 +77,20 @@ public sealed class SingleInstance : IDisposable
     /// <param name="paths">The files or addresses named on the command line.</param>
     /// <param name="name">The pipe's name.</param>
     /// <returns>The viewer's pipe when this launch is the first, or <see langword="null"/> when the files went to the first.</returns>
-    internal static SingleInstance? Start(IReadOnlyList<string> paths, string name)
-    {
-        ArgumentNullException.ThrowIfNull(paths);
-        return paths.Count > 0 && Forward(name, paths) ? null : new(name);
-    }
+    internal static SingleInstance? Start(ReadOnlySpan<string> paths, string name) => !paths.IsEmpty && Forward(name, paths) ? null : new(name);
 
     /// <summary>Writes the files to the running viewer, one on each line.</summary>
     /// <param name="name">The pipe's name.</param>
     /// <param name="paths">The files or addresses.</param>
     /// <returns><see langword="true"/> when a viewer was running and took them.</returns>
-    private static bool Forward(string name, IReadOnlyList<string> paths)
+    private static bool Forward(string name, ReadOnlySpan<string> paths)
     {
         try
         {
             using var client = new NamedPipeClientStream(".", name, PipeDirection.Out, PipeOptions.CurrentUserOnly);
             client.Connect(ConnectMilliseconds);
             using var writer = new StreamWriter(client, Encoding.UTF8);
-            for (var i = 0; i < paths.Count; i++)
+            for (var i = 0; i < paths.Length; i++)
             {
                 // A relative name means a place in this launch's folder, which the running viewer does not share.
                 writer.WriteLine(Uri.TryCreate(paths[i], UriKind.Absolute, out var address) && address.Scheme != Uri.UriSchemeFile ? paths[i] : Path.GetFullPath(paths[i]));

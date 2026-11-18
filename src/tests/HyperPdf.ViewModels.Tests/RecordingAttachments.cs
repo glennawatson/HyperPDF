@@ -17,7 +17,7 @@ internal sealed class RecordingAttachments(IAttachmentSource inner, IDocument do
     public IDocument Document => document;
 
     /// <inheritdoc/>
-    public IReadOnlyList<DocumentAttachment> GetAttachments() => inner.GetAttachments();
+    public DocumentAttachment[] GetAttachments() => inner.GetAttachments();
 
     /// <inheritdoc/>
     public bool SaveAttachment(int index, Stream destination)

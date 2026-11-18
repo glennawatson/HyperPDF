@@ -19,6 +19,9 @@ namespace HyperPdf.ViewModels.Viewing;
 /// </summary>
 public static class WindowControlMixins
 {
+    /// <summary>Names the signal of a tab's controls among the signals the tab keeps.</summary>
+    private static readonly object ControlChangesKey = new();
+
     /// <summary>Adds the signal of a tab's marking tools.</summary>
     /// <param name="marks">The marking tools.</param>
     extension(AnnotationsViewModel marks)
@@ -38,8 +41,16 @@ public static class WindowControlMixins
     /// <param name="tab">The tab.</param>
     extension(DocumentTabViewModel tab)
     {
-        /// <summary>Gets a signal for each change to what the toolbar, the marking bar and the side panel show of the tab.</summary>
-        public IObservable<RxVoid> ControlChanges => Signal.Merge(
+        /// <summary>
+        /// Gets a signal for each change to what the toolbar, the marking bar and the side panel show of the tab, starting with one
+        /// for the tab as it is now. The tab keeps the signal behind it connected, so showing the tab again follows that one signal
+        /// and does not subscribe to every property again.
+        /// </summary>
+        public IObservable<RxVoid> ControlChanges =>
+            tab.KeepSignal(ControlChangesKey, static shown => shown.NewControlChanges.Publish()).StartWith(RxVoid.Default);
+
+        /// <summary>Gets a new signal for each change to what the toolbar, the marking bar and the side panel show of the tab.</summary>
+        private IObservable<RxVoid> NewControlChanges => Signal.Merge(
             tab.WhenChanged(static t => t.CurrentPageIndex).AsSignal(),
             tab.WhenChanged(static t => t.PageCount).AsSignal(),
             tab.WhenChanged(static t => t.Zoom).AsSignal(),
@@ -52,7 +63,7 @@ public static class WindowControlMixins
             tab.WhenChanged(static t => t.CanGoBack).AsSignal(),
             tab.WhenChanged(static t => t.CanGoForward).AsSignal(),
             tab.PanelListChanges,
-            tab.Annotations.ControlChanges,
+            tab.PartChanges<AnnotationsViewModel>(static marks => marks.ControlChanges),
             tab.ToolChanges);
 
         /// <summary>
@@ -63,23 +74,26 @@ public static class WindowControlMixins
             tab.WhenChanged(static t => t.Notice).AsSignal(),
             tab.WhenChanged(static t => t.HasPendingReload).AsSignal(),
             tab.Notices.GetChangedObservable().AsSignal(),
-            tab.ReadAloud.WhenChanged(static a => a.IsOpen).AsSignal(),
-            tab.ReadAloud.WhenChanged(static a => a.IsPlaying).AsSignal(),
-            tab.ReadAloud.WhenChanged(static a => a.StatusText).AsSignal(),
-            tab.ReadAloud.WhenChanged(static a => a.IsDownloading).AsSignal(),
-            tab.ReadAloud.WhenChanged(static a => a.DownloadProgress).AsSignal(),
-            tab.TextRecognition.GetChangedObservable().AsSignal(),
-            tab.FocusMode.WhenChanged(static f => f.IsOn).AsSignal(),
+            tab.PartChanges<ReadAloudViewModel>(static aloud => Signal.Merge(
+                aloud.WhenChanged(static a => a.IsOpen).AsSignal(),
+                aloud.WhenChanged(static a => a.IsPlaying).AsSignal(),
+                aloud.WhenChanged(static a => a.StatusText).AsSignal(),
+                aloud.WhenChanged(static a => a.IsDownloading).AsSignal(),
+                aloud.WhenChanged(static a => a.DownloadProgress).AsSignal())),
+            tab.WhenChanged(static t => t.TextRecognitionInUse).SwitchMap(static text => text is null ? Signal.Return(RxVoid.Default) : text.GetChangedObservable().AsSignal()),
+            tab.PartChanges<FocusModeViewModel>(static focus => focus.WhenChanged(static f => f.IsOn).AsSignal()),
             tab.PageTools.WhenChanged(static p => p.IsAutoScrolling).AsSignal(),
             tab.PageTools.WhenChanged(static p => p.AutoScrollSpeed).AsSignal(),
-            tab.Measure.GetChangedObservable().AsSignal(),
-            tab.FillAndSign.GetChangedObservable().AsSignal(),
+            tab.PartChanges<MeasureViewModel>(static measure => measure.GetChangedObservable().AsSignal()),
+            tab.PartChanges<FillAndSignViewModel>(static filling => filling.GetChangedObservable().AsSignal()),
             tab.WhenChanged(static t => t.IsTextFormatShown).AsSignal(),
-            tab.ContentEdit.WhenChanged(static e => e.IsEditing).AsSignal(),
-            tab.ContentEdit.WhenChanged(static e => e.Selected).AsSignal(),
-            tab.ContentEdit.WhenChanged(static e => e.TextEdit).AsSignal(),
-            tab.Pages.WhenChanged(static p => p.CanUndo).AsSignal(),
-            tab.Pages.WhenChanged(static p => p.CanRedo).AsSignal());
+            tab.PartChanges<PageContentEditViewModel>(static edit => Signal.Merge(
+                edit.WhenChanged(static e => e.IsEditing).AsSignal(),
+                edit.WhenChanged(static e => e.Selected).AsSignal(),
+                edit.WhenChanged(static e => e.TextEdit).AsSignal())),
+            tab.PartChanges<PageManagementViewModel>(static pages => Signal.Merge(
+                pages.WhenChanged(static p => p.CanUndo).AsSignal(),
+                pages.WhenChanged(static p => p.CanRedo).AsSignal())));
 
         /// <summary>Gets a signal for each change to the list the side panel shows. The view model of a list is only made once the panel shows it.</summary>
         private IObservable<RxVoid> PanelListChanges =>
@@ -93,28 +107,8 @@ public static class WindowControlMixins
         /// <summary>Gets a signal for each change to what the window's controls show: the tabs, the tab shown and the status message.</summary>
         public IObservable<RxVoid> ControlChanges => Signal.Merge(
             main.WhenChanged(static m => m.StatusMessage).AsSignal(),
-            ((IList)main.Tabs).CollectionChanges.SwitchMap(TabNames),
+            Signal.CreateWithState<RxVoid, IList>(main.Tabs, TabNameWatch.Start),
             main.WhenChanged(static m => m.SelectedTab).SwitchMap(static tab => tab is null ? Signal.Return(RxVoid.Default) : tab.ControlChanges));
-    }
-
-    /// <summary>Follows the name and the unsaved mark of every open tab.</summary>
-    /// <param name="tabs">The open tabs.</param>
-    /// <returns>A signal now, and again each time a tab's name or unsaved mark changes.</returns>
-    private static IObservable<RxVoid> TabNames(IList tabs)
-    {
-        var names = new List<IObservable<RxVoid>>(tabs.Count + tabs.Count);
-        foreach (var item in tabs)
-        {
-            if (item is not DocumentTabViewModel tab)
-            {
-                continue;
-            }
-
-            names.Add(tab.WhenChanged(static t => t.Title).AsSignal());
-            names.Add(tab.WhenChanged(static t => t.HasUnsavedChanges).AsSignal());
-        }
-
-        return Signal.Merge(names).StartWith(RxVoid.Default);
     }
 
     /// <summary>Follows one list of the side panel.</summary>

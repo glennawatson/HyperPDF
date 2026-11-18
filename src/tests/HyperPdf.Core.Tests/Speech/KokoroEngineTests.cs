@@ -44,7 +44,7 @@ public sealed class KokoroEngineTests
         using var engine = new KokoroEngine(directory);
 
         await Assert.That(engine.IsReady).IsFalse();
-        await Assert.That(engine.Voices.Count).IsGreaterThan(0);
+        await Assert.That(engine.Voices.Length).IsGreaterThan(0);
     }
 
     /// <summary>

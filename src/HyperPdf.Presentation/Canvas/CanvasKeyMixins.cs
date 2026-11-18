@@ -212,12 +212,12 @@ public static class CanvasKeyMixins
         /// <returns><see langword="true"/> when the key was used.</returns>
         private bool HandlePlacementKey(ViewerKey key, ViewerModifiers modifiers)
         {
-            if (state.Tab is not { } tab)
+            if (state.Tab is not { FillAndSignIfMade: { } filling } tab)
             {
                 return false;
             }
 
-            var used = DocumentKeys.HandlePlacement(tab.FillAndSign, key, modifiers, new PlacementMove(state, tab), static (move, dx, dy) => move.State.MovePlacement(move.Tab, dx, dy));
+            var used = DocumentKeys.HandlePlacement(filling, key, modifiers, new PlacementMove(state, tab), static (move, dx, dy) => move.State.MovePlacement(move.Tab, dx, dy));
             if (used)
             {
                 state.Host.InvalidateVisual();
@@ -231,7 +231,7 @@ public static class CanvasKeyMixins
         /// <returns><see langword="true"/> when the key was used.</returns>
         private bool HandleMeasureKey(ViewerKey key)
         {
-            if (state.Tab is not { } tab || !DocumentKeys.HandleMeasure(tab.Measure, key))
+            if (state.Tab is not { MeasureIfMade: { } measure } tab || !DocumentKeys.HandleMeasure(measure, key))
             {
                 return false;
             }
@@ -254,12 +254,11 @@ public static class CanvasKeyMixins
             if (key == ViewerKey.Escape)
             {
                 state.ClearSelection();
-                state.Tab?.Annotations.CloseBubble();
-                state.Tab?.Annotations.Select(null);
+                state.Tab?.AnnotationsInUse?.Deselect();
                 return false;
             }
 
-            return state.Tab?.Annotations is { } annotations
+            return state.Tab?.AnnotationsInUse is { } annotations
                 && (DocumentKeys.EditPickedText(annotations, key, modifiers) || DocumentKeys.DeleteSelected(annotations, key));
         }
     }

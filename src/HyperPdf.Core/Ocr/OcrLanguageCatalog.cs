@@ -67,7 +67,7 @@ public static class OcrLanguageCatalog
     public static Uri BaseAddress { get; } = new(Host + RequestBase);
 
     /// <summary>Gets every pack offered, English first.</summary>
-    public static IReadOnlyList<OcrLanguagePack> Packs { get; } = Array.ConvertAll(Table, static row => new OcrLanguagePack(row.Code, row.Name, row.Bytes, row.Sha256));
+    public static OcrLanguagePack[] Packs { get; } = Array.ConvertAll(Table, static row => new OcrLanguagePack(row.Code, row.Name, row.Bytes, row.Sha256));
 
     /// <summary>Finds a pack by its language code.</summary>
     /// <param name="code">The code, for example <c>deu</c>.</param>
@@ -115,11 +115,7 @@ public static class OcrLanguageCatalog
     /// <summary>Joins language codes into the form Tesseract takes, for example <c>eng+deu</c>.</summary>
     /// <param name="codes">The codes.</param>
     /// <returns>The setting; English when there are no codes.</returns>
-    public static string Format(IReadOnlyList<string> codes)
-    {
-        ArgumentNullException.ThrowIfNull(codes);
-        return codes.Count == 0 ? English : string.Join(LanguageSeparator, codes);
-    }
+    public static string Format(ReadOnlySpan<string> codes) => codes.IsEmpty ? English : string.Join(LanguageSeparator, codes);
 
     /// <summary>Describes a size for people, rounding up to whole megabytes, for example "about 4 MB".</summary>
     /// <param name="bytes">The size in bytes.</param>
@@ -131,7 +127,7 @@ public static class OcrLanguageCatalog
     /// <returns>The code.</returns>
     private static string CodeOf(ReadOnlySpan<char> code)
     {
-        for (var i = 0; i < Packs.Count; i++)
+        for (var i = 0; i < Packs.Length; i++)
         {
             var pack = Packs[i];
             if (pack.Code.AsSpan().SequenceEqual(code))

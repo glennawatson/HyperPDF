@@ -10,7 +10,7 @@ namespace HyperPdf.ViewModels.Services;
 public sealed class NullRecentDocumentStore : IRecentDocumentStore
 {
     /// <inheritdoc/>
-    public IReadOnlyList<RecentDocument> GetRecent(int maxCount) => [];
+    public List<RecentDocument> GetRecent(int maxCount) => [];
 
     /// <inheritdoc/>
     public void Add(string filePath)

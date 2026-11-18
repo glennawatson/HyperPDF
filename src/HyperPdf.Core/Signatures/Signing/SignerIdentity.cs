@@ -10,4 +10,4 @@ namespace HyperPdf.Core.Signatures.Signing;
 /// <param name="Certificates">The DER-encoded certificates: the signing certificate first, then the chain that leads to a trusted root.</param>
 /// <param name="KeyKind">The kind of signature the key makes.</param>
 [DebuggerDisplay("SignerIdentity: {KeyKind} {Certificates.Count} certificates")]
-public sealed record SignerIdentity(IReadOnlyList<byte[]> Certificates, SigningKeyKind KeyKind);
+public sealed record SignerIdentity(byte[][] Certificates, SigningKeyKind KeyKind);

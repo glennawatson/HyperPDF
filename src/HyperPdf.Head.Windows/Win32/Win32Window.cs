@@ -100,7 +100,7 @@ public sealed unsafe class Win32Window : IPlatformWindow
     private readonly Signal<WindowEvent> _events = new();
 
     /// <summary>Carries the files dropped on the window, on the thread that pumps it.</summary>
-    private readonly Signal<IReadOnlyList<string>> _drops = new();
+    private readonly Signal<string[]> _drops = new();
 
     /// <summary>The render backend, made once the window exists. It is still <see langword="null"/> while Windows sends the messages of window creation.</summary>
     private readonly IRenderBackend? _backend;
@@ -210,7 +210,7 @@ public sealed unsafe class Win32Window : IPlatformWindow
     public IObservable<WindowEvent> Events => _events;
 
     /// <inheritdoc/>
-    public IObservable<IReadOnlyList<string>> FileDrops => _drops;
+    public IObservable<string[]> FileDrops => _drops;
 
     /// <summary>Gets the native window handle, for tests and for code that talks to the shell about this window.</summary>
     internal long WindowHandle => _window;

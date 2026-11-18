@@ -96,7 +96,7 @@ public sealed partial class MeasureViewModel : ReactiveObject, IDisposable, ILoc
     public int Page { get; private set; } = -1;
 
     /// <summary>Gets the points of the measurement, in page space, including the moving point under the pointer.</summary>
-    public IReadOnlyList<PagePoint> Points => _points;
+    public List<PagePoint> Points => _points;
 
     /// <summary>Gets a value indicating whether the measurement is finished, so the next click starts a new one.</summary>
     [Reactive(nameof(CanKeep))]

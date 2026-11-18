@@ -44,7 +44,7 @@ public sealed class TextBoxLayout
     public ReadOnlySpan<LaidGlyph> Glyphs => CollectionsMarshal.AsSpan(_glyphs);
 
     /// <summary>Gets the lines.</summary>
-    public IReadOnlyList<LaidLine> Lines => _lines;
+    public List<LaidLine> Lines => _lines;
 
     /// <summary>Gets the box width: the wrap width, or the widest line.</summary>
     public float Width { get; private set; }

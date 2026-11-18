@@ -23,5 +23,5 @@ internal sealed class HyperPdfPageSemanticSourceService : IPageSemanticSource
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<PageSemanticItem> GetItems(int pageIndex) => HyperPdfPageSemantics.GetItems(_owner, pageIndex);
+    public List<PageSemanticItem> GetItems(int pageIndex) => HyperPdfPageSemantics.GetItems(_owner, pageIndex);
 }

@@ -94,10 +94,10 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
     }
 
     /// <summary>Gets the file formats to choose from.</summary>
-    public IReadOnlyList<PageFileFormatInfo> Formats => PageFileFormats.All;
+    public PageFileFormatInfo[] Formats => PageFileFormats.All;
 
     /// <summary>Gets the choices of which pages to export.</summary>
-    public IReadOnlyList<ExportPagesScopeChoice> Scopes { get; } =
+    public ExportPagesScopeChoice[] Scopes { get; } =
     [
         new(ExportPagesScopeKind.CurrentPage, "The page on screen"),
         new(ExportPagesScopeKind.AllPages, "All pages"),
@@ -368,7 +368,7 @@ public sealed partial class ExportPagesViewModel : ReactiveObject, ICopyWindowRe
             yield return CopyFile.WriteSignal(
                     target,
                     TemporarySuffix,
-                    stream => _exporter.Export(chosen, format, options, stream),
+                    stream => _exporter.Export([..chosen], format, options, stream),
                     static result => result.Written)
                 .ThrowWhenCancelled(cancellationToken)
                 .Select(result => Written(result, totals, number, jobs));

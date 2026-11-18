@@ -22,7 +22,7 @@ internal static class FlattenCopyText
         ArgumentNullException.ThrowIfNull(result);
         if (!result.Flattened)
         {
-            var problems = new List<string>(result.Problems.Count + 1) { UiText.Get("The copy could not be flattened, so no file was saved. Here is why:") };
+            var problems = new List<string>(result.Problems.Length + 1) { UiText.Get("The copy could not be flattened, so no file was saved. Here is why:") };
             foreach (var problem in result.Problems)
             {
                 problems.Add($"• {problem.Description}");
@@ -31,7 +31,7 @@ internal static class FlattenCopyText
             return [.. problems];
         }
 
-        var lines = new List<string>(result.Notes.Count + HeadingLines)
+        var lines = new List<string>(result.Notes.Length + HeadingLines)
         {
             UiText.Format("Saved as {0}. Your open file was not changed.", Path.GetFileName(path)),
             UiText.Format("{0} now part of the page and can no longer be filled in.", Count(result.FormFieldsFlattened, UiText.Get("form field"))),

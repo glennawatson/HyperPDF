@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 
 namespace HyperPdf.Core.Reading;
 
@@ -48,9 +47,6 @@ internal sealed class ReadingScratch
     /// <summary>Gets the page index of each character of <see cref="Subset"/>.</summary>
     internal int[] SubsetIndices { get; private set; } = new int[InitialCapacity];
 
-    /// <summary>Gets a copy of a page's characters, for sources that are not a list or an array.</summary>
-    internal PageCharacter[] Copy { get; private set; } = new PageCharacter[InitialCapacity];
-
     /// <summary>Gets the first line of each tagged element.</summary>
     internal int[] ElementFirst { get; private set; } = new int[InitialCapacity];
 
@@ -69,32 +65,6 @@ internal sealed class ReadingScratch
         LineCount = 0;
         BlockCount = 0;
         CharCount = 0;
-    }
-
-    /// <summary>Gets a view of a page's characters, copying them only when the source is neither a list nor an array.</summary>
-    /// <param name="characters">The page's characters.</param>
-    /// <returns>A view of the same characters.</returns>
-    internal ReadOnlySpan<PageCharacter> View(IReadOnlyList<PageCharacter> characters)
-    {
-        if (characters is List<PageCharacter> list)
-        {
-            return CollectionsMarshal.AsSpan(list);
-        }
-
-        if (characters is PageCharacter[] array)
-        {
-            return array;
-        }
-
-        var copy = Copy;
-        Grow(ref copy, characters.Count);
-        Copy = copy;
-        for (var i = 0; i < characters.Count; i++)
-        {
-            copy[i] = characters[i];
-        }
-
-        return copy.AsSpan(0, characters.Count);
     }
 
     /// <summary>Makes room for more characters of text.</summary>

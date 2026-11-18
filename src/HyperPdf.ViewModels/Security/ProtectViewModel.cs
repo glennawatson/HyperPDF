@@ -47,7 +47,7 @@ public sealed partial class ProtectViewModel : ProtectionRunViewModel
     public bool NeedsCurrentOwner => Status is { IsProtected: true, CanChange: false, UsesCertificates: false };
 
     /// <summary>Gets the encryption choices.</summary>
-    public IReadOnlyList<ProtectionFormatChoice> Formats => ProtectionChecks.Formats;
+    public ProtectionFormatChoice[] Formats => ProtectionChecks.Formats;
 
     /// <inheritdoc/>
     public override string SuggestedName => $"{Path.GetFileNameWithoutExtension(FileName)} (protected).pdf";

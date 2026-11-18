@@ -98,11 +98,11 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
 
     /// <summary>Gets the tags in reading order.</summary>
     [Reactive]
-    public partial IReadOnlyList<TagItemViewModel> Items { get; private set; } = [];
+    public partial TagItemViewModel[] Items { get; private set; } = [];
 
     /// <summary>Gets what the latest check found.</summary>
     [Reactive]
-    public partial IReadOnlyList<TagProblemItem> Problems { get; private set; } = [];
+    public partial TagProblemItem[] Problems { get; private set; } = [];
 
     /// <summary>Gets or sets the chosen tag.</summary>
     [Reactive]
@@ -114,7 +114,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
 
     /// <summary>Gets the types the chosen tag may take.</summary>
     [Reactive]
-    public partial IReadOnlyList<string> TypeChoices { get; private set; } = [];
+    public partial string[] TypeChoices { get; private set; } = [];
 
     /// <summary>Gets or sets the type shown in the form.</summary>
     [Reactive]
@@ -125,7 +125,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
 
     /// <summary>Gets the tags the chosen tag can move into: every tag except itself and the tags inside it.</summary>
     [Reactive]
-    public partial IReadOnlyList<string> MoveTargets { get; private set; } = [];
+    public partial string[] MoveTargets { get; private set; } = [];
 
     /// <summary>Gets or sets the position in <see cref="MoveTargets"/> of the tag to move the chosen tag into; -1 for none.</summary>
     [Reactive]
@@ -224,7 +224,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
 
     /// <summary>Gets the custom tag types and what they stand for, one line each.</summary>
     [Reactive]
-    public partial IReadOnlyList<string> RoleMappings { get; private set; } = [];
+    public partial string[] RoleMappings { get; private set; } = [];
 
     /// <summary>Gets or sets the position in <see cref="RoleMappings"/> of the chosen mapping; -1 for none.</summary>
     [Reactive]
@@ -232,7 +232,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
 
     /// <summary>Gets the standard types a custom type can stand for.</summary>
     [Reactive]
-    public partial IReadOnlyList<string> StandardTypes { get; private set; } = [];
+    public partial string[] StandardTypes { get; private set; } = [];
 
     /// <summary>Gets or sets the name of the custom tag type to add.</summary>
     [Reactive]
@@ -279,7 +279,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
         try
         {
             FillRoleMap(editor);
-            Items = TagItemViewModel.Create(tags);
+            Items = TagItemViewModel.Create([..tags]);
             IsTagged = tags.Count > 0;
             SelectedItem = selectId > 0 ? FindItem(selectId) : null;
         }
@@ -352,9 +352,9 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     /// <summary>Lists the problems the check found.</summary>
     /// <param name="found">The problems.</param>
     /// <returns>The completion value.</returns>
-    private RxVoid ShowProblems(IReadOnlyList<DocumentTagProblem> found)
+    private RxVoid ShowProblems(List<DocumentTagProblem> found)
     {
-        Problems = TagProblemItem.Create(found);
+        Problems = TagProblemItem.Create([..found]);
         _problemSummary = found.Count switch
         {
             0 => LocalizedMessage.Get(UiText, "No problems found. A person should still read the document with a screen reader."),
@@ -552,8 +552,8 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     private void FillRoleMap(ITagEditor? editor)
     {
         var map = editor is null ? [] : editor.GetRoleMap();
-        var lines = new string[map.Count];
-        var types = new string[map.Count];
+        var lines = new string[map.Length];
+        var types = new string[map.Length];
         for (var i = 0; i < lines.Length; i++)
         {
             types[i] = map[i].Type;
@@ -811,10 +811,10 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     /// <summary>Lists the tags the chosen tag may move into: all but itself and the tags inside it.</summary>
     private void FillMoveTargets()
     {
-        var names = new List<string>(Items.Count);
-        var ids = new List<int>(Items.Count);
+        var names = new List<string>(Items.Length);
+        var ids = new List<int>(Items.Length);
         var index = SelectedItem is { } selected ? IndexOf(selected) : -1;
-        for (var i = 0; index >= 0 && i < Items.Count; i++)
+        for (var i = 0; index >= 0 && i < Items.Length; i++)
         {
             if ((i >= index && IsWithin(index, i)) || !Items[i].Tag.CanEdit)
             {
@@ -826,7 +826,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
         }
 
         _moveTargetIds = [.. ids];
-        MoveTargets = names;
+        MoveTargets = [..names];
         MoveTargetIndex = -1;
         CanMoveInto = false;
     }
@@ -852,7 +852,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     /// <summary>Gets the types a tag may take.</summary>
     /// <param name="tag">The tag, or <see langword="null"/> for none.</param>
     /// <returns>The types; empty when the tag cannot be changed.</returns>
-    private IReadOnlyList<string> ChoicesFor(DocumentTag? tag) =>
+    private string[] ChoicesFor(DocumentTag? tag) =>
         tag is { Id: > 0 } && DocumentFeature<ITagEditor>.Get(_owner.TryGetDocument()) is { } editor ? editor.GetTypeChoices(tag.Id) : [];
 
     /// <summary>Fills the form for a tag the person chose, and shows the page it is on.</summary>
@@ -934,7 +934,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
     /// <returns>The position, or -1.</returns>
     private int IndexOf(TagItemViewModel item)
     {
-        for (var i = 0; i < Items.Count; i++)
+        for (var i = 0; i < Items.Length; i++)
         {
             if (Items[i].Id == item.Id)
             {
@@ -957,7 +957,7 @@ public sealed partial class TagsViewModel : ReactiveObject, IDisposable, ILocali
         }
 
         var depth = Items[index].Tag.Depth;
-        for (var i = index + step; (uint)i < (uint)Items.Count; i += step)
+        for (var i = index + step; (uint)i < (uint)Items.Length; i += step)
         {
             var other = Items[i].Tag.Depth;
             if (other < depth)

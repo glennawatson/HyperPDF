@@ -25,10 +25,10 @@ internal sealed class HeadlessWindow : IPlatformWindow
     private readonly Signal<WindowEvent> _published = new();
 
     /// <summary>Carries the files dropped on the window, as they are pumped.</summary>
-    private readonly Signal<IReadOnlyList<string>> _drops = new();
+    private readonly Signal<string[]> _drops = new();
 
     /// <summary>The drops waiting for the next pump.</summary>
-    private readonly ConcurrentQueue<IReadOnlyList<string>> _dropped = new();
+    private readonly ConcurrentQueue<string[]> _dropped = new();
 
     /// <summary>One when a frame was asked for and not yet reported.</summary>
     private int _frameWanted;
@@ -73,7 +73,7 @@ internal sealed class HeadlessWindow : IPlatformWindow
     public IObservable<WindowEvent> Events => _published;
 
     /// <inheritdoc/>
-    public IObservable<IReadOnlyList<string>> FileDrops => _drops;
+    public IObservable<string[]> FileDrops => _drops;
 
     /// <summary>Gets the text last put on the clipboard, or <see langword="null"/> when none was.</summary>
     public string? ClipboardText { get; private set; }
@@ -199,9 +199,9 @@ internal sealed class HeadlessWindow : IPlatformWindow
 
     /// <summary>Queues files dropped on the window for the next pump.</summary>
     /// <param name="files">The files.</param>
-    internal void Drop(IReadOnlyList<string> files)
+    internal void Drop(ReadOnlySpan<string> files)
     {
-        _dropped.Enqueue(files);
+        _dropped.Enqueue([..files]);
         _signal.Set();
     }
 

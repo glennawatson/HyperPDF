@@ -3,27 +3,33 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Geometry;
 
 namespace HyperPdf.Core.Layout;
 
 /// <summary>
-/// Keeps the <see cref="PageFitExtents"/> of one document so a viewport resize finds the fit zoom without walking every page.
-/// The owner calls <see cref="Invalidate"/> when the page structure changes; a different size array, rotation or arrangement is noticed here.
+/// Keeps the <see cref="PageFitExtents"/> of the documents a canvas shows, so a viewport resize, and coming back to a tab, find
+/// the fit zoom without walking every page. The extents of a document are held only while its page sizes are, so they go when
+/// the tab does. The owner calls <see cref="Invalidate"/> when the page structure changes; a different rotation or arrangement
+/// is noticed here.
 /// </summary>
 [DebuggerDisplay("PageFitExtentsCache: {_extents}")]
 public sealed class PageFitExtentsCache
 {
-    /// <summary>The page sizes the cached extents were measured from.</summary>
+    /// <summary>The extents last measured for each document's pages.</summary>
+    private readonly ConditionalWeakTable<PageSize[], Measured> _kept = [];
+
+    /// <summary>The page sizes the current extents were measured from.</summary>
     private PageSize[]? _sizes;
 
-    /// <summary>The rotation the cached extents were measured with.</summary>
+    /// <summary>The rotation the current extents were measured with.</summary>
     private PageRotation _rotation;
 
-    /// <summary>The arrangement the cached extents were measured with.</summary>
+    /// <summary>The arrangement the current extents were measured with.</summary>
     private PageLayoutMode _mode;
 
-    /// <summary>The cached extents.</summary>
+    /// <summary>The current extents.</summary>
     private PageFitExtents? _extents;
 
     /// <summary>Gets the extents for the given pages, measuring them only when the cache does not hold them.</summary>
@@ -38,18 +44,36 @@ public sealed class PageFitExtentsCache
             return cached;
         }
 
-        var extents = ZoomCalculator.GetFitExtents(sizes, rotation, mode);
+        // The pages of a tab shown before were measured then, and are measured again only when turned or arranged another way.
+        if (!_kept.TryGetValue(sizes, out var measured) || measured.Rotation != rotation || measured.Mode != mode || measured.Extents.PageCount != sizes.Length)
+        {
+            measured = new(rotation, mode, ZoomCalculator.GetFitExtents(sizes, rotation, mode));
+            _kept.AddOrUpdate(sizes, measured);
+        }
+
         _sizes = sizes;
         _rotation = rotation;
         _mode = mode;
-        _extents = extents;
-        return extents;
+        _extents = measured.Extents;
+        return measured.Extents;
     }
 
-    /// <summary>Forgets the cached extents.</summary>
+    /// <summary>Forgets the extents of the pages last asked for.</summary>
     public void Invalidate()
     {
+        if (_sizes is { } sizes)
+        {
+            _ = _kept.Remove(sizes);
+        }
+
         _sizes = null;
         _extents = null;
     }
+
+    /// <summary>The extents of a document's pages and what they were measured with.</summary>
+    /// <param name="Rotation">The rotation.</param>
+    /// <param name="Mode">The arrangement.</param>
+    /// <param name="Extents">The extents.</param>
+    [DebuggerDisplay("Measured: {Rotation} {Mode}")]
+    private sealed record Measured(PageRotation Rotation, PageLayoutMode Mode, PageFitExtents Extents);
 }

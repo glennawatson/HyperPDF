@@ -111,7 +111,7 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
     }
 
     /// <summary>Gets the kinds of signature the signer's key can make.</summary>
-    public IReadOnlyList<SigningKeyChoice> KeyChoices { get; } =
+    public SigningKeyChoice[] KeyChoices { get; } =
     [
 
         new(SigningKeyKind.RsaPkcs1, "RSA (the usual kind)"),
@@ -120,7 +120,7 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
     ];
 
     /// <summary>Gets what the signer can give back.</summary>
-    public IReadOnlyList<ExternalResultChoice> ResultChoices { get; } =
+    public ExternalResultChoice[] ResultChoices { get; } =
     [
 
         new(ExternalResultKind.SignatureValue, "The signature value (raw bytes) over the bytes to sign"),
@@ -298,7 +298,7 @@ public sealed partial class ExternalSignViewModel : ReactiveObject, ICopyWindowR
 
             // The choices follow the order of the key kinds, which start at RSA.
             SelectedKey = KeyChoices[(int)loaded.Identity.KeyKind - (int)SigningKeyKind.RsaPkcs1];
-            var count = loaded.Identity.Certificates.Count;
+            var count = loaded.Identity.Certificates.Length;
             SignerText = count == 1
                 ? UiText.Format("{0}: 1 certificate read.", loaded.Subject)
                 : UiText

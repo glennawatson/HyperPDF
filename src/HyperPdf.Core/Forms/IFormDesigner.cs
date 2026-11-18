@@ -16,7 +16,7 @@ public interface IFormDesigner : IDocumentFeature
 {
     /// <summary>Reads every field of the form with the attributes the form design edits.</summary>
     /// <returns>A cold signal giving the fields, in form order once; unsubscribing cancels the work.</returns>
-    IObservable<IReadOnlyList<FormFieldInfo>> GetFields();
+    IObservable<FormFieldInfo[]> GetFields();
 
     /// <summary>Adds a field with its widgets on the chosen pages, drawing the appearances.</summary>
     /// <param name="design">The field.</param>

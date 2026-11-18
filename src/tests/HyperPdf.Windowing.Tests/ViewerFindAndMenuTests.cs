@@ -52,7 +52,7 @@ public sealed class ViewerFindAndMenuTests
         {
             ((System.Windows.Input.ICommand)tab.FindCommand).Execute(null);
             Settle(session);
-            return session.Chrome.HasOverlay && session.Chrome.OverlayItems.Any(static item => item.Kind == ChromeItemKind.Field);
+            return session.Chrome.HasOverlay && session.Chrome.OverlayItems.Exists(static item => item.Kind == ChromeItemKind.Field);
         });
 
         await Assert.That(opened).IsTrue();

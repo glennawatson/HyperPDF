@@ -38,7 +38,7 @@ internal static class ToolForms
     private static readonly FormSetting<SignaturesViewModel>[] SignatureRows =
     [
         FormSettings.Text<SignaturesViewModel>(static m => m.IsChecking ? UiText.Get("Checking the signatures…") : UiText.Format("Signatures in this document: {0}", m.SignatureCount)),
-        FormSettings.List<SignaturesViewModel, DocumentSignature>(static m => m.Signatures, Describe, null),
+        FormSettings.List<SignaturesViewModel, DocumentSignature>(static m => [..m.Signatures], Describe, null),
         FormSettings.Action<SignaturesViewModel>("Check the signatures again", static m => m.CheckCommand),
         FormSettings.Action<SignaturesViewModel>("Sign with a certificate…", static m => m.SignWithCertificateCommand),
     ];
@@ -54,7 +54,7 @@ internal static class ToolForms
         FormSettings.Toggle<CertificateSignViewModel>("Show the signature on the page", static m => m.IsVisibleSignature, static (m, on) => m.IsVisibleSignature = on),
         FormSettings.Pick<CertificateSignViewModel, RememberedCertificate>(
             "A certificate used before",
-            static m => m.Remembered,
+            static m => [..m.Remembered],
             static c => c.Subject,
             static m => m.SelectedCertificate,
             static (m, c) => m.SelectedCertificate = c).When(static m => m.HasRemembered),
@@ -98,7 +98,7 @@ internal static class ToolForms
     /// <summary>The rows of the window that makes the mark of a hand signature or of initials.</summary>
     private static readonly FormSetting<SignatureMarkViewModel>[] MarkRows =
     [
-        FormSettings.Choice<SignatureMarkViewModel>("How to make it", UiText.CreateChoices(MarkStyles), static m => (int)m.Style, static (m, value) => m.Style = (SignatureMarkStyle)value),
+        FormSettings.Choice<SignatureMarkViewModel>("How to make it", [..UiText.CreateChoices(MarkStyles)], static m => (int)m.Style, static (m, value) => m.Style = (SignatureMarkStyle)value),
         FormSettings.Field<SignatureMarkViewModel>("Your name or initials, as you sign", static m => m.Text, static (m, text) => m.Text = text).When(static m => m.Style == SignatureMarkStyle.Typed),
         FormSettings.Action<SignatureMarkViewModel>("Choose a picture of it…", static m => m.ChooseImageCommand).When(static m => m.Style == SignatureMarkStyle.Image),
         FormSettings.Toggle<SignatureMarkViewModel>(
@@ -276,7 +276,7 @@ internal static class ToolForms
         FormSettings.Action<FolderSearchViewModel>("Search", static m => m.SearchCommand),
         FormSettings.Action<FolderSearchViewModel>("Stop", static m => m.StopCommand).When(static m => m.IsSearching),
         FormSettings.Text<FolderSearchViewModel>(static m => m.Status),
-        FormSettings.List<FolderSearchViewModel, FolderSearchResultViewModel>(static m => m.Results, static r => r.SpokenText, static m => m.OpenCommand),
+        FormSettings.List<FolderSearchViewModel, FolderSearchResultViewModel>(static m => [..m.Results], static r => r.SpokenText, static m => m.OpenCommand),
     ];
 
     /// <summary>The rows of the window that opens a document locked with a certificate.</summary>
@@ -339,7 +339,7 @@ internal static class ToolForms
         FormSettings.Field<MainViewModel>("Words in the name or the folder", static m => m.TabQuery, static (m, text) => m.TabQuery = text),
         FormSettings.Note<MainViewModel>("Choose the document to show."),
         FormSettings.Picker<MainViewModel, DocumentTabViewModel>(
-            static m => m.FoundTabs,
+            static m => [..m.FoundTabs],
             static tab => tab.HasUnsavedChanges ? UiText.Format("{0} (not saved)", tab.Title) : tab.Title,
             static (m, tab) =>
             {
@@ -548,14 +548,14 @@ internal static class ToolForms
     /// <param name="set">Chooses a word.</param>
     /// <returns>The setting.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static FormSetting<TagsViewModel> TagChoice(string label, Func<TagsViewModel, IReadOnlyList<string>> choices, Func<TagsViewModel, string?> get, Action<TagsViewModel, string> set) =>
+    private static FormSetting<TagsViewModel> TagChoice(string label, Func<TagsViewModel, string[]> choices, Func<TagsViewModel, string?> get, Action<TagsViewModel, string> set) =>
         FormSettings.Pick(label, choices, static word => word, get, set);
 
     /// <summary>Gets the custom tag type that is chosen in the list of custom types.</summary>
     /// <param name="model">The view model.</param>
     /// <returns>The words that name the custom type and what it stands for, or <see langword="null"/> when none is chosen.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string? RoleMappingOf(TagsViewModel model) => (uint)model.RoleMappingIndex < (uint)model.RoleMappings.Count ? model.RoleMappings[model.RoleMappingIndex] : null;
+    private static string? RoleMappingOf(TagsViewModel model) => (uint)model.RoleMappingIndex < (uint)model.RoleMappings.Length ? model.RoleMappings[model.RoleMappingIndex] : null;
 
     /// <summary>Gets the tag the chosen tag is to move into.</summary>
     /// <param name="model">The view model.</param>
@@ -567,9 +567,9 @@ internal static class ToolForms
     /// <param name="choices">The choices.</param>
     /// <param name="choice">The choice.</param>
     /// <returns>The place of the choice in the list, or -1 when it is not there.</returns>
-    private static int IndexOf(IReadOnlyList<string> choices, string choice)
+    private static int IndexOf(ReadOnlySpan<string> choices, string choice)
     {
-        for (var i = 0; i < choices.Count; i++)
+        for (var i = 0; i < choices.Length; i++)
         {
             if (string.Equals(choices[i], choice, StringComparison.Ordinal))
             {

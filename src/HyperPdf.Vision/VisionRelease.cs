@@ -47,7 +47,7 @@ public static class VisionRelease
     public static string Tag => ReleaseTag;
 
     /// <summary>Gets the files to download, with the names they have inside the model folder.</summary>
-    public static IReadOnlyList<SpeechModelFile> Files { get; } =
+    public static SpeechModelFile[] Files { get; } =
     [
         new(new(Address + EncoderAsset), DistilVitModel.EncoderFile, EncoderBytes, "04622bdece4419687c8a07f4df0e8c1bea1db354fb6decde97bc0bf39f26bab2"),
         new(new(Address + DecoderAsset), DistilVitModel.DecoderFile, DecoderBytes, "8cda4a51db36003185beb5557cc379d0ad773d4efa9329e39793828b74d420f4"),

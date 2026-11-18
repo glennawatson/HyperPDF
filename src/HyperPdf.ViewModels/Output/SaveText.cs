@@ -20,14 +20,14 @@ internal static class SaveText
             note = note is null ? pdf20 : Join(note, pdf20);
         }
 
-        if (outcome.TrapNetworkWarnings.Count > 0)
+        if (outcome.TrapNetworkWarnings.Length > 0)
         {
             note = Join(note, TrapNetworkNotice(outcome.TrapNetworkWarnings));
         }
 
-        if (outcome.RemovedRequirements.Count > 0)
+        if (outcome.RemovedRequirements.Length > 0)
         {
-            var removed = new string[outcome.RemovedRequirements.Count];
+            var removed = new string[outcome.RemovedRequirements.Length];
             for (var index = 0; index < removed.Length; index++)
             {
                 removed[index] = outcome.RemovedRequirements[index].Text;
@@ -36,16 +36,15 @@ internal static class SaveText
             return Join(note, string.Join(' ', removed));
         }
 
-        return outcome.RequirementWarnings.Count > 0 ? Join(note, RequirementNotices.SaveNotice(outcome.RequirementWarnings)) : note;
+        return outcome.RequirementWarnings.Length > 0 ? Join(note, RequirementNotices.SaveNotice(outcome.RequirementWarnings)) : note;
     }
 
     /// <summary>Gets the warning about removed trap networks: the first page's, and how many more pages had the same.</summary>
     /// <param name="warnings">The warnings, one for each page.</param>
     /// <returns>The warning.</returns>
-    internal static string TrapNetworkNotice(IReadOnlyList<string> warnings)
+    internal static string TrapNetworkNotice(ReadOnlySpan<string> warnings)
     {
-        ArgumentNullException.ThrowIfNull(warnings);
-        var more = warnings.Count - 1;
+        var more = warnings.Length - 1;
         return more switch
         {
             0 => warnings[0],

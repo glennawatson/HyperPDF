@@ -42,8 +42,8 @@ public sealed class PendingSignatureSingleUseTests
         var again = await Assert.That(async () => await signer.CompleteWithContainer(pending, new byte[1]).ToTask(cancellationToken)).Throws<SigningRefusedException>();
 
         await Assert.That(first.Bytes).IsEquivalentTo(before);
-        await Assert.That(refusal!.Reasons.Count).IsEqualTo(1);
-        await Assert.That(again!.Reasons.Count).IsEqualTo(1);
+        await Assert.That(refusal!.Reasons.Length).IsEqualTo(1);
+        await Assert.That(again!.Reasons.Length).IsEqualTo(1);
     }
 
     /// <summary>Of several completions started together, one succeeds and the rest are refused.</summary>

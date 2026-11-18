@@ -7,7 +7,8 @@ using System.Diagnostics;
 namespace HyperPdf.Core.Rendering;
 
 /// <summary>
-/// How sharp pages draw: the edges of text, thin lines and scaled images. The defaults match a plain smooth render. The
+/// How sharp pages draw: the edges of text, thin lines and scaled images. The defaults are a smooth render that draws small text
+/// from kept glyph masks, which is what makes pages of text quick; a reader can turn that off to place each letter exactly. The
 /// values are constructor parameters with defaults, so a saved file that leaves a choice out keeps that choice's default
 /// on every target framework; the generated reader for init-only properties would set an omitted one to its type's
 /// default on net10.0.
@@ -18,7 +19,7 @@ namespace HyperPdf.Core.Rendering;
 /// <param name="StrokeAdjustment">Whether lines are fitted to whole pixels.</param>
 /// <param name="MinimumLineWidth">The thinnest line drawn in device pixels, 0 (the page's own widths) to 3.</param>
 /// <param name="AreaImageReduction">Whether images that shrink a lot are reduced by averaging, which keeps fine detail from sparkling.</param>
-/// <param name="SmallTextMasks">Whether small text is drawn from cached glyph masks, which is quicker once a page's letters repeat.</param>
+/// <param name="SmallTextMasks">Whether small text is drawn from cached glyph masks, which is quicker once a page's letters repeat. Each letter then sits on the nearest quarter of a pixel.</param>
 /// <param name="TextHinting">How small text is fitted to the pixel grid; any choice but none draws small text from glyph masks.</param>
 /// <param name="TextDarkness">How much darker the edges of small text are drawn, from 0 to 3; above 0 draws small text from glyph masks.</param>
 [DebuggerDisplay("RenderSharpness: text {TextEdges}, lines {StrokeAdjustment}/{MinimumLineWidth}")]
@@ -29,7 +30,7 @@ public sealed record RenderSharpness(
     StrokeAdjustmentChoice StrokeAdjustment = StrokeAdjustmentChoice.Off,
     int MinimumLineWidth = 0,
     bool AreaImageReduction = true,
-    bool SmallTextMasks = false,
+    bool SmallTextMasks = true,
     TextHintingChoice TextHinting = TextHintingChoice.None,
     int TextDarkness = 0)
 {

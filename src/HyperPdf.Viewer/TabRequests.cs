@@ -7,6 +7,10 @@ using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Markup;
 using HyperPdf.ViewModels.Output;
+using HyperPdf.ViewModels.Preferences;
+using HyperPdf.ViewModels.Reading;
+using HyperPdf.ViewModels.Services;
+using HyperPdf.ViewModels.Sidebar;
 using HyperPdf.ViewModels.Signing;
 using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer.Chrome;
@@ -39,70 +43,16 @@ internal static class TabRequests
             _ = ShellLauncher.OpenLink(context.Input);
             context.SetOutput(RxVoid.Default);
         }),
-        tab.Links.LaunchFileInteraction.RegisterHandler(static context =>
-        {
-            _ = ShellLauncher.OpenFile(context.Input);
-            context.SetOutput(RxVoid.Default);
-        }),
-        tab.Links.ConfirmOpenFileInteraction.RegisterHandler(context => chrome.Confirm(OpenFileRequest(context.Input)).Do(context.SetOutput)),
 
         // Files to read.
         tab.CertificateBrowseInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), null).Do(context.SetOutput)),
-        tab.Annotations.ChoosePictureInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), null).Do(context.SetOutput)),
-        tab.Pages.InsertInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Select(ToArray).Do(context.SetOutput)),
-        tab.Pages.MergeFilesInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Select(ToArray).Do(context.SetOutput)),
-        tab.Pages.InsertImagesInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Select(ToArray).Do(context.SetOutput)),
 
         // Files to write, each offered under the name the view model suggests.
-        tab.Pages.ExtractInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
         tab.Attachments.SaveInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
-        tab.Media.SaveInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
         tab.PageTools.SaveImageInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
 
-        // A picture handed to the program the system uses for it; the picture comes back through the file when it is saved there.
-        tab.ContentEdit.ExternalEditInteraction.RegisterHandler(static context => context.SetOutput(ShellLauncher.OpenFile(context.Input))),
-
-        // The windows that write a changed copy. Each asks where to save through a file dialog that opens over it.
-        Copy(chrome, tab, tab.Copies.SaveCopy, CopyForms.SaveCopy, static m => m.SaveInteraction),
-        Copy(chrome, tab, tab.Copies.Optimize, CopyForms.Optimize, static m => m.SaveInteraction),
-        Copy(chrome, tab, tab.Copies.Archive, CopyForms.Archive, static m => m.SaveInteraction),
-        Copy(chrome, tab, tab.Copies.Pdf20, CopyForms.Pdf20, static m => m.SaveInteraction),
-        Copy(chrome, tab, tab.Copies.Flatten, CopyForms.Flatten, static m => m.SaveInteraction),
-        Copy(chrome, tab, tab.Copies.ExportPages, CopyForms.ExportPages, static m => m.SaveInteraction),
-        Copy(chrome, tab, tab.Copies.Protect, CopyForms.Protect, static m => m.SaveInteraction),
-        Copy(chrome, tab, tab.Copies.Unprotect, CopyForms.Unprotect, static m => m.SaveInteraction),
-        Copy(chrome, tab, tab.Copies.Redact, CopyForms.Redact, static m => m.SaveInteraction),
-        Copy(chrome, tab, tab.Copies.Validation, CopyForms.Validation, static m => m.SaveInteraction),
-
-        // Signing, the mark of a hand signature and the look of typed text. Each window answers for itself when its own command is done.
-        tab.Media.ShowPlayerInteraction.RegisterHandler(context => chrome.ShowMedia(context.Input).AsSignal().Do(context.SetOutput)),
-        tab.Tags.EditInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.TagEditor(context.Input)).AsSignal().Do(context.SetOutput)),
-        tab.Signatures.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.Signatures(context.Input)).AsSignal().Do(context.SetOutput)),
-        tab.Signatures.CertificateSignInteraction.RegisterHandler(context =>
-        {
-            var browsing = context.Input.BrowseInteraction.RegisterHandler(where => chrome.PickFile(FolderOf(tab), null).Do(where.SetOutput));
-            return chrome.ShowForm(ToolForms.CertificateSign(context.Input)).Do(context.SetOutput).Finally(browsing.Dispose);
-        }),
-        tab.FillAndSign.MarkInteraction.RegisterHandler(context =>
-        {
-            var browsing = context.Input.BrowseImageInteraction.RegisterHandler(where => chrome.PickFile(FolderOf(tab), null).Do(where.SetOutput));
-            return chrome.ShowForm(ToolForms.SignatureMark(context.Input)).Do(context.SetOutput).Finally(browsing.Dispose);
-        }),
-        tab.Annotations.TextPropertiesInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.TextProperties(context.Input)).Do(context.SetOutput)),
-        tab.Annotations.ShowFilterInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.NoteFilter(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
-        tab.FocusMode.ShowSettingsInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.FocusSettings(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
-        tab.Decorations.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.PageDecoration(context.Input)).Do(context.SetOutput)),
-        tab.TextRecognition.ManageLanguagesInteraction.RegisterHandler(context => chrome.ShowForm(OcrLanguageForms.For(context.Input)).Do(context.SetOutput)),
-        tab.Pages.Compare.ChooseFileInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Select(static files => files.Count > 0 ? files[0] : null).Do(context.SetOutput)),
-        tab.Pages.Compare.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.Compare(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
-        tab.Pages.Sanitize.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.Sanitize(context.Input)).Do(context.SetOutput)),
-        tab.Pages.Labels.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.PageLabels(context.Input)).Do(context.SetOutput)),
-        tab.Copies.ExternalSign.Interaction.RegisterHandler(context => SignOutside(chrome, tab, context)),
-
-        // Questions.
-        tab.Copies.Pdf20SaveInteraction.RegisterHandler(context => chrome.Confirm(context.Input).Do(context.SetOutput)),
-        tab.OutlineEditing.PromptInteraction.RegisterHandler(context => chrome.Prompt(PromptOf(context.Input)).Do(context.SetOutput)),
-        tab.ContentEdit.LinkPromptInteraction.RegisterHandler(context => chrome.Prompt(PromptOf(context.Input)).Do(context.SetOutput)),
+        // A part of the tab that is made on first use is followed from when it is made, so showing a tab does not make it.
+        FollowParts(chrome, tab),
     ];
 
     /// <summary>Answers the questions of the window itself.</summary>
@@ -140,6 +90,182 @@ internal static class TabRequests
     /// <returns>The question.</returns>
     internal static PromptRequest PromptOf(TextPrompt asked) => new(asked.Title, asked.Label, asked.Text, asked.AcceptText, false);
 
+    /// <summary>Follows a part of the tab from when it is made until the tab is left.</summary>
+    /// <typeparam name="TPart">The part's type.</typeparam>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="follow">Answers the part's questions, and gives what ends the answering.</param>
+    /// <returns>What ends the waiting and the answering.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IDisposable FollowWhenMade<TPart>(DocumentTabViewModel tab, Func<TPart, IDisposable> follow)
+        where TPart : class =>
+        tab.MadeParts
+            .OfType<TPart>()
+            .Take(1)
+            .SwitchMap(part => Signal.Using(() => follow(part), static _ => Signal.Never<RxVoid>()))
+            .SubscribeSafe(static _ => { }, ErrorTrace.Write);
+
+    /// <summary>
+    /// Follows every part of the tab that is made on first use, from when it is made until the tab is left. One subscription to
+    /// the parts the tab makes serves them all, so showing a tab costs the same however many kinds of part there are.
+    /// </summary>
+    /// <param name="chrome">The window's controls, which show the dialogs.</param>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>What ends the waiting and the answering.</returns>
+    private static MultipleDisposable FollowParts(ViewerChrome chrome, DocumentTabViewModel tab)
+    {
+        var followed = new MultipleDisposable();
+        followed.Add(tab.MadeParts.SubscribeSafe(
+            part =>
+            {
+                if ((FollowTool(chrome, tab, part) ?? FollowContent(chrome, tab, part)) is { } answering)
+                {
+                    followed.Add(answering);
+                }
+            },
+            ErrorTrace.Write));
+        return followed;
+    }
+
+    /// <summary>Answers the questions of a tool of the tab, when the part is one.</summary>
+    /// <param name="chrome">The window's controls, which show the dialogs.</param>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="part">The part just made.</param>
+    /// <returns>What ends the answering, or <see langword="null"/> when the part is not a tool with questions.</returns>
+    private static IDisposable? FollowTool(ViewerChrome chrome, DocumentTabViewModel tab, object part) => part switch
+    {
+        TabCopyActionSet copies => FollowCopies(chrome, tab, copies),
+        PageManagementViewModel pages => FollowPages(chrome, tab, pages),
+        AnnotationsViewModel marks => FollowMarks(chrome, tab, marks),
+        TextRecognitionViewModel text => text.ManageLanguagesInteraction.RegisterHandler(context => chrome.ShowForm(OcrLanguageForms.For(context.Input)).Do(context.SetOutput)),
+        FocusModeViewModel focus => focus.ShowSettingsInteraction.RegisterHandler(
+            context => chrome.ShowForm(ToolForms.FocusSettings(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
+        PageDecorationViewModel decorations => decorations.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.PageDecoration(context.Input)).Do(context.SetOutput)),
+        _ => null,
+    };
+
+    /// <summary>Answers the questions of a part that lists what the document holds, when the part is one.</summary>
+    /// <param name="chrome">The window's controls, which show the dialogs.</param>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="part">The part just made.</param>
+    /// <returns>What ends the answering, or <see langword="null"/> when the part has no questions.</returns>
+    private static IDisposable? FollowContent(ViewerChrome chrome, DocumentTabViewModel tab, object part) => part switch
+    {
+        TabFileLinks links => FollowLinks(chrome, links),
+        PageContentEditViewModel edit => FollowEditing(chrome, edit),
+        FillAndSignViewModel filling => filling.MarkInteraction.RegisterHandler(context =>
+        {
+            var browsing = context.Input.BrowseImageInteraction.RegisterHandler(where => chrome.PickFile(FolderOf(tab), null).Do(where.SetOutput));
+            return chrome.ShowForm(ToolForms.SignatureMark(context.Input)).Do(context.SetOutput).Finally(browsing.Dispose);
+        }),
+        DocumentMediaViewModel media => FollowMedia(chrome, tab, media),
+        SignaturesViewModel signatures => FollowSignatures(chrome, tab, signatures),
+        TagsViewModel tags => tags.EditInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.TagEditor(context.Input)).AsSignal().Do(context.SetOutput)),
+        OutlineEditViewModel bookmarks => bookmarks.PromptInteraction.RegisterHandler(context => chrome.Prompt(PromptOf(context.Input)).Do(context.SetOutput)),
+        _ => null,
+    };
+
+    /// <summary>Answers the questions of the tab's links to other files: opening one, and whether to.</summary>
+    /// <param name="chrome">The window's controls, which show the dialogs.</param>
+    /// <param name="links">The links.</param>
+    /// <returns>What ends the answering.</returns>
+    private static MultipleDisposable FollowLinks(ViewerChrome chrome, TabFileLinks links) =>
+    [
+        links.LaunchFileInteraction.RegisterHandler(static context =>
+        {
+            _ = ShellLauncher.OpenFile(context.Input);
+            context.SetOutput(RxVoid.Default);
+        }),
+        links.ConfirmOpenFileInteraction.RegisterHandler(context => chrome.Confirm(OpenFileRequest(context.Input)).Do(context.SetOutput)),
+    ];
+
+    /// <summary>Answers the questions of editing the page's own content: the program a picture is handed to, and the address of a link.</summary>
+    /// <param name="chrome">The window's controls, which show the dialogs.</param>
+    /// <param name="edit">The content editing.</param>
+    /// <returns>What ends the answering.</returns>
+    private static MultipleDisposable FollowEditing(ViewerChrome chrome, PageContentEditViewModel edit) =>
+    [
+
+        // A picture handed to the program the system uses for it; the picture comes back through the file when it is saved there.
+        edit.ExternalEditInteraction.RegisterHandler(static context => context.SetOutput(ShellLauncher.OpenFile(context.Input))),
+        edit.LinkPromptInteraction.RegisterHandler(context => chrome.Prompt(PromptOf(context.Input)).Do(context.SetOutput)),
+    ];
+
+    /// <summary>Answers the questions of the films and sounds: where to save one, and the player that plays one.</summary>
+    /// <param name="chrome">The window's controls, which show the dialogs.</param>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="media">The films and sounds.</param>
+    /// <returns>What ends the answering.</returns>
+    private static MultipleDisposable FollowMedia(ViewerChrome chrome, DocumentTabViewModel tab, DocumentMediaViewModel media) =>
+    [
+        media.SaveInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
+        media.ShowPlayerInteraction.RegisterHandler(context => chrome.ShowMedia(context.Input).AsSignal().Do(context.SetOutput)),
+    ];
+
+    /// <summary>Answers the questions of the signatures: their window, and the window that signs with a certificate.</summary>
+    /// <param name="chrome">The window's controls, which show the dialogs.</param>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="signatures">The signatures.</param>
+    /// <returns>What ends the answering.</returns>
+    private static MultipleDisposable FollowSignatures(ViewerChrome chrome, DocumentTabViewModel tab, SignaturesViewModel signatures) =>
+    [
+        signatures.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.Signatures(context.Input)).AsSignal().Do(context.SetOutput)),
+        signatures.CertificateSignInteraction.RegisterHandler(context =>
+        {
+            var browsing = context.Input.BrowseInteraction.RegisterHandler(where => chrome.PickFile(FolderOf(tab), null).Do(where.SetOutput));
+            return chrome.ShowForm(ToolForms.CertificateSign(context.Input)).Do(context.SetOutput).Finally(browsing.Dispose);
+        }),
+    ];
+
+    /// <summary>Answers the questions of the annotation tools: which picture to stamp, and their text and filter windows.</summary>
+    /// <param name="chrome">The window's controls, which show the dialogs.</param>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="marks">The annotation tools.</param>
+    /// <returns>What ends the answering.</returns>
+    private static MultipleDisposable FollowMarks(ViewerChrome chrome, DocumentTabViewModel tab, AnnotationsViewModel marks) =>
+    [
+        marks.ChoosePictureInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), null).Do(context.SetOutput)),
+        marks.TextPropertiesInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.TextProperties(context.Input)).Do(context.SetOutput)),
+        marks.ShowFilterInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.NoteFilter(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
+    ];
+
+    /// <summary>Answers the questions of the page tools: which files to put in, where to write pages taken out, and their windows.</summary>
+    /// <param name="chrome">The window's controls, which show the dialogs.</param>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="pages">The page tools.</param>
+    /// <returns>What ends the answering.</returns>
+    private static MultipleDisposable FollowPages(ViewerChrome chrome, DocumentTabViewModel tab, PageManagementViewModel pages) =>
+    [
+        pages.InsertInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Do(context.SetOutput)),
+        pages.MergeFilesInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Do(context.SetOutput)),
+        pages.InsertImagesInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Do(context.SetOutput)),
+        pages.ExtractInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
+        pages.Compare.ChooseFileInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Select(static files => files.Length > 0 ? files[0] : null).Do(context.SetOutput)),
+        pages.Compare.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.Compare(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
+        pages.Sanitize.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.Sanitize(context.Input)).Do(context.SetOutput)),
+        pages.Labels.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.PageLabels(context.Input)).Do(context.SetOutput)),
+    ];
+
+    /// <summary>Answers the questions of the commands that write a changed copy. Each asks where to save through a file dialog that opens over its window.</summary>
+    /// <param name="chrome">The window's controls, which show the dialogs.</param>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="copies">The commands.</param>
+    /// <returns>What ends the answering.</returns>
+    private static MultipleDisposable FollowCopies(ViewerChrome chrome, DocumentTabViewModel tab, TabCopyActionSet copies) =>
+    [
+        Copy(chrome, tab, copies.SaveCopy, CopyForms.SaveCopy, static m => m.SaveInteraction),
+        Copy(chrome, tab, copies.Optimize, CopyForms.Optimize, static m => m.SaveInteraction),
+        Copy(chrome, tab, copies.Archive, CopyForms.Archive, static m => m.SaveInteraction),
+        Copy(chrome, tab, copies.Pdf20, CopyForms.Pdf20, static m => m.SaveInteraction),
+        Copy(chrome, tab, copies.Flatten, CopyForms.Flatten, static m => m.SaveInteraction),
+        Copy(chrome, tab, copies.ExportPages, CopyForms.ExportPages, static m => m.SaveInteraction),
+        Copy(chrome, tab, copies.Protect, CopyForms.Protect, static m => m.SaveInteraction),
+        Copy(chrome, tab, copies.Unprotect, CopyForms.Unprotect, static m => m.SaveInteraction),
+        Copy(chrome, tab, copies.Redact, CopyForms.Redact, static m => m.SaveInteraction),
+        Copy(chrome, tab, copies.Validation, CopyForms.Validation, static m => m.SaveInteraction),
+        copies.ExternalSign.Interaction.RegisterHandler(context => SignOutside(chrome, tab, context)),
+        copies.Pdf20SaveInteraction.RegisterHandler(context => chrome.Confirm(context.Input).Do(context.SetOutput)),
+    ];
+
     /// <summary>Shows the window of one kind of copy when its view model asks, and answers where the copy is saved while the window is open.</summary>
     /// <typeparam name="T">The view model of the copy.</typeparam>
     /// <param name="chrome">The window's controls, which show the dialogs.</param>
@@ -173,7 +299,7 @@ internal static class TabRequests
         var model = context.Input;
         MultipleDisposable files =
         [
-            model.BrowseInteraction.RegisterHandler(where => chrome.PickFiles(FolderOf(tab)).Select(static paths => paths.Count > 0 ? ToArray(paths) : null).Do(where.SetOutput)),
+            model.BrowseInteraction.RegisterHandler(where => chrome.PickFiles(FolderOf(tab)).Select(static paths => paths.Length > 0 ? paths : null).Do(where.SetOutput)),
             model.SaveToSignInteraction.RegisterHandler(where => chrome.PickFile(FolderOf(tab), Path.GetFileName(where.Input)).Do(where.SetOutput)),
             model.OpenSignatureInteraction.RegisterHandler(where => chrome.PickFile(FolderOf(tab), null).Do(where.SetOutput)),
             model.SaveCopyInteraction.RegisterHandler(where => chrome.PickFile(FolderOf(tab), Path.GetFileName(where.Input)).Do(where.SetOutput)),
@@ -190,11 +316,6 @@ internal static class TabRequests
     /// <returns>The question.</returns>
     private static ConfirmRequest OpenFileRequest(string file) =>
         new(UiText.Get("Open File"), UiText.Format("Open {0} in another app? Only open files you trust.", file), UiText.Get("Open File"));
-
-    /// <summary>Copies chosen paths into an array, which is what the page tools take.</summary>
-    /// <param name="paths">The paths.</param>
-    /// <returns>The array.</returns>
-    private static string[] ToArray(IReadOnlyList<string> paths) => [.. paths];
 
     /// <summary>Lists the documents a window's view model holds.</summary>
     /// <param name="window">The view model.</param>

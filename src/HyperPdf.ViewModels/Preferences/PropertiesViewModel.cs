@@ -60,14 +60,14 @@ public sealed partial class PropertiesViewModel : ReactiveObject
             }
         }
 
-        Entries = entries;
+        Entries = [..entries];
     }
 
     /// <summary>Gets the dialog title.</summary>
     public string Title { get; }
 
     /// <summary>Gets the properties.</summary>
-    public IReadOnlyList<PropertyEntry> Entries { get; }
+    public PropertyEntry[] Entries { get; }
 
     /// <summary>Asks the window to close.</summary>
     [ReactiveCommand]

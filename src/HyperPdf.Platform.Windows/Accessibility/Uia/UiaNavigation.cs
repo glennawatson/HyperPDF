@@ -39,9 +39,9 @@ internal static class UiaNavigation
     private static int Child(IAccessibleTree tree, AccessibleNode node, bool first)
     {
         var children = node.Children;
-        for (var step = 0; step < children.Count; step++)
+        for (var step = 0; step < children.Length; step++)
         {
-            var id = children[first ? step : children.Count - 1 - step];
+            var id = children[first ? step : children.Length - 1 - step];
             if (tree.Get(id) is not null)
             {
                 return id;
@@ -65,7 +65,7 @@ internal static class UiaNavigation
 
         var siblings = parent.Children;
         var index = IndexOf(siblings, node.Id);
-        for (var next = index + step; index >= 0 && next >= 0 && next < siblings.Count; next += step)
+        for (var next = index + step; index >= 0 && next >= 0 && next < siblings.Length; next += step)
         {
             if (tree.Get(siblings[next]) is not null)
             {
@@ -80,9 +80,9 @@ internal static class UiaNavigation
     /// <param name="ids">The list.</param>
     /// <param name="id">The number.</param>
     /// <returns>The index, or -1.</returns>
-    private static int IndexOf(IReadOnlyList<int> ids, int id)
+    private static int IndexOf(ReadOnlySpan<int> ids, int id)
     {
-        for (var index = 0; index < ids.Count; index++)
+        for (var index = 0; index < ids.Length; index++)
         {
             if (ids[index] == id)
             {

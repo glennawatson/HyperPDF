@@ -40,7 +40,7 @@ internal static class ArchiveText
     {
         ArgumentNullException.ThrowIfNull(removal);
         var notice = UiText.Format("This file no longer met {0}, so HyperPDF removed its PDF/A claim.", Label(removal.Level));
-        return removal.Reasons.Count > 0
+        return removal.Reasons.Length > 0
             ? UiText.Format(
             "{0} It could not be fixed: {1} Use Save PDF/A Copy to make a PDF/A version.",
             notice,
@@ -55,7 +55,7 @@ internal static class ArchiveText
     {
         ArgumentNullException.ThrowIfNull(repair);
         var notice = UiText.Format("HyperPDF fixed the saved file so it still meets {0}.", Label(repair.Level));
-        var shown = Math.Min(repair.Repairs.Count, ShownRepairs);
+        var shown = Math.Min(repair.Repairs.Length, ShownRepairs);
         if (shown == 0)
         {
             return notice;
@@ -68,7 +68,7 @@ internal static class ArchiveText
         }
 
         var fixes = string.Join(' ', named);
-        var more = repair.Repairs.Count - shown;
+        var more = repair.Repairs.Length - shown;
         return more > 0
             ? UiText.Format(
             "{0} {1} And {2} more fixes.",
@@ -88,7 +88,7 @@ internal static class ArchiveText
         var label = Label(result.Level);
         if (!result.Converted)
         {
-            var problems = new List<string>(result.Problems.Count + 1) { UiText.Format("The copy could not be made as {0}, so no file was saved. Here is why:", label) };
+            var problems = new List<string>(result.Problems.Length + 1) { UiText.Format("The copy could not be made as {0}, so no file was saved. Here is why:", label) };
             foreach (var problem in result.Problems)
             {
                 problems.Add($"• {problem.Description}");
@@ -97,8 +97,8 @@ internal static class ArchiveText
             return [.. problems];
         }
 
-        var lines = new List<string>(result.Changes.Count + HeadingLines) { UiText.Format("Saved as {0}. The copy meets {1}. Your open file was not changed.", Path.GetFileName(path), label) };
-        if (result.Changes.Count == 0)
+        var lines = new List<string>(result.Changes.Length + HeadingLines) { UiText.Format("Saved as {0}. The copy meets {1}. Your open file was not changed.", Path.GetFileName(path), label) };
+        if (result.Changes.Length == 0)
         {
             lines.Add(UiText.Get("Nothing needed to change."));
             return [.. lines];

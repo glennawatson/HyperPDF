@@ -19,6 +19,9 @@ public sealed class CpuRenderBackend : IRenderBackend
     /// <summary>The called when a frame is finished and ready to show.</summary>
     private readonly FramePresented _presented;
 
+    /// <summary>The small pictures kept at the size they are drawn at, so a frame copies them instead of scaling them again.</summary>
+    private readonly ScaledCopyCache _scaled = new();
+
     /// <summary>The pass handed out for every frame.</summary>
     private CpuFramePass? _pass;
 
@@ -57,6 +60,15 @@ public sealed class CpuRenderBackend : IRenderBackend
     /// <summary>Gets the current frame pixels as premultiplied BGRA.</summary>
     public ReadOnlySpan<byte> FramePixels => _frame.AsSpan(0, Stride * Size.Height);
 
+    /// <summary>Gets a number that names the frame buffer in use; it changes each time a resize makes a new one.</summary>
+    internal int FrameBuffer { get; private set; }
+
+    /// <summary>Gets the frames that were presented without drawing, because their draws were those of the frame before.</summary>
+    internal int UnchangedFrames { get; private set; }
+
+    /// <summary>Gets or sets the times the kept pixels of a group of draws were put back in place of drawing the group.</summary>
+    internal int KeptRestores { get; set; }
+
     /// <inheritdoc/>
     public void Resize(in SurfaceSize size)
     {
@@ -68,6 +80,7 @@ public sealed class CpuRenderBackend : IRenderBackend
 
         Size = size.IsEmpty ? default : size;
         _frame = Size.IsEmpty ? [] : new byte[Stride * Size.Height];
+        FrameBuffer++;
     }
 
     /// <inheritdoc/>
@@ -81,16 +94,62 @@ public sealed class CpuRenderBackend : IRenderBackend
     public void Dispose()
     {
         _disposed = true;
+        _scaled.Dispose();
 
         // Disposing a pass presents its frame, which does nothing once the backend is disposed.
         _pass?.Dispose();
         _frame = [];
     }
 
+    /// <summary>Paints a rectangle of the frame with a colour, over what is there.</summary>
+    /// <param name="rows">The pixels, inside the frame.</param>
+    /// <param name="argb">The colour.</param>
+    internal void Fill(in BlitRows rows, uint argb)
+    {
+        if (rows.IsEmpty)
+        {
+            return;
+        }
+
+        var frame = WritableFrame();
+        var stride = Stride;
+        var length = (rows.Right - rows.Left) * BytesPerPixel;
+        for (var row = rows.Top; row < rows.Bottom; row++)
+        {
+            CpuFill.Over(frame.Slice((row * stride) + (rows.Left * BytesPerPixel), length), argb);
+        }
+    }
+
+    /// <summary>Draws a surface into the frame, scaled to the size asked for.</summary>
+    /// <param name="surface">The surface.</param>
+    /// <param name="request">Where the surface goes and how.</param>
+    internal void Blit(CpuPixelSurface surface, in BlitRequest request)
+    {
+        var frame = WritableFrame();
+        var grid = Grid;
+        if (!_scaled.TryDraw(frame, grid, surface, request))
+        {
+            CpuBlit.Draw(frame, grid, surface.Pixels, surface.Grid, request);
+        }
+    }
+
     /// <summary>Gets the writable frame pixels for a pass.</summary>
     /// <returns>The pixels.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal Span<byte> WritableFrame() => _frame.AsSpan(0, Stride * Size.Height);
+
+    /// <summary>Hands the head the frame it already has, when a frame's draws were those of the frame before and nothing was drawn.</summary>
+    internal void PresentUnchanged()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        // Nothing was drawn, so the pictures kept at their drawn size are neither used nor aged by this frame.
+        UnchangedFrames++;
+        _presented(FramePixels, Size, Stride);
+    }
 
     /// <summary>Hands a finished frame to the head.</summary>
     internal void Present()
@@ -100,6 +159,7 @@ public sealed class CpuRenderBackend : IRenderBackend
             return;
         }
 
+        _scaled.EndFrame();
         _presented(FramePixels, Size, Stride);
     }
 }

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Ocr;
 
 namespace HyperPdf.Core.Tests.Ocr;
@@ -22,7 +23,7 @@ public sealed class OcrLanguageCatalogTests
     {
         await Assert.That(OcrLanguageCatalog.Packs[0].Code).IsEqualTo("eng");
         await Assert.That(OcrLanguageCatalog.DefaultLanguage).IsEqualTo("eng");
-        await Assert.That(OcrLanguageCatalog.Packs.Count).IsGreaterThanOrEqualTo(MinimumLanguages);
+        await Assert.That(OcrLanguageCatalog.Packs.Length).IsGreaterThanOrEqualTo(MinimumLanguages);
     }
 
     /// <summary>Every pack has a unique code, a size, a lowercase SHA-256 and an address in the pinned release.</summary>
@@ -53,7 +54,7 @@ public sealed class OcrLanguageCatalogTests
         var codes = OcrLanguageCatalog.Parse(" eng + deu ++eng");
 
         await Assert.That(codes).IsEquivalentTo(["eng", "deu"]);
-        await Assert.That(OcrLanguageCatalog.Format(codes)).IsEqualTo("eng+deu");
+        await Assert.That(OcrLanguageCatalog.Format(CollectionsMarshal.AsSpan(codes))).IsEqualTo("eng+deu");
         await Assert.That(OcrLanguageCatalog.Parse(null)).IsEquivalentTo(["eng"]);
         await Assert.That(OcrLanguageCatalog.Parse("  ")).IsEquivalentTo(["eng"]);
         await Assert.That(OcrLanguageCatalog.Format([])).IsEqualTo("eng");

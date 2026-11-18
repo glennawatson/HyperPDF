@@ -36,7 +36,7 @@ public sealed class MacPrintService : IPrintService
 
     /// <inheritdoc/>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<PrinterInfo> GetPrinters() => CupsPrinting.GetPrinters();
+    public List<PrinterInfo> GetPrinters() => CupsPrinting.GetPrinters();
 
     /// <inheritdoc/>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]

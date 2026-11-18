@@ -48,10 +48,8 @@ public sealed class SingleInstanceHost : ISingleInstance
     /// <param name="uris">Paths or URIs to open; empty to just raise the window.</param>
     /// <param name="activationToken">The activation token from the environment, if any.</param>
     /// <returns>A cold signal giving once <see langword="true"/> when a running instance accepted the request; unsubscribing stops waiting.</returns>
-    public static IObservable<bool> TryForward(IReadOnlyList<string> uris, string? activationToken)
+    public static IObservable<bool> TryForward(string[] uris, string? activationToken)
     {
-        ArgumentNullException.ThrowIfNull(uris);
-
         // The connection is closed when the request ends or the caller unsubscribes.
         return SessionBus.TryConnect()
             .SwitchMap(connection => connection is null
@@ -95,15 +93,16 @@ public sealed class SingleInstanceHost : ISingleInstance
     /// <param name="activationToken">The activation token from the environment, if any.</param>
     /// <returns>A cold signal giving once whether the running instance accepted the request.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static IObservable<bool> Forward(DBusConnection connection, IReadOnlyList<string> uris, string? activationToken) =>
+    private static IObservable<bool> Forward(DBusConnection connection, string[] uris, string? activationToken) =>
         Signal.Defer(() =>
             {
                 MessageBuffer message;
                 using (var writer = connection.GetMessageWriter())
                 {
-                    var method = uris.Count == 0 ? ApplicationInterface.ActivateMethod : ApplicationInterface.OpenMethod;
-                    writer.WriteMethodCallHeader(AppIdentity.ApplicationId, AppIdentity.ObjectPath, ApplicationInterface.Name, method, uris.Count == 0 ? "a{sv}" : "asa{sv}", MessageFlags.NoAutoStart);
-                    if (uris.Count > 0)
+                    var forwards = uris.Length > 0;
+                    var method = forwards ? ApplicationInterface.OpenMethod : ApplicationInterface.ActivateMethod;
+                    writer.WriteMethodCallHeader(AppIdentity.ApplicationId, AppIdentity.ObjectPath, ApplicationInterface.Name, method, forwards ? "asa{sv}" : "a{sv}", MessageFlags.NoAutoStart);
+                    if (forwards)
                     {
                         writer.WriteArray(uris);
                     }

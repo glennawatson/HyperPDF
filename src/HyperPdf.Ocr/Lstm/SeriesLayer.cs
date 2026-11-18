@@ -20,7 +20,7 @@ public sealed class SeriesLayer : NetworkLayer
         : base(name, layers.Length > 0 ? layers[0].Inputs : 0, layers.Length > 0 ? layers[^1].Outputs : 0) => _layers = layers;
 
     /// <summary>Gets the layers, in the order they run.</summary>
-    public IReadOnlyList<NetworkLayer> Layers => _layers;
+    public NetworkLayer[] Layers => _layers;
 
     /// <inheritdoc/>
     public override int XScale

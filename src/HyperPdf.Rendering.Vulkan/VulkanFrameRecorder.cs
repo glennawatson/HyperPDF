@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.InteropServices;
 using HyperPdf.Rendering.Vulkan.Interop;
 
 namespace HyperPdf.Rendering.Vulkan;
@@ -42,12 +43,22 @@ internal static unsafe class VulkanFrameRecorder
     /// <summary>Records and runs one frame.</summary>
     /// <param name="frame">The objects the frame uses.</param>
     /// <param name="ops">The operations in drawing order.</param>
+    /// <param name="previous">The operations the frame target was last drawn from, or <see langword="null"/> when the target does not hold a drawn frame.</param>
     /// <param name="uploads">A list the caller keeps between frames. It is cleared here and holds the tiles uploaded this frame.</param>
     /// <param name="window">The window the finished frame is shown in, or <see langword="null"/> when the frame is only read back.</param>
+    /// <returns><see langword="true"/> when the target already held this frame, so the scene was not drawn again.</returns>
     /// <exception cref="InvalidOperationException">The GPU failed.</exception>
-    internal static void Render(VulkanFrameResources frame, List<VulkanDrawOp> ops, List<VulkanTileSurface> uploads, IVulkanFrameOutput? window)
+    internal static bool Render(VulkanFrameResources frame, List<VulkanDrawOp> ops, List<VulkanDrawOp>? previous, List<VulkanTileSurface> uploads, IVulkanFrameOutput? window)
     {
         var total = PrepareTiles(frame, ops, uploads);
+
+        // The target still holds the frame when the same operations are asked for and no tile has new pixels, so only showing it is left.
+        var kept = previous is not null && uploads.Count == 0 && CollectionsMarshal.AsSpan(ops).SequenceEqual(CollectionsMarshal.AsSpan(previous));
+        if (kept && window is null)
+        {
+            return true;
+        }
+
         frame.EnsureStaging(total);
         var offset = 0;
         foreach (var tile in uploads)
@@ -57,13 +68,18 @@ internal static unsafe class VulkanFrameRecorder
         }
 
         frame.Commands.Begin();
-        RecordUploads(frame, uploads);
-        VulkanCommands.BeginFrame(frame.Commands.Buffer, frame.Pipelines.RenderPass, frame.Target.Framebuffer, frame.Target.Width, frame.Target.Height);
-        RecordDraws(frame, ops);
-        NativeMethods.CmdEndRenderPass(frame.Commands.Buffer);
+        if (!kept)
+        {
+            RecordUploads(frame, uploads);
+            VulkanCommands.BeginFrame(frame.Commands.Buffer, frame.Pipelines.RenderPass, frame.Target.Framebuffer, frame.Target.Width, frame.Target.Height);
+            RecordDraws(frame, ops);
+            NativeMethods.CmdEndRenderPass(frame.Commands.Buffer);
+        }
+
         window?.RecordCopy(frame.Commands.Buffer, frame.Target);
         frame.Commands.SubmitAndWait();
         window?.Present();
+        return kept;
     }
 
     /// <summary>Makes sure every tile in the frame has a GPU image and finds the ones whose pixels must be uploaded.</summary>

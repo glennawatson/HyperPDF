@@ -34,9 +34,14 @@ internal static class ChromeBindings
     /// <returns>What ends the joining, which is done when another tab is shown.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static IDisposable Tab(ChromeActions actions, DocumentTabViewModel tab, ViewerChrome chrome) => new MultipleDisposable(
-        tab.Search.WhenChanged(static search => search.IsOpen).Where(static open => open).SubscribeSafe(_ => chrome.ShowFindBar(), ErrorTrace.Write),
-        tab.Media.WhenChanged(static media => media.HasPlayer)
-            .SwitchMap(made => made ? PlayerChanges(tab.Media.Player) : Signal.Never<RxVoid>())
+        tab.MadeParts.OfType<SearchViewModel>()
+            .Take(1)
+            .SwitchMap(static search => search.WhenChanged(static s => s.IsOpen))
+            .Where(static open => open)
+            .SubscribeSafe(_ => chrome.ShowFindBar(), ErrorTrace.Write),
+        tab.MadeParts.OfType<DocumentMediaViewModel>()
+            .Take(1)
+            .SwitchMap(static media => media.WhenChanged(static m => m.HasPlayer).SwitchMap(made => made ? PlayerChanges(media.Player) : Signal.Never<RxVoid>()))
             .SubscribeSafe(_ => chrome.InvalidateBars(), ErrorTrace.Write),
         Panel(actions.PickSidebarRow, tab, chrome));
 
@@ -70,7 +75,7 @@ internal static class ChromeBindings
             },
             ErrorTrace.Write),
         rows.OfType<OutlineItemViewModel>().SubscribeSafe(bookmark => PickBookmark(bookmark, tab), ErrorTrace.Write),
-        rows.OfType<AnnotationItemViewModel>().InvokeCommand(tab.Annotations.GoToCommand),
+        rows.OfType<AnnotationItemViewModel>().SubscribeSafe(note => Signal.Return(note).InvokeCommand(tab.Annotations.GoToCommand).Dispose(), ErrorTrace.Write),
         rows.OfType<LayerItemViewModel>().SubscribeSafe(static layer => layer.IsVisible = !layer.IsVisible, ErrorTrace.Write),
         rows.OfType<SearchResultItemViewModel>().SubscribeSafe(found => tab.Search.SelectedResult = found, ErrorTrace.Write),
         rows.OfType<PartItemViewModel>().SubscribeSafe(part => tab.Parts.SelectedPart = part, ErrorTrace.Write),
@@ -83,7 +88,10 @@ internal static class ChromeBindings
             .Where(_ => tab.Media.Player.IsAvailable)
             .Do(media => tab.Media.Selected = media)
             .SubscribeSafe(_ => ChromeActions.Run(tab.Media.Player.PlayCommand), ErrorTrace.Write),
-        rows.OfType<DocumentMedia>().Where(_ => !tab.Media.Player.IsAvailable).Do(media => tab.Media.Selected = media).AsSignal().InvokeCommand(tab.Media.OpenSelectedCommand),
+        rows.OfType<DocumentMedia>()
+            .Where(_ => !tab.Media.Player.IsAvailable)
+            .Do(media => tab.Media.Selected = media)
+            .SubscribeSafe(_ => ChromeActions.Run(tab.Media.OpenSelectedCommand), ErrorTrace.Write),
         rows.OfType<DocumentAttachment>()
             .SwitchMap(file => chrome.PickFile(FolderOf(tab), Path.GetFileName(file.Name))
                 .KeepNotNull()
@@ -99,7 +107,7 @@ internal static class ChromeBindings
     /// <param name="tab">The tab shown.</param>
     private static void PickBookmark(OutlineItemViewModel bookmark, DocumentTabViewModel tab)
     {
-        if (bookmark.Children.Count > 0)
+        if (bookmark.Children.Length > 0)
         {
             bookmark.IsExpanded = !bookmark.IsExpanded;
         }

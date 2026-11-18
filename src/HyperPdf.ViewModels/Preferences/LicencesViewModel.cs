@@ -46,7 +46,7 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable, ILo
         ArgumentNullException.ThrowIfNull(version);
         _document = document;
         Version = version;
-        Nodes = Build(document, string.Empty, Version);
+        Nodes = [..Build(document, string.Empty, Version)];
         SelectedNode = FirstEntry(Nodes);
         _detailTitleHelper = this.WhenChanged(static vm => vm.SelectedNode).Select(TitleOf).ToProperty(this, static vm => vm.DetailTitle);
         _detailsHelper = this.WhenChanged(static vm => vm.SelectedNode).Select(node => DetailsOf(node, Version)).ToProperty(this, static vm => vm.Details);
@@ -72,7 +72,7 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable, ILo
 
     /// <summary>Gets the licence headings with the components below them that match the search.</summary>
     [Reactive(nameof(Summary))]
-    public partial IReadOnlyList<LicenceNode> Nodes { get; private set; } = [];
+    public partial LicenceNode[] Nodes { get; private set; } = [];
 
     /// <summary>Gets or sets the chosen row.</summary>
     [Reactive]
@@ -157,7 +157,7 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable, ILo
 
             if (children.Count > 0)
             {
-                nodes.Add(new($"{group.Licence} ({children.Count})", null, children));
+                nodes.Add(new($"{group.Licence} ({children.Count})", null, [..children]));
             }
         }
 
@@ -174,12 +174,12 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable, ILo
     /// <summary>Counts the components under the licence rows in words.</summary>
     /// <param name="nodes">The licence rows.</param>
     /// <returns>For example "12 components", or a note that nothing matches.</returns>
-    private static string CountText(IReadOnlyList<LicenceNode> nodes)
+    private static string CountText(ReadOnlySpan<LicenceNode> nodes)
     {
         var count = 0;
         foreach (var node in nodes)
         {
-            count += node.Children.Count;
+            count += node.Children.Length;
         }
 
         if (count == 0)
@@ -242,13 +242,13 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable, ILo
     /// <summary>Finds the first component row.</summary>
     /// <param name="nodes">The licence rows.</param>
     /// <returns>The row, or <see langword="null"/> when there are none.</returns>
-    private static LicenceNode? FirstEntry(IReadOnlyList<LicenceNode> nodes) => nodes.Count > 0 && nodes[0].Children.Count > 0 ? nodes[0].Children[0] : null;
+    private static LicenceNode? FirstEntry(ReadOnlySpan<LicenceNode> nodes) => !nodes.IsEmpty && nodes[0].Children.Length > 0 ? nodes[0].Children[0] : null;
 
     /// <summary>Finds the row of a component, so a chosen component stays chosen when the search changes.</summary>
     /// <param name="nodes">The licence rows.</param>
     /// <param name="entry">The component.</param>
     /// <returns>The row, or <see langword="null"/> when the search hides it.</returns>
-    private static LicenceNode? Find(IReadOnlyList<LicenceNode> nodes, NoticeEntry entry)
+    private static LicenceNode? Find(ReadOnlySpan<LicenceNode> nodes, NoticeEntry entry)
     {
         foreach (var group in nodes)
         {
@@ -277,7 +277,7 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable, ILo
     {
         if (node?.Entry is not { } entry)
         {
-            return node is null ? string.Empty : UiText.Format("{0} components use this licence.", node.Children.Count);
+            return node is null ? string.Empty : UiText.Format("{0} components use this licence.", node.Children.Length);
         }
 
         var text = new StringBuilder();
@@ -321,7 +321,7 @@ public sealed partial class LicencesViewModel : ReactiveObject, IDisposable, ILo
     private void Refresh()
     {
         var previous = SelectedNode?.Entry;
-        Nodes = Build(_document, Search, Version);
+        Nodes = [..Build(_document, Search, Version)];
         SelectedNode = (previous is null ? null : Find(Nodes, previous)) ?? FirstEntry(Nodes);
     }
 }

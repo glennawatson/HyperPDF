@@ -81,6 +81,6 @@ public sealed class CupsPrintingTests
         var printers = CupsPrinting.GetPrinters();
 
         await Assert.That(printers).IsNotNull();
-        await Assert.That(printers.All(static p => !string.IsNullOrEmpty(p.Name))).IsTrue();
+        await Assert.That(printers.TrueForAll(static p => !string.IsNullOrEmpty(p.Name))).IsTrue();
     }
 }

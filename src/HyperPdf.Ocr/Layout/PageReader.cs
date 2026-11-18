@@ -24,9 +24,8 @@ public static class PageReader
     /// <param name="width">The width in pixels.</param>
     /// <param name="height">The height in pixels.</param>
     /// <param name="request">The page resolution, the words' destination and the working memory.</param>
-    public static void Read(IReadOnlyList<LstmModel> models, ReadOnlySpan<byte> grey, int width, int height, WordRequest request)
+    public static void Read(ReadOnlySpan<LstmModel> models, ReadOnlySpan<byte> grey, int width, int height, WordRequest request)
     {
-        ArgumentNullException.ThrowIfNull(models);
         var scratch = request.Scratch;
         var mask = InkMask.Build(grey, width, height, scratch);
         var components = scratch.Components;
@@ -53,7 +52,7 @@ public static class PageReader
     /// <param name="pageWidth">The page width.</param>
     /// <param name="placement">Where the line is on the page.</param>
     /// <param name="request">The page resolution, the words' destination and the working memory.</param>
-    private static void ReadLine(IReadOnlyList<LstmModel> models, ReadOnlySpan<byte> grey, int pageWidth, WordPlacement placement, WordRequest request)
+    private static void ReadLine(ReadOnlySpan<LstmModel> models, ReadOnlySpan<byte> grey, int pageWidth, WordPlacement placement, WordRequest request)
     {
         var scratch = request.Scratch;
         var window = placement.Window;
@@ -68,7 +67,7 @@ public static class PageReader
         LstmModel? bestModel = null;
         LineReading best = default;
         var firstList = true;
-        for (var i = 0; i < models.Count; i++)
+        for (var i = 0; i < models.Length; i++)
         {
             var model = models[i];
 

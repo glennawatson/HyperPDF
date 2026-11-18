@@ -37,7 +37,7 @@ public sealed partial class OutlineItemViewModel : ReactiveObject, ILocalisation
         IsBold = node.Style?.Bold ?? false;
         IsItalic = node.Style?.Italic ?? false;
         Colour = ignoreColours ? null : node.Style?.Color;
-        var children = new OutlineItemViewModel[node.Children.Count];
+        var children = new OutlineItemViewModel[node.Children.Length];
         for (var i = 0; i < children.Length; i++)
         {
             children[i] = new(node.Children[i], ignoreColours);
@@ -65,7 +65,7 @@ public sealed partial class OutlineItemViewModel : ReactiveObject, ILocalisation
     public LinkTarget Target { get; }
 
     /// <summary>Gets the child entries.</summary>
-    public IReadOnlyList<OutlineItemViewModel> Children { get; }
+    public OutlineItemViewModel[] Children { get; }
 
     /// <summary>Gets or sets a value indicating whether the entry is expanded.</summary>
     [Reactive]
@@ -74,9 +74,8 @@ public sealed partial class OutlineItemViewModel : ReactiveObject, ILocalisation
     /// <summary>Collects the object numbers of the entries that are expanded, so a rebuilt tree can open the same ones.</summary>
     /// <param name="items">The entries.</param>
     /// <param name="expanded">Receives the numbers.</param>
-    public static void CollectExpanded(IReadOnlyList<OutlineItemViewModel> items, HashSet<int> expanded)
+    public static void CollectExpanded(ReadOnlySpan<OutlineItemViewModel> items, HashSet<int> expanded)
     {
-        ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(expanded);
         foreach (var item in items)
         {
@@ -92,9 +91,8 @@ public sealed partial class OutlineItemViewModel : ReactiveObject, ILocalisation
     /// <summary>Expands the entries whose numbers were collected.</summary>
     /// <param name="items">The entries.</param>
     /// <param name="expanded">The numbers of the entries to expand.</param>
-    public static void ApplyExpanded(IReadOnlyList<OutlineItemViewModel> items, HashSet<int> expanded)
+    public static void ApplyExpanded(ReadOnlySpan<OutlineItemViewModel> items, HashSet<int> expanded)
     {
-        ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(expanded);
         foreach (var item in items)
         {
@@ -107,9 +105,8 @@ public sealed partial class OutlineItemViewModel : ReactiveObject, ILocalisation
     /// <param name="items">The entries.</param>
     /// <param name="id">The object number.</param>
     /// <returns>The entry, or <see langword="null"/>.</returns>
-    public static OutlineItemViewModel? Find(IReadOnlyList<OutlineItemViewModel> items, int id)
+    public static OutlineItemViewModel? Find(ReadOnlySpan<OutlineItemViewModel> items, int id)
     {
-        ArgumentNullException.ThrowIfNull(items);
         if (id <= 0)
         {
             return null;
@@ -135,20 +132,20 @@ public sealed partial class OutlineItemViewModel : ReactiveObject, ILocalisation
     /// <param name="nodes">The nodes.</param>
     /// <returns>The view models.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static IReadOnlyList<OutlineItemViewModel> Create(IReadOnlyList<OutlineNode>? nodes) => Create(nodes, true);
+    public static OutlineItemViewModel[] Create(OutlineNode[]? nodes) => Create(nodes, true);
 
     /// <summary>Converts outline nodes to view models.</summary>
     /// <param name="nodes">The nodes.</param>
     /// <param name="ignoreColours">Whether the colours the document gives the titles are left out.</param>
     /// <returns>The view models.</returns>
-    public static IReadOnlyList<OutlineItemViewModel> Create(IReadOnlyList<OutlineNode>? nodes, bool ignoreColours)
+    public static OutlineItemViewModel[] Create(OutlineNode[]? nodes, bool ignoreColours)
     {
-        if (nodes is null || nodes.Count == 0)
+        if (nodes is null || nodes.Length == 0)
         {
             return [];
         }
 
-        var items = new OutlineItemViewModel[nodes.Count];
+        var items = new OutlineItemViewModel[nodes.Length];
         for (var i = 0; i < items.Length; i++)
         {
             items[i] = new(nodes[i], ignoreColours);

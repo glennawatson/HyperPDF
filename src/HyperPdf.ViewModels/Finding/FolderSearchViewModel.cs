@@ -220,8 +220,8 @@ public sealed partial class FolderSearchViewModel : ReactiveObject, IDisposable,
     private void Record(FolderSearchFile found, FolderSearchProgress progress)
     {
         Add(found);
-        progress.Matches += found.Matches.Count;
-        progress.WithMatches += found.Matches.Count > 0 ? 1 : 0;
+        progress.Matches += found.Matches.Length;
+        progress.WithMatches += found.Matches.Length > 0 ? 1 : 0;
         progress.Searched++;
         SetStatus(LocalizedMessage.Format(UiText, "{0}; searched {1} of {2}", Summary(progress.Matches, progress.WithMatches), progress.Searched, progress.Total));
     }

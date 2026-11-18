@@ -34,11 +34,11 @@ internal readonly record struct DocumentSaveOutcome(bool Saved, string? Error, A
     internal ArchiveClaimRepair? ClaimRepaired { get; init; }
 
     /// <summary>Gets the warnings about trap networks the save removed; empty when it removed none.</summary>
-    internal IReadOnlyList<string> TrapNetworkWarnings { get; init; } = [];
+    internal string[] TrapNetworkWarnings { get; init; } = [];
 
     /// <summary>Gets the warnings about document requirements the save removed; empty when it removed none.</summary>
-    internal IReadOnlyList<string> RequirementWarnings { get; init; } = [];
+    internal string[] RequirementWarnings { get; init; } = [];
 
     /// <summary>Gets typed requirement removals whose text follows the interface culture.</summary>
-    internal IReadOnlyList<RemovedRequirement> RemovedRequirements { get; init; } = [];
+    internal RemovedRequirement[] RemovedRequirements { get; init; } = [];
 }

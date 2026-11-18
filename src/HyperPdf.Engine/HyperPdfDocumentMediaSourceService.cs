@@ -16,7 +16,7 @@ internal sealed class HyperPdfDocumentMediaSourceService(HyperPdfDocument owner)
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<DocumentMedia> GetMedia() => HyperPdfDocumentMediaItems.GetMedia(owner);
+    public DocumentMedia[] GetMedia() => HyperPdfDocumentMediaItems.GetMedia(owner);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

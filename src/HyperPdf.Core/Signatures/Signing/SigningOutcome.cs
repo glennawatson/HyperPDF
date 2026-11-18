@@ -10,4 +10,4 @@ namespace HyperPdf.Core.Signatures.Signing;
 /// <param name="Bytes">The whole file: the original bytes followed by the incremental update.</param>
 /// <param name="Notes">What the user should know, each a plain sentence; empty when there is nothing to say.</param>
 [DebuggerDisplay("SigningOutcome: {Bytes.Length} bytes, {Notes.Count} notes")]
-public sealed record SigningOutcome(byte[] Bytes, IReadOnlyList<string> Notes);
+public sealed record SigningOutcome(byte[] Bytes, string[] Notes);

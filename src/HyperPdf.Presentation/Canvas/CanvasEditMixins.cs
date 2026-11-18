@@ -71,7 +71,7 @@ public static class CanvasEditMixins
         public bool TryStartResize(DocumentTabViewModel tab, int page, CanvasPoint position, out AnnotationEditSession session)
         {
             ArgumentNullException.ThrowIfNull(tab);
-            if (tab.Annotations.Selected is { } picked && picked.PageIndex == page && AnnotationRules.CanResize(picked) && state.TryGrabHandle(tab, picked, position, out var anchor))
+            if (tab.AnnotationsInUse?.Selected is { } picked && picked.PageIndex == page && AnnotationRules.CanResize(picked) && state.TryGrabHandle(tab, picked, position, out var anchor))
             {
                 session = new(picked, anchor, position, picked.Bounds, true);
                 return true;
@@ -162,7 +162,7 @@ public static class CanvasEditMixins
         /// <returns><see langword="true"/> when the annotation moved.</returns>
         public bool NudgeSelected(ViewerKey key, ViewerModifiers modifiers)
         {
-            if (state.Tab is not { Annotations.Selected: { IsMovable: true } picked } tab || (uint)picked.PageIndex >= (uint)state.Sizes.Length)
+            if (state.Tab is not { AnnotationsInUse.Selected: { IsMovable: true } picked } tab || (uint)picked.PageIndex >= (uint)state.Sizes.Length)
             {
                 return false;
             }

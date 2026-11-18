@@ -27,7 +27,7 @@ public sealed record OcrSetup(
     Func<bool> IsEngineInstalled,
     Func<string, string, string?> FindLanguageData,
     Func<string, string, IOcrEngine> CreateEngine,
-    Func<IReadOnlyList<OcrLanguagePack>, string, IProgress<double>, IObservable<RxVoid>> DownloadPacks) : IDisposable
+    Func<OcrLanguagePack[], string, IProgress<double>, IObservable<RxVoid>> DownloadPacks) : IDisposable
 {
     /// <summary>The extension of a language data file.</summary>
     private const string DataExtension = ".traineddata";
@@ -93,7 +93,7 @@ public sealed record OcrSetup(
     /// <param name="codes">The language codes.</param>
     /// <param name="unknown">Receives codes that are neither on this computer nor offered for download.</param>
     /// <returns>The packs to download; empty when every language is on this computer.</returns>
-    public List<OcrLanguagePack> PacksNeededFor(IReadOnlyList<string> codes, List<string> unknown)
+    public List<OcrLanguagePack> PacksNeededFor(string[] codes, List<string> unknown)
     {
         ArgumentNullException.ThrowIfNull(codes);
         ArgumentNullException.ThrowIfNull(unknown);
@@ -130,7 +130,7 @@ public sealed record OcrSetup(
     /// </summary>
     /// <param name="codes">The language codes, each already on this computer.</param>
     /// <exception cref="IOException">Thrown when a file cannot be copied.</exception>
-    public void GatherLanguages(IReadOnlyList<string> codes)
+    public void GatherLanguages(string[] codes)
     {
         ArgumentNullException.ThrowIfNull(codes);
         if (FindLanguageData(OcrLanguageCatalog.Format(codes), LanguageDirectory) is not null)
@@ -156,6 +156,6 @@ public sealed record OcrSetup(
     /// <param name="progress">Receives the fraction done.</param>
     /// <returns>A cold signal giving one value once the packs are in place; unsubscribing stops the download and keeps packs already finished.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<RxVoid> Download(IReadOnlyList<OcrLanguagePack> packs, IProgress<double> progress) =>
+    public IObservable<RxVoid> Download(OcrLanguagePack[] packs, IProgress<double> progress) =>
         DownloadPacks(packs, LanguageDirectory, progress);
 }

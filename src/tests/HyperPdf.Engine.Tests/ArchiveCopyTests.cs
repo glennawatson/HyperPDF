@@ -75,7 +75,7 @@ public sealed class ArchiveCopyTests
 
         await Assert.That(result.Converted).IsFalse();
         await Assert.That(result.Problems).IsNotEmpty();
-        await Assert.That(result.Problems.All(static p => p.Description.Length > 0)).IsTrue();
+        await Assert.That(Array.TrueForAll(result.Problems, static p => p.Description.Length > 0)).IsTrue();
         await Assert.That(output.Length).IsEqualTo(0);
     }
 

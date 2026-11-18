@@ -22,7 +22,7 @@ internal static class HyperPdfDocumentLayers
     /// <summary>Gets the layers with their current visibility; empty when the document has none.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The layers.</returns>
-    internal static IReadOnlyList<DocumentLayer> GetLayers(HyperPdfDocument self)
+    internal static DocumentLayer[] GetLayers(HyperPdfDocument self)
     {
         if (self.IsDisposed)
         {
@@ -43,8 +43,8 @@ internal static class HyperPdfDocumentLayers
     /// <summary>Gets the layers as the file orders them.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The top-level entries; empty when the document is closed or has no layers.</returns>
-    internal static IReadOnlyList<DocumentLayerNode> GetLayerTree(HyperPdfDocument self) =>
-        self.IsDisposed ? [] : ConvertNodes(PdfDocumentLayers.GetOptionalContent(self.Document).Tree);
+    internal static DocumentLayerNode[] GetLayerTree(HyperPdfDocument self) =>
+        self.IsDisposed ? [] : ConvertNodes([..PdfDocumentLayers.GetOptionalContent(self.Document).Tree]);
 
     /// <summary>Gets the object numbers of the layers a page uses.</summary>
     /// <param name="self">The owning document.</param>
@@ -61,7 +61,7 @@ internal static class HyperPdfDocumentLayers
     /// <summary>Gets the configurations that can be used for viewing.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The configurations; empty when the document is closed or has no layers.</returns>
-    internal static IReadOnlyList<DocumentLayerConfiguration> GetConfigurations(HyperPdfDocument self)
+    internal static List<DocumentLayerConfiguration> GetConfigurations(HyperPdfDocument self)
     {
         if (self.IsDisposed || !PdfDocumentLayers.GetOptionalContent(self.Document).HasLayers)
         {
@@ -104,9 +104,9 @@ internal static class HyperPdfDocumentLayers
     /// <summary>Converts layer order entries.</summary>
     /// <param name="nodes">The library's entries.</param>
     /// <returns>The Core entries.</returns>
-    private static DocumentLayerNode[] ConvertNodes(IReadOnlyList<PdfLayerNode> nodes)
+    private static DocumentLayerNode[] ConvertNodes(ReadOnlySpan<PdfLayerNode> nodes)
     {
-        var result = new DocumentLayerNode[nodes.Count];
+        var result = new DocumentLayerNode[nodes.Length];
         for (var i = 0; i < result.Length; i++)
         {
             result[i] = new(nodes[i].Name, nodes[i].LayerId, ConvertNodes(nodes[i].Children));

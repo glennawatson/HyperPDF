@@ -49,7 +49,7 @@ internal static class Pdf20SavePlan
         }
 
         var signatures = source.GetSignatures();
-        for (var i = 0; i < signatures.Count; i++)
+        for (var i = 0; i < signatures.Length; i++)
         {
             if (signatures[i].Contents.Length > 0)
             {

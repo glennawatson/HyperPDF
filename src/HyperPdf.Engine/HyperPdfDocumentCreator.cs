@@ -66,7 +66,7 @@ public sealed class HyperPdfDocumentCreator : IDocumentCreator
     /// <returns>A task that completes when every block is added.</returns>
     private static async ValueTask AddBlocksAsync(
         PdfDocumentCreator creator,
-        IReadOnlyList<CreationBlock> blocks,
+        CreationBlock[] blocks,
         PdfFlowOptions options,
         Dictionary<string, PdfDocument> sources,
         CancellationToken cancellationToken)

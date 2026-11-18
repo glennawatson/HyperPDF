@@ -61,7 +61,7 @@ public sealed class PdfLayersTests
         await Assert.That(PdfLayers.Read(file).Single(static layer => layer.Id == DrawingId).IsVisible).IsTrue();
 
         var shown = PdfLayers.WithHidden(copy, []);
-        await Assert.That(PdfLayers.Read(shown).All(static layer => layer.IsVisible)).IsTrue();
+        await Assert.That(PdfLayers.Read(shown).TrueForAll(static layer => layer.IsVisible)).IsTrue();
     }
 
     /// <summary>Applies the base state and falls back to a numbered name for an unnamed group.</summary>

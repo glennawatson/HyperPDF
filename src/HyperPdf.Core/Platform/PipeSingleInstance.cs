@@ -121,7 +121,7 @@ public sealed class PipeSingleInstance : ISingleInstance
             }
         }
 
-        return new(uris, lines[0].Length > 0 ? lines[0] : null);
+        return new([..uris], lines[0].Length > 0 ? lines[0] : null);
     }
 
     /// <summary>Sends a request to the running instance.</summary>

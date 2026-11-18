@@ -44,7 +44,7 @@ public sealed class CatalogFontProviderTests
     public async Task InstalledFamilyIsFoundByName()
     {
         var catalog = FontCatalog.Scan(FontCatalog.SystemDirectories());
-        if (catalog.Faces.Count == 0)
+        if (catalog.Faces.Length == 0)
         {
             Skip.Test("This machine has no installed fonts to look up.");
         }

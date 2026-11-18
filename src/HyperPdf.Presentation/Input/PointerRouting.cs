@@ -63,7 +63,7 @@ public static class PointerRouting
             return PageToolPressKind.Area;
         }
 
-        return tab.Measure.IsOn ? PageToolPressKind.Measure : PageToolPressKind.Focus;
+        return tab.MeasureIfMade is { IsOn: true } ? PageToolPressKind.Measure : PageToolPressKind.Focus;
     }
 
     /// <summary>Works out what a left press does while a drawing tool, a mark being placed or a form is in play.</summary>
@@ -80,12 +80,12 @@ public static class PointerRouting
             return DrawingPressKind.None;
         }
 
-        if (tab.FillAndSign.Placement is not null)
+        if (tab.FillAndSignIfMade?.Placement is not null)
         {
             return DrawingPressKind.Placement;
         }
 
-        var tool = tab.Annotations.Tool;
+        var tool = tab.AnnotationsInUse?.Tool ?? AnnotationTool.Select;
         if (page >= 0 && AnnotationsViewModel.GetShapeKind(tool) is not null)
         {
             return DrawingPressKind.Shape;
@@ -107,7 +107,7 @@ public static class PointerRouting
     public static bool IsEditPress(DocumentTabViewModel tab, ViewerButtons buttons, int page)
     {
         ArgumentNullException.ThrowIfNull(tab);
-        return page >= 0 && IsPlainLeft(buttons) && tab.ContentEdit.IsEditing;
+        return page >= 0 && IsPlainLeft(buttons) && tab.ContentEditIfMade is { IsEditing: true };
     }
 
     /// <summary>Determines whether a press belongs to the Select tool.</summary>
@@ -117,9 +117,9 @@ public static class PointerRouting
     public static bool IsSelectToolPress(DocumentTabViewModel tab, ViewerButtons buttons)
     {
         ArgumentNullException.ThrowIfNull(tab);
-        return tab.Annotations.Tool == AnnotationTool.Select
-            && !tab.Measure.IsOn
-            && tab.FillAndSign.Placement is null
+        return (tab.AnnotationsInUse?.Tool ?? AnnotationTool.Select) == AnnotationTool.Select
+            && tab.MeasureIfMade is not { IsOn: true }
+            && tab.FillAndSignIfMade?.Placement is null
             && IsPlainLeft(buttons);
     }
 

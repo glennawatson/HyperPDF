@@ -32,10 +32,10 @@ public sealed class DocumentRequirementsTests
 
             await Assert.That(stopped.Level).IsEqualTo(RequirementLevel.Critical);
             await Assert.That(stopped.StopsProcessing).IsTrue();
-            await Assert.That(stopped.Details.Count).IsEqualTo(1);
+            await Assert.That(stopped.Details.Length).IsEqualTo(1);
             await Assert.That(fallback.Level).IsEqualTo(RequirementLevel.Fallback);
             await Assert.That(fallback.StopsProcessing).IsFalse();
-            await Assert.That(fallback.Details.Count).IsEqualTo(1);
+            await Assert.That(fallback.Details.Length).IsEqualTo(1);
             await Assert.That(none).IsSameReferenceAs(RequirementReport.None);
         }
         finally

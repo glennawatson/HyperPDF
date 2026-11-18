@@ -10,4 +10,4 @@ namespace HyperPdf.Core.Search;
 /// <param name="PageIndex">The zero based page.</param>
 /// <param name="Hits">The hits, in reading order.</param>
 [DebuggerDisplay("SearchPageResult: Page {PageIndex}: {Hits.Count} hits")]
-public sealed record SearchPageResult(int PageIndex, IReadOnlyList<SearchHit> Hits);
+public sealed record SearchPageResult(int PageIndex, SearchHit[] Hits);

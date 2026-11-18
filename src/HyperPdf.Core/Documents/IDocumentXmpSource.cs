@@ -9,5 +9,5 @@ public interface IDocumentXmpSource : IDocumentFeature
 {
     /// <summary>Gets the properties of the catalog's XMP packet.</summary>
     /// <returns>The properties in name order; empty when the document has no XMP packet.</returns>
-    IReadOnlyList<DocumentXmpProperty> GetProperties();
+    List<DocumentXmpProperty> GetProperties();
 }

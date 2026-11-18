@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Settings;
 using HyperPdf.Core.Speech;
@@ -22,7 +23,7 @@ namespace HyperPdf.ViewModels.Services;
 [DebuggerDisplay("SpeechSetup: {VoiceDirectory}")]
 public sealed record SpeechSetup(
     string VoiceDirectory,
-    Func<AppSettings, IReadOnlyList<SpeechModelFile>> VoiceFilesFor,
+    Func<AppSettings, SpeechModelFile[]> VoiceFilesFor,
     Func<AppSettings, string, ISpeechEngine> CreateEngine,
     Func<IAudioOutput> CreateAudio,
     Func<AppSettings, IProgress<double>, IObservable<RxVoid>> DownloadVoice) : IDisposable
@@ -45,14 +46,14 @@ public sealed record SpeechSetup(
             FilesFor,
             CreateEngineFor,
             platform.CreateAudioOutput,
-            (settings, progress) => downloads.Download(FilesFor(settings), DefaultVoiceDirectory, progress))
+            (settings, progress) => downloads.Download([..FilesFor(settings)], DefaultVoiceDirectory, progress))
         { Downloads = downloads, };
     }
 
     /// <summary>Gets the files the chosen on-device voice needs: Kokoro's when Kokoro is chosen, otherwise MeloTTS's.</summary>
     /// <param name="settings">The settings.</param>
     /// <returns>The files.</returns>
-    public static IReadOnlyList<SpeechModelFile> FilesFor(AppSettings settings)
+    public static SpeechModelFile[] FilesFor(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
         return settings.SpeechEngine == SpeechEngineChoice.Kokoro ? KokoroModel.Files : MeloModel.Files;
@@ -77,7 +78,7 @@ public sealed record SpeechSetup(
     /// <param name="settings">The settings, which choose the voice.</param>
     /// <returns>The approximate size.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public long MissingBytesFor(AppSettings settings) => SpeechModelDownloader.TotalBytes(Downloads.Missing(VoiceFilesFor(settings), VoiceDirectory));
+    public long MissingBytesFor(AppSettings settings) => SpeechModelDownloader.TotalBytes(CollectionsMarshal.AsSpan(Downloads.Missing(VoiceFilesFor(settings), VoiceDirectory)));
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -5,6 +5,8 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 
 namespace HyperPdf.Rendering.Cpu;
 
@@ -13,6 +15,15 @@ public static class CpuBlit
 {
     /// <summary>The bytes per pixel.</summary>
     private const int BytesPerPixel = 4;
+
+    /// <summary>The destination pixels the smooth sampler stretches at once where the processor has 128 bit vectors.</summary>
+    private const int PixelsPerVector = 4;
+
+    /// <summary>The destination pixels sampled at once where the processor can load eight source pixels from eight places.</summary>
+    private const int PixelsPerGather = 8;
+
+    /// <summary>The number that copies a byte into each of the four bytes of a 32 bit lane when multiplied by it.</summary>
+    private const int ChannelSpread = 0x01010101;
 
     /// <summary>The scratch lines the smooth sampler keeps: the source rows above and below the frame line.</summary>
     private const int ScratchLines = 2;
@@ -115,10 +126,12 @@ public static class CpuBlit
         {
             var sourceRow = Math.Min(((row - request.Y) * stepY) >> FixedShift, sourceGrid.Height - 1);
             var line = frame.Slice((row * frameGrid.Stride) + (rows.Left * BytesPerPixel), length);
-            if (sourceRow == sampledRow)
+            if (sourceRow == sampledRow || IsSameRow(source, sourceGrid, new(sampledRow, sourceRow)))
             {
-                // When the image is scaled up, several frame lines show the same source row, so the line above is copied instead of sampled again.
+                // When the image is scaled up, several frame lines show the same source row, and paper gives source rows that are
+                // the same as the one before, so the line above is copied instead of sampled again.
                 frame.Slice(((row - 1) * frameGrid.Stride) + (rows.Left * BytesPerPixel), length).CopyTo(line);
+                sampledRow = sourceRow;
                 continue;
             }
 
@@ -169,6 +182,7 @@ public static class CpuBlit
         var upperSlot = 0;
         var upperRow = -1;
         var lowerRow = -1;
+        var alike = false;
         for (var row = rows.Top; row < rows.Bottom; row++)
         {
             var sy = (row - request.Y) * stepY;
@@ -184,6 +198,7 @@ public static class CpuBlit
 
             var upper = scratch.Slice(upperSlot * length, length);
             var lower = scratch.Slice((1 - upperSlot) * length, length);
+            var stretched = y0 != upperRow || y1 != lowerRow;
             if (y0 != upperRow)
             {
                 StretchLine(upper, source, sourceGrid, y0, walk);
@@ -192,12 +207,55 @@ public static class CpuBlit
 
             if (y1 != lowerRow)
             {
-                StretchLine(lower, source, sourceGrid, y1, walk);
+                StretchBelow(lower, upper, source, sourceGrid, new(y0, y1), walk);
                 lowerRow = y1;
             }
 
-            CpuBlend.MixRows(frame.Slice((row * frameGrid.Stride) + (rows.Left * BytesPerPixel), length), upper, lower, (uint)((sy & FractionMask) >> WeightShift));
+            // Paper, and the space between lines of text, gives two rows that are the same, and a mix of those is a copy.
+            alike = stretched ? upper.SequenceEqual(lower) : alike;
+
+            // A weight of nothing copies the upper row, which is what two rows alike come to at any weight.
+            var weight = alike ? 0 : (uint)((sy & FractionMask) >> WeightShift);
+            CpuBlend.MixRows(frame.Slice((row * frameGrid.Stride) + (rows.Left * BytesPerPixel), length), upper, lower, weight);
         }
+    }
+
+    /// <summary>
+    /// Fills the line of the source row below a frame line. A source row that is the same as the row above it, as paper is,
+    /// stretches to the same line, so the line above is copied and the row is not sampled again.
+    /// </summary>
+    /// <param name="lower">The line to fill.</param>
+    /// <param name="upper">The line of the row above, already stretched.</param>
+    /// <param name="source">The source pixels.</param>
+    /// <param name="sourceGrid">The source shape.</param>
+    /// <param name="pair">The source rows above and below.</param>
+    /// <param name="walk">Where sampling starts and how far it steps.</param>
+    private static void StretchBelow(Span<byte> lower, ReadOnlySpan<byte> upper, ReadOnlySpan<byte> source, in PixelGrid sourceGrid, in SourceRowPair pair, in SampleWalk walk)
+    {
+        if (IsSameRow(source, sourceGrid, pair))
+        {
+            upper.CopyTo(lower);
+            return;
+        }
+
+        StretchLine(lower, source, sourceGrid, pair.Below, walk);
+    }
+
+    /// <summary>Tells whether two source rows hold the same pixels.</summary>
+    /// <param name="source">The source pixels.</param>
+    /// <param name="sourceGrid">The source shape.</param>
+    /// <param name="pair">The two rows. A row before the first, which nothing has sampled yet, is the same as no row.</param>
+    /// <returns><see langword="true"/> when the rows are the same.</returns>
+    private static bool IsSameRow(ReadOnlySpan<byte> source, in PixelGrid sourceGrid, in SourceRowPair pair)
+    {
+        var (above, below) = pair;
+        if (above < 0)
+        {
+            return false;
+        }
+
+        var width = sourceGrid.Width * BytesPerPixel;
+        return source.Slice(above * sourceGrid.Stride, width).SequenceEqual(source.Slice(below * sourceGrid.Stride, width));
     }
 
     /// <summary>Stretches one source row sideways into a line, blending the two nearest source pixels for each.</summary>
@@ -210,9 +268,25 @@ public static class CpuBlit
     {
         var target = MemoryMarshal.Cast<byte, uint>(line);
         var row = MemoryMarshal.Cast<byte, uint>(source.Slice(sourceRow * sourceGrid.Stride, sourceGrid.Width * BytesPerPixel));
-        var position = walk.Start;
+        var (position, step) = walk;
         var last = row.Length - 1;
-        for (var i = 0; i < target.Length; i++)
+        var i = 0;
+        if (Avx2.IsSupported)
+        {
+            i = GatherSmooth(target, row, position, step);
+            position += step * i;
+        }
+
+        if (Vector128.IsHardwareAccelerated)
+        {
+            for (; i <= target.Length - PixelsPerVector; i += PixelsPerVector)
+            {
+                StretchFour(target.Slice(i, PixelsPerVector), row, position, step);
+                position += step * PixelsPerVector;
+            }
+        }
+
+        for (; i < target.Length; i++)
         {
             var x0 = Math.Min(position >> FixedShift, last);
             var first = row[x0];
@@ -221,9 +295,58 @@ public static class CpuBlit
 
             // Flat areas such as paper need no mixing, which is most of a page.
             target[i] = first == second ? first : Pack(Mix(Spread(first), Spread(second), weight));
-            position += walk.Step;
+            position += step;
         }
     }
+
+    /// <summary>Stretches four destination pixels at once, giving the same values as the pixel by pixel loop.</summary>
+    /// <param name="target">The four destination pixels.</param>
+    /// <param name="row">The source row.</param>
+    /// <param name="position">The 16.16 source position of the first of the four.</param>
+    /// <param name="step">The 16.16 source step per destination pixel.</param>
+    private static void StretchFour(Span<uint> target, ReadOnlySpan<uint> row, int position, int step)
+    {
+        var last = row.Length - 1;
+        var second = position + step;
+        var third = second + step;
+        var fourth = third + step;
+        var x0 = Math.Min(position >> FixedShift, last);
+        var x1 = Math.Min(second >> FixedShift, last);
+        var x2 = Math.Min(third >> FixedShift, last);
+        var x3 = Math.Min(fourth >> FixedShift, last);
+        var left = Vector128.Create(row[x0], row[x1], row[x2], row[x3]);
+        var right = Vector128.Create(row[Math.Min(x0 + 1, last)], row[Math.Min(x1 + 1, last)], row[Math.Min(x2 + 1, last)], row[Math.Min(x3 + 1, last)]);
+
+        // Flat areas such as paper need no mixing, which is most of a page.
+        if (left == right)
+        {
+            left.CopyTo(target);
+            return;
+        }
+
+        var w0 = WeightOf(position);
+        var w1 = WeightOf(second);
+        var w2 = WeightOf(third);
+        var w3 = WeightOf(fourth);
+        var low = MixLanes(Vector128.WidenLower(left.AsByte()), Vector128.WidenLower(right.AsByte()), Vector128.Create(w0, w0, w0, w0, w1, w1, w1, w1));
+        var high = MixLanes(Vector128.WidenUpper(left.AsByte()), Vector128.WidenUpper(right.AsByte()), Vector128.Create(w2, w2, w2, w2, w3, w3, w3, w3));
+        Vector128.Narrow(low, high).AsUInt32().CopyTo(target);
+    }
+
+    /// <summary>Gets the weight, out of 256, of the pixel after a 16.16 source position.</summary>
+    /// <param name="position">The source position.</param>
+    /// <returns>The weight.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ushort WeightOf(int position) => (ushort)((position & FractionMask) >> WeightShift);
+
+    /// <summary>Mixes the channels of two pixels by a weight out of 256 for each channel, eight channels at once.</summary>
+    /// <param name="first">The channels of the pixels before the position, one in each 16 bit lane.</param>
+    /// <param name="second">The channels of the pixels after it.</param>
+    /// <param name="weight">The weight of the second pixel for each lane.</param>
+    /// <returns>The mixed channels, each in the low byte of its lane.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector128<ushort> MixLanes(Vector128<ushort> first, Vector128<ushort> second, Vector128<ushort> weight) =>
+        ((first * (Vector128.Create((ushort)WeightSteps) - weight)) + (second * weight)) >>> WeightShift;
 
     /// <summary>Finds the 16.16 source step for one destination pixel.</summary>
     /// <param name="sourceLength">The source length in pixels.</param>
@@ -239,13 +362,93 @@ public static class CpuBlit
     /// <param name="step">The 16.16 source step per destination pixel.</param>
     private static void SampleLineNearest(Span<uint> line, ReadOnlySpan<uint> sourceRow, int start, int step)
     {
-        var position = start;
+        var i = Avx2.IsSupported ? GatherNearest(line, sourceRow, start, step) : 0;
+        var position = start + (step * i);
         var last = sourceRow.Length - 1;
-        for (var i = 0; i < line.Length; i++)
+        for (; i < line.Length; i++)
         {
             line[i] = sourceRow[Math.Min(position >> FixedShift, last)];
             position += step;
         }
+    }
+
+    /// <summary>Picks the nearest source pixel for eight destination pixels at once, for as many whole eights as the line has.</summary>
+    /// <param name="line">The destination pixels.</param>
+    /// <param name="sourceRow">The source row.</param>
+    /// <param name="start">The 16.16 source position of the first destination pixel.</param>
+    /// <param name="step">The 16.16 source step per destination pixel.</param>
+    /// <returns>The destination pixels written.</returns>
+    private static unsafe int GatherNearest(Span<uint> line, ReadOnlySpan<uint> sourceRow, int start, int step)
+    {
+        var i = 0;
+        var last = Vector256.Create(sourceRow.Length - 1);
+        var stride = Vector256.Create(step * PixelsPerGather);
+        var positions = Vector256.Create(start) + (Vector256.Create(step) * Vector256<int>.Indices);
+        fixed (uint* from = sourceRow)
+        {
+            fixed (uint* to = line)
+            {
+                for (; i <= line.Length - PixelsPerGather; i += PixelsPerGather)
+                {
+                    Avx2.GatherVector256(from, Vector256.Min(positions >> FixedShift, last), BytesPerPixel).Store(to + i);
+                    positions += stride;
+                }
+            }
+        }
+
+        return i;
+    }
+
+    /// <summary>
+    /// Stretches eight destination pixels at once, for as many whole eights as the line has, giving the same values as the pixel
+    /// by pixel loop.
+    /// </summary>
+    /// <param name="target">The destination pixels.</param>
+    /// <param name="row">The source row.</param>
+    /// <param name="start">The 16.16 source position of the first destination pixel.</param>
+    /// <param name="step">The 16.16 source step per destination pixel.</param>
+    /// <returns>The destination pixels written.</returns>
+    private static unsafe int GatherSmooth(Span<uint> target, ReadOnlySpan<uint> row, int start, int step)
+    {
+        var i = 0;
+        var last = Vector256.Create(row.Length - 1);
+        var stride = Vector256.Create(step * PixelsPerGather);
+        var positions = Vector256.Create(start) + (Vector256.Create(step) * Vector256<int>.Indices);
+        fixed (uint* from = row)
+        {
+            fixed (uint* to = target)
+            {
+                for (; i <= target.Length - PixelsPerGather; i += PixelsPerGather)
+                {
+                    var columns = Vector256.Min(positions >> FixedShift, last);
+                    var left = Avx2.GatherVector256(from, columns, BytesPerPixel);
+                    var right = Avx2.GatherVector256(from, Vector256.Min(columns + Vector256<int>.One, last), BytesPerPixel);
+
+                    // Flat areas such as paper need no mixing, which is most of a page.
+                    (left == right ? left : MixGathered(left, right, positions)).Store(to + i);
+                    positions += stride;
+                }
+            }
+        }
+
+        return i;
+    }
+
+    /// <summary>Mixes eight pairs of neighbouring source pixels by the fraction of each source position.</summary>
+    /// <param name="left">The pixels before the positions.</param>
+    /// <param name="right">The pixels after them.</param>
+    /// <param name="positions">The 16.16 source positions.</param>
+    /// <returns>The mixed pixels.</returns>
+    private static Vector256<uint> MixGathered(Vector256<uint> left, Vector256<uint> right, Vector256<int> positions)
+    {
+        // The weight of each pixel, out of 256, is copied into each of its four bytes, so it widens into one weight a channel.
+        var weights = (((positions & Vector256.Create(FractionMask)) >> WeightShift) * Vector256.Create(ChannelSpread)).AsByte();
+        var whole = Vector256.Create((ushort)WeightSteps);
+        var lowWeight = Vector256.WidenLower(weights);
+        var highWeight = Vector256.WidenUpper(weights);
+        var low = ((Vector256.WidenLower(left.AsByte()) * (whole - lowWeight)) + (Vector256.WidenLower(right.AsByte()) * lowWeight)) >>> WeightShift;
+        var high = ((Vector256.WidenUpper(left.AsByte()) * (whole - highWeight)) + (Vector256.WidenUpper(right.AsByte()) * highWeight)) >>> WeightShift;
+        return Vector256.Narrow(low, high).AsUInt32();
     }
 
     /// <summary>Spreads the four bytes of a pixel into four 16 bit lanes, so one multiply weights every channel.</summary>

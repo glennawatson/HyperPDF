@@ -125,7 +125,7 @@ public sealed class MeloEngine : ISpeechEngine
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<SpeechVoice> Voices => MeloModel.Voices;
+    public SpeechVoice[] Voices => MeloModel.Voices;
 
     /// <inheritdoc/>
     public void Dispose()

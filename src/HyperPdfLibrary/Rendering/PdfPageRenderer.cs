@@ -429,6 +429,29 @@ public sealed partial class PdfPageRenderer : IDisposable
         }
     }
 
+    /// <summary>
+    /// Releases the recorded pictures of every page. A page is recorded again the next time it is drawn, and a render that is
+    /// drawing a page now keeps that page's pictures until it ends. A viewer calls this for a document that stays open but is
+    /// not shown, so its pictures hold no memory in the meantime.
+    /// </summary>
+    public void ReleaseRecordedPages()
+    {
+        lock (_gate)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _entries.Count; i++)
+            {
+                _entries[i].Retire();
+            }
+
+            _entries.Clear();
+        }
+    }
+
     /// <summary>Releases the cached pictures.</summary>
     public void Dispose()
     {
@@ -607,7 +630,11 @@ public sealed partial class PdfPageRenderer : IDisposable
     /// <returns>The entry; release it when done.</returns>
     private PagePictures Acquire(PdfPage page, in PdfTileRequest request, PdfRenderCache cache, bool promote)
     {
-        Matrix3x2? device = cache.Quality.NeedsDeviceMatrix ? GetMatrix(page, request with { OffsetX = 0, OffsetY = 0 }) : null;
+        // A backend that fits text and lines to pixels as it draws records the same picture at every scale, so its pictures are
+        // not kept apart by the page matrix and a page is not recorded again for its preview or for each step of a zoom.
+        Matrix3x2? device = cache.Quality.NeedsDeviceMatrix && _document.DrawingServices.Backend.RecordsForDevice
+            ? GetMatrix(page, request with { OffsetX = 0, OffsetY = 0 })
+            : null;
         return Acquire(request.PageIndex, !ReferenceEquals(cache, Cache), EffectiveScale(page, request.Scale), device, promote);
     }
 

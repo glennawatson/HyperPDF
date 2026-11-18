@@ -35,7 +35,7 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<DocumentTag> GetTags()
+    public List<DocumentTag> GetTags()
     {
         using var access = HyperPdfNavigation.EnterPageRead(_owner);
         ObjectDisposedException.ThrowIf(_owner.IsDisposed, _owner);
@@ -68,7 +68,7 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<DocumentRoleMapping> GetRoleMap()
+    public DocumentRoleMapping[] GetRoleMap()
     {
         using var access = HyperPdfNavigation.EnterPageRead(_owner);
         ObjectDisposedException.ThrowIf(_owner.IsDisposed, _owner);
@@ -83,7 +83,7 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<string> GetStandardTypes()
+    public string[] GetStandardTypes()
     {
         using var access = HyperPdfNavigation.EnterPageRead(_owner);
         ObjectDisposedException.ThrowIf(_owner.IsDisposed, _owner);
@@ -112,7 +112,7 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
             token).AsTask());
 
     /// <inheritdoc/>
-    public IReadOnlyList<DocumentTagProblem> GetProblems(CancellationToken cancellationToken)
+    public List<DocumentTagProblem> GetProblems(CancellationToken cancellationToken)
     {
         var report = HyperPdfAccessibility.GetAccessibilityReport(_owner, cancellationToken);
         var problems = new List<DocumentTagProblem>(report.Findings.Count);
@@ -125,7 +125,7 @@ internal sealed class HyperPdfTagEditorService : ITagEditor
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<string> GetTypeChoices(int id)
+    public string[] GetTypeChoices(int id)
     {
         using var access = HyperPdfNavigation.EnterPageRead(_owner);
         ObjectDisposedException.ThrowIf(_owner.IsDisposed, _owner);

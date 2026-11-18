@@ -49,7 +49,7 @@ public interface IDocument : IDisposable
 
     /// <summary>Gets the outline (bookmarks) tree.</summary>
     /// <returns>The root entries.</returns>
-    IReadOnlyList<OutlineNode> GetOutline();
+    OutlineNode[] GetOutline();
 
     /// <summary>Loads external page resources before rendering or reading text.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
@@ -100,7 +100,7 @@ public interface IDocument : IDisposable
     /// <summary>Gets the links on a page.</summary>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>The links.</returns>
-    IReadOnlyList<PageLink> GetLinks(int pageIndex);
+    PageLink[] GetLinks(int pageIndex);
 
     /// <summary>Finds every occurrence of text on a page.</summary>
     /// <param name="pageIndex">The zero based page index.</param>

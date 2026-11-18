@@ -79,7 +79,7 @@ public sealed class CanvasMarksTests
         var painter = new FakeMarksPainter();
 
         tab.ReadAloud.IsOpen = true;
-        var marked = await TestWait.UntilAsync(() => tab.ReadAloud.SpokenBounds.Count > 0);
+        var marked = await TestWait.UntilAsync(() => tab.ReadAloud.SpokenBounds.Length > 0);
         state.DrawMarks(painter, tab, View());
 
         await Assert.That(marked).IsTrue();
@@ -104,7 +104,7 @@ public sealed class CanvasMarksTests
         var bare = new FakeMarksPainter { HasDim = false };
 
         tab.ReadAloud.IsOpen = true;
-        var marked = await TestWait.UntilAsync(() => tab.ReadAloud.SpokenBounds.Count > 0);
+        var marked = await TestWait.UntilAsync(() => tab.ReadAloud.SpokenBounds.Length > 0);
         state.DrawMarks(dimming, tab, View());
         state.DrawMarks(bare, tab, View());
 

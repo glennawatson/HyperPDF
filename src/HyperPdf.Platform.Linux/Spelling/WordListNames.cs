@@ -21,7 +21,7 @@ public static class WordListNames
     /// <summary>Gets the names to try for a language, most fitting first.</summary>
     /// <param name="culture">The language.</param>
     /// <returns>The file names.</returns>
-    public static IReadOnlyList<string> For(CultureInfo culture)
+    public static List<string> For(CultureInfo culture)
     {
         ArgumentNullException.ThrowIfNull(culture);
         List<string> names = [$"{culture.Name}.txt", $"{culture.TwoLetterISOLanguageName}.txt"];

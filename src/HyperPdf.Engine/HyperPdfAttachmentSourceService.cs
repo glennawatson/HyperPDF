@@ -23,7 +23,7 @@ internal sealed class HyperPdfAttachmentSourceService : IAttachmentSource
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<DocumentAttachment> GetAttachments() => HyperPdfDocumentAttachments.GetAttachments(_owner);
+    public DocumentAttachment[] GetAttachments() => HyperPdfDocumentAttachments.GetAttachments(_owner);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

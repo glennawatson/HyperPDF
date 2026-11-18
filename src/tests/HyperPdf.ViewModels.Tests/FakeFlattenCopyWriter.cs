@@ -31,10 +31,10 @@ internal sealed class FakeFlattenCopyWriter : IFlattenCopyWriter
     internal FlattenCopyOptions? LastOptions { get; private set; }
 
     /// <summary>Gets or sets the notes reported for a made copy.</summary>
-    internal IReadOnlyList<ArchiveNote> Notes { get; set; } = [new("1 annotation was marked hidden, so it was left as it was.", "12.5.3")];
+    internal ArchiveNote[] Notes { get; init; } = [new("1 annotation was marked hidden, so it was left as it was.", "12.5.3")];
 
     /// <summary>Gets or sets the problems that stop the copy; empty makes it.</summary>
-    internal IReadOnlyList<ArchiveNote> Problems { get; set; } = [];
+    internal ArchiveNote[] Problems { get; init; } = [];
 
     /// <summary>Gets or sets what the run throws, or <see langword="null"/>.</summary>
     internal Exception? Failure { get; set; }
@@ -69,7 +69,7 @@ internal sealed class FakeFlattenCopyWriter : IFlattenCopyWriter
             throw failure;
         }
 
-        if (Problems.Count == 0)
+        if (Problems.Length == 0)
         {
             await destination.WriteAsync(Output, cancellationToken).ConfigureAwait(false);
             return new(1, FormFields, Marks, true, Notes, []);

@@ -46,9 +46,6 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <summary>The services.</summary>
     private readonly AppServices _services;
 
-    /// <summary>Follows changes other programs make to the open file.</summary>
-    private readonly TabFileWatch _fileWatch = new();
-
     /// <summary>Owns everything the tab holds: its subscriptions, its parts and its work, released in the order they were added.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
@@ -60,6 +57,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
 
     /// <summary>Whether the sidebar was shown before read mode put it away.</summary>
     private bool _sidebarBeforeReading;
+
+    /// <summary>The shared signals over the tab that stay connected while the tab is in use, by what names each.</summary>
+    private Dictionary<object, KeptSignal>? _keptSignals;
+
+    /// <summary>Gives each part made on first use that a window can wait for, those made already and then each as it is made.</summary>
+    private ReplaySignal<object>? _partMakes;
 
     /// <summary>The rounded zoom percent <see cref="ZoomText"/> shows, so a zoom frame that keeps it builds no new text.</summary>
     private int _zoomPercent = (int)Percent;
@@ -96,9 +99,6 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
 
     /// <summary>The measuring tool, once used.</summary>
     private MeasureViewModel? _measure;
-
-    /// <summary>The annotation state, created on first use.</summary>
-    private AnnotationsViewModel? _annotations;
 
     /// <summary>The bookmark editing state, created on first use.</summary>
     private OutlineEditViewModel? _outlineEditing;
@@ -175,16 +175,16 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
             .KeepNotNull()
             .Where(_ => !_keepingOutlineSelection)
             .SubscribeSafe(item => Navigate(item.Target), ErrorTrace.Write));
-        _subscriptions.Add(_isTextFormatShownHelper = this.WhenChanged(static vm => vm.Annotations.IsAnnotating, static vm => vm.FillAndSign.IsActive, static (a, f) => a || f)
+        _subscriptions.Add(_isTextFormatShownHelper = this.AnnotatingChanges.CombineLatest(this.FillingChanges, static (a, f) => a || f)
             .ToProperty(this, static vm => vm.IsTextFormatShown));
 
         // Each part that draws on the pages keeps its latest change. The changed tiles are dropped before the version
         // moves on, so views that redraw for the new version never draw a tile from before the change.
         _contentVersionHelper = Signal.Merge(
             this.WhenChanged(static vm => vm.LastPageChange),
-            this.WhenChanged(static vm => vm.Annotations.LastPageChange),
+            this.WhenChanged(static vm => vm.AnnotationsInUse).KeepNotNull().SwitchMap(static marks => marks.WhenChanged(static m => m.LastPageChange)),
             this.WhenChanged(static vm => vm.Forms.LastPageChange),
-            this.WhenChanged(static vm => vm.Layers.LastPageChange),
+            MadeParts.OfType<LayersViewModel>().Take(1).SwitchMap(static layers => layers.WhenChanged(static l => l.LastPageChange)),
             this.WhenChanged(static vm => vm.TextRecognitionInUse).KeepNotNull().SwitchMap(static recognition => recognition.WhenChanged(static r => r.LastPageChange)))
             .Where(static change => change.IsChange)
             .Do(DropChangedTiles)
@@ -200,7 +200,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
                     .StructureVersion).Skip(1)).SubscribeSafe(_ => RereadPageStructure(), ErrorTrace.Write));
 
         // The file watcher reports on its own thread; the tab answers on the UI thread.
-        _subscriptions.Add(_fileWatch.Changes.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => CheckChangedFile(), ErrorTrace.Write));
+        _subscriptions.Add(FileWatch.Changes.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => CheckChangedFile(), ErrorTrace.Write));
     }
 
     /// <summary>Gets the width of the hover preview of a tab.</summary>
@@ -264,7 +264,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     public NavigationHistory History { get; } = new();
 
     /// <summary>Gets the search state, created on first use.</summary>
-    public SearchViewModel Search => _search ??= Owned(new SearchViewModel(this));
+    public SearchViewModel Search => _search ?? Made(out _search, Owned(new SearchViewModel(this)));
+
+    /// <summary>Gets the search once it has been used, or <see langword="null"/> before. Reading it does not make it.</summary>
+    public SearchViewModel? SearchIfMade => _search;
 
     /// <summary>Gets the file path.</summary>
     public string FilePath => Source.FilePath;
@@ -455,16 +458,19 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     public bool IsMediaMode { get => SidebarMode == SidebarMode.Media; set => SetSidebarMode(value, SidebarMode.Media); }
 
     /// <summary>Gets the document's sound and video.</summary>
-    public DocumentMediaViewModel Media => _media ??= new(this);
+    public DocumentMediaViewModel Media => _media ?? Loaded(Made(out _media, new(this)), static made => made.Refresh());
+
+    /// <summary>Gets the films and sounds once they have been used, or <see langword="null"/> before. Reading it does not make them.</summary>
+    public DocumentMediaViewModel? MediaIfMade => _media;
 
     /// <summary>Gets the document's parts and article threads.</summary>
-    public DocumentPartsViewModel Parts => _parts ??= Owned(new DocumentPartsViewModel(this));
+    public DocumentPartsViewModel Parts => _parts ?? Loaded(Made(out _parts, Owned(new DocumentPartsViewModel(this))), static made => made.Refresh());
 
     /// <summary>Gets the document's layers.</summary>
-    public LayersViewModel Layers => _layers ??= Owned(new LayersViewModel(this));
+    public LayersViewModel Layers => _layers ?? Loaded(Made(out _layers, Owned(new LayersViewModel(this))), static made => made.Refresh());
 
     /// <summary>Gets the document's tags and the edits to them.</summary>
-    public TagsViewModel Tags => _tags ??= Owned(new TagsViewModel(this));
+    public TagsViewModel Tags => _tags ?? Made(out _tags, Owned(new TagsViewModel(this)));
 
     /// <summary>Gets the colour separation details of the current page, for a preseparated document.</summary>
     public PageSeparationViewModel Separations => _separations ??= Owned(new PageSeparationViewModel(this));
@@ -476,22 +482,25 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     public PagePresentationViewModel PagePresentation => _pagePresentation ??= Owned(new PagePresentationViewModel(this, _services));
 
     /// <summary>Gets the bookmark editing state.</summary>
-    public OutlineEditViewModel OutlineEditing => _outlineEditing ??= Owned(new OutlineEditViewModel(this));
+    public OutlineEditViewModel OutlineEditing => _outlineEditing ?? Made(out _outlineEditing, Owned(new OutlineEditViewModel(this)));
 
     /// <summary>Gets the annotation state.</summary>
-    public AnnotationsViewModel Annotations => _annotations ??= Owned(new AnnotationsViewModel(this));
+    public AnnotationsViewModel Annotations => AnnotationsInUse ?? Announced(AnnotationsInUse = Owned(new AnnotationsViewModel(this)));
 
     /// <summary>Gets Edit mode: picking, moving, retyping and removing the objects a page is made of, on the page.</summary>
-    public PageContentEditViewModel ContentEdit => _contentEdit ??= Owned(new PageContentEditViewModel(this));
+    public PageContentEditViewModel ContentEdit => _contentEdit ?? Made(out _contentEdit, Owned(new PageContentEditViewModel(this)));
+
+    /// <summary>Gets the page content editing once it has been used, or <see langword="null"/> before. Reading it does not make it.</summary>
+    public PageContentEditViewModel? ContentEditIfMade => _contentEdit;
 
     /// <summary>Gets the tools that add watermarks, headers, footers, page numbers, a background and a crop to the pages.</summary>
-    public PageDecorationViewModel Decorations => _decorations ??= Owned(new PageDecorationViewModel(this));
+    public PageDecorationViewModel Decorations => _decorations ?? Made(out _decorations, Owned(new PageDecorationViewModel(this)));
 
     /// <summary>Gets the preparation of the form: adding, removing and changing fields.</summary>
     public FormDesignViewModel FormDesign => _formDesign ??= Owned(new FormDesignViewModel(this));
 
     /// <summary>Gets the selection and undoable actions for the document's pages.</summary>
-    public PageManagementViewModel Pages => PagesInUse ??= Owned(new PageManagementViewModel(this));
+    public PageManagementViewModel Pages => PagesInUse ?? Announced(PagesInUse = Owned(new PageManagementViewModel(this)));
 
     /// <summary>Gets the name recorded as the author of new comments: the one chosen in Preferences, or empty for the user name.</summary>
     public string CommentAuthor => _services.Settings.CommentAuthor;
@@ -500,31 +509,49 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     public bool ShowPreviewOnlyFonts => _services.Settings.ShowPreviewOnlyFonts;
 
     /// <summary>Gets the measuring tool.</summary>
-    public MeasureViewModel Measure => _measure ??= Owned(new MeasureViewModel(this));
+    public MeasureViewModel Measure => _measure ?? Made(out _measure, Owned(new MeasureViewModel(this)));
+
+    /// <summary>Gets the measuring tool once it has been used, or <see langword="null"/> before. Reading it does not make it.</summary>
+    public MeasureViewModel? MeasureIfMade => _measure;
 
     /// <summary>Gets the digital signature state.</summary>
-    public SignaturesViewModel Signatures => _signatures ??= new(this, _services);
+    public SignaturesViewModel Signatures => _signatures ?? Loaded(Made(out _signatures, new(this, _services)), static made => made.Refresh());
 
     /// <summary>Gets the tab's text recognition, created on first use.</summary>
-    public TextRecognitionViewModel TextRecognition => TextRecognitionInUse ??= Owned(new TextRecognitionViewModel(this, _services));
+    public TextRecognitionViewModel TextRecognition => TextRecognitionInUse ?? Announced(TextRecognitionInUse = Owned(new TextRecognitionViewModel(this, _services)));
 
     /// <summary>Gets focus Mode, created when first used.</summary>
-    public FocusModeViewModel FocusMode => _focusMode ??= Owned(new FocusModeViewModel(this, _services));
+    public FocusModeViewModel FocusMode => _focusMode ?? Made(out _focusMode, Owned(new FocusModeViewModel(this, _services)));
+
+    /// <summary>Gets Focus Mode once it has been used, or <see langword="null"/> before. Reading it does not make it.</summary>
+    public FocusModeViewModel? FocusModeIfMade => _focusMode;
 
     /// <summary>Gets the Read Aloud state, created when first used.</summary>
-    public ReadAloudViewModel ReadAloud => _readAloud ??= Owned(new ReadAloudViewModel(this, _services));
+    public ReadAloudViewModel ReadAloud => _readAloud ?? Made(out _readAloud, Owned(new ReadAloudViewModel(this, _services)));
+
+    /// <summary>Gets Read Aloud once it has been used, or <see langword="null"/> before. Reading it does not make it.</summary>
+    public ReadAloudViewModel? ReadAloudIfMade => _readAloud;
 
     /// <summary>Gets the form filling state.</summary>
     public FormsViewModel Forms => _forms ??= Owned(new FormsViewModel(this));
 
     /// <summary>Gets the Fill &amp; Sign state.</summary>
-    public FillAndSignViewModel FillAndSign => _fillAndSign ??= new(this, _services);
+    public FillAndSignViewModel FillAndSign => _fillAndSign ?? Made(out _fillAndSign, new(this, _services));
+
+    /// <summary>Gets Fill and Sign once it has been used, or <see langword="null"/> before. Reading it does not make it.</summary>
+    public FillAndSignViewModel? FillAndSignIfMade => _fillAndSign;
 
     /// <summary>Gets the commands that save a changed copy, such as an optimised, PDF/A, flattened or protected one.</summary>
-    public TabCopyActionSet Copies => _copies ??= Owned(new TabCopyActionSet(this));
+    public TabCopyActionSet Copies => _copies ?? Made(out _copies, Owned(NewCopies()));
 
     /// <summary>Gets the links to other files: PDFs open in a tab, other files with the desktop's app after asking.</summary>
-    public TabFileLinks Links => _links ??= Owned(new TabFileLinks(this));
+    public TabFileLinks Links => _links ?? Made(out _links, Owned(new TabFileLinks(this)));
+
+    /// <summary>
+    /// Gets the parts of the tab that are made on first use and that a window waits for: those made already, then each as it is
+    /// made. A window answers a part's questions from when the part exists, so showing a tab does not make it.
+    /// </summary>
+    public IObservable<object> MadeParts => _partMakes ??= new();
 
     /// <summary>Gets the notices about content that cannot be shown and about a repaired file.</summary>
     public TabNoticesViewModel Notices { get; }
@@ -551,14 +578,14 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
 
     /// <summary>Gets the outline.</summary>
     [Reactive(nameof(HasOutline))]
-    public partial IReadOnlyList<OutlineItemViewModel> Outline { get; private set; } = [];
+    public partial OutlineItemViewModel[] Outline { get; private set; } = [];
 
     /// <summary>Gets a value indicating whether the document has an outline.</summary>
-    public bool HasOutline => Outline.Count > 0;
+    public bool HasOutline => Outline.Length > 0;
 
     /// <summary>Gets the page thumbnails.</summary>
     [Reactive]
-    public partial IReadOnlyList<ThumbnailItemViewModel> Thumbnails { get; private set; } = [];
+    public partial ThumbnailItemViewModel[] Thumbnails { get; private set; } = [];
 
     /// <summary>Gets or sets the selected thumbnail; selecting one scrolls to its page.</summary>
     [Reactive]
@@ -569,7 +596,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     public partial OutlineItemViewModel? SelectedOutlineItem { get; set; }
 
     /// <summary>Gets printing: the print preview, the desktop's print dialog and saving the printed pages as a PDF.</summary>
-    public TabPrintingViewModel Printing => _printing ??= new(this);
+    public TabPrintingViewModel Printing => _printing ?? Made(out _printing, new(this));
 
     /// <summary>Gets or sets a message about the document that waits until dismissed, for example a failed save.</summary>
     public string? Notice
@@ -588,6 +615,18 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <summary>Gets the application services, for the parts of the tab that need settings or desktop services.</summary>
     public AppServices Services => _services;
 
+    /// <summary>Gets the annotation tools once they have been used, or <see langword="null"/> before.</summary>
+    [Reactive]
+    public partial AnnotationsViewModel? AnnotationsInUse { get; private set; }
+
+    /// <summary>Gets the page management state once it has been used, or <see langword="null"/> before.</summary>
+    [Reactive]
+    public partial PageManagementViewModel? PagesInUse { get; private set; }
+
+    /// <summary>Gets the text recognition state once it has been used, or <see langword="null"/> before.</summary>
+    [Reactive]
+    public partial TextRecognitionViewModel? TextRecognitionInUse { get; private set; }
+
     /// <summary>Gets the tint and sharpness a background tab keeps until it is selected.</summary>
     internal TabSettingsSlot PendingSettings { get; } = new();
 
@@ -597,13 +636,47 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <summary>Gets the document's text in reading order, which Read Aloud and Focus Mode share.</summary>
     internal TabReading Reading => _reading ??= new(this);
 
-    /// <summary>Gets the text recognition state once it has been used, or <see langword="null"/> before.</summary>
-    [Reactive]
-    internal partial TextRecognitionViewModel? TextRecognitionInUse { get; private set; }
+    /// <summary>Gets or sets the tick count when the tab was last left for another, or 0 when it is shown, was never shown or has let its idle memory go.</summary>
+    internal long LeftAt { get; set; }
 
-    /// <summary>Gets the page management state once it has been used, or <see langword="null"/> before.</summary>
-    [Reactive]
-    internal partial PageManagementViewModel? PagesInUse { get; private set; }
+    /// <summary>Gets what follows changes other programs make to the open file.</summary>
+    private TabFileWatch FileWatch => field ??= new(_services.FileWatches);
+
+    /// <summary>
+    /// Gets a signal over the tab that many parts of the window follow each time the tab is shown. It is made and connected the
+    /// first time it is asked for and shared after that, so showing the tab again follows one signal and does not subscribe
+    /// to every property behind it again. The connection ends when the tab closes or has gone unshown for a while.
+    /// </summary>
+    /// <typeparam name="T">The type of the signal's values.</typeparam>
+    /// <param name="key">What names the signal; the caller keeps one for each signal it makes.</param>
+    /// <param name="make">Makes the signal from the tab, published or replayed as its followers need.</param>
+    /// <returns>The shared signal.</returns>
+    public IObservable<T> KeepSignal<T>(object key, Func<DocumentTabViewModel, ConnectableSignal<T>> make)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(make);
+        _keptSignals ??= [];
+        if (_keptSignals.TryGetValue(key, out var kept))
+        {
+            return (IObservable<T>)kept.Signal;
+        }
+
+        var shared = make(this);
+        _keptSignals[key] = new(shared, shared.Connect());
+        return shared;
+    }
+
+    /// <summary>
+    /// Follows the changes of a part of the tab that is made on first use, from when the part is made. Nothing is followed, and
+    /// the part is not made, while nothing has used it.
+    /// </summary>
+    /// <typeparam name="TPart">The part's type.</typeparam>
+    /// <param name="changes">Gives the changes to follow from the part.</param>
+    /// <returns>The changes.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<RxVoid> PartChanges<TPart>(Func<TPart, IObservable<RxVoid>> changes)
+        where TPart : class =>
+        MadeParts.OfType<TPart>().Take(1).SwitchMap(changes);
 
     /// <summary>Opens the document with cancellable I/O and loads its structure on the UI thread.</summary>
     /// <returns>A cold signal that completes when the document is ready; unsubscribing cancels the open and first-page work.</returns>
@@ -774,12 +847,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <param name="pageIndex">The page.</param>
     /// <returns>The label.</returns>
     public string GetPageDisplay(int pageIndex) =>
-        pageIndex >= 0 && pageIndex < Thumbnails.Count ? Thumbnails[pageIndex].Label : (pageIndex + 1).ToString(CultureInfo.CurrentCulture);
+        pageIndex >= 0 && pageIndex < Thumbnails.Length ? Thumbnails[pageIndex].Label : (pageIndex + 1).ToString(CultureInfo.CurrentCulture);
 
     /// <summary>Shows the bookmarks of an edited document without moving the reader.</summary>
     /// <param name="items">The rebuilt entries.</param>
     /// <param name="selectId">The object number of the entry to select, or 0 for none.</param>
-    public void ShowEditedOutline(IReadOnlyList<OutlineItemViewModel> items, int selectId)
+    public void ShowEditedOutline(OutlineItemViewModel[] items, int selectId)
     {
         _keepingOutlineSelection = true;
         Outline = items;
@@ -890,8 +963,31 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     public void Dispose()
     {
         _subscriptions.Dispose();
-        Media.Dispose();
+        ReleaseKeptSignals();
+        _media?.Dispose();
     }
+
+    /// <summary>
+    /// Lets go of what the document keeps only to draw its pages faster, once the tab has gone unshown since before a moment.
+    /// The window calls it now and then for every tab, so hundreds of open tabs do not each keep the pictures recorded of their
+    /// pages. A tab shown since, or one that already let go, does nothing; a page shown later is recorded again.
+    /// </summary>
+    /// <param name="before">The tick count a tab must have been left before.</param>
+    internal void ReleaseIdleMemory(long before)
+    {
+        if (IsSelected || LeftAt == 0 || LeftAt > before)
+        {
+            return;
+        }
+
+        LeftAt = 0;
+        ReleaseIdleMemory();
+        ReleaseKeptSignals();
+    }
+
+    /// <summary>Lets go of what the document keeps only to draw its pages faster.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void ReleaseIdleMemory() => DocumentFeature<IIdleRenderMemory>.Get(TryGetDocument())?.Release();
 
     /// <summary>Tells the pages that a page's content was changed, so its tiles are drawn again.</summary>
     /// <param name="pageIndex">The page changed.</param>
@@ -900,7 +996,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <summary>Reloads a changed file, or offers to, depending on the user's choice. Unsaved edits are never discarded silently.</summary>
     internal void CheckChangedFile()
     {
-        var response = _fileWatch.Check(FilePath, _services.Settings.FileChangeAction, Source.HasUnsavedChanges);
+        var response = FileWatch.Check(FilePath, _services.Settings.FileChangeAction, Source.HasUnsavedChanges);
         if (response == FileChangeResponse.Ask)
         {
             HasPendingReload = true;
@@ -939,7 +1035,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     {
         if (outcome.Saved)
         {
-            _fileWatch.MarkSaved();
+            FileWatch.MarkSaved();
         }
 
         if (outcome.Error is { } error)
@@ -995,7 +1091,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         if (IsLoaded)
         {
             GoToPage(page);
-            Search.Refresh();
+            _search?.Refresh();
         }
 
         return RxVoid.Default;
@@ -1050,7 +1146,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <param name="document">The reopened document.</param>
     private void TakeUpReopenedDocument(IDocument document)
     {
-        Copies.Refresh(document);
+        _copies?.Refresh(document);
         _search?.ResumeAfterTabSwitch();
         LastPageChange = LastPageChange.Next(PageChange.AllPages);
     }
@@ -1062,12 +1158,12 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         // Requirements are checked before any action can run (ISO 32000-2 §12.11.1).
         Notices.CheckRequirements(document);
         ReadPageStructure(document);
-        Signatures.Refresh();
+        _signatures?.Refresh();
         Attachments.Refresh();
-        Layers.Refresh();
-        Parts.Refresh();
-        Media.Refresh();
-        Copies.Refresh(document);
+        _layers?.Refresh();
+        _parts?.Refresh();
+        _media?.Refresh();
+        _copies?.Refresh(document);
         PagesInUse?.Refresh();
         if (!IsSecondaryView)
         {
@@ -1075,7 +1171,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
             _subscriptions.Add(Notices.CheckContent(document, Attachments.Items.Count).SubscribeSafe(static _ => { }, ErrorTrace.Write));
             Notices.CheckRepairs(document);
             Notices.CheckIntegrity(Source.Metadata);
-            _fileWatch.Start(FilePath);
+            FileWatch.Start(FilePath);
         }
 
         if (Source.Metadata?.WrappedFileName is { Length: > 0 } wrappedName)
@@ -1099,15 +1195,15 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         CurrentPageIndex = Math.Clamp(CurrentPageIndex, 0, Math.Max(0, PageCount - 1));
         SelectedThumbnail = PageCount > 0 ? Thumbnails[CurrentPageIndex] : null;
         HasUnsavedChanges = Source.HasUnsavedChanges;
-        _annotations?.InvalidateItems();
+        AnnotationsInUse?.InvalidateItems();
         ShowSidebarPane();
-        Signatures.Refresh();
+        _signatures?.Refresh();
         Attachments.Refresh();
-        Layers.Refresh();
-        Parts.Refresh();
-        Media.Refresh();
+        _layers?.Refresh();
+        _parts?.Refresh();
+        _media?.Refresh();
         _tags?.Refresh();
-        Search.Refresh();
+        _search?.Refresh();
         LastPageChange = LastPageChange.Next(PageChange.AllPages);
         LayoutVersion++;
     }
@@ -1287,7 +1383,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <param name="pageIndex">The page.</param>
     private void SelectThumbnailOf(int pageIndex)
     {
-        SelectedThumbnail = pageIndex >= 0 && pageIndex < Thumbnails.Count ? Thumbnails[pageIndex] : null;
+        SelectedThumbnail = pageIndex >= 0 && pageIndex < Thumbnails.Length ? Thumbnails[pageIndex] : null;
         PagesInUse?.Follow(SelectedThumbnail);
     }
 
@@ -1335,7 +1431,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     private void GoToPageEntry()
     {
         var entry = PageEntry.Trim();
-        for (var i = 0; i < Thumbnails.Count; i++)
+        for (var i = 0; i < Thumbnails.Length; i++)
         {
             if (!string.Equals(Thumbnails[i].Label, entry, StringComparison.OrdinalIgnoreCase))
             {
@@ -1451,6 +1547,79 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
         return part;
     }
 
+    /// <summary>
+    /// Makes the commands that save a changed copy. Opening a document refreshes them only once they exist, so commands made
+    /// after the document opened are told here what its engine supports.
+    /// </summary>
+    /// <returns>The commands.</returns>
+    private TabCopyActionSet NewCopies()
+    {
+        var copies = new TabCopyActionSet(this);
+        if (IsLoaded && TryGetDocument() is { } document)
+        {
+            copies.Refresh(document);
+        }
+
+        return copies;
+    }
+
+    /// <summary>
+    /// Brings a part made on first use up to date with the open document. Opening a document refreshes a part only once it
+    /// exists, so a part made after the document opened is refreshed here.
+    /// </summary>
+    /// <typeparam name="TPart">The part's type.</typeparam>
+    /// <param name="part">The new part, already kept in its field.</param>
+    /// <param name="refresh">Reads the document into the part.</param>
+    /// <returns>The same part.</returns>
+    private TPart Loaded<TPart>(TPart part, Action<TPart> refresh)
+    {
+        if (IsLoaded)
+        {
+            refresh(part);
+        }
+
+        return part;
+    }
+
+    /// <summary>Tells whatever waits for a part made on first use that it has been made.</summary>
+    /// <typeparam name="TPart">The part's type.</typeparam>
+    /// <param name="part">The new part, already kept in its field.</param>
+    /// <returns>The same part.</returns>
+    private TPart Announced<TPart>(TPart part)
+        where TPart : class
+    {
+        (_partMakes ??= new()).OnNext(part);
+        return part;
+    }
+
+    /// <summary>Keeps a part made on first use in its field and tells whatever waits for it.</summary>
+    /// <typeparam name="TPart">The part's type.</typeparam>
+    /// <param name="slot">The field that holds the part, set before anything is told so a reader that asks again gets this part.</param>
+    /// <param name="part">The new part.</param>
+    /// <returns>The same part.</returns>
+    private TPart Made<TPart>(out TPart? slot, TPart part)
+        where TPart : class
+    {
+        slot = part;
+        (_partMakes ??= new()).OnNext(part);
+        return part;
+    }
+
+    /// <summary>Ends the shared signals kept for the tab. They are made again the next time the tab is shown.</summary>
+    private void ReleaseKeptSignals()
+    {
+        if (_keptSignals is not { } kept)
+        {
+            return;
+        }
+
+        _keptSignals = null;
+        foreach (var signal in kept.Values)
+        {
+            signal.Connection.Dispose();
+        }
+    }
+
     /// <summary>Lets go of the tab's tiles. Putting the second view away leaves the first view's tiles alone; closing the document drops both views'.</summary>
     private void ReleaseTiles()
     {
@@ -1514,4 +1683,10 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
             return Signal.Return(RxVoid.Default);
         }
     }
+
+    /// <summary>A shared signal kept for the tab.</summary>
+    /// <param name="Signal">The shared signal, as the followers see it.</param>
+    /// <param name="Connection">What keeps the shared signal following the tab.</param>
+    [DebuggerDisplay("KeptSignal: {Signal}")]
+    private sealed record KeptSignal(object Signal, IDisposable Connection);
 }

@@ -1099,7 +1099,7 @@ public static class Jbig2Samples
         HalftoneMmrHash);
 
     /// <summary>Gets every sample.</summary>
-    public static IReadOnlyList<Jbig2Sample> All { get; } =
+    public static Jbig2Sample[] All { get; } =
     [
         RealLibraryOfCongress,
         RealGoogleBooks,

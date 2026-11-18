@@ -69,7 +69,7 @@ public sealed class DocumentPartSourceTests
         await Assert.That(parts[0].Name).IsEqualTo("Letter A");
         await Assert.That(parts[0].Details).IsEqualTo("Recipient: Ann");
         await Assert.That(parts[0].StartPage).IsNull();
-        await Assert.That(parts[0].Children.Count).IsEqualTo(Pages - 1);
+        await Assert.That(parts[0].Children.Length).IsEqualTo(Pages - 1);
         await Assert.That(parts[0].Children[0].Name).IsEqualTo("Part 1");
         await Assert.That(parts[0].Children[0].StartPage).IsEqualTo(0);
         await Assert.That(parts[0].Children[0].EndPage).IsEqualTo(0);
@@ -119,7 +119,7 @@ public sealed class DocumentPartSourceTests
 
         await Assert.That(parts.Count).IsLessThan(LoopLimit);
         await Assert.That(threads.Count).IsEqualTo(1);
-        await Assert.That(threads[0].Beads.Count).IsEqualTo(Pages - 1);
+        await Assert.That(threads[0].Beads.Length).IsEqualTo(Pages - 1);
         await Assert.That(test.Document.PageCount).IsEqualTo(Pages);
     }
 }

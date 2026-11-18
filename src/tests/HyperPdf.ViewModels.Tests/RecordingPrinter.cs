@@ -51,7 +51,7 @@ internal sealed class RecordingPrinter : IPrintService
     public bool IsAvailable => true;
 
     /// <inheritdoc/>
-    public IReadOnlyList<PrinterInfo> GetPrinters() => [new(PrinterQueue, PrinterName, true)];
+    public List<PrinterInfo> GetPrinters() => [new(PrinterQueue, PrinterName, true)];
 
     /// <inheritdoc/>
     public IObservable<bool> Print(string filePath, string title) =>

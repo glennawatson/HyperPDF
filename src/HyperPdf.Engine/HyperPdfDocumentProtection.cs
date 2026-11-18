@@ -42,7 +42,7 @@ internal static class HyperPdfDocumentProtection
             // The snapshot carries every unsaved edit, so the copy matches what the user sees.
             using var snapshot =HyperPdfOptimization.TakeSnapshot(self);
             var result = await PdfDocumentProtection.ProtectAsync(snapshot, ToOptions(request), request.CurrentOwnerPassword, destination, cancellationToken).ConfigureAwait(false);
-            return new(result.Refusal, result.Notes);
+            return new(result.Refusal, [..result.Notes]);
         }
         catch (PdfException ex)
         {
@@ -67,7 +67,7 @@ internal static class HyperPdfDocumentProtection
         {
             using var snapshot = HyperPdfOptimization.TakeSnapshot(self);
             var result = await PdfDocumentProtection.RemoveProtectionAsync(snapshot, ownerPassword, destination, cancellationToken).ConfigureAwait(false);
-            return new(result.Refusal, result.Notes);
+            return new(result.Refusal, [..result.Notes]);
         }
         catch (PdfException ex)
         {

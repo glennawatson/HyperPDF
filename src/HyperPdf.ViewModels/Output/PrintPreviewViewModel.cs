@@ -188,7 +188,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
     public bool ShowsPaper => PagesPerSheetIndex > 0 || LayoutIndex > 0 || Destination == PrintDestination.Printer;
 
     /// <summary>Gets the choices for pages per sheet.</summary>
-    public IReadOnlyList<int> PagesPerSheetChoices => SheetGrid.Choices;
+    public int[] PagesPerSheetChoices => SheetGrid.Choices;
 
     /// <summary>Gets or sets the paper used when several pages share a sheet.</summary>
     [Reactive]
@@ -259,7 +259,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
     /// <returns>The layout.</returns>
     public SheetLayout CurrentLayout()
     {
-        var perSheet = SheetGrid.Choices[Math.Clamp(PagesPerSheetIndex, 0, SheetGrid.Choices.Count - 1)];
+        var perSheet = SheetGrid.Choices[Math.Clamp(PagesPerSheetIndex, 0, SheetGrid.Choices.Length - 1)];
         return LayoutIndex switch
         {
             BookletLayout => new SheetLayout(1, Paper, IncludeAnnotations) { Imposition = PrintImposition.Booklet },
@@ -374,7 +374,7 @@ public sealed partial class PrintPreviewViewModel : ReactiveObject, IDisposable,
 
     /// <summary>Adds the printers to the destinations and chooses the default one, when there are any.</summary>
     /// <param name="printers">The printers.</param>
-    private void ShowPrinters(IReadOnlyList<PrinterInfo> printers)
+    private void ShowPrinters(List<PrinterInfo> printers)
     {
         var printer = _services.Platform.Printer;
         for (var i = 0; i < printers.Count; i++)

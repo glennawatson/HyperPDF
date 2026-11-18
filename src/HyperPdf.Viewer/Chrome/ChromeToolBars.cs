@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -52,20 +53,41 @@ internal static class ChromeToolBars
     /// <param name="tab">The tab shown.</param>
     private static void AddNotices(List<ToolBar> bars, DocumentTabViewModel tab)
     {
+        // Most documents have no notice, and a layout is built for every change, so the buttons of a notice are made only for one that is shown.
         var notices = tab.Notices;
-        AddNotice(bars, tab.Notice, Item(ChromeIcon.Close, DismissText, tab.DismissNoticeCommand));
-        AddNotice(bars, notices.ContentWarning, Item(ChromeIcon.Close, DismissText, notices.DismissContentWarningCommand));
-        AddNotice(bars, notices.IntegrityNotice, Item(ChromeIcon.Close, DismissText, notices.DismissIntegrityNoticeCommand));
-        AddNotice(
-            bars,
-            Join(notices.RepairNotice, notices.RepairDetails),
-            Item(ChromeIcon.More, "Details", notices.ToggleRepairDetailsCommand),
-            Item(ChromeIcon.Close, DismissText, notices.DismissRepairNoticeCommand));
-        AddNotice(
-            bars,
-            Join(notices.RequirementNotice, notices.RequirementDetails),
-            Item(ChromeIcon.More, "Details", notices.ToggleRequirementDetailsCommand),
-            Item(ChromeIcon.Close, DismissText, notices.DismissRequirementNoticeCommand));
+        if (IsShown(tab.Notice))
+        {
+            AddNotice(bars, tab.Notice, Item(ChromeIcon.Close, DismissText, tab.DismissNoticeCommand));
+        }
+
+        if (IsShown(notices.ContentWarning))
+        {
+            AddNotice(bars, notices.ContentWarning, Item(ChromeIcon.Close, DismissText, notices.DismissContentWarningCommand));
+        }
+
+        if (IsShown(notices.IntegrityNotice))
+        {
+            AddNotice(bars, notices.IntegrityNotice, Item(ChromeIcon.Close, DismissText, notices.DismissIntegrityNoticeCommand));
+        }
+
+        if (IsShown(notices.RepairNotice))
+        {
+            AddNotice(
+                bars,
+                Join(notices.RepairNotice, notices.RepairDetails),
+                Item(ChromeIcon.More, "Details", notices.ToggleRepairDetailsCommand),
+                Item(ChromeIcon.Close, DismissText, notices.DismissRepairNoticeCommand));
+        }
+
+        if (IsShown(notices.RequirementNotice))
+        {
+            AddNotice(
+                bars,
+                Join(notices.RequirementNotice, notices.RequirementDetails),
+                Item(ChromeIcon.More, "Details", notices.ToggleRequirementDetailsCommand),
+                Item(ChromeIcon.Close, DismissText, notices.DismissRequirementNoticeCommand));
+        }
+
         if (tab.HasPendingReload)
         {
             bars.Add(new(UiText.Get("This file has changed on disk."), [Item(ChromeIcon.Redo, "Reload", tab.ReloadCommand), Item(ChromeIcon.Done, "Keep this version", tab.DismissReloadCommand)]));
@@ -77,8 +99,8 @@ internal static class ChromeToolBars
     /// <param name="tab">The tab shown.</param>
     private static void AddReadingAids(List<ToolBar> bars, DocumentTabViewModel tab)
     {
-        var aloud = tab.ReadAloud;
-        if (aloud.IsOpen)
+        // Read Aloud and Focus Mode have no bar until they have been used, and reading them here would make them for every tab shown.
+        if (tab.ReadAloudIfMade is { IsOpen: true } aloud)
         {
             var status = aloud.IsDownloading ? Share(UiText.Get("Getting the voice"), aloud.DownloadProgress) : aloud.StatusText;
             bars.Add(new(
@@ -94,20 +116,20 @@ internal static class ChromeToolBars
                 ]));
         }
 
-        var text = tab.TextRecognition;
-        if (text.IsBusy)
+        // Text recognition has nothing to show until it has been used, and reading it here would make it for every tab shown.
+        var text = tab.TextRecognitionInUse;
+        if (text is { IsBusy: true })
         {
             bars.Add(new(Share(Label(UiText.Get("Recognising text"), text.ProgressText), text.Progress), [Item(ChromeIcon.Stop, "Stop", text.StopCommand)]));
         }
 
-        if (text.IsLanguageBarOpen)
+        if (text is { IsLanguageBarOpen: true })
         {
             bars.Add(new(text.LanguageBarText, [Item(ChromeIcon.Done, text.LanguageActionText, text.ConfirmLanguageCommand), Item(ChromeIcon.Close, "Close", text.CloseLanguageBarCommand)]));
         }
 
         AddInks(bars, tab.Separations);
-        var focus = tab.FocusMode;
-        if (focus.IsOn)
+        if (tab.FocusModeIfMade is { IsOn: true } focus)
         {
             bars.Add(new(
                 UiText.Get("Focus mode: one column of plain text."),
@@ -156,8 +178,7 @@ internal static class ChromeToolBars
                 ]));
         }
 
-        var measure = tab.Measure;
-        if (measure.IsOn)
+        if (tab.MeasureIfMade is { IsOn: true } measure)
         {
             var result = measure.Result.Length > 0 ? measure.Result : UiText.Get("Click the points to measure between.");
             bars.Add(new(
@@ -167,8 +188,7 @@ internal static class ChromeToolBars
 
         AddEditTools(bars, tab);
         AddTextFormat(bars, tab);
-        var sign = tab.FillAndSign;
-        if (sign.IsActive)
+        if (tab.FillAndSignIfMade is { IsActive: true } sign)
         {
             bars.Add(new(
                 sign.Hint,
@@ -216,8 +236,7 @@ internal static class ChromeToolBars
     /// <param name="tab">The tab shown.</param>
     private static void AddEditTools(List<ToolBar> bars, DocumentTabViewModel tab)
     {
-        var edit = tab.ContentEdit;
-        if (!edit.IsEditing)
+        if (tab.ContentEditIfMade is not { IsEditing: true } edit)
         {
             return;
         }
@@ -233,6 +252,12 @@ internal static class ChromeToolBars
                 Item(ChromeIcon.Done, "Done", edit.ToggleEditingCommand),
             ]));
     }
+
+    /// <summary>Tells whether a notice has text to show.</summary>
+    /// <param name="text">The notice, or <see langword="null"/> or empty for none.</param>
+    /// <returns><see langword="true"/> when there is a notice.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsShown([NotNullWhen(true)] string? text) => text is { Length: > 0 };
 
     /// <summary>Adds a notice when it has text.</summary>
     /// <param name="bars">Receives the bar.</param>
@@ -272,7 +297,7 @@ internal static class ChromeToolBars
             }
 
             // The button runs the action's own command. Its place among the controls tells it from another button of the same command.
-            row = row.Control(new(ChromeItemKind.Button, entry.Command, items.Count, entry.Header, default, true, false) { Parameter = entry.Parameter, Icon = action.Icon });
+            row = row.Button(action.Icon, entry.Header, entry.Command, new GroupChoice(items.Count, entry.Parameter, false));
         }
 
         var height = row.Lines * metrics.ToolbarHeight;

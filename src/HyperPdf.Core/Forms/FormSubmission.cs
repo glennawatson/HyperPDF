@@ -10,4 +10,4 @@ namespace HyperPdf.Core.Forms;
 /// <param name="Url">The address the form names, or <see langword="null"/>.</param>
 /// <param name="Fields">The fields that would be sent.</param>
 [DebuggerDisplay("FormSubmission: {Url}, {Fields.Count} fields")]
-public sealed record FormSubmission(string? Url, IReadOnlyList<FormSubmittedField> Fields);
+public sealed record FormSubmission(string? Url, FormSubmittedField[] Fields);

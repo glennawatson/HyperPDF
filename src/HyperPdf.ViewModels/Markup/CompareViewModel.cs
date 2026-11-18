@@ -49,7 +49,7 @@ public sealed partial class CompareViewModel : ReactiveObject
 
     /// <summary>Gets the pages whose words differ.</summary>
     [Reactive]
-    public partial IReadOnlyList<ComparedPage> Differences { get; private set; } = [];
+    public partial ComparedPage[] Differences { get; private set; } = [];
 
     /// <summary>Gets the words that say what the comparison found.</summary>
     [Reactive]
@@ -135,7 +135,7 @@ public sealed partial class CompareViewModel : ReactiveObject
             return Signal.Return(RxVoid.Default);
         }
 
-        Differences = found;
+        Differences = [..found];
         Result = found.Count == 0
             ? UiText.Get("The words and the look of the two documents are the same.")
             : UiText.Format("{0} pages differ in their words or in how they look. Text in pictures is not compared.", found.Count);

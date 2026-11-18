@@ -107,9 +107,9 @@ internal static class AtSpiChanges
     /// <param name="ids">The numbers.</param>
     /// <param name="id">The number to find.</param>
     /// <returns>The index, or -1.</returns>
-    private static int IndexOf(IReadOnlyList<int> ids, int id)
+    private static int IndexOf(ReadOnlySpan<int> ids, int id)
     {
-        for (var index = 0; index < ids.Count; index++)
+        for (var index = 0; index < ids.Length; index++)
         {
             if (ids[index] == id)
             {

@@ -11,11 +11,11 @@ namespace HyperPdf.Core.Documents;
 public sealed class PageEditReport
 {
     /// <summary>Gets or sets the printed pages whose separation pages were not all kept together; empty when none.</summary>
-    public IReadOnlyList<SeparationChange> SeparationChanges { get; set; } = [];
+    public List<SeparationChange> SeparationChanges { get; } = [];
 
     /// <summary>
     /// Gets or sets the warnings, in plain words, about trap networks the copy left out because the pages they were made
     /// for had changed; empty when none were. HyperPDF cannot make new traps.
     /// </summary>
-    public IReadOnlyList<string> TrapNetworkWarnings { get; set; } = [];
+    public List<string> TrapNetworkWarnings { get; } = [];
 }

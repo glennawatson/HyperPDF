@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Diagnostics;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
@@ -131,6 +132,9 @@ public sealed partial class AppServices : ReactiveObject, IDisposable, ILocalisa
     /// <summary>Gets the UI toolkit's side of rendering.</summary>
     public IRenderHead Head { get; }
 
+    /// <summary>Gets the watchers that tell the open documents their files changed, one for each folder however many of its files are open.</summary>
+    public FolderWatches FileWatches { get; } = new();
+
     /// <summary>Gets the screen fonts retained for this application.</summary>
     public PageFontFamilies PageFontFamilies { get; } = new();
 
@@ -227,7 +231,7 @@ public sealed partial class AppServices : ReactiveObject, IDisposable, ILocalisa
     /// <summary>Creates a text recogniser for the configured languages, using downloaded packs first; dispose it when done.</summary>
     /// <returns>The recogniser, which reports whether Tesseract and the language data were found.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IOcrEngine CreateOcrEngine() => Ocr.CreateEngine(OcrLanguageCatalog.Format(OcrLanguageCatalog.Parse(Settings.OcrLanguage)), Ocr.LanguageDirectory);
+    public IOcrEngine CreateOcrEngine() => Ocr.CreateEngine(OcrLanguageCatalog.Format(CollectionsMarshal.AsSpan(OcrLanguageCatalog.Parse(Settings.OcrLanguage))), Ocr.LanguageDirectory);
 
     /// <summary>Gets the speech engine the settings choose, reusing it while they stay the same.</summary>
     /// <returns>The engine.</returns>

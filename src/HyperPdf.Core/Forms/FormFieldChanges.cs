@@ -23,7 +23,7 @@ public sealed record FormFieldChanges
     public string? Value { get; init; }
 
     /// <summary>Gets the new selection of a list box that allows several.</summary>
-    public IReadOnlyList<string>? Values { get; init; }
+    public string[]? Values { get; init; }
 
     /// <summary>Gets whether a check box is on.</summary>
     public bool? IsChecked { get; init; }
@@ -41,10 +41,10 @@ public sealed record FormFieldChanges
     public string? DefaultAppearance { get; init; }
 
     /// <summary>Gets the new choices of a combo box or list box.</summary>
-    public IReadOnlyList<FormChoiceOption>? Options { get; init; }
+    public FormChoiceOption[]? Options { get; init; }
 
     /// <summary>Gets the new export values: one per widget of a radio group, or one for a check box.</summary>
-    public IReadOnlyList<string>? ExportValues { get; init; }
+    public string[]? ExportValues { get; init; }
 
     /// <summary>Gets the new caption of a push button, or mark of a check box or radio button.</summary>
     public string? Caption { get; init; }

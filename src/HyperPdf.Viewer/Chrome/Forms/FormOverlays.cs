@@ -300,7 +300,7 @@ internal static class FormOverlays
     /// <param name="buttons">The row the buttons go in.</param>
     /// <param name="request">What the dialog shows.</param>
     /// <returns>The row after the buttons.</returns>
-    private static ChromeRow AddButtons(ChromeRow buttons, FormRequest request)
+    private static ChromeRow AddButtons(in ChromeRow buttons, FormRequest request)
     {
         var agreed = request.AcceptText is { } accept ? buttons.Button(accept, OverlayAction.Accept, request.CanAccept?.Invoke() ?? true) : buttons;
         return agreed.Button(request.AcceptText is null ? UiText.Get("Close") : UiText.Get("Cancel"), OverlayAction.Cancel, true);

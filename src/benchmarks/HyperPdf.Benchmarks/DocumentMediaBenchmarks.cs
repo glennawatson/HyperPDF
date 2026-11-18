@@ -66,7 +66,7 @@ public class DocumentMediaBenchmarks
     /// <summary>Lists the media.</summary>
     /// <returns>The count.</returns>
     [Benchmark]
-    public int ListMedia() => _source.GetMedia().Count;
+    public int ListMedia() => _source.GetMedia().Length;
 
     /// <summary>Writes the sound as a WAVE file.</summary>
     /// <returns>Whether it was written.</returns>

@@ -74,7 +74,7 @@ public sealed class ReadCacheAfterEditTests
         var removed = HyperPdfDocumentAnnotationEditing.Remove(test.Document, 0, index);
         var afterRemove = HyperPdfNavigation.GetLinks(test.Document, 0);
 
-        await Assert.That(before.Count).IsGreaterThan(0);
+        await Assert.That(before.Length).IsGreaterThan(0);
         await Assert.That(index).IsGreaterThanOrEqualTo(0);
         await Assert.That(contents).IsTrue();
         await Assert.That(removed).IsTrue();

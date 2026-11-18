@@ -12,5 +12,5 @@ public interface IRepairReport : IDocumentFeature
 
     /// <summary>Gets the repairs made so far, in plain words, each once.</summary>
     /// <returns>The repairs; empty when the document was not repaired.</returns>
-    IReadOnlyList<RepairNote> GetRepairs();
+    RepairNote[] GetRepairs();
 }

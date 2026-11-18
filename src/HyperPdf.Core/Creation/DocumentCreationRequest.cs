@@ -9,7 +9,7 @@ namespace HyperPdf.Core.Creation;
 /// <summary>A new document to create from text, images and pages of other PDFs.</summary>
 /// <param name="Blocks">The content, in reading order.</param>
 [DebuggerDisplay("DocumentCreationRequest: {Title}, {Blocks.Count} blocks, accessible {Accessible}")]
-public sealed record DocumentCreationRequest(IReadOnlyList<CreationBlock> Blocks)
+public sealed record DocumentCreationRequest(CreationBlock[] Blocks)
 {
     /// <summary>Gets the title written to the document information and shown by viewers.</summary>
     public string? Title { get; init; }

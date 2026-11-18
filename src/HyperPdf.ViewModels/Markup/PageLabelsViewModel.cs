@@ -144,7 +144,7 @@ public sealed partial class PageLabelsViewModel : ReactiveObject
 
         try
         {
-            labeler.SetRanges(ranges);
+            labeler.SetRanges([..ranges]);
             _owner.Pages.NotifyStructureChanged();
             _owner.SetNotice(LocalizedMessage.Literal(done));
         }

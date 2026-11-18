@@ -22,7 +22,7 @@ internal static class HyperPdfDocumentMediaItems
     /// <summary>Lists the document's media.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The media in page order.</returns>
-    internal static IReadOnlyList<DocumentMedia> GetMedia(HyperPdfDocument self)
+    internal static DocumentMedia[] GetMedia(HyperPdfDocument self)
     {
         using var access = HyperPdfNavigation.EnterPageRead(self);
         return self.IsDisposed ? [] : Cached(self).Media;

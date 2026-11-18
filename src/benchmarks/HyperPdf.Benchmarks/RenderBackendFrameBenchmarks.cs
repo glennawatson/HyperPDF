@@ -57,11 +57,47 @@ public class RenderBackendFrameBenchmarks
     /// <summary>The height of the selection.</summary>
     private const double SelectionHeight = 24;
 
+    /// <summary>The width of the side panel the pages fade beside, in pixels.</summary>
+    private const int PanelWidth = 280;
+
+    /// <summary>The height of the bars the pages fade under, in pixels.</summary>
+    private const int BarHeight = 96;
+
+    /// <summary>The rows from the top of one line of text to the top of the next.</summary>
+    private const int LinePitch = 20;
+
+    /// <summary>The rows of a line of text that hold ink.</summary>
+    private const int LineHeight = 8;
+
+    /// <summary>The paper at each side of the lines, in pixels.</summary>
+    private const int TextMargin = 48;
+
+    /// <summary>The width of one run of ink, and of the paper after it, in pixels.</summary>
+    private const int InkRun = 3;
+
+    /// <summary>One run in this many is ink.</summary>
+    private const int InkEvery = 2;
+
+    /// <summary>The bytes of one pixel.</summary>
+    private const int BytesPerPixel = 4;
+
+    /// <summary>The colour bytes of one pixel, before its alpha.</summary>
+    private const int ColourBytes = 3;
+
+    /// <summary>The byte written into the colour channels of ink.</summary>
+    private const byte Ink = 0x20;
+
+    /// <summary>The frames drawn so far, which picks the canvas colour of the next one.</summary>
+    private uint _frames;
+
     /// <summary>The CPU backend.</summary>
     private CpuRenderBackend _cpu = null!;
 
     /// <summary>The CPU tiles.</summary>
     private IRenderSurface[] _cpuTiles = [];
+
+    /// <summary>The CPU tiles that hold lines of text on paper, as a page does.</summary>
+    private IRenderSurface[] _cpuTextTiles = [];
 
     /// <summary>The Vulkan backend, or <see langword="null"/> on a machine with no Vulkan driver.</summary>
     private VulkanRenderBackend? _gpu;
@@ -88,6 +124,7 @@ public class RenderBackendFrameBenchmarks
         _cpu = new(static (_, _, _) => { });
         _cpu.Resize(new(FrameWidth, FrameHeight));
         _cpuTiles = CreateTiles(_cpu);
+        _cpuTextTiles = CreateTextTiles(_cpu);
         if (VulkanContext.TryCreate() is { } context)
         {
             _gpu = new(context);
@@ -117,6 +154,7 @@ public class RenderBackendFrameBenchmarks
     public void Cleanup()
     {
         DisposeTiles(_cpuTiles);
+        DisposeTiles(_cpuTextTiles);
         DisposeTiles(_gpuTiles);
         DisposeTiles(_direct3DTiles);
         DisposeTiles(_direct3D12Tiles);
@@ -138,9 +176,33 @@ public class RenderBackendFrameBenchmarks
     [Benchmark]
     public void CpuFrameStretchedSmooth() => DrawFrame(_cpu, _cpuTiles, WheelStep, smooth: true);
 
+    /// <summary>Draws a frame of tiles that hold lines of text, stretched by one wheel notch on the CPU by picking the nearest pixel.</summary>
+    [Benchmark]
+    public void CpuFrameStretchedNearestText() => DrawFrame(_cpu, _cpuTextTiles, WheelStep, smooth: false);
+
+    /// <summary>Draws a frame of tiles that hold lines of text, stretched by one wheel notch on the CPU with smooth sampling.</summary>
+    [Benchmark]
+    public void CpuFrameStretchedSmoothText() => DrawFrame(_cpu, _cpuTextTiles, WheelStep, smooth: true);
+
     /// <summary>Draws a frame whose tiles are a half opaque layer on the CPU, as a page fade does: the frame is copied before the layer and mixed with it after.</summary>
     [Benchmark]
     public void CpuFrameFaded() => DrawFadedFrame(_cpu, _cpuTiles);
+
+    /// <summary>Draws a frame on the CPU where only the pages fade, beside a side panel and under a tool bar that do not.</summary>
+    [Benchmark]
+    public void CpuFramePagesFaded()
+    {
+        using var pass = _cpu.BeginFrame();
+        pass.Clear(NextCanvas());
+        pass.SetOpacity(HalfOpacity);
+        for (var i = 0; i < _cpuTiles.Length; i++)
+        {
+            var row = Math.DivRem(i, Columns, out var column);
+            pass.DrawSurface(_cpuTiles[i], new(PanelWidth + (column * TileEdge), BarHeight + (row * TileEdge), TileEdge, TileEdge), smooth: false);
+        }
+
+        pass.SetOpacity(1);
+    }
 
     /// <summary>Draws a frame whose tiles are a half opaque layer on the GPU, which scales the colour of each tile and costs nothing more per frame.</summary>
     [Benchmark]
@@ -149,6 +211,16 @@ public class RenderBackendFrameBenchmarks
         if (_gpu is { } gpu)
         {
             DrawFadedFrame(gpu, _gpuTiles);
+        }
+    }
+
+    /// <summary>Draws the same frame of unscaled cached tiles on the GPU as the frame before it, which the backend shows again without drawing it.</summary>
+    [Benchmark]
+    public void VulkanFrameUnchanged()
+    {
+        if (_gpu is { } gpu)
+        {
+            DrawFrame(gpu, _gpuTiles, 1, smooth: false, Canvas);
         }
     }
 
@@ -212,42 +284,6 @@ public class RenderBackendFrameBenchmarks
         }
     }
 
-    /// <summary>Draws one frame: the canvas colour, the tile grid and a selection.</summary>
-    /// <param name="backend">The backend.</param>
-    /// <param name="tiles">The tiles, row by row.</param>
-    /// <param name="scale">How much the tiles are stretched.</param>
-    /// <param name="smooth">Whether stretched tiles are sampled smoothly.</param>
-    private static void DrawFrame(IRenderBackend backend, IRenderSurface[] tiles, double scale, bool smooth)
-    {
-        using var pass = backend.BeginFrame();
-        pass.Clear(Canvas);
-        var edge = TileEdge * scale;
-        for (var i = 0; i < tiles.Length; i++)
-        {
-            var row = Math.DivRem(i, Columns, out var column);
-            pass.DrawSurface(tiles[i], new(column * edge, row * edge, edge, edge), smooth);
-        }
-
-        pass.FillRect(new(SelectionLeft, SelectionTop, SelectionWidth, SelectionHeight), Selection);
-    }
-
-    /// <summary>Draws one frame whose tiles are a half opaque layer over the canvas colour.</summary>
-    /// <param name="backend">The backend.</param>
-    /// <param name="tiles">The tiles, row by row.</param>
-    private static void DrawFadedFrame(IRenderBackend backend, IRenderSurface[] tiles)
-    {
-        using var pass = backend.BeginFrame();
-        pass.Clear(Canvas);
-        pass.SetOpacity(HalfOpacity);
-        for (var i = 0; i < tiles.Length; i++)
-        {
-            var row = Math.DivRem(i, Columns, out var column);
-            pass.DrawSurface(tiles[i], new(column * TileEdge, row * TileEdge, TileEdge, TileEdge), smooth: false);
-        }
-
-        pass.SetOpacity(1);
-    }
-
     /// <summary>Creates the tile grid of a backend and fills every tile with opaque white.</summary>
     /// <param name="backend">The backend.</param>
     /// <returns>The tiles, row by row.</returns>
@@ -267,6 +303,47 @@ public class RenderBackendFrameBenchmarks
         return tiles;
     }
 
+    /// <summary>Creates the tile grid of a backend and fills every tile with lines of text on paper.</summary>
+    /// <param name="backend">The backend.</param>
+    /// <returns>The tiles, row by row.</returns>
+    private static IRenderSurface[] CreateTextTiles(CpuRenderBackend backend)
+    {
+        var tiles = new IRenderSurface[Columns * Rows];
+        for (var i = 0; i < tiles.Length; i++)
+        {
+            tiles[i] = backend.Surfaces.Create(TileEdge, TileEdge);
+            _ = tiles[i].Write(0, static (target, in _) =>
+            {
+                target.Pixels.Fill(Paper);
+                DrawLines(target.Pixels);
+                return true;
+            });
+        }
+
+        return tiles;
+    }
+
+    /// <summary>Draws lines of short ink runs with paper between the lines and at the sides, as text lies on a page.</summary>
+    /// <param name="pixels">The pixels of one tile.</param>
+    private static void DrawLines(Span<byte> pixels)
+    {
+        for (var y = 0; y < TileEdge; y++)
+        {
+            if (y % LinePitch >= LineHeight)
+            {
+                continue;
+            }
+
+            for (var x = TextMargin; x < TileEdge - TextMargin; x++)
+            {
+                if ((x / InkRun) % InkEvery == 0)
+                {
+                    pixels.Slice(((y * TileEdge) + x) * BytesPerPixel, ColourBytes).Fill(Ink);
+                }
+            }
+        }
+    }
+
     /// <summary>Disposes every tile.</summary>
     /// <param name="tiles">The tiles.</param>
     private static void DisposeTiles(IRenderSurface[] tiles)
@@ -275,5 +352,60 @@ public class RenderBackendFrameBenchmarks
         {
             tile.Dispose();
         }
+    }
+
+    /// <summary>Draws one frame: a canvas colour, the tile grid and a selection.</summary>
+    /// <param name="backend">The backend.</param>
+    /// <param name="tiles">The tiles, row by row.</param>
+    /// <param name="scale">How much the tiles are stretched.</param>
+    /// <param name="smooth">Whether stretched tiles are sampled smoothly.</param>
+    /// <param name="canvas">The colour the frame is cleared to.</param>
+    private static void DrawFrame(IRenderBackend backend, IRenderSurface[] tiles, double scale, bool smooth, uint canvas)
+    {
+        using var pass = backend.BeginFrame();
+        pass.Clear(canvas);
+        var edge = TileEdge * scale;
+        for (var i = 0; i < tiles.Length; i++)
+        {
+            var row = Math.DivRem(i, Columns, out var column);
+            pass.DrawSurface(tiles[i], new(column * edge, row * edge, edge, edge), smooth);
+        }
+
+        pass.FillRect(new(SelectionLeft, SelectionTop, SelectionWidth, SelectionHeight), Selection);
+    }
+
+    /// <summary>Draws one frame: the canvas colour, the tile grid and a selection.</summary>
+    /// <param name="backend">The backend.</param>
+    /// <param name="tiles">The tiles, row by row.</param>
+    /// <param name="scale">How much the tiles are stretched.</param>
+    /// <param name="smooth">Whether stretched tiles are sampled smoothly.</param>
+    private void DrawFrame(IRenderBackend backend, IRenderSurface[] tiles, double scale, bool smooth) => DrawFrame(backend, tiles, scale, smooth, NextCanvas());
+
+    /// <summary>Draws one frame whose tiles are a half opaque layer over the canvas colour.</summary>
+    /// <param name="backend">The backend.</param>
+    /// <param name="tiles">The tiles, row by row.</param>
+    private void DrawFadedFrame(IRenderBackend backend, IRenderSurface[] tiles)
+    {
+        using var pass = backend.BeginFrame();
+        pass.Clear(NextCanvas());
+        pass.SetOpacity(HalfOpacity);
+        for (var i = 0; i < tiles.Length; i++)
+        {
+            var row = Math.DivRem(i, Columns, out var column);
+            pass.DrawSurface(tiles[i], new(column * TileEdge, row * TileEdge, TileEdge, TileEdge), smooth: false);
+        }
+
+        pass.SetOpacity(1);
+    }
+
+    /// <summary>
+    /// Picks the canvas colour of the next frame. Two colours a shade apart take turns, so no frame has the draws of the frame
+    /// before it: a backend that leaves an unchanged frame undrawn would otherwise draw nothing here.
+    /// </summary>
+    /// <returns>The colour.</returns>
+    private uint NextCanvas()
+    {
+        _frames++;
+        return Canvas ^ (_frames & 1);
     }
 }

@@ -67,9 +67,9 @@ public sealed class ContextMenusTests
         await Assert.That(items[0].Header).IsEqualTo(AnnotationNames.Get(AnnotationKind.Note));
         await Assert.That(items[0].IsEnabled).IsFalse();
         await Assert.That(status.Kind).IsEqualTo(MenuEntryKind.Submenu);
-        await Assert.That(status.Children.Count).IsEqualTo(ReviewStates);
-        await Assert.That(colour.Children.Count).IsEqualTo(AnnotationColors.All.Count);
-        await Assert.That(colour.Children.All(static child => child.Swatch is not null)).IsTrue();
+        await Assert.That(status.Children.Length).IsEqualTo(ReviewStates);
+        await Assert.That(colour.Children.Length).IsEqualTo(AnnotationColors.All.Length);
+        await Assert.That(Array.TrueForAll(colour.Children, static child => child.Swatch is not null)).IsTrue();
         await Assert.That(items[^1].Header).IsEqualTo($"_Delete {AnnotationNames.Get(AnnotationKind.Note)}");
         await Assert.That(items[^1].Gesture).IsEqualTo("Delete");
     }
@@ -112,7 +112,7 @@ public sealed class ContextMenusTests
         await Assert.That(items[0].Gesture).IsEqualTo("Ctrl+C");
         await Assert.That(items[0].Parameter).IsEqualTo("chosen text");
         await Assert.That(items[1].Parameter).IsEqualTo(readFrom);
-        await Assert.That(highlight.Children.Count).IsEqualTo(AnnotationColors.All.Count);
+        await Assert.That(highlight.Children.Length).IsEqualTo(AnnotationColors.All.Length);
     }
 
     /// <summary>A separator has no command, and an item keeps its wording.</summary>

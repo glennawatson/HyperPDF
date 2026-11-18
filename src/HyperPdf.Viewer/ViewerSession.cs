@@ -12,9 +12,12 @@ using HyperPdf.Presentation.Canvas;
 using HyperPdf.Presentation.Input;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Dialogs;
+using HyperPdf.ViewModels.Finding;
 using HyperPdf.ViewModels.FormFilling;
 using HyperPdf.ViewModels.Markup;
+using HyperPdf.ViewModels.Output;
 using HyperPdf.ViewModels.Preferences;
+using HyperPdf.ViewModels.Reading;
 using HyperPdf.ViewModels.Services;
 using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer.Accessibility;
@@ -245,6 +248,14 @@ public sealed class ViewerSession : IDisposable
         _turns.Dispose();
     }
 
+    /// <summary>Follows whether focus mode is on in a tab, without making the tab's focus mode: it is off until it has been used.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>Whether focus mode is on, now and as it changes.</returns>
+    private static IObservable<bool> FocusOn(DocumentTabViewModel tab) =>
+        tab.FocusModeIfMade is { } focus
+            ? focus.WhenChanged(static f => f.IsOn)
+            : tab.MadeParts.OfType<FocusModeViewModel>().Take(1).SwitchMap(static made => made.WhenChanged(static f => f.IsOn)).StartWith(false);
+
     /// <summary>Makes the question that asks for the password of a locked document.</summary>
     /// <param name="tab">The tab whose document is locked.</param>
     /// <returns>The question.</returns>
@@ -399,18 +410,23 @@ public sealed class ViewerSession : IDisposable
     private MultipleDisposable FollowTab(DocumentTabViewModel tab)
     {
         var forms = tab.Forms;
-        var marks = tab.Annotations;
         return
         [
             tab.SaveAsInteraction.RegisterHandler(context => Chrome.PickFile(StartFolder(), Path.GetFileName(context.Input)).Do(context.SetOutput)),
-            marks.PromptInteraction.RegisterHandler(AskForText),
+            TabRequests.FollowWhenMade<AnnotationsViewModel>(tab, marks => FollowMarks(forms, marks)),
             forms.ChooseImportFileInteraction.RegisterHandler(context => Chrome.PickFile(StartFolder(), null).Do(context.SetOutput)),
             forms.ConfirmImportInteraction.RegisterHandler(ConfirmImport),
-            tab.Printing.PrintPreviewInteraction.RegisterHandler(context => Chrome.ShowPrint(context.Input).Do(context.SetOutput)),
+            TabRequests.FollowWhenMade<TabPrintingViewModel>(
+                tab,
+                printing => printing.PrintPreviewInteraction.RegisterHandler(context => Chrome.ShowPrint(context.Input).Do(context.SetOutput))),
             TabRequests.Follow(Chrome, tab),
 
             // How many matches a search found is spoken as it changes.
-            tab.Search.WhenChanged(static search => search.Status).Skip(1).ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(Announce, ErrorTrace.Write),
+            tab.MadeParts.OfType<SearchViewModel>()
+                .Take(1)
+                .SwitchMap(static search => search.WhenChanged(static s => s.Status).Skip(1))
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .SubscribeSafe(Announce, ErrorTrace.Write),
 
             // A locked document asks for its password when its tab is shown, and again after a wrong one. A question the user turns
             // down is not asked again until the tab is shown again.
@@ -438,28 +454,40 @@ public sealed class ViewerSession : IDisposable
                 .SwitchMap(_ => Chrome.ShowForm(ToolForms.CertificateLock(tab)))
                 .SubscribeSafe(static _ => { }, ErrorTrace.Write),
 
-            // A note on the page opens in a window with its replies. Closing the window puts the note away.
-            marks.WhenChanged(static m => m.ActiveBubble)
-                .KeepNotNull()
-                .ObserveOn(RxSchedulers.MainThreadScheduler)
-                .SwitchMap(_ => Chrome.ShowForm(ToolForms.NoteBubble(marks)).Finally(() => Signal.Return(RxVoid.Default).InvokeCommand(marks.CloseBubbleCommand).Dispose()))
-                .SubscribeSafe(static _ => { }, ErrorTrace.Write),
-
             // Presenting fills the screen with one page at a time, and stopping gives the window back.
             tab.WhenChanged(static t => t.IsPresenting)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Finally(() => _window.SetFullScreen(false))
                 .SubscribeSafe(presenting => Present(tab, presenting), ErrorTrace.Write),
-            tab.FocusMode.WhenChanged(static focus => focus.IsOn)
+            FocusOn(tab)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .SubscribeSafe(on => ShowFocus(tab, on), ErrorTrace.Write),
-            marks.WhenChanged(static m => m.TextEdit)
-                .ObserveOn(RxSchedulers.MainThreadScheduler)
-                .Select(_ => marks.TextEdit)
-                .DistinctUntilChanged()
-                .SubscribeSafe(edit => ShowTyping(edit is null ? null : TextBoxTypings.For(forms, marks, edit)), ErrorTrace.Write),
         ];
     }
+
+    /// <summary>
+    /// Follows the annotation tools of the tab shown, from when they are made: their question, the note that opens in a window
+    /// and the text box typed into where it lies on the page.
+    /// </summary>
+    /// <param name="forms">The form fields of the tab, which share the typing box.</param>
+    /// <param name="marks">The annotation tools.</param>
+    /// <returns>What ends the following.</returns>
+    private MultipleDisposable FollowMarks(FormsViewModel forms, AnnotationsViewModel marks) =>
+    [
+        marks.PromptInteraction.RegisterHandler(AskForText),
+
+        // A note on the page opens in a window with its replies. Closing the window puts the note away.
+        marks.WhenChanged(static m => m.ActiveBubble)
+            .KeepNotNull()
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .SwitchMap(_ => Chrome.ShowForm(ToolForms.NoteBubble(marks)).Finally(() => Signal.Return(RxVoid.Default).InvokeCommand(marks.CloseBubbleCommand).Dispose()))
+            .SubscribeSafe(static _ => { }, ErrorTrace.Write),
+        marks.WhenChanged(static m => m.TextEdit)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(_ => marks.TextEdit)
+            .DistinctUntilChanged()
+            .SubscribeSafe(edit => ShowTyping(edit is null ? null : TextBoxTypings.For(forms, marks, edit)), ErrorTrace.Write),
+    ];
 
     /// <summary>Fills the screen with the page while presenting, and starts the timed turning of pages and the page transitions the document asks for.</summary>
     /// <param name="tab">The tab shown.</param>

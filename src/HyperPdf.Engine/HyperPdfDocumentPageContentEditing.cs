@@ -105,16 +105,16 @@ internal static class HyperPdfDocumentPageContentEditing
         }
 
         // The result is counted first so it is made once, at its exact size.
-        var items = content.Objects;
+        PdfPageObject[] items = [..content.Objects];
         var count = 0;
-        for (var i = 0; i < items.Count; i++)
+        for (var i = 0; i < items.Length; i++)
         {
             count += IsListed(items[i]) && !TextPieces.IsFollower(page, items, i) ? 1 : 0;
         }
 
         var objects = new PageObjectInfo[count];
         var next = 0;
-        for (var i = 0; i < items.Count; i++)
+        for (var i = 0; i < items.Length; i++)
         {
             var item = items[i];
             if (!IsListed(item) || TextPieces.IsFollower(page, items, i))
@@ -548,7 +548,7 @@ internal static class HyperPdfDocumentPageContentEditing
         // A text drawn in pieces is one object to the caller, so a change that is not a retype reaches every piece.
         if (edit.Kind is ObjectEditKind.Move or ObjectEditKind.Delete or ObjectEditKind.Transform or ObjectEditKind.Colors && item is PdfTextObject)
         {
-            foreach (var piece in TextPieces.Followers(content.Page!, content.Objects, item))
+            foreach (var piece in TextPieces.Followers(content.Page!, [..content.Objects], item))
             {
                 ApplyTo(content, piece, edit);
             }
@@ -640,7 +640,7 @@ internal static class HyperPdfDocumentPageContentEditing
             lines.Add(line);
 
             // A line drawn in pieces is retyped whole.
-            lines.AddRange(TextPieces.Followers(content.Page!, content.Objects, line));
+            lines.AddRange(TextPieces.Followers(content.Page!, [..content.Objects], line));
         }
 
         var words = edit.Text ?? string.Empty;
@@ -666,7 +666,7 @@ internal static class HyperPdfDocumentPageContentEditing
 
         // The pieces of a text drawn in pieces give up their glyphs and the first piece is written again whole.
         var words = restyle ? run.GetRemainingText() : edit.Text ?? string.Empty;
-        foreach (var piece in TextPieces.Followers(content.Page!, content.Objects, run))
+        foreach (var piece in TextPieces.Followers(content.Page!, [..content.Objects], run))
         {
             words = restyle ? words + piece.GetRemainingText() : words;
             for (var i = 0; i < piece.GlyphCount; i++)
@@ -687,7 +687,7 @@ internal static class HyperPdfDocumentPageContentEditing
     /// <param name="backward">True to move it one step back, false to move it one step forward.</param>
     private static void Step(PdfPageContent content, PdfPageObject item, bool backward)
     {
-        var objects = content.Objects;
+        PdfPageObject[] objects = [..content.Objects];
         var at = IndexOfObject(objects, item);
         var mover = backward ? Neighbour(objects, at, -1) : item;
         var over = backward ? item : Neighbour(objects, at, 1);
@@ -697,7 +697,7 @@ internal static class HyperPdfDocumentPageContentEditing
         }
 
         var moved = new List<PdfPageObject> { mover };
-        for (var i = IndexOfObject(objects, over) + 1; i < objects.Count; i++)
+        for (var i = IndexOfObject(objects, over) + 1; i < objects.Length; i++)
         {
             moved.Add(objects[i]);
         }
@@ -710,9 +710,9 @@ internal static class HyperPdfDocumentPageContentEditing
     /// <param name="at">The place of the object.</param>
     /// <param name="direction">1 for the object painted after it, -1 for the object painted before it.</param>
     /// <returns>The neighbour, or <see langword="null"/> when there is none.</returns>
-    private static PdfPageObject? Neighbour(IReadOnlyList<PdfPageObject> objects, int at, int direction)
+    private static PdfPageObject? Neighbour(ReadOnlySpan<PdfPageObject> objects, int at, int direction)
     {
-        for (var i = at + direction; i >= 0 && i < objects.Count; i += direction)
+        for (var i = at + direction; i >= 0 && i < objects.Length; i += direction)
         {
             if (!objects[i].IsDeleted && IsListed(objects[i]))
             {
@@ -727,9 +727,9 @@ internal static class HyperPdfDocumentPageContentEditing
     /// <param name="objects">The objects.</param>
     /// <param name="item">The object.</param>
     /// <returns>Its place.</returns>
-    private static int IndexOfObject(IReadOnlyList<PdfPageObject> objects, PdfPageObject item)
+    private static int IndexOfObject(ReadOnlySpan<PdfPageObject> objects, PdfPageObject item)
     {
-        for (var i = 0; i < objects.Count; i++)
+        for (var i = 0; i < objects.Length; i++)
         {
             if (ReferenceEquals(objects[i], item))
             {

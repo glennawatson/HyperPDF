@@ -51,7 +51,7 @@ public sealed class ConcurrentDocumentEditTests
     {
         using var test = new HyperPdfTestDocument(TestPdf.Create(Pages));
         var editor = DocumentFeature<IOutlineEditor>.Cast(test.Document)!;
-        var existing = test.Document.GetOutline().Count;
+        var existing = test.Document.GetOutline().Length;
         var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var tasks = new Task<DocumentEditResult>[ParallelEdits];
         for (var i = 0; i < tasks.Length; i++)
@@ -70,7 +70,7 @@ public sealed class ConcurrentDocumentEditTests
         var results = await Task.WhenAll(tasks);
 
         await Assert.That(string.Join(" | ", results.Where(static r => !r.Succeeded).Select(static r => r.Problem).Distinct())).IsEqualTo(string.Empty);
-        await Assert.That(test.Document.GetOutline().Count).IsEqualTo(existing + ParallelEdits);
+        await Assert.That(test.Document.GetOutline().Length).IsEqualTo(existing + ParallelEdits);
     }
 
     /// <summary>A bookmark read straight after an add always includes it, even while other threads read the outline.</summary>
@@ -82,7 +82,7 @@ public sealed class ConcurrentDocumentEditTests
         using var test = new HyperPdfTestDocument(TestPdf.Create(Pages));
         var editor = DocumentFeature<IOutlineEditor>.Cast(test.Document)!;
         var stale = await EditWhileReadingAsync(
-            () => test.Document.GetOutline().Count,
+            () => test.Document.GetOutline().Length,
             async index => (await editor.AddBookmark(0, -1, $"Bookmark {index}", 0).ToTask(cancellationToken)).Succeeded,
             cancellationToken);
 
@@ -99,7 +99,7 @@ public sealed class ConcurrentDocumentEditTests
         var editor = DocumentFeature<IAttachmentEditor>.Cast(test.Document)!;
         var source = DocumentFeature<IAttachmentSource>.Cast(test.Document)!;
         var stale = await EditWhileReadingAsync(
-            () => source.GetAttachments().Count,
+            () => source.GetAttachments().Length,
             async index => (await editor.AddAttachment($"file{index}.txt", AttachedBytes).ToTask(cancellationToken)).Succeeded,
             cancellationToken);
 
@@ -141,7 +141,7 @@ public sealed class ConcurrentDocumentEditTests
 
         var page = PdfDocumentPages.GetPage(test.Document.Document, 0);
         await Assert.That(page.Dictionary.GetArray(KnownName.Annots)!.Count).IsEqualTo(Pairs * ItemsPerPair);
-        await Assert.That((await designer.GetFields().ToTask(cancellationToken)).Count).IsEqualTo(Pairs);
+        await Assert.That((await designer.GetFields().ToTask(cancellationToken)).Length).IsEqualTo(Pairs);
     }
 
     /// <summary>A page edit, an undo and a form data import that find another edit holding the document's transaction say so plainly and change nothing.</summary>

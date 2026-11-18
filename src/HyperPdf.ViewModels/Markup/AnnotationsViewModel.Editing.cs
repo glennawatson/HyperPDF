@@ -298,7 +298,7 @@ public sealed partial class AnnotationsViewModel
             return;
         }
 
-        _history.Record(group.Count == 1 ? group[0] : new AnnotationChangeGroup(group));
+        _history.Record(group.Count == 1 ? group[0] : new AnnotationChangeGroup([..group]));
         UpdateHistoryState();
     }
 

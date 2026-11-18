@@ -102,7 +102,7 @@ public sealed partial class ValidationDataViewModel : ReactiveObject, ICopyWindo
     }
 
     /// <summary>Gets the choices: validation data first, then a timestamp.</summary>
-    public IReadOnlyList<ValidationActionChoice> Actions { get; } =
+    public ValidationActionChoice[] Actions { get; } =
     [
 
         new(

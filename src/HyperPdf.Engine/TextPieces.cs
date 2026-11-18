@@ -28,14 +28,14 @@ internal static class TextPieces
     /// <param name="items">The objects of the page's content.</param>
     /// <param name="at">The place of the object.</param>
     /// <returns><see langword="true"/> when the object continues the one before.</returns>
-    internal static bool IsFollower(PdfPage page, IReadOnlyList<PdfPageObject> items, int at) => at > 0 && at < items.Count && Continues(page, items[at - 1], items[at]);
+    internal static bool IsFollower(PdfPage page, ReadOnlySpan<PdfPageObject> items, int at) => at > 0 && at < items.Length && Continues(page, items[at - 1], items[at]);
 
     /// <summary>Gets the text objects that follow a text object as pieces of it.</summary>
     /// <param name="page">The page.</param>
     /// <param name="items">The objects of the page's content.</param>
     /// <param name="leader">The first piece.</param>
     /// <returns>The pieces after the first, in the order they are drawn; none when the text is not in pieces.</returns>
-    internal static List<PdfTextObject> Followers(PdfPage page, IReadOnlyList<PdfPageObject> items, PdfPageObject leader)
+    internal static List<PdfTextObject> Followers(PdfPage page, ReadOnlySpan<PdfPageObject> items, PdfPageObject leader)
     {
         var first = IndexOf(items, leader);
         if (first < 0 || !IsFollower(page, items, first + 1))
@@ -45,7 +45,7 @@ internal static class TextPieces
         }
 
         var followers = new List<PdfTextObject>();
-        for (var at = first; at >= 0 && at + 1 < items.Count && Continues(page, items[at], items[at + 1]); at++)
+        for (var at = first; at >= 0 && at + 1 < items.Length && Continues(page, items[at], items[at + 1]); at++)
         {
             followers.Add((PdfTextObject)items[at + 1]);
         }
@@ -110,9 +110,9 @@ internal static class TextPieces
     /// <param name="items">The objects.</param>
     /// <param name="item">The object.</param>
     /// <returns>The place; -1 when it is not there.</returns>
-    private static int IndexOf(IReadOnlyList<PdfPageObject> items, PdfPageObject item)
+    private static int IndexOf(ReadOnlySpan<PdfPageObject> items, PdfPageObject item)
     {
-        for (var i = 0; i < items.Count; i++)
+        for (var i = 0; i < items.Length; i++)
         {
             if (ReferenceEquals(items[i], item))
             {

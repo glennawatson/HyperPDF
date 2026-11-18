@@ -73,7 +73,7 @@ internal static class HyperPdfNavigation
     /// <summary>Gets the outline (bookmarks) tree.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The root entries.</returns>
-    internal static IReadOnlyList<OutlineNode> GetOutline(HyperPdfDocument self)
+    internal static OutlineNode[] GetOutline(HyperPdfDocument self)
     {
         using var access = HyperPdfNavigation.EnterPageRead(self);
         if (self.IsDisposed)
@@ -84,7 +84,7 @@ internal static class HyperPdfNavigation
         var outline = Volatile.Read(ref self.Outline);
         if (outline is null)
         {
-            outline = HyperPdfNavigation.ConvertOutline(self, PdfDocumentNavigation.GetOutline(self.Document));
+            outline = HyperPdfNavigation.ConvertOutline(self, [..PdfDocumentNavigation.GetOutline(self.Document)]);
             Volatile.Write(ref self.Outline, outline);
         }
 
@@ -95,7 +95,7 @@ internal static class HyperPdfNavigation
     /// <param name="self">The owning document.</param>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>The links.</returns>
-    internal static IReadOnlyList<PageLink> GetLinks(HyperPdfDocument self, int pageIndex)
+    internal static PageLink[] GetLinks(HyperPdfDocument self, int pageIndex)
     {
         using var access = HyperPdfNavigation.EnterPageRead(self);
         if (self.IsDisposed || (uint)pageIndex >= (uint)self.PageCount)
@@ -215,9 +215,9 @@ internal static class HyperPdfNavigation
     /// <param name="self">The owning document.</param>
     /// <param name="items">The library entries.</param>
     /// <returns>The viewer entries.</returns>
-    internal static OutlineNode[] ConvertOutline(HyperPdfDocument self, IReadOnlyList<PdfOutlineItem> items)
+    internal static OutlineNode[] ConvertOutline(HyperPdfDocument self, ReadOnlySpan<PdfOutlineItem> items)
     {
-        var nodes = new OutlineNode[items.Count];
+        var nodes = new OutlineNode[items.Length];
         for (var i = 0; i < nodes.Length; i++)
         {
             var item = items[i];

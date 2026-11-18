@@ -32,7 +32,7 @@ public static class MeloModel
     public static string SpellingFile => "g2p-en.bin";
 
     /// <summary>Gets the voices offered, Australian first: each is one of the model's English speakers.</summary>
-    public static IReadOnlyList<SpeechVoice> Voices { get; } =
+    public static SpeechVoice[] Voices { get; } =
     [
         new("EN-AU", "Australian", "Australian English"),
         new("EN-BR", "British", "British English"),
@@ -41,7 +41,7 @@ public static class MeloModel
     ];
 
     /// <summary>Gets the files to download.</summary>
-    public static IReadOnlyList<SpeechModelFile> Files { get; } =
+    public static SpeechModelFile[] Files { get; } =
     [
         VoiceRelease.File(ModelFile, ModelFile),
         VoiceRelease.File(SymbolsFile, SymbolsFile),

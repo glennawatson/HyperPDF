@@ -22,9 +22,9 @@ internal sealed class HyperPdfDocumentPartSourceService : IDocumentPartSource
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<DocumentPart> GetParts() => HyperPdfDocumentParts.GetParts(_owner);
+    public List<DocumentPart> GetParts() => HyperPdfDocumentParts.GetParts(_owner);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<ArticleThread> GetThreads() => HyperPdfDocumentParts.GetThreads(_owner);
+    public List<ArticleThread> GetThreads() => HyperPdfDocumentParts.GetThreads(_owner);
 }

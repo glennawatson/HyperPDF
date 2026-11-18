@@ -60,7 +60,7 @@ public static class ReadingOrder
     /// <param name="repeatedMargins">Signatures of header and footer lines repeated across the document, from <see cref="FindRepeatedMargins"/>.</param>
     /// <returns>The page's blocks in reading order.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ReadingPage Analyze(int pageIndex, PageSize pageSize, IReadOnlyList<PageCharacter> characters, IReadOnlySet<string> repeatedMargins) =>
+    public static ReadingPage Analyze(int pageIndex, PageSize pageSize, ReadOnlySpan<PageCharacter> characters, IReadOnlySet<string> repeatedMargins) =>
         Analyze(pageIndex, pageSize, characters, repeatedMargins, new());
 
     /// <summary>Works out a page's reading order using a caller's reusable buffers.</summary>
@@ -70,12 +70,11 @@ public static class ReadingOrder
     /// <param name="repeatedMargins">Signatures of repeated header and footer lines.</param>
     /// <param name="workspace">Buffers retained by the document or caller.</param>
     /// <returns>The page's blocks in reading order.</returns>
-    public static ReadingPage Analyze(int pageIndex, PageSize pageSize, IReadOnlyList<PageCharacter> characters, IReadOnlySet<string> repeatedMargins, ReadingOrderWorkspace workspace)
+    public static ReadingPage Analyze(int pageIndex, PageSize pageSize, ReadOnlySpan<PageCharacter> characters, IReadOnlySet<string> repeatedMargins, ReadingOrderWorkspace workspace)
     {
-        ArgumentNullException.ThrowIfNull(characters);
         ArgumentNullException.ThrowIfNull(repeatedMargins);
         ArgumentNullException.ThrowIfNull(workspace);
-        if (characters.Count == 0)
+        if (characters.IsEmpty)
         {
             return new(pageIndex, []);
         }
@@ -83,7 +82,7 @@ public static class ReadingOrder
         var scratch = workspace.Rent();
         try
         {
-            ReadingLines.Build(scratch, scratch.View(characters), default);
+            ReadingLines.Build(scratch, characters, default);
             RemoveMarginNoise(scratch, pageSize, repeatedMargins);
             if (scratch.LineCount == 0)
             {
@@ -110,7 +109,7 @@ public static class ReadingOrder
     /// <param name="tagged">The page's block-level elements in logical order.</param>
     /// <returns>The page's blocks.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static ReadingPage FromStructure(int pageIndex, IReadOnlyList<PageCharacter> characters, IReadOnlyList<TaggedBlock> tagged) =>
+    public static ReadingPage FromStructure(int pageIndex, ReadOnlySpan<PageCharacter> characters, ReadOnlySpan<TaggedBlock> tagged) =>
         FromStructure(pageIndex, characters, tagged, new());
 
     /// <summary>Builds tagged reading blocks using a caller's reusable buffers.</summary>
@@ -119,26 +118,24 @@ public static class ReadingOrder
     /// <param name="tagged">The page's block-level elements in logical order.</param>
     /// <param name="workspace">Buffers retained by the document or caller.</param>
     /// <returns>The page's blocks.</returns>
-    public static ReadingPage FromStructure(int pageIndex, IReadOnlyList<PageCharacter> characters, IReadOnlyList<TaggedBlock> tagged, ReadingOrderWorkspace workspace)
+    public static ReadingPage FromStructure(int pageIndex, ReadOnlySpan<PageCharacter> characters, ReadOnlySpan<TaggedBlock> tagged, ReadingOrderWorkspace workspace)
     {
-        ArgumentNullException.ThrowIfNull(characters);
-        ArgumentNullException.ThrowIfNull(tagged);
         ArgumentNullException.ThrowIfNull(workspace);
-        if (characters.Count == 0 || tagged.Count == 0)
+        if (characters.IsEmpty || tagged.IsEmpty)
         {
             return new(pageIndex, []);
         }
 
         var scratch = workspace.Rent();
-        var blocks = ArrayPool<ReadingBlock>.Shared.Rent(Math.Max(tagged.Count, 1));
+        var blocks = ArrayPool<ReadingBlock>.Shared.Rent(Math.Max(tagged.Length, 1));
         try
         {
-            var hasHeadings = BuildElementLines(scratch, scratch.View(characters), tagged);
+            var hasHeadings = BuildElementLines(scratch, characters, tagged);
 
             // Some producers tag every heading as a paragraph; then the layout says which paragraphs are headings.
             var body = hasHeadings || scratch.LineCount == 0 ? 0 : BodyFontSize(scratch);
             var count = 0;
-            for (var i = 0; i < tagged.Count; i++)
+            for (var i = 0; i < tagged.Length; i++)
             {
                 if (FromElement(scratch, tagged[i], scratch.ElementFirst[i], scratch.ElementLines[i], body) is not { } block)
                 {
@@ -163,7 +160,7 @@ public static class ReadingOrder
     /// <param name="characters">The page's characters.</param>
     /// <param name="output">Receives one signature per margin line.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void CollectMarginSignatures(PageSize pageSize, IReadOnlyList<PageCharacter> characters, List<string> output) =>
+    public static void CollectMarginSignatures(PageSize pageSize, ReadOnlySpan<PageCharacter> characters, List<string> output) =>
         CollectMarginSignatures(pageSize, characters, output, new());
 
     /// <summary>Collects margin signatures using a caller's reusable buffers.</summary>
@@ -171,12 +168,11 @@ public static class ReadingOrder
     /// <param name="characters">The page's characters.</param>
     /// <param name="output">Receives one signature per margin line.</param>
     /// <param name="workspace">Buffers retained by the document or caller.</param>
-    public static void CollectMarginSignatures(PageSize pageSize, IReadOnlyList<PageCharacter> characters, List<string> output, ReadingOrderWorkspace workspace)
+    public static void CollectMarginSignatures(PageSize pageSize, ReadOnlySpan<PageCharacter> characters, List<string> output, ReadingOrderWorkspace workspace)
     {
         ArgumentNullException.ThrowIfNull(output);
-        ArgumentNullException.ThrowIfNull(characters);
         ArgumentNullException.ThrowIfNull(workspace);
-        if (characters.Count == 0)
+        if (characters.IsEmpty)
         {
             return;
         }
@@ -184,7 +180,7 @@ public static class ReadingOrder
         var scratch = workspace.Rent();
         try
         {
-            ReadingLines.Build(scratch, scratch.View(characters), default);
+            ReadingLines.Build(scratch, characters, default);
             for (var i = 0; i < scratch.LineCount; i++)
             {
                 if (InMargin(scratch.Lines[i].Bounds, pageSize) && MakeSignature(ReadingBlocks.TextOf(scratch, i)) is { Length: > 0 } signature)
@@ -202,11 +198,10 @@ public static class ReadingOrder
     /// <summary>Finds the margin lines that repeat on enough of the sampled pages to be running headers or footers.</summary>
     /// <param name="pages">Each sampled page's margin signatures.</param>
     /// <returns>The repeated signatures.</returns>
-    public static HashSet<string> FindRepeatedMargins(IReadOnlyList<List<string>> pages)
+    public static HashSet<string> FindRepeatedMargins(ReadOnlySpan<List<string>> pages)
     {
-        ArgumentNullException.ThrowIfNull(pages);
         var repeated = new HashSet<string>(StringComparer.Ordinal);
-        if (pages.Count < 2)
+        if (pages.Length < 2)
         {
             return repeated;
         }
@@ -220,7 +215,7 @@ public static class ReadingOrder
             }
         }
 
-        var needed = Math.Max(MinRepeats, (int)MathF.Ceiling(pages.Count * RepeatedShare));
+        var needed = Math.Max(MinRepeats, (int)MathF.Ceiling(pages.Length * RepeatedShare));
         foreach (var (signature, count) in counts)
         {
             if (count >= needed)
@@ -344,11 +339,11 @@ public static class ReadingOrder
     /// <param name="characters">The page's characters.</param>
     /// <param name="tagged">The page's block-level elements.</param>
     /// <returns><see langword="true"/> when the tags mark a heading.</returns>
-    private static bool BuildElementLines(ReadingScratch scratch, ReadOnlySpan<PageCharacter> characters, IReadOnlyList<TaggedBlock> tagged)
+    private static bool BuildElementLines(ReadingScratch scratch, ReadOnlySpan<PageCharacter> characters, ReadOnlySpan<TaggedBlock> tagged)
     {
-        scratch.EnsureElements(tagged.Count);
+        scratch.EnsureElements(tagged.Length);
         var hasHeadings = false;
-        for (var i = 0; i < tagged.Count; i++)
+        for (var i = 0; i < tagged.Length; i++)
         {
             var element = tagged[i];
             scratch.EnsureSubset(element.Characters.Length);

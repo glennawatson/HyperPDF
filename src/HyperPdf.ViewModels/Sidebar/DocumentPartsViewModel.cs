@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Documents;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -48,7 +49,7 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
     public DocumentPartsViewModel(DocumentTabViewModel owner)
     {
         _owner = owner;
-        _canGoNext = this.WhenChanged(static vm => vm.SelectedThread, static vm => vm.PlaceIndex, static (thread, place) => thread is not null && place + 1 < thread.Beads.Count);
+        _canGoNext = this.WhenChanged(static vm => vm.SelectedThread, static vm => vm.PlaceIndex, static (thread, place) => thread is not null && place + 1 < thread.Beads.Length);
         _canGoPrevious = this.WhenChanged(static vm => vm.SelectedThread, static vm => vm.PlaceIndex, static (thread, place) => thread is not null && place > 0);
 
         // The first value of each is the unselected state before the document is read. A choice made while the lists are filled
@@ -130,12 +131,12 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
     /// <summary>Builds the entries of a level of the parts tree.</summary>
     /// <param name="parts">The document's parts.</param>
     /// <returns>The entries.</returns>
-    private static List<PartItemViewModel> Build(IReadOnlyList<DocumentPart> parts)
+    private static List<PartItemViewModel> Build(ReadOnlySpan<DocumentPart> parts)
     {
-        var result = new List<PartItemViewModel>(parts.Count);
+        var result = new List<PartItemViewModel>(parts.Length);
         foreach (var part in parts)
         {
-            result.Add(new(part, Build(part.Children)));
+            result.Add(new(part, [..Build(part.Children)]));
         }
 
         return result;
@@ -147,7 +148,7 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
     {
         Parts.Clear();
         Threads.Clear();
-        foreach (var part in Build(source?.GetParts() ?? []))
+        foreach (var part in Build(CollectionsMarshal.AsSpan(source?.GetParts() ?? [])))
         {
             Parts.Add(part);
         }
@@ -177,7 +178,7 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
     private void StartArticle(ThreadItemViewModel thread)
     {
         var position = Threads.IndexOf(thread);
-        ShowPlace(thread, Math.Clamp(_lastPlaces.GetValueOrDefault(position), 0, thread.Beads.Count - 1));
+        ShowPlace(thread, Math.Clamp(_lastPlaces.GetValueOrDefault(position), 0, thread.Beads.Length - 1));
         GoToPlace(thread, PlaceIndex);
     }
 
@@ -200,7 +201,7 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
             return;
         }
 
-        ShowPlace(thread, Math.Clamp(PlaceIndex + step, 0, thread.Beads.Count - 1));
+        ShowPlace(thread, Math.Clamp(PlaceIndex + step, 0, thread.Beads.Length - 1));
         GoToPlace(thread, PlaceIndex);
     }
 
@@ -209,7 +210,7 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
     /// <param name="place">The zero based place, or -1 for none.</param>
     private void ShowPlace(ThreadItemViewModel? thread, int place)
     {
-        if (thread is null || place < 0 || place >= thread.Beads.Count)
+        if (thread is null || place < 0 || place >= thread.Beads.Length)
         {
             PlaceIndex = -1;
             PlaceText = string.Empty;
@@ -218,7 +219,7 @@ public sealed partial class DocumentPartsViewModel : ReactiveObject, IDisposable
 
         PlaceIndex = place;
         _lastPlaces[Threads.IndexOf(thread)] = place;
-        SetPlaceText(LocalizedMessage.Format(UiText, "Place {0} of {1}, page {2}", place + 1, thread.Beads.Count, thread.Beads[place].PageIndex + 1));
+        SetPlaceText(LocalizedMessage.Format(UiText, "Place {0} of {1}, page {2}", place + 1, thread.Beads.Length, thread.Beads[place].PageIndex + 1));
     }
 
     /// <summary>Updates the position text without changing the article or navigating again.</summary>

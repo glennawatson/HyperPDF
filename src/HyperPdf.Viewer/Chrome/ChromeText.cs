@@ -61,12 +61,18 @@ internal static class ChromeText
     /// <returns>The text, whole when it fits.</returns>
     internal static string Fit(string text, TextStyle style, int width, TextRuns runs)
     {
-        if (runs.Measure(text, style) <= width)
+        if (runs.Width(text, style) <= width)
         {
             return text;
         }
 
-        var room = width - runs.Measure(Ellipsis, style);
+        // A layout is built again each time a control changes, and cuts the same names to the same widths.
+        if (runs.FindFit(text, style, width) is { } kept)
+        {
+            return kept;
+        }
+
+        var room = width - runs.Width(Ellipsis, style);
         var low = 0;
         var high = text.Length;
         while (low < high)
@@ -88,7 +94,7 @@ internal static class ChromeText
             low--;
         }
 
-        return string.Concat(text.AsSpan(0, low).TrimEnd(), Ellipsis);
+        return runs.KeepFit(text, style, width, string.Concat(text.AsSpan(0, low).TrimEnd(), Ellipsis));
     }
 
     /// <summary>Breaks text into lines that fit a width, at spaces where it can.</summary>

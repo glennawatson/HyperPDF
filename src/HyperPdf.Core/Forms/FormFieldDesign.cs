@@ -11,7 +11,7 @@ namespace HyperPdf.Core.Forms;
 /// <param name="Name">The fully qualified name; a period nests the field under shorter names.</param>
 /// <param name="Widgets">Where the field is shown.</param>
 [DebuggerDisplay("FormFieldDesign: {Kind} {Name}")]
-public sealed record FormFieldDesign(FormFieldKind Kind, string Name, IReadOnlyList<FormWidgetDesign> Widgets)
+public sealed record FormFieldDesign(FormFieldKind Kind, string Name, FormWidgetDesign[] Widgets)
 {
     /// <summary>Gets the tooltip and alternate text; null uses the field name.</summary>
     public string? Tooltip { get; init; }
@@ -23,7 +23,7 @@ public sealed record FormFieldDesign(FormFieldKind Kind, string Name, IReadOnlyL
     public string? Value { get; init; }
 
     /// <summary>Gets the values selected in a list box that allows several.</summary>
-    public IReadOnlyList<string> Values { get; init; } = [];
+    public string[] Values { get; init; } = [];
 
     /// <summary>Gets the value the form returns to when it is reset.</summary>
     public string? DefaultValue { get; init; }
@@ -47,7 +47,7 @@ public sealed record FormFieldDesign(FormFieldKind Kind, string Name, IReadOnlyL
     public float? FontSize { get; init; }
 
     /// <summary>Gets the choices of a combo box or list box.</summary>
-    public IReadOnlyList<FormChoiceOption> Options { get; init; } = [];
+    public FormChoiceOption[] Options { get; init; } = [];
 
     /// <summary>Gets the caption of a push button, or the mark of a check box or radio button.</summary>
     public string? Caption { get; init; }

@@ -77,7 +77,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     private bool _listing;
 
     /// <summary>The voices listed in <see cref="VoiceNames"/>.</summary>
-    private IReadOnlyList<SpeechVoice>? _listedVoices;
+    private SpeechVoice[]? _listedVoices;
 
     /// <summary>The page reading should start from, or -1 for the current page.</summary>
     private int _startPage = -1;
@@ -183,14 +183,14 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
 
     /// <summary>Gets the voices' names and descriptions, for example "Heart, American English, warm".</summary>
     [Reactive]
-    public partial IReadOnlyList<string> VoiceNames { get; private set; } = [];
+    public partial string[] VoiceNames { get; private set; } = [];
 
     /// <summary>Gets or sets the chosen voice's index in <see cref="VoiceNames"/>.</summary>
     [Reactive]
     public partial int VoiceIndex { get; set; }
 
     /// <summary>Gets the speeds' names.</summary>
-    public IReadOnlyList<string> SpeedNames { get; }
+    public string[] SpeedNames { get; }
 
     /// <summary>Gets or sets the chosen speed's index in <see cref="SpeedNames"/>.</summary>
     [Reactive]
@@ -214,11 +214,11 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
 
     /// <summary>Gets the rectangles of the word being read, in page space.</summary>
     [Reactive]
-    public partial IReadOnlyList<PageRect> SpokenWordBounds { get; private set; } = [];
+    public partial PageRect[] SpokenWordBounds { get; private set; } = [];
 
     /// <summary>Gets the rectangles of the sentence being read, in page space.</summary>
     [Reactive]
-    public partial IReadOnlyList<PageRect> SpokenBounds { get; private set; } = [];
+    public partial PageRect[] SpokenBounds { get; private set; } = [];
 
     /// <summary>Gets the speed chosen.</summary>
     private float Speed => (float)SpeedValues[Math.Clamp(SpeedIndex, 0, SpeedValues.Length - 1)];
@@ -603,7 +603,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         var settings = _services.Settings;
         settings.SpeechSpeed = SpeedValues[Math.Clamp(SpeedIndex, 0, SpeedValues.Length - 1)];
         var voices = _services.GetSpeechEngine().Voices;
-        if (VoiceIndex >= 0 && VoiceIndex < voices.Count)
+        if (VoiceIndex >= 0 && VoiceIndex < voices.Length)
         {
             settings.SpeechVoice = voices[VoiceIndex].Id;
         }
@@ -625,9 +625,9 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         }
 
         _listedVoices = voices;
-        var names = new string[voices.Count];
+        var names = new string[voices.Length];
         var selected = 0;
-        for (var i = 0; i < voices.Count; i++)
+        for (var i = 0; i < voices.Length; i++)
         {
             names[i] = $"{voices[i].Name}, {voices[i].Description}";
             if (voices[i].Id == _services.Settings.SpeechVoice)
@@ -750,7 +750,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     /// <returns>A cold signal that gives one value at the end of the document.</returns>
     private IObservable<RxVoid> ReadSentences(IDocument document, ISpeechEngine engine, CancellationToken token)
     {
-        var voice = engine.Voices[Math.Clamp(VoiceIndex, 0, engine.Voices.Count - 1)].Id;
+        var voice = engine.Voices[Math.Clamp(VoiceIndex, 0, engine.Voices.Length - 1)].Id;
         var speed = Speed;
         return Signal.Using(
             static () => new SpeechPrefetch(),
@@ -896,7 +896,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
             document.GetTextBounds(SpokenPage, start, count, rects);
         }
 
-        SpokenWordBounds = rects;
+        SpokenWordBounds = [..rects];
     }
 
     /// <summary>Remembers where reading got to in this document, so it carries on there next time.</summary>
@@ -1041,7 +1041,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
             document.GetTextBounds(SpokenPage, start, count, rects);
         }
 
-        SpokenBounds = rects;
+        SpokenBounds = [..rects];
     }
 
     /// <summary>Downloads the on-device voice, then starts reading.</summary>

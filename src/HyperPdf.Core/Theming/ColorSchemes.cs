@@ -102,7 +102,7 @@ public static class ColorSchemes
         SoftPaperTone);
 
     /// <summary>Gets every built-in scheme.</summary>
-    public static IReadOnlyList<ColorScheme> All { get; } = [Calm, HighContrast, Dark, Light];
+    public static ColorScheme[] All { get; } = [Calm, HighContrast, Dark, Light];
 
     /// <summary>Gets the built-in scheme for a choice; <see cref="ColorSchemeChoice.FollowDesktop"/> gives Calm.</summary>
     /// <param name="choice">The choice.</param>

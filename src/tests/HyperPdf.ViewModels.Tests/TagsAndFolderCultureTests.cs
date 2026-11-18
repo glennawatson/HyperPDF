@@ -122,11 +122,11 @@ public sealed class TagsAndFolderCultureTests
             var problems = model.Problems;
             InterfaceCulture.Apply(UiText, CultureInfo.GetCultureInfo("de"));
             LocalisationRefresh.Refresh(model);
-            var summary = problems.Count switch
+            var summary = problems.Length switch
             {
                 0 => UiText.Get("No problems found. A person should still read the document with a screen reader."),
                 1 => UiText.Get("1 thing to look at."),
-                _ => UiText.Format("{0} things to look at.", problems.Count),
+                _ => UiText.Format("{0} things to look at.", problems.Length),
             };
             await Assert.That(model.ProblemSummary).IsEqualTo(summary);
             await Assert.That(model.Status).IsEqualTo(UiText.Get("Type a name for the custom tag and choose the standard tag it stands for."));

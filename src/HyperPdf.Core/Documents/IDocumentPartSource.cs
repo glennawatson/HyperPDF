@@ -9,9 +9,9 @@ public interface IDocumentPartSource : IDocumentFeature
 {
     /// <summary>Gets the document's parts as a tree.</summary>
     /// <returns>The top-level parts; empty when the document has none or the structure cannot be read.</returns>
-    IReadOnlyList<DocumentPart> GetParts();
+    List<DocumentPart> GetParts();
 
     /// <summary>Gets the document's article threads.</summary>
     /// <returns>The threads; empty when the document has none or they cannot be read.</returns>
-    IReadOnlyList<ArticleThread> GetThreads();
+    List<ArticleThread> GetThreads();
 }

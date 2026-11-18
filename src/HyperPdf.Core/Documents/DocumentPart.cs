@@ -13,4 +13,4 @@ namespace HyperPdf.Core.Documents;
 /// <param name="EndPage">The zero based last page of the part, or <see langword="null"/> when it groups other parts.</param>
 /// <param name="Children">The parts inside it, in order.</param>
 [DebuggerDisplay("DocumentPart: {Name} {StartPage}-{EndPage}")]
-public sealed record DocumentPart(string Name, string Details, int? StartPage, int? EndPage, IReadOnlyList<DocumentPart> Children);
+public sealed record DocumentPart(string Name, string Details, int? StartPage, int? EndPage, DocumentPart[] Children);

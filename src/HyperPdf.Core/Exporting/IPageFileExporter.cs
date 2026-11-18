@@ -19,5 +19,5 @@ public interface IPageFileExporter : IDocumentFeature
     /// <exception cref="ArgumentException">There are no pages, or the format takes one page and more were given.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A page is not in the document, or the resolution is not positive.</exception>
     /// <exception cref="OperationCanceledException">The token was cancelled.</exception>
-    IObservable<PageFileExportResult> Export(IReadOnlyList<int> pages, PageFileFormat format, PageFileExportOptions options, Stream destination);
+    IObservable<PageFileExportResult> Export(int[] pages, PageFileFormat format, PageFileExportOptions options, Stream destination);
 }

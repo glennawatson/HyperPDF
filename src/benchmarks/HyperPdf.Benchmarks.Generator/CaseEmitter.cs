@@ -18,7 +18,7 @@ internal static class CaseEmitter
     /// <param name="hooks">The set-up and clean-up methods.</param>
     /// <param name="parameters">The parameter attributes.</param>
     /// <returns>The source text.</returns>
-    internal static string Emit(IReadOnlyList<BenchmarkModel> benchmarks, IReadOnlyList<HookModel> hooks, IReadOnlyList<ParameterModel> parameters)
+    internal static string Emit(BenchmarkModel[] benchmarks, HookModel[] hooks, ParameterModel[] parameters)
     {
         var classes = benchmarks.GroupBy(static b => b.TypeName).OrderBy(static g => g.Key, StringComparer.Ordinal).ToList();
         var text = new StringBuilder();
@@ -55,7 +55,7 @@ internal static class CaseEmitter
     /// <param name="hooks">Every hook.</param>
     /// <param name="parameters">Every parameter model.</param>
     /// <param name="index">The class's number.</param>
-    private static void WriteClass(StringBuilder text, string typeName, List<BenchmarkModel> methods, IReadOnlyList<HookModel> hooks, IReadOnlyList<ParameterModel> parameters, int index)
+    private static void WriteClass(StringBuilder text, string typeName, List<BenchmarkModel> methods, HookModel[] hooks, ParameterModel[] parameters, int index)
     {
         var members = parameters.Where(p => p.TypeName == typeName).GroupBy(static p => p.Member).OrderBy(static g => g.Key, StringComparer.Ordinal).Select(static g => g.ToList()).ToList();
         var classHooks = hooks.Where(h => h.TypeName == typeName).ToList();

@@ -31,9 +31,9 @@ public sealed class SigningRefusedException : Exception
 
     /// <summary>Initializes a new instance of the <see cref="SigningRefusedException"/> class.</summary>
     /// <param name="reasons">Every reason the signature is refused.</param>
-    public SigningRefusedException(IReadOnlyList<string> reasons)
-        : base(reasons.Count == 0 ? "The signature was refused." : string.Join(' ', reasons)) => Reasons = reasons;
+    public SigningRefusedException(string[] reasons)
+        : base(reasons.Length == 0 ? "The signature was refused." : string.Join(' ', reasons)) => Reasons = reasons;
 
     /// <summary>Gets every reason the signature is refused, each a plain sentence.</summary>
-    public IReadOnlyList<string> Reasons { get; } = [];
+    public string[] Reasons { get; } = [];
 }

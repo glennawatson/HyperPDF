@@ -26,7 +26,7 @@ public sealed class FormDesignViewModelTests
         await TestServices.OpenAndWaitAsync(main, [test.CreateDocument("form-design.pdf", TestPdf.CreateForm())]);
         var tab = main.SelectedTab!;
         var designer = DocumentFeature<IFormDesigner>.Get(tab.TryGetDocument())!;
-        var before = (await designer.GetFields().ToTask()).Count;
+        var before = (await designer.GetFields().ToTask()).Length;
 
         _ = await tab.FormDesign.AddTextFieldCommand.Execute().ToTask();
         _ = await tab.FormDesign.AddCheckBoxCommand.Execute().ToTask();
@@ -36,11 +36,11 @@ public sealed class FormDesignViewModelTests
 
         using (Assert.Multiple())
         {
-            await Assert.That(fields.Count).IsEqualTo(before + AddedFields);
-            await Assert.That(fields.Any(static f => f.Kind == FormFieldKind.CheckBox)).IsTrue();
-            await Assert.That(fields.Any(static f => f.Kind == FormFieldKind.ComboBox)).IsTrue();
-            await Assert.That(fields.Any(static f => f.Kind == FormFieldKind.PushButton)).IsTrue();
-            await Assert.That(fields.Select(static f => f.Name).Distinct().Count()).IsEqualTo(fields.Count);
+            await Assert.That(fields.Length).IsEqualTo(before + AddedFields);
+            await Assert.That(Array.Exists(fields, static f => f.Kind == FormFieldKind.CheckBox)).IsTrue();
+            await Assert.That(Array.Exists(fields, static f => f.Kind == FormFieldKind.ComboBox)).IsTrue();
+            await Assert.That(Array.Exists(fields, static f => f.Kind == FormFieldKind.PushButton)).IsTrue();
+            await Assert.That(fields.Select(static f => f.Name).Distinct().Count()).IsEqualTo(fields.Length);
         }
     }
 }

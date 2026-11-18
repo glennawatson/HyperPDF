@@ -80,7 +80,7 @@ public sealed partial class DocumentTabViewModel
         this.RaisePropertyChanged(nameof(CertificateError));
         this.RaisePropertyChanged(nameof(Notice));
         LocalisationRefresh.RefreshCore(_services, visited);
-        LocalisationRefresh.RefreshCore(_fileWatch, visited);
+        LocalisationRefresh.RefreshCore(FileWatch, visited);
         LocalisationRefresh.RefreshCore(_copies, visited);
         LocalisationRefresh.RefreshCore(_links, visited);
         LocalisationRefresh.RefreshCore(_readAloud, visited);
@@ -89,7 +89,7 @@ public sealed partial class DocumentTabViewModel
         LocalisationRefresh.RefreshCore(_tags, visited);
         LocalisationRefresh.RefreshCore(_separations, visited);
         LocalisationRefresh.RefreshCore(_measure, visited);
-        LocalisationRefresh.RefreshCore(_annotations, visited);
+        LocalisationRefresh.RefreshCore(AnnotationsInUse, visited);
         LocalisationRefresh.RefreshCore(_outlineEditing, visited);
         LocalisationRefresh.RefreshCore(_reading, visited);
         LocalisationRefresh.RefreshCore(_search, visited);

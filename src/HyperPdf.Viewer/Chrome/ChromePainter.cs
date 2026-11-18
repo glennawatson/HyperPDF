@@ -32,6 +32,31 @@ internal static class ChromePainter
     /// <summary>The alpha, in the top byte, that dimmed text is drawn with.</summary>
     private const uint DimmedAlpha = 0x70000000;
 
+    /// <summary>
+    /// Draws a list of controls that is the same in most frames, such as the bars and the side panel. A pass that keeps pixels
+    /// between frames is first shown what the controls would draw, and puts back the pixels it kept when that is draw for draw
+    /// what it kept them from. Otherwise the controls are drawn, and the pass keeps what they leave.
+    /// </summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="items">The controls.</param>
+    /// <param name="look">The text, colours and sizes to draw with.</param>
+    /// <param name="hover">The control under the pointer, or <see langword="null"/>.</param>
+    internal static void DrawKept(IFramePass pass, List<ChromeItem> items, ChromeLook look, ChromeItem? hover)
+    {
+        if (pass.BeginKeptTrial())
+        {
+            Draw(pass, items, look, hover);
+            if (pass.EndKeptTrial())
+            {
+                return;
+            }
+        }
+
+        pass.BeginKeptGroup();
+        Draw(pass, items, look, hover);
+        pass.EndKeptGroup();
+    }
+
     /// <summary>Draws a list of controls, back to front.</summary>
     /// <param name="pass">The frame.</param>
     /// <param name="items">The controls.</param>

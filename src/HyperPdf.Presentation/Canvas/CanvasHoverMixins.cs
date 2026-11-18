@@ -70,7 +70,10 @@ public static class CanvasHoverMixins
         /// <param name="hover">The page and page point under the pointer.</param>
         /// <returns><see langword="true"/> when over a note or comment badge.</returns>
         public bool IsOverCommentTrigger(PointerHover hover) =>
-            hover.IsOverPage && state.Tab is { } tab && tab.Annotations.IsOverCommentTrigger(hover.Page, hover.Point);
+            hover.IsOverPage
+            && state.Tab is { } tab
+            && (tab.AnnotationsInUse is not null || tab.HasAnnotationsOn(hover.Page, state.BadgeAnnotations))
+            && tab.Annotations.IsOverCommentTrigger(hover.Page, hover.Point);
 
         /// <summary>Gets the pointer shape for a point where the select tool hovers: a hand over something clickable, an I-beam over text, else an arrow.</summary>
         /// <param name="hover">The page and page point under the pointer.</param>

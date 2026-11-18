@@ -21,10 +21,10 @@ internal sealed class FakePdf20CopyWriter : IPdf20CopyWriter
     internal int Calls { get; private set; }
 
     /// <summary>Gets or sets the changes reported for a made copy.</summary>
-    internal IReadOnlyList<ArchiveNote> Changes { get; set; } = [new("Moved the document information title to the XMP metadata.", "14.3.3")];
+    internal ArchiveNote[] Changes { get; init; } = [new("Moved the document information title to the XMP metadata.", "14.3.3")];
 
     /// <summary>Gets or sets the problems that stop the copy; empty makes it.</summary>
-    internal IReadOnlyList<ArchiveNote> Problems { get; set; } = [];
+    internal ArchiveNote[] Problems { get; init; } = [];
 
     /// <summary>Gets or sets what the run throws, or <see langword="null"/>.</summary>
     internal Exception? Failure { get; set; }
@@ -57,11 +57,11 @@ internal sealed class FakePdf20CopyWriter : IPdf20CopyWriter
             throw failure;
         }
 
-        if (Problems.Count == 0)
+        if (Problems.Length == 0)
         {
             await destination.WriteAsync(Output, cancellationToken).ConfigureAwait(false);
         }
 
-        return new(Problems.Count == 0 ? Changes : [], Problems);
+        return new(Problems.Length == 0 ? Changes : [], Problems);
     }
 }

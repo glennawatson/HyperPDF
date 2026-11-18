@@ -65,7 +65,7 @@ public static class CanvasViewportMixins
                 return;
             }
 
-            state.UseLayout(DocumentLayout.Create(state.Sizes, options, state.Layout), state.Sizes);
+            state.UseLayout(state.LayOut(options), state.Sizes);
             host.InvalidateMeasure();
             host.InvalidateVisual();
             host.PageScaleChanged(scaleBefore, state.PageScale);
@@ -135,6 +135,7 @@ public static class CanvasViewportMixins
         {
             var position = state.Tab?.Position ?? default;
             state.UseLayout(state.Layout, null);
+            _ = state.KeptLayouts.Remove(state.Sizes);
             state.FitExtents.Invalidate();
             state.RebuildLayout();
             state.ScrollToPosition(position);
@@ -352,5 +353,22 @@ public static class CanvasViewportMixins
             return true;
         }
 
+        /// <summary>
+        /// Lays the tab's pages out, or gives the layout made the last time the tab was shown when nothing it depends on changed,
+        /// so coming back to a tab does not lay every page out again.
+        /// </summary>
+        /// <param name="options">The layout options.</param>
+        /// <returns>The layout.</returns>
+        private DocumentLayout LayOut(in LayoutOptions options)
+        {
+            if (state.KeptLayouts.TryGetValue(state.Sizes, out var kept) && kept.Matches(options))
+            {
+                return kept;
+            }
+
+            var layout = DocumentLayout.Create(state.Sizes, options, state.Layout);
+            state.KeptLayouts.AddOrUpdate(state.Sizes, layout);
+            return layout;
+        }
     }
 }

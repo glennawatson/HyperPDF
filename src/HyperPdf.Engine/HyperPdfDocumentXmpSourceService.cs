@@ -22,5 +22,5 @@ internal sealed class HyperPdfDocumentXmpSourceService : IDocumentXmpSource
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<DocumentXmpProperty> GetProperties() => HyperPdfDocumentXmp.GetProperties(_owner);
+    public List<DocumentXmpProperty> GetProperties() => HyperPdfDocumentXmp.GetProperties(_owner);
 }

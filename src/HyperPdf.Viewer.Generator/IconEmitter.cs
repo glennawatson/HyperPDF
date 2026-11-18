@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Security;
@@ -21,7 +22,7 @@ internal static class IconEmitter
     /// <summary>Writes the source.</summary>
     /// <param name="icons">The icons, in any order.</param>
     /// <returns>The source text.</returns>
-    internal static string Emit(IReadOnlyList<IconModel> icons)
+    internal static string Emit(ImmutableArray<IconModel> icons)
     {
         var sorted = new List<IconModel>(icons);
         sorted.Sort(static (left, right) => string.CompareOrdinal(left.Name, right.Name));

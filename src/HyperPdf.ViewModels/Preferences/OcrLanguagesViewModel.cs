@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Ocr;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -66,7 +67,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
     }
 
     /// <summary>Gets every language offered, English first, created when first read.</summary>
-    public IReadOnlyList<OcrLanguageItemViewModel> Items => field ??= CreateItems();
+    public OcrLanguageItemViewModel[] Items => field ??= CreateItems();
 
     /// <summary>Gets a value indicating whether the text recogniser can run on this computer.</summary>
     public bool IsEngineInstalled { get; }
@@ -118,14 +119,14 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
     /// <summary>Describes packs for people, for example "English and German".</summary>
     /// <param name="packs">The packs.</param>
     /// <returns>The description.</returns>
-    internal static string DescribePacks(IReadOnlyList<OcrLanguagePack> packs)
+    internal static string DescribePacks(ReadOnlySpan<OcrLanguagePack> packs)
     {
-        if (packs.Count == 0)
+        if (packs.IsEmpty)
         {
             return string.Empty;
         }
 
-        var names = new string[packs.Count];
+        var names = new string[packs.Length];
         for (var i = 0; i < names.Length; i++)
         {
             names[i] = packs[i].Name;
@@ -138,7 +139,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
     /// <param name="packs">The packs.</param>
     /// <returns>A cold signal that completes when the download is over, and ends the download when unsubscribed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal IObservable<RxVoid> Download(IReadOnlyList<OcrLanguagePack> packs) =>
+    internal IObservable<RxVoid> Download(OcrLanguagePack[] packs) =>
         Signal.Defer(() => IsDownloading
             ? Signal.Return(RxVoid.Default)
             : Signal.Using(static () => new CancellationDisposable(), download => StartDownload(packs, download)));
@@ -189,7 +190,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
     /// <param name="packs">The packs.</param>
     /// <param name="download">Ends the download.</param>
     /// <returns>A signal that completes when the download is over.</returns>
-    private IObservable<RxVoid> StartDownload(IReadOnlyList<OcrLanguagePack> packs, CancellationDisposable download)
+    private IObservable<RxVoid> StartDownload(OcrLanguagePack[] packs, CancellationDisposable download)
     {
         _stopDownload = download.Dispose;
         IsDownloading = true;
@@ -198,7 +199,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
         SetStatusText(LocalizedMessage.Format(UiText, "Downloading {0}…", DescribePacks(packs)));
         var progress = new Progress<double>(fraction => DownloadProgress = fraction);
 
-        return _services.Ocr.Download(packs, progress)
+        return _services.Ocr.Download([..packs], progress)
             .ThrowWhenCancelled(download.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Do(_ => SetStatusText(LocalizedMessage.Format(UiText, "{0} downloaded.", DescribePacks(packs))))
@@ -257,7 +258,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
     private OcrLanguageItemViewModel[] CreateItems()
     {
         var chosen = OcrLanguageCatalog.Parse(_services.Settings.OcrLanguage);
-        var items = new OcrLanguageItemViewModel[OcrLanguageCatalog.Packs.Count];
+        var items = new OcrLanguageItemViewModel[OcrLanguageCatalog.Packs.Length];
         for (var i = 0; i < items.Length; i++)
         {
             var pack = OcrLanguageCatalog.Packs[i];
@@ -278,7 +279,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
 
     /// <summary>Updates the given rows' status and which buttons they offer.</summary>
     /// <param name="items">The rows.</param>
-    private void Refresh(IReadOnlyList<OcrLanguageItemViewModel> items)
+    private void Refresh(ReadOnlySpan<OcrLanguageItemViewModel> items)
     {
         var setup = _services.Ocr;
         foreach (var item in items)
@@ -296,7 +297,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
     /// <summary>Writes the ticked languages to the settings, in list order, keeping any languages the list does not offer.</summary>
     private void SaveSelection()
     {
-        var codes = new List<string>(Items.Count + _otherCodes.Count);
+        var codes = new List<string>(Items.Length + _otherCodes.Count);
         foreach (var item in Items)
         {
             if (item.IsSelected)
@@ -306,7 +307,7 @@ public sealed partial class OcrLanguagesViewModel : ReactiveObject, IDisposable,
         }
 
         codes.AddRange(_otherCodes);
-        _services.Settings.OcrLanguage = OcrLanguageCatalog.Format(codes);
+        _services.Settings.OcrLanguage = OcrLanguageCatalog.Format(CollectionsMarshal.AsSpan(codes));
         SetStatusText(codes.Count == 0 ? LocalizedMessage.Get(UiText, "No language is ticked, so English is used.") : LocalizedMessage.Literal(string.Empty));
         _services.SaveSettings();
     }

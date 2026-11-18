@@ -20,7 +20,7 @@ namespace HyperPdf.Core.Forms.Scripting;
 /// <param name="Fields">The field names a calculation reads.</param>
 /// <param name="Expression">The simplified field notation of an expression calculation, otherwise empty.</param>
 [DebuggerDisplay("FormScript: {Function}({Arguments.Count} arguments)")]
-public sealed partial record FormScript(FormScriptFunction Function, IReadOnlyList<string> Arguments, IReadOnlyList<string> Fields, string Expression)
+public sealed partial record FormScript(FormScriptFunction Function, string[] Arguments, string[] Fields, string Expression)
 {
     /// <summary>The built-in form functions the engine runs, by name.</summary>
     private static readonly Dictionary<string, FormScriptFunction> Functions = new(StringComparer.Ordinal)
@@ -105,18 +105,18 @@ public sealed partial record FormScript(FormScriptFunction Function, IReadOnlyLi
     /// <param name="fallback">The fallback.</param>
     /// <returns>The number.</returns>
     public double Number(int index, double fallback) =>
-        index < Arguments.Count && double.TryParse(Arguments[index], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : fallback;
+        index < Arguments.Length && double.TryParse(Arguments[index], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : fallback;
 
     /// <summary>Gets an argument as text, or a fallback when it is missing.</summary>
     /// <param name="index">The argument's position.</param>
     /// <param name="fallback">The fallback.</param>
     /// <returns>The text.</returns>
-    public string Text(int index, string fallback) => index < Arguments.Count ? Arguments[index] : fallback;
+    public string Text(int index, string fallback) => index < Arguments.Length ? Arguments[index] : fallback;
 
     /// <summary>Gets an argument as a flag: true, or a non-zero number.</summary>
     /// <param name="index">The argument's position.</param>
     /// <returns>The flag; false when missing.</returns>
-    public bool Flag(int index) => index < Arguments.Count && Arguments[index] is "true" or not ("false" or "0" or "");
+    public bool Flag(int index) => index < Arguments.Length && Arguments[index] is "true" or not ("false" or "0" or "");
 
     /// <summary>
     /// Finds the first call that sets a field's behaviour. Helpers such as <c>AFMergeChange</c> and <c>AFParseDateEx</c>
@@ -162,7 +162,7 @@ public sealed partial record FormScript(FormScriptFunction Function, IReadOnlyLi
         }
 
         ResolveIndexedFormat(name, arguments);
-        return new(function, arguments, fields, string.Empty);
+        return new(function, [..arguments], [..fields], string.Empty);
     }
 
     /// <summary>Reads the first argument as a whole number.</summary>

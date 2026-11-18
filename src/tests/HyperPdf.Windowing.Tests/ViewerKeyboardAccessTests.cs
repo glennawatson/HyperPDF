@@ -231,9 +231,9 @@ public sealed class ViewerKeyboardAccessTests
                 return default;
             }
 
-            var none = !chrome.Bars.Any(item => ReferenceEquals(item.Command, tab.Measure.ToggleCommand));
+            var none = !chrome.Bars.Exists(item => ReferenceEquals(item.Command, tab.Measure.ToggleCommand));
             ((System.Windows.Input.ICommand)tab.Measure.ToggleCommand).Execute(null);
-            var shown = PumpUntil(session, () => chrome.Bars.Any(item => ReferenceEquals(item.Command, tab.Measure.ToggleCommand)));
+            var shown = PumpUntil(session, () => chrome.Bars.Exists(item => ReferenceEquals(item.Command, tab.Measure.ToggleCommand)));
 
             // The last button of the measuring bar is the one that ends measuring.
             var done = -1;
@@ -243,7 +243,7 @@ public sealed class ViewerKeyboardAccessTests
             }
 
             var pressed = chrome.PressControl(false, done);
-            var ended = PumpUntil(session, () => !tab.Measure.IsOn && !chrome.Bars.Any(item => ReferenceEquals(item.Command, tab.Measure.ToggleCommand)));
+            var ended = PumpUntil(session, () => !tab.Measure.IsOn && !chrome.Bars.Exists(item => ReferenceEquals(item.Command, tab.Measure.ToggleCommand)));
             return new ToolOutcome(none, shown, pressed, ended);
         });
 
@@ -263,8 +263,8 @@ public sealed class ViewerKeyboardAccessTests
             var chrome = session.Chrome;
             Key(window, ViewerKey.Digit4, ViewerModifiers.Control);
             var opened = PumpUntil(session, () => chrome.HasOverlay && session.Main.SelectedTab is { FocusMode.IsOn: true });
-            var text = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item is { Action: OverlayAction.PickRow, Text.Length: > 0 }));
-            var larger = chrome.OverlayItems.Any(static item => item.TextSize > 0);
+            var text = PumpUntil(session, () => chrome.OverlayItems.Exists(static item => item is { Action: OverlayAction.PickRow, Text.Length: > 0 }));
+            var larger = chrome.OverlayItems.Exists(static item => item.TextSize > 0);
             Key(window, ViewerKey.Escape, ViewerModifiers.None);
             var left = PumpUntil(session, () => !chrome.HasOverlay && session.Main.SelectedTab is { FocusMode.IsOn: false });
             return new FocusOutcome(opened, text, larger, left);
@@ -286,11 +286,11 @@ public sealed class ViewerKeyboardAccessTests
             var chrome = session.Chrome;
             var hidden = !chrome.HasOverlay;
             Key(window, ViewerKey.W, ViewerModifiers.Control);
-            var shown = PumpUntil(session, () => session.Main.Tabs.Count == 0 && chrome.OverlayItems.Any(static item => item is { Kind: ChromeItemKind.Button, Icon: ChromeIcon.Open }));
+            var shown = PumpUntil(session, () => session.Main.Tabs.Count == 0 && chrome.OverlayItems.Exists(static item => item is { Kind: ChromeItemKind.Button, Icon: ChromeIcon.Open }));
             Key(window, ViewerKey.F10, ViewerModifiers.None);
-            var menu = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item.Action == OverlayAction.PickOption));
+            var menu = PumpUntil(session, () => chrome.OverlayItems.Exists(static item => item.Action == OverlayAction.PickOption));
             Key(window, ViewerKey.Escape, ViewerModifiers.None);
-            var back = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item is { Kind: ChromeItemKind.Button, Icon: ChromeIcon.Open }));
+            var back = PumpUntil(session, () => chrome.OverlayItems.Exists(static item => item is { Kind: ChromeItemKind.Button, Icon: ChromeIcon.Open }));
             return new StartOutcome(hidden, shown, menu, back);
         });
 
@@ -417,7 +417,7 @@ public sealed class ViewerKeyboardAccessTests
     /// <param name="items">The controls.</param>
     /// <param name="text">The control's name.</param>
     /// <returns>Its place in the list, or -1.</returns>
-    private static int IndexOf(IReadOnlyList<ChromeItem> items, string text)
+    private static int IndexOf(List<ChromeItem> items, string text)
     {
         for (var i = 0; i < items.Count; i++)
         {

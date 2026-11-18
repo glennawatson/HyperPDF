@@ -24,6 +24,9 @@ public sealed class ManagedRenderBackend : IPdfRenderBackend
     /// <summary>The drawing session of each thread that draws. A session dies with its thread.</summary>
     private readonly ConditionalWeakTable<Thread, ManagedDrawingSession> _sessions = [];
 
+    /// <summary>Gets a value indicating whether a picture is recorded for one page matrix. It is not: text and lines are fitted to pixels when a picture is drawn.</summary>
+    public bool RecordsForDevice => false;
+
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IPdfDrawingSession GetDrawingSession() => _sessions.GetValue(Thread.CurrentThread, static _ => new());

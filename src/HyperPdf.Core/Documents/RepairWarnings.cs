@@ -18,24 +18,23 @@ public static class RepairWarnings
     /// <summary>Describes the repairs, one per line.</summary>
     /// <param name="repairs">The repairs.</param>
     /// <returns>The details, or <see langword="null"/> when nothing was repaired.</returns>
-    public static string? Describe(IReadOnlyList<RepairNote> repairs)
+    public static string? Describe(ReadOnlySpan<RepairNote> repairs)
     {
-        ArgumentNullException.ThrowIfNull(repairs);
-        if (repairs.Count == 0)
+        if (repairs.IsEmpty)
         {
             return null;
         }
 
         var builder = new StringBuilder();
-        var listed = Math.Min(repairs.Count, MaxListed);
+        var listed = Math.Min(repairs.Length, MaxListed);
         for (var i = 0; i < listed; i++)
         {
             AppendLine(builder, repairs[i]);
         }
 
-        if (repairs.Count > listed)
+        if (repairs.Length > listed)
         {
-            _ = builder.Append(UiText.Format("And {0} more.", repairs.Count - listed));
+            _ = builder.Append(UiText.Format("And {0} more.", repairs.Length - listed));
         }
 
         return builder.ToString().TrimEnd();

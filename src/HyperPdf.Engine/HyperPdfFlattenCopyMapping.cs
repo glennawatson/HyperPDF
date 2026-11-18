@@ -70,7 +70,7 @@ internal static class HyperPdfFlattenCopyMapping
             notes.Add(new("Links and bookmarks that jump to a spot on a turned page may land in a different place.", RotationClause));
         }
 
-        return new(report.PagesChanged, report.WidgetsDrawn, report.AnnotationsDrawn, report.FormRemoved, notes, []);
+        return new(report.PagesChanged, report.WidgetsDrawn, report.AnnotationsDrawn, report.FormRemoved, [..notes], []);
     }
 
     /// <summary>Adds one note for each reason annotations were not drawn and whether they were removed anyway.</summary>

@@ -11,8 +11,8 @@ namespace HyperPdf.Core.Archiving;
 /// <param name="Changes">What was changed so the copy meets the level.</param>
 /// <param name="Problems">Why the copy could not be made; empty when it was written.</param>
 [DebuggerDisplay("ArchiveCopyResult: {Level}, converted {Converted}")]
-public sealed record ArchiveCopyResult(ArchiveLevel Level, IReadOnlyList<ArchiveNote> Changes, IReadOnlyList<ArchiveNote> Problems)
+public sealed record ArchiveCopyResult(ArchiveLevel Level, ArchiveNote[] Changes, ArchiveNote[] Problems)
 {
     /// <summary>Gets a value indicating whether the copy was written.</summary>
-    public bool Converted => Problems.Count == 0;
+    public bool Converted => Problems.Length == 0;
 }

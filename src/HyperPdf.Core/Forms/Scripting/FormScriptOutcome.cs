@@ -12,8 +12,8 @@ namespace HyperPdf.Core.Forms.Scripting;
 /// <param name="Accepted">Whether the script accepted the value, that is <c>event.rc</c>; true when it did not complete.</param>
 /// <param name="Messages">The messages the script asked to show with <c>app.alert</c>, or the reason it did not complete.</param>
 [DebuggerDisplay("FormScriptOutcome: Completed={Completed} Accepted={Accepted}")]
-public readonly record struct FormScriptOutcome(bool Completed, string Value, bool Accepted, IReadOnlyList<string> Messages)
+public readonly record struct FormScriptOutcome(bool Completed, string Value, bool Accepted, string[] Messages)
 {
     /// <summary>Gets the first message, or an empty string when there is none.</summary>
-    public string Message => Messages is { Count: > 0 } ? Messages[0] : string.Empty;
+    public string Message => Messages is { Length: > 0 } ? Messages[0] : string.Empty;
 }

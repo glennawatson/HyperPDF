@@ -25,7 +25,7 @@ internal static class MainMenu
         var entries = new List<MenuEntry>
         {
             MenuEntry.Item(UiText.Get("_Open…"), "Ctrl+O", main.OpenCommand, null, true),
-            MenuEntry.Submenu(UiText.Get("Open _Recent"), main.RecentDocuments.Count > 0, Recent(main)),
+            MenuEntry.Submenu(UiText.Get("Open _Recent"), main.RecentDocuments.Count > 0, [..Recent(main)]),
             MenuEntry.Item(UiText.Get("Reopen _Closed Tab"), null, main.ReopenClosedTabCommand, null, true),
         };
         if (tab is null)
@@ -38,24 +38,24 @@ internal static class MainMenu
         entries.Add(MenuEntry.Item(UiText.Get("_Save"), "Ctrl+S", tab.SaveCommand, null, tab.HasUnsavedChanges));
         entries.Add(MenuEntry.Item(UiText.Get("Save _As…"), null, tab.SaveAsCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Item(UiText.Get("Re_load"), null, tab.ReloadCommand, null, tab.IsLoaded));
-        entries.Add(MenuEntry.Submenu(UiText.Get("Save a Cop_y"), tab.IsLoaded, ToolMenus.Copies(tab)));
+        entries.Add(MenuEntry.Submenu(UiText.Get("Save a Cop_y"), tab.IsLoaded, [..ToolMenus.Copies(tab)]));
         entries.Add(MenuEntry.Item(UiText.Get("_Print…"), "Ctrl+P", tab.Printing.PrintCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Item(UiText.Get("Print with the System _Dialog…"), null, tab.Printing.PrintWithSystemDialogCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Item(UiText.Get("Document Propert_ies…"), null, main.PropertiesCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Item(UiText.Get("_Compare with Another Document…"), null, tab.Pages.Compare.CompareCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Item(UiText.Get("Remove _Hidden Information…"), null, tab.Pages.Sanitize.ShowCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Separator());
-        entries.Add(MenuEntry.Submenu(UiText.Get("_View"), tab.IsLoaded, View(main, tab)));
-        entries.Add(MenuEntry.Submenu(UiText.Get("_Go"), tab.IsLoaded, Go(tab)));
-        entries.Add(MenuEntry.Submenu(UiText.Get("Page _Layout and Zoom"), tab.IsLoaded, ToolMenus.Layout(tab)));
-        entries.Add(MenuEntry.Submenu(UiText.Get("_Reading Aids"), tab.IsLoaded, ToolMenus.Reading(tab)));
-        entries.Add(MenuEntry.Submenu(UiText.Get("T_ools"), tab.IsLoaded, Tools(tab)));
-        entries.Add(MenuEntry.Submenu(UiText.Get("_Measure, Sign and Edit"), tab.IsLoaded, ToolMenus.PageWork(tab)));
-        entries.Add(MenuEntry.Submenu(UiText.Get("_Pages"), tab.IsLoaded, ToolMenus.Pages(tab)));
-        entries.Add(MenuEntry.Submenu(UiText.Get("Add _to Pages"), tab.IsLoaded, ToolMenus.Decorations(tab)));
-        entries.Add(MenuEntry.Submenu(UiText.Get("_Bookmarks"), tab.IsLoaded, ToolMenus.Bookmarks(tab)));
-        entries.Add(MenuEntry.Submenu(UiText.Get("Signatures and Ta_gs"), tab.IsLoaded, ToolMenus.Trust(tab)));
-        entries.Add(MenuEntry.Submenu(UiText.Get("_Tabs"), true, Tabs(main, tab)));
+        entries.Add(MenuEntry.Submenu(UiText.Get("_View"), tab.IsLoaded, [..View(main, tab)]));
+        entries.Add(MenuEntry.Submenu(UiText.Get("_Go"), tab.IsLoaded, [..Go(tab)]));
+        entries.Add(MenuEntry.Submenu(UiText.Get("Page _Layout and Zoom"), tab.IsLoaded, [..ToolMenus.Layout(tab)]));
+        entries.Add(MenuEntry.Submenu(UiText.Get("_Reading Aids"), tab.IsLoaded, [..ToolMenus.Reading(tab)]));
+        entries.Add(MenuEntry.Submenu(UiText.Get("T_ools"), tab.IsLoaded, [..Tools(tab)]));
+        entries.Add(MenuEntry.Submenu(UiText.Get("_Measure, Sign and Edit"), tab.IsLoaded, [..ToolMenus.PageWork(tab)]));
+        entries.Add(MenuEntry.Submenu(UiText.Get("_Pages"), tab.IsLoaded, [..ToolMenus.Pages(tab)]));
+        entries.Add(MenuEntry.Submenu(UiText.Get("Add _to Pages"), tab.IsLoaded, [..ToolMenus.Decorations(tab)]));
+        entries.Add(MenuEntry.Submenu(UiText.Get("_Bookmarks"), tab.IsLoaded, [..ToolMenus.Bookmarks(tab)]));
+        entries.Add(MenuEntry.Submenu(UiText.Get("Signatures and Ta_gs"), tab.IsLoaded, [..ToolMenus.Trust(tab)]));
+        entries.Add(MenuEntry.Submenu(UiText.Get("_Tabs"), true, [..Tabs(main, tab)]));
         AddAppEntries(entries, main);
         return entries;
     }
@@ -80,7 +80,7 @@ internal static class MainMenu
     private static void AddAppEntries(List<MenuEntry> entries, MainViewModel main)
     {
         entries.Add(MenuEntry.Separator());
-        entries.Add(MenuEntry.Submenu(UiText.Get("_Window"), true, ToolMenus.Window(main)));
+        entries.Add(MenuEntry.Submenu(UiText.Get("_Window"), true, [..ToolMenus.Window(main)]));
         entries.Add(MenuEntry.Item(UiText.Get("Pre_ferences…"), "Ctrl+,", main.PreferencesCommand, null, true));
         entries.Add(MenuEntry.Item(UiText.Get("_Licences…"), null, main.LicencesCommand, null, true));
     }

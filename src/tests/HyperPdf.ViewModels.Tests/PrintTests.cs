@@ -96,8 +96,14 @@ public sealed class PrintTests
         var tab = main.SelectedTab!;
         using var handler = tab.Printing.PrintPreviewInteraction.RegisterHandler(static async context =>
         {
-            // The choice must be made before the preview closes, or a slow machine prints to the default destination instead.
-            _ = await context.Input.SystemDialogCommand.Execute().ToTask();
+            // The preview lists the printers on another thread and, finding none, falls back to saving a PDF. Choosing the system
+            // dialog while that is still under way can lose to it, and the print then asks where to save instead. So the choice
+            // waits until the fallback shows the list has been read.
+            var preview = context.Input;
+            await Assert.That(await WaitAsync(() => preview.Destination == PrintDestination.SaveAsPdf))
+                .IsTrue().Because($"destination {preview.Destination}.");
+            _ = await preview.SystemDialogCommand.Execute().ToTask();
+            await Assert.That(preview.Destination).IsEqualTo(PrintDestination.SystemDialog);
             context.SetOutput(true);
         });
 

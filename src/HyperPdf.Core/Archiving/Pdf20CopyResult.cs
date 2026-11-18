@@ -10,8 +10,8 @@ namespace HyperPdf.Core.Archiving;
 /// <param name="Changes">What the copy changed to meet ISO 32000-2, in plain words.</param>
 /// <param name="Problems">Why the copy was refused; empty when it was written.</param>
 [DebuggerDisplay("Pdf20CopyResult: converted {Converted}")]
-public sealed record Pdf20CopyResult(IReadOnlyList<ArchiveNote> Changes, IReadOnlyList<ArchiveNote> Problems)
+public sealed record Pdf20CopyResult(ArchiveNote[] Changes, ArchiveNote[] Problems)
 {
     /// <summary>Gets a value indicating whether the copy was written.</summary>
-    public bool Converted => Problems.Count == 0;
+    public bool Converted => Problems.Length == 0;
 }

@@ -75,7 +75,7 @@ public sealed class FormDesignerTests
 
         await Assert.That(moved.Succeeded).IsTrue();
         await Assert.That(removed.Succeeded).IsTrue();
-        await Assert.That((await designer.GetFields().ToTask()).Count).IsEqualTo(0);
+        await Assert.That((await designer.GetFields().ToTask()).Length).IsEqualTo(0);
     }
 
     /// <summary>A name that is already used and a field that does not exist are refused with a reason.</summary>

@@ -145,7 +145,7 @@ public sealed class WindowsPrintService : IPrintService
     public bool IsAvailable => true;
 
     /// <inheritdoc/>
-    public unsafe IReadOnlyList<PrinterInfo> GetPrinters()
+    public unsafe List<PrinterInfo> GetPrinters()
     {
         _ = NativeMethods.EnumPrinters(LocalAndConnections, null, InfoLevel, null, 0, out var needed, out _);
         if (needed == 0)

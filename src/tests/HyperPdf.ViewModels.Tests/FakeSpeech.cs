@@ -45,7 +45,7 @@ internal sealed class FakeSpeech : ISpeechEngine, IAudioOutput
     public bool IsReady { get; private set; }
 
     /// <inheritdoc/>
-    public IReadOnlyList<SpeechVoice> Voices => FakeVoices;
+    public SpeechVoice[] Voices => FakeVoices;
 
     /// <inheritdoc/>
     public bool IsAvailable => true;

@@ -36,11 +36,11 @@ public sealed record AccessibleNode(
     string Description,
     AccessibleStates States,
     AccessibleBounds Bounds,
-    IReadOnlyList<int> Children,
+    int[] Children,
     int HeadingLevel,
     int PositionInSet,
     int SetSize,
     string LandmarkType,
-    IReadOnlyList<string> Actions,
+    string[] Actions,
     AccessibleText? Text,
     long WindowNumber);

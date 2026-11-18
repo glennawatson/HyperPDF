@@ -54,7 +54,7 @@ public sealed partial class FocusPageViewModel : ReactiveObject
 
     /// <summary>Gets the blocks, empty until loaded.</summary>
     [Reactive]
-    public partial IReadOnlyList<FocusBlockViewModel> Blocks { get; private set; } = [];
+    public partial FocusBlockViewModel[] Blocks { get; private set; } = [];
 
     /// <summary>Gets a value indicating whether the page has no text to show, once loaded.</summary>
     [Reactive]
@@ -85,10 +85,10 @@ public sealed partial class FocusPageViewModel : ReactiveObject
     /// <param name="blocks">The page's blocks.</param>
     /// <param name="start">The first item.</param>
     /// <returns>The number of items.</returns>
-    private static int ListLength(IReadOnlyList<ReadingBlock> blocks, int start)
+    private static int ListLength(ReadOnlySpan<ReadingBlock> blocks, int start)
     {
         var end = start;
-        while (end < blocks.Count && blocks[end].Kind == ReadingBlockKind.ListItem)
+        while (end < blocks.Length && blocks[end].Kind == ReadingBlockKind.ListItem)
         {
             end++;
         }
@@ -119,7 +119,7 @@ public sealed partial class FocusPageViewModel : ReactiveObject
         }
 
         Blocks = Build(page);
-        IsEmpty = Blocks.Count == 0;
+        IsEmpty = Blocks.Length == 0;
         Volatile.Write(ref _state, Loaded);
         return RxVoid.Default;
     }
@@ -138,7 +138,7 @@ public sealed partial class FocusPageViewModel : ReactiveObject
     /// <returns>The blocks.</returns>
     private FocusBlockViewModel[] Build(ReadingPage page)
     {
-        var blocks = new FocusBlockViewModel[page.Blocks.Count];
+        var blocks = new FocusBlockViewModel[page.Blocks.Length];
         var offset = 0;
         var listStart = 0;
         for (var i = 0; i < blocks.Length; i++)

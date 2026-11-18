@@ -80,7 +80,7 @@ internal static class TextBoxFonts
     /// <returns>The faces in the order to try them.</returns>
     internal static FontFace[] Rank(FontCatalog catalog, bool bold, bool italic)
     {
-        var faces = new FontFace[catalog.Faces.Count];
+        var faces = new FontFace[catalog.Faces.Length];
         var ranks = new int[faces.Length];
         for (var index = 0; index < faces.Length; index++)
         {

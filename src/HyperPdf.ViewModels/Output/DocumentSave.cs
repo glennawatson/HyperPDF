@@ -150,9 +150,9 @@ internal static class DocumentSave
     private static DocumentSaveOutcome Saved(DocumentSaveReport report) => new(true, null, report.ClaimRemoved)
     {
         ClaimRepaired = report.ClaimRepaired,
-        TrapNetworkWarnings = report.TrapNetworkWarnings,
-        RequirementWarnings = report.RequirementWarnings,
-        RemovedRequirements = report.RemovedRequirements,
+        TrapNetworkWarnings = [..report.TrapNetworkWarnings],
+        RequirementWarnings = [..report.RequirementWarnings],
+        RemovedRequirements = [..report.RemovedRequirements],
     };
 
     /// <summary>Deletes a temporary file, ignoring a failure because the file is only a leftover.</summary>

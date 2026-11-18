@@ -164,7 +164,7 @@ public sealed class OverlayStreamTests
     /// <param name="title">The title.</param>
     /// <returns><see langword="true"/> when the dialog is on show.</returns>
     private static bool Showing(ViewerChrome chrome, string title) =>
-        chrome.OverlayItems.Any(item => item.Kind == ChromeItemKind.Heading && item.Text == title);
+        chrome.OverlayItems.Exists(item => item.Kind == ChromeItemKind.Heading && item.Text == title);
 
     /// <summary>Makes a folder for one run.</summary>
     /// <returns>The folder.</returns>

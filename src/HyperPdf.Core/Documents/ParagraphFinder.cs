@@ -72,9 +72,8 @@ public static class ParagraphFinder
     /// <param name="objects">The objects of the page.</param>
     /// <param name="picked">The line of text that is picked.</param>
     /// <returns>The numbers of the paragraph's lines from the first line on, which include the picked line's own.</returns>
-    public static int[] Find(IReadOnlyList<PageObjectInfo> objects, PageObjectInfo picked)
+    public static int[] Find(ReadOnlySpan<PageObjectInfo> objects, PageObjectInfo picked)
     {
-        ArgumentNullException.ThrowIfNull(objects);
         if (IsLoneMarker(picked.Text))
         {
             return [picked.Index];
@@ -105,9 +104,8 @@ public static class ParagraphFinder
     /// <param name="objects">The objects of the page.</param>
     /// <param name="lines">The numbers the search gave, in order.</param>
     /// <returns>The words.</returns>
-    public static string JoinText(IReadOnlyList<PageObjectInfo> objects, int[] lines)
+    public static string JoinText(ReadOnlySpan<PageObjectInfo> objects, int[] lines)
     {
-        ArgumentNullException.ThrowIfNull(objects);
         ArgumentNullException.ThrowIfNull(lines);
         return ParagraphMates.Join(objects, lines);
     }
@@ -184,13 +182,13 @@ public static class ParagraphFinder
     /// <param name="edge">The place of each line the lines are lined up by.</param>
     /// <param name="separate">Whether the page has any text that is only a marker, so the lines beside which one stands are worth looking for.</param>
     /// <returns>The numbers of the lines from the first line on.</returns>
-    private static int[] FindLined(IReadOnlyList<PageObjectInfo> objects, in PageObjectInfo picked, LineEdge edge, bool separate)
+    private static int[] FindLined(ReadOnlySpan<PageObjectInfo> objects, in PageObjectInfo picked, LineEdge edge, bool separate)
     {
         // Only lines lined up to the left start a list item with a marker.
         var head = edge == LineEdge.Start ? FindMarkerAbove(objects, picked) ?? picked : picked;
 
         // The lines over the head are found nearest first into the first half of a borrowed array and those under it into the second half, so the answer is the only array made.
-        var half = objects.Count + 1;
+        var half = objects.Length + 1;
         var room = ArrayPool<int>.Shared.Rent(half * TwoSides);
         try
         {
@@ -222,7 +220,7 @@ public static class ParagraphFinder
     /// <param name="objects">The objects of the page.</param>
     /// <param name="picked">The picked line.</param>
     /// <returns>The marker line when the picked line is a continuation of a list item; otherwise <see langword="null"/>.</returns>
-    private static PageObjectInfo? FindMarkerAbove(IReadOnlyList<PageObjectInfo> objects, in PageObjectInfo picked)
+    private static PageObjectInfo? FindMarkerAbove(ReadOnlySpan<PageObjectInfo> objects, in PageObjectInfo picked)
     {
         var current = picked;
         var height = FrameOf(picked).Height;
@@ -252,13 +250,13 @@ public static class ParagraphFinder
     /// <param name="current">The line to look from.</param>
     /// <param name="reach">Which way to look and how far from the current line's place the line's place may be.</param>
     /// <returns>The nearest such line, or <see langword="null"/> when there is none.</returns>
-    private static PageObjectInfo? Nearest(IReadOnlyList<PageObjectInfo> objects, in PageObjectInfo sizeLine, in PageObjectInfo current, in Reach reach)
+    private static PageObjectInfo? Nearest(ReadOnlySpan<PageObjectInfo> objects, in PageObjectInfo sizeLine, in PageObjectInfo current, in Reach reach)
     {
         PageObjectInfo? best = null;
         var bestGap = float.PositiveInfinity;
         var sizeFrame = FrameOf(sizeLine);
         var from = FrameOf(current);
-        for (var i = 0; i < objects.Count; i++)
+        for (var i = 0; i < objects.Length; i++)
         {
             var candidate = objects[i];
             if (!IsTextLine(candidate) || candidate.Index == current.Index || !SameWay(candidate, sizeLine))
@@ -286,7 +284,7 @@ public static class ParagraphFinder
     /// <param name="head">The first line of the paragraph.</param>
     /// <param name="edge">The place of each line the lines are lined up by.</param>
     /// <returns>The place of the following lines.</returns>
-    private static float ContinuationAnchor(IReadOnlyList<PageObjectInfo> objects, in PageObjectInfo head, LineEdge edge)
+    private static float ContinuationAnchor(ReadOnlySpan<PageObjectInfo> objects, in PageObjectInfo head, LineEdge edge)
     {
         if (edge != LineEdge.Start || !StartsWithMarker(head.Text))
         {
@@ -303,7 +301,7 @@ public static class ParagraphFinder
     /// <param name="step">The place the lines are lined up at, the way they are lined up and which way to go.</param>
     /// <param name="found">Receives the numbers of the lines, in the order they are found; it holds as many as the page has objects.</param>
     /// <returns>How many lines were found.</returns>
-    private static int Grow(IReadOnlyList<PageObjectInfo> objects, in PageObjectInfo head, in GrowStep step, Span<int> found)
+    private static int Grow(ReadOnlySpan<PageObjectInfo> objects, in PageObjectInfo head, in GrowStep step, Span<int> found)
     {
         var count = 0;
         var current = head;
@@ -340,7 +338,7 @@ public static class ParagraphFinder
     /// <param name="current">The line to look from.</param>
     /// <param name="step">Where the lines of the paragraph are lined up and which way to look.</param>
     /// <returns>The nearest such line, or <see langword="null"/> when the paragraph ends.</returns>
-    private static PageObjectInfo? Next(IReadOnlyList<PageObjectInfo> objects, in PageObjectInfo head, in PageObjectInfo current, in GrowStep step)
+    private static PageObjectInfo? Next(ReadOnlySpan<PageObjectInfo> objects, in PageObjectInfo head, in PageObjectInfo current, in GrowStep step)
     {
         var reach = FrameOf(head).Height * StartTolerance;
         var shift = step.Anchor - ItemAnchor(current, step.Edge);
@@ -353,15 +351,15 @@ public static class ParagraphFinder
     /// <param name="edge">The place the lines are lined up by; only lines lined up to the left start a list item.</param>
     /// <param name="separate">Whether the page has any text that is only a marker.</param>
     /// <returns><see langword="true"/> when the line opens a list item.</returns>
-    private static bool StartsItem(IReadOnlyList<PageObjectInfo> objects, in PageObjectInfo line, LineEdge edge, bool separate) =>
+    private static bool StartsItem(ReadOnlySpan<PageObjectInfo> objects, in PageObjectInfo line, LineEdge edge, bool separate) =>
         edge == LineEdge.Start && (StartsWithMarker(line.Text) || (separate && HasMarkerBeside(objects, line)));
 
     /// <summary>Tells whether any object of the page is a text that is only a marker.</summary>
     /// <param name="objects">The objects of the page.</param>
     /// <returns><see langword="true"/> when a bullet or number stands on its own.</returns>
-    private static bool HasLoneMarker(IReadOnlyList<PageObjectInfo> objects)
+    private static bool HasLoneMarker(ReadOnlySpan<PageObjectInfo> objects)
     {
-        for (var i = 0; i < objects.Count; i++)
+        for (var i = 0; i < objects.Length; i++)
         {
             var item = objects[i];
             if (item.Kind == PageObjectKind.Text && IsLoneMarker(item.Text))
@@ -377,11 +375,11 @@ public static class ParagraphFinder
     /// <param name="objects">The objects of the page.</param>
     /// <param name="line">The line.</param>
     /// <returns><see langword="true"/> when a marker stands beside the line.</returns>
-    private static bool HasMarkerBeside(IReadOnlyList<PageObjectInfo> objects, in PageObjectInfo line)
+    private static bool HasMarkerBeside(ReadOnlySpan<PageObjectInfo> objects, in PageObjectInfo line)
     {
         var frame = FrameOf(line);
         var height = frame.Height;
-        for (var i = 0; i < objects.Count; i++)
+        for (var i = 0; i < objects.Length; i++)
         {
             var candidate = objects[i];
             if (candidate.Kind != PageObjectKind.Text || !SameWay(candidate, line) || candidate.Text.Length > LongestMarkerText)

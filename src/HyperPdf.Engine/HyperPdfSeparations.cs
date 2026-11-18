@@ -54,8 +54,10 @@ internal static class HyperPdfSeparations
             changes[i] = new(group + 1, groupPages, kept, unlinked);
         }
 
-        target.SeparationChanges = changes;
-        target.TrapNetworkWarnings = TrapNetworkMapping.Warnings(source.TrapNetworks);
+        target.SeparationChanges.Clear();
+        target.SeparationChanges.AddRange(changes);
+        target.TrapNetworkWarnings.Clear();
+        target.TrapNetworkWarnings.AddRange(TrapNetworkMapping.Warnings([..source.TrapNetworks]));
     }
 
     /// <summary>Converts the library's groups.</summary>

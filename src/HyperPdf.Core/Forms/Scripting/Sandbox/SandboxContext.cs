@@ -4,6 +4,7 @@
 
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace HyperPdf.Core.Forms.Scripting.Sandbox;
 
@@ -76,7 +77,7 @@ internal sealed class SandboxContext : SandboxObject, IDisposable
     internal SandboxValue ReturnCode { get; private set; }
 
     /// <summary>Gets the messages the script showed.</summary>
-    internal IReadOnlyList<string> Messages => _messages is null ? NoMessages : _messages;
+    internal ReadOnlySpan<string> Messages => _messages is null ? NoMessages : CollectionsMarshal.AsSpan(_messages);
 
     /// <inheritdoc/>
     public void Dispose()

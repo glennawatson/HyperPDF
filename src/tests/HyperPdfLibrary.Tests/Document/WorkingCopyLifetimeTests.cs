@@ -133,7 +133,7 @@ public sealed class WorkingCopyLifetimeTests
         var reports = PdfDocumentSignatureValidation.ValidateSignatures(document, PdfSignatureValidationOptions.Default);
 
         await Assert.That(reports[0].ModifiedAfterSigning).IsTrue();
-        await Assert.That(reports[0].Changes.Count).IsGreaterThan(0);
+        await Assert.That(reports[0].Changes.Length).IsGreaterThan(0);
         await AssertUsable(document, null, null);
     }
 

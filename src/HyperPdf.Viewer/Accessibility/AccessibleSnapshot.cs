@@ -61,7 +61,7 @@ internal sealed record AccessibleSnapshot(IReadOnlyDictionary<int, AccessibleNod
     /// <returns>The child, or <see langword="null"/> when none holds the point.</returns>
     private AccessibleNode? ChildAt(AccessibleNode parent, int x, int y)
     {
-        for (var index = parent.Children.Count - 1; index >= 0; index--)
+        for (var index = parent.Children.Length - 1; index >= 0; index--)
         {
             if (Nodes.TryGetValue(parent.Children[index], out var child) && Contains(child.Bounds, x, y))
             {

@@ -116,13 +116,13 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
     }
 
     /// <summary>Gets the stamps offered, in menu order.</summary>
-    public static IReadOnlyList<string> Stamps { get; } = ["APPROVED", "REVIEWED", "DRAFT", "CONFIDENTIAL", "FINAL", "NOT APPROVED"];
+    public static string[] Stamps { get; } = ["APPROVED", "REVIEWED", "DRAFT", "CONFIDENTIAL", "FINAL", "NOT APPROVED"];
 
     /// <summary>Gets the line widths offered, by name, in menu order.</summary>
-    public static IReadOnlyList<AnnotationValueOption> LineWidths { get; } = [new("Thin", ThinLine), new("Medium", MediumLine), new("Thick", ThickLine)];
+    public static AnnotationValueOption[] LineWidths { get; } = [new("Thin", ThinLine), new("Medium", MediumLine), new("Thick", ThickLine)];
 
     /// <summary>Gets the text sizes offered, by name, in menu order.</summary>
-    public static IReadOnlyList<AnnotationValueOption> FontSizes { get; } = [new("Small", SmallText), new("Medium", MediumText), new("Large", LargeText), new("Extra large", ExtraLargeText)];
+    public static AnnotationValueOption[] FontSizes { get; } = [new("Small", SmallText), new("Medium", MediumText), new("Large", LargeText), new("Extra large", ExtraLargeText)];
 
     /// <summary>Gets the interaction asking the user for text.</summary>
     public Interaction<TextPrompt, string?> PromptInteraction { get; } = new();
@@ -587,6 +587,13 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
     /// <param name="annotation">The annotation.</param>
     public void Select(PageAnnotation? annotation) => Selected = annotation;
 
+    /// <summary>Puts the open note away and clears the pick, as Escape does.</summary>
+    public void Deselect()
+    {
+        CloseBubble();
+        Selected = null;
+    }
+
     /// <inheritdoc/>
     void ILocalisationChildren.Refresh(HashSet<object> visited)
     {
@@ -694,7 +701,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
     /// <param name="choices">The choices.</param>
     /// <param name="value">The value.</param>
     /// <returns>The name, or the value in points when it is not one of the choices.</returns>
-    private static string NameOf(IReadOnlyList<AnnotationValueOption> choices, float value)
+    private static string NameOf(ReadOnlySpan<AnnotationValueOption> choices, float value)
     {
         foreach (var (name, choice) in choices)
         {
@@ -820,7 +827,7 @@ public sealed partial class AnnotationsViewModel : ReactiveObject, IDisposable, 
     [ReactiveCommand]
     private void Start()
     {
-        _owner.FillAndSign.IsActive = false;
+        _owner.FillAndSignIfMade?.IsActive = false;
         IsAnnotating = true;
     }
 

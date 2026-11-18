@@ -17,13 +17,13 @@ public static class CanvasObjectEditMixins
     /// <returns><see langword="true"/> in Edit mode.</returns>
     public static bool HoverEditObject(DocumentTabViewModel tab, PointerHover hover, InputEffects fx)
     {
-        if (!tab.ContentEdit.IsEditing)
+        if (tab.ContentEditIfMade is not { IsEditing: true } edit)
         {
             return false;
         }
 
-        tab.ContentEdit.HoverAt(hover.Page, hover.Point);
-        fx.Cursor = tab.ContentEdit.Hovered is null ? ViewerCursor.Arrow : ViewerCursor.Hand;
+        edit.HoverAt(hover.Page, hover.Point);
+        fx.Cursor = edit.Hovered is null ? ViewerCursor.Arrow : ViewerCursor.Hand;
         return true;
     }
 
@@ -47,7 +47,7 @@ public static class CanvasObjectEditMixins
         /// <returns><see langword="true"/> when the key was used.</returns>
         public bool HandleEditKey(ViewerKey key, ViewerModifiers modifiers)
         {
-            if (state.Tab is not { } tab || !tab.ContentEdit.IsEditing)
+            if (state.Tab is not { ContentEditIfMade.IsEditing: true } tab)
             {
                 return false;
             }
@@ -73,20 +73,24 @@ public static class CanvasObjectEditMixins
         /// <returns><see langword="true"/> while an object is being dragged.</returns>
         public bool DragEditObject(DocumentTabViewModel tab, CanvasPoint position, InputEffects fx)
         {
-            if (tab.ContentEdit.IsResizing)
+            if (tab.ContentEditIfMade is not { } edit)
             {
-                var edit = tab.ContentEdit;
+                return false;
+            }
+
+            if (edit.IsResizing)
+            {
                 edit.ResizeTo(state.ToPage(tab, edit.Selected!.Page, position), keepShape: false);
                 fx.Cursor = ViewerCursor.Move;
                 return true;
             }
 
-            if (tab.ContentEdit.DragPage < 0)
+            if (edit.DragPage < 0)
             {
                 return false;
             }
 
-            tab.ContentEdit.DragTo(state.ToPage(tab, tab.ContentEdit.DragPage, position));
+            edit.DragTo(state.ToPage(tab, edit.DragPage, position));
             fx.Cursor = ViewerCursor.Move;
             return true;
         }
@@ -97,7 +101,7 @@ public static class CanvasObjectEditMixins
         /// <returns><see langword="true"/> when an object was moved.</returns>
         private bool NudgeEditObject(ViewerKey key, ViewerModifiers modifiers)
         {
-            if (state.Tab is not { ContentEdit.Selected: { } picked } tab || (uint)picked.Page >= (uint)state.Sizes.Length)
+            if (state.Tab is not { ContentEditIfMade.Selected: { } picked } tab || (uint)picked.Page >= (uint)state.Sizes.Length)
             {
                 return false;
             }

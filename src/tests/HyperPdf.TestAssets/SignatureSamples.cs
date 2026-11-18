@@ -122,14 +122,13 @@ public static class SignatureSamples
     /// <param name="counts">How many of the items are certificates, and how many are OCSP responses.</param>
     /// <param name="vri">A /VRI dictionary body, or an empty string.</param>
     /// <returns>The updated file.</returns>
-    public static byte[] AddSecurityStore(byte[] file, string catalog, IReadOnlyList<byte[]> streams, StoreCounts counts, string vri)
+    public static byte[] AddSecurityStore(byte[] file, string catalog, ReadOnlySpan<byte[]> streams, StoreCounts counts, string vri)
     {
         ArgumentNullException.ThrowIfNull(catalog);
-        ArgumentNullException.ThrowIfNull(streams);
         ArgumentNullException.ThrowIfNull(counts);
         var update = new Dictionary<int, string>();
-        var references = new string[streams.Count];
-        for (var i = 0; i < streams.Count; i++)
+        var references = new string[streams.Length];
+        for (var i = 0; i < streams.Length; i++)
         {
             update[FirstStoreStream + i] = MiniPdf.Stream(string.Empty, System.Text.Encoding.Latin1.GetString(streams[i]));
             references[i] = string.Create(CultureInfo.InvariantCulture, $"{FirstStoreStream + i} 0 R");

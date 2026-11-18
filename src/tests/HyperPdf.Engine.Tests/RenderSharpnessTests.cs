@@ -23,12 +23,22 @@ public sealed class RenderSharpnessTests
     /// <summary>A minimum line width below zero.</summary>
     private const int NegativeWidth = -4;
 
-    /// <summary>The default choices map to the library's default quality.</summary>
+    /// <summary>The default choices map to the library's default quality with glyph masks on, which the viewer draws small text from.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task DefaultsMapToTheLibraryDefaults()
+    public async Task DefaultsMapToTheLibraryDefaultsWithGlyphMasks()
     {
         var quality = HyperPdfDocumentRenderSharpness.ToQuality(RenderSharpness.Default);
+
+        await Assert.That(quality).IsEqualTo(PdfRenderQuality.Default with { GlyphMasks = true });
+    }
+
+    /// <summary>Turning small text masks off, as the preferences can, maps to the library's default quality.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task SmallTextMasksOffMapsToTheLibraryDefaults()
+    {
+        var quality = HyperPdfDocumentRenderSharpness.ToQuality(RenderSharpness.Default with { SmallTextMasks = false });
 
         await Assert.That(quality).IsEqualTo(PdfRenderQuality.Default);
     }

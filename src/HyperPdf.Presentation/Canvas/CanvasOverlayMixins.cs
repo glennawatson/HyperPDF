@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Annotations;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Layout;
@@ -63,8 +64,7 @@ public static class CanvasOverlayMixins
         {
             ArgumentNullException.ThrowIfNull(painter);
             ArgumentNullException.ThrowIfNull(tab);
-            var annotations = tab.Annotations;
-            if (annotations.Tool != AnnotationTool.Text || annotations.IsEditingText)
+            if (tab.AnnotationsInUse is not { } annotations || annotations.Tool != AnnotationTool.Text || annotations.IsEditingText)
             {
                 return;
             }
@@ -87,7 +87,13 @@ public static class CanvasOverlayMixins
         {
             ArgumentNullException.ThrowIfNull(painter);
             ArgumentNullException.ThrowIfNull(tab);
-            var measure = tab.Measure;
+
+            // Nothing is measured in a tab whose measuring tool has not been used, and reading it here would make it for every tab drawn.
+            if (tab.MeasureIfMade is not { } measure)
+            {
+                return;
+            }
+
             var points = measure.Points;
             if (!measure.IsOn || measure.Page < 0 || measure.Page >= state.Sizes.Length || points.Count == 0 || !painter.CanDraw(OverlayInk.Hit))
             {
@@ -95,7 +101,7 @@ public static class CanvasOverlayMixins
             }
 
             var transform = new PageTransform(state.Layout.GetPageBounds(measure.Page), state.Sizes[measure.Page], tab.Rotation, state.Layout.Options.Scale);
-            var last = DrawMeasureLines(painter, transform, points, measure.Mode == MeasureMode.Area);
+            var last = DrawMeasureLines(painter, transform, CollectionsMarshal.AsSpan(points), measure.Mode == MeasureMode.Area);
             if (measure.Result.Length > 0)
             {
                 painter.DrawLabel(OverlayInk.Hit, measure.Result, last);
@@ -133,7 +139,7 @@ public static class CanvasOverlayMixins
         private void DrawCommentBadges(IOverlayPainter painter, DocumentTabViewModel tab, in LayoutRect viewport)
         {
             // Without an annotation editor no page has a badge, so the per-page list copies are skipped.
-            if (tab.Annotations.CanAnnotate)
+            if (tab.CanAnnotate)
             {
                 state.GetPagesBetween(viewport.X, viewport.Right, viewport.Y, viewport.Bottom, out var first, out var last);
                 for (var page = first; page <= last && page >= 0 && page < state.Sizes.Length; page++)
@@ -142,7 +148,7 @@ public static class CanvasOverlayMixins
                 }
             }
 
-            if (tab.Annotations.ActiveBubble is not { NewNoteLocation: not null } bubble || (uint)bubble.PageIndex >= (uint)state.Sizes.Length)
+            if (tab.AnnotationsInUse?.ActiveBubble is not { NewNoteLocation: not null } bubble || (uint)bubble.PageIndex >= (uint)state.Sizes.Length)
             {
                 return;
             }
@@ -157,7 +163,7 @@ public static class CanvasOverlayMixins
         /// <param name="page">The page index.</param>
         private void DrawPageCommentBadges(IOverlayPainter painter, DocumentTabViewModel tab, int page)
         {
-            tab.Annotations.GetPageAnnotations(page, state.BadgeAnnotations);
+            tab.GetPageAnnotations(page, state.BadgeAnnotations);
             if (state.BadgeAnnotations.Count == 0)
             {
                 return;
@@ -238,7 +244,7 @@ public static class CanvasOverlayMixins
         /// <param name="tab">The tab.</param>
         private void DrawPlacement(IOverlayPainter painter, DocumentTabViewModel tab)
         {
-            if (tab.FillAndSign.Placement is not { } placement || (uint)placement.Page >= (uint)state.Sizes.Length)
+            if (tab.FillAndSignIfMade?.Placement is not { } placement || (uint)placement.Page >= (uint)state.Sizes.Length)
             {
                 return;
             }
@@ -263,7 +269,7 @@ public static class CanvasOverlayMixins
                 return;
             }
 
-            if (tab.Annotations.Selected is not { } picked || !AnnotationRules.CanResize(picked) || (uint)picked.PageIndex >= (uint)state.Sizes.Length)
+            if (tab.AnnotationsInUse?.Selected is not { } picked || !AnnotationRules.CanResize(picked) || (uint)picked.PageIndex >= (uint)state.Sizes.Length)
             {
                 return;
             }
@@ -318,7 +324,7 @@ public static class CanvasOverlayMixins
         /// <param name="tab">The tab.</param>
         private void DrawPickedOutline(IOverlayPainter painter, DocumentTabViewModel tab)
         {
-            if (tab.Annotations.Selected is { } selected && selected.PageIndex < state.Sizes.Length && painter.CanDraw(OverlayInk.Hit))
+            if (tab.AnnotationsInUse?.Selected is { } selected && selected.PageIndex < state.Sizes.Length && painter.CanDraw(OverlayInk.Hit))
             {
                 painter.DrawRectangle(OverlayInk.Hit, state.GetOutline(tab, selected.PageIndex, selected.Bounds));
             }
@@ -331,18 +337,18 @@ public static class CanvasOverlayMixins
     /// <param name="points">The points, in page space.</param>
     /// <param name="closed">Whether the shape closes back to its first point.</param>
     /// <returns>The last point, in canvas space.</returns>
-    private static CanvasPoint DrawMeasureLines(IOverlayPainter painter, in PageTransform transform, IReadOnlyList<PagePoint> points, bool closed)
+    private static CanvasPoint DrawMeasureLines(IOverlayPainter painter, in PageTransform transform, ReadOnlySpan<PagePoint> points, bool closed)
     {
         var previous = transform.MapToCanvas(points[0]);
         var first = previous;
-        for (var i = 1; i < points.Count; i++)
+        for (var i = 1; i < points.Length; i++)
         {
             var next = transform.MapToCanvas(points[i]);
             painter.DrawLine(OverlayInk.Hit, previous, next);
             previous = next;
         }
 
-        if (closed && points.Count > 2)
+        if (closed && points.Length > 2)
         {
             painter.DrawLine(OverlayInk.Hit, previous, first);
         }

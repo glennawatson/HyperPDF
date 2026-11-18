@@ -133,7 +133,7 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
     }
 
     /// <summary>Gets the copy format choices.</summary>
-    public IReadOnlyList<SaveCopyFormatChoice> Formats { get; } =
+    public SaveCopyFormatChoice[] Formats { get; } =
     [
 
         new(SaveCopyFormat.Standard, "Standard PDF", "Saves a copy of the document as it is now, keeping your annotations, form entries and page changes."),
@@ -294,9 +294,9 @@ public sealed partial class SaveCopyViewModel : ReactiveObject, ICopyWindowReque
             ? new(true, null, report.ClaimRemoved)
             {
                 ClaimRepaired = report.ClaimRepaired,
-                TrapNetworkWarnings = report.TrapNetworkWarnings,
-                RequirementWarnings = report.RequirementWarnings,
-                RemovedRequirements = report.RemovedRequirements,
+                TrapNetworkWarnings = [..report.TrapNetworkWarnings],
+                RequirementWarnings = [..report.RequirementWarnings],
+                RemovedRequirements = [..report.RemovedRequirements],
             }
             : new(false, report.Failure ?? UiText.Get("The document could not be written."));
 

@@ -138,7 +138,7 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable, IL
 
     /// <summary>Gets the pages, created when Focus Mode first opens.</summary>
     [Reactive]
-    public partial IReadOnlyList<FocusPageViewModel> Pages { get; private set; } = [];
+    public partial FocusPageViewModel[] Pages { get; private set; } = [];
 
     /// <summary>Gets the place the view was last asked to bring into view; the view scrolls each time it changes.</summary>
     [Reactive]
@@ -238,7 +238,7 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable, IL
         // Pages keep what they loaded, so they are made again whenever the text may differ: after a reload, a change of
         // pages or text recognition, as well as when the page count changes.
         var key = _owner.Reading.TextKey;
-        if (Pages.Count != _owner.PageCount || _builtFor != key)
+        if (Pages.Length != _owner.PageCount || _builtFor != key)
         {
             var pages = new FocusPageViewModel[_owner.PageCount];
             for (var i = 0; i < pages.Length; i++)
@@ -263,13 +263,13 @@ public sealed partial class FocusModeViewModel : ReactiveObject, IDisposable, IL
     private void MarkSpoken()
     {
         var reader = _owner.ReadAloud;
-        if (_markedPage >= 0 && _markedPage < Pages.Count && _markedPage != reader.SpokenPage)
+        if (_markedPage >= 0 && _markedPage < Pages.Length && _markedPage != reader.SpokenPage)
         {
             Pages[_markedPage].Mark(TextRange.None, TextRange.None, false);
         }
 
         _markedPage = reader.SpokenPage;
-        if (_markedPage < 0 || _markedPage >= Pages.Count)
+        if (_markedPage < 0 || _markedPage >= Pages.Length)
         {
             return;
         }
