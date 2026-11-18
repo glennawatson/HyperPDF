@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Shared Version Variables">
-    <TUnitVersion>1.85.0</TUnitVersion>
+    <TUnitVersion>1.86.6</TUnitVersion>
     <!-- StyleSharp.Analyzers, PerformanceSharp.Analyzers and SecuritySharp.Analyzers ship from the
          same release pipeline and always share a version. -->
     <RoslynCommonAnalyzersVersion>5.2.0</RoslynCommonAnalyzersVersion>
@@ -18,10 +18,10 @@
     <PackageVersion Include="Localisation.Core" Version="3.0.1" />
     <PackageVersion Include="Localisation.Generators" Version="3.0.1" />
     <PackageVersion Include="ReactiveUI" Version="27.0.1" />
-    <PackageVersion Include="ReactiveUI.Binding" Version="10.0.0" />
+    <PackageVersion Include="ReactiveUI.Binding" Version="10.1.0" />
     <PackageVersion Include="ReactiveUI.Primitives" Version="10.0.0" />
     <PackageVersion Include="ReactiveUI.Primitives.ObservableEvents" Version="10.0.0" />
-    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="5.0.0" />
+    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="5.1.0" />
   </ItemGroup>
 
   <ItemGroup Label="Platform / HTTP">
