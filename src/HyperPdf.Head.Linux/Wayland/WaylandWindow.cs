@@ -377,10 +377,32 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
         _connection.Writer.Begin(_objects.Toplevel, WaylandProtocol.ToplevelSetAppId);
         _connection.Writer.WriteString(ApplicationId);
         _connection.Writer.End();
+        AskForDecorations(registry);
         _connection.Writer.Begin(_objects.Surface, WaylandProtocol.SurfaceCommit);
         _connection.Writer.End();
         _connection.Flush();
         WaitUntil(() => _configured);
+    }
+
+    /// <summary>
+    /// Asks the compositor to draw the window's title bar and frame. Without this request a compositor that can draw them leaves the
+    /// window bare, because a client is taken to draw its own unless it says otherwise. A compositor without the global draws none.
+    /// </summary>
+    /// <param name="registry">The registry object.</param>
+    private void AskForDecorations(uint registry)
+    {
+        if (_globals.Decoration.Name == 0)
+        {
+            return;
+        }
+
+        var manager = Bind(registry, WaylandProtocol.DecorationManagerInterface, _globals.Decoration, 1);
+        var decoration = _connection.NewId();
+        _connection.Writer.Begin(manager, WaylandProtocol.DecorationManagerGetToplevelDecoration);
+        _connection.Writer.WriteUInt(decoration);
+        _connection.Writer.WriteUInt(_objects.Toplevel);
+        _connection.Writer.End();
+        Send(decoration, WaylandProtocol.ToplevelDecorationSetMode, WaylandProtocol.DecorationModeServerSide);
     }
 
     /// <summary>Asks for the surface's scale as a fraction, where the compositor can report one and can show a buffer at another size.</summary>
