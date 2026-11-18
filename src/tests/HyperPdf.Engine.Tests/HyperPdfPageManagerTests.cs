@@ -74,8 +74,8 @@ public sealed class HyperPdfPageManagerTests
     /// <summary>The bytes per BGRA pixel.</summary>
     private const int PixelBytes = 4;
 
-    /// <summary>The maximum wait for readers and edits to make progress.</summary>
-    private static readonly TimeSpan ConcurrentLimit = TimeSpan.FromSeconds(30);
+    /// <summary>How long the writer waits for a reader to finish one pass before the readers count as stuck. It limits a stall, not the whole run, so a slow machine still passes.</summary>
+    private static readonly TimeSpan ReaderStallLimit = TimeSpan.FromSeconds(30);
 
     /// <summary>A selection of the first page.</summary>
     private static readonly int[] FirstSelection = [0];
@@ -284,8 +284,6 @@ public sealed class HyperPdfPageManagerTests
     {
         using var document = Open(EditingTestDocuments.CreateFlat(PageCount));
         _ = HyperPdf.Engine.HyperPdfDocumentAnnotationEditing.AddNote(document, LastPage, new(NoteX, VisibleY), VisibleNote, NoteColor);
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(ConcurrentLimit);
         using var progress = new SemaphoreSlim(0);
         var failures = new ConcurrentQueue<string>();
         var running = 1;
@@ -293,19 +291,24 @@ public sealed class HyperPdfPageManagerTests
         for (var index = 0; index < readers.Length; index++)
         {
             // The readers loop until the writer finishes, so they run on their own threads and never starve the writer's continuations.
-            var job = new ReadJob(document, progress, failures, () => Volatile.Read(ref running) != 0, timeout.Token);
-            readers[index] = DedicatedThread.Run(job, ReadWhileEditing, timeout.Token);
+            var job = new ReadJob(document, progress, failures, () => Volatile.Read(ref running) != 0, cancellationToken);
+            readers[index] = DedicatedThread.Run(job, ReadWhileEditing, cancellationToken);
         }
 
         try
         {
             for (var round = 0; round < ConcurrentRounds; round++)
             {
-                await progress.WaitAsync(timeout.Token);
-                await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Apply(new(PageEditKind.Delete, LastSelection, 0)).ToTask(timeout.Token);
-                _ = await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Undo().ToTask(timeout.Token);
-                await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Apply(new(PageEditKind.Move, LastSelection, 0)).ToTask(timeout.Token);
-                _ = await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Undo().ToTask(timeout.Token);
+                if (!await progress.WaitAsync(ReaderStallLimit, cancellationToken))
+                {
+                    failures.Enqueue($"The readers made no progress for {ReaderStallLimit} (round {round}).");
+                    break;
+                }
+
+                await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Apply(new(PageEditKind.Delete, LastSelection, 0)).ToTask(cancellationToken);
+                _ = await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Undo().ToTask(cancellationToken);
+                await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Apply(new(PageEditKind.Move, LastSelection, 0)).ToTask(cancellationToken);
+                _ = await HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document).Undo().ToTask(cancellationToken);
             }
         }
         finally
