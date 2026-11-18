@@ -21,7 +21,7 @@
     <PackageVersion Include="ReactiveUI.Binding" Version="10.0.0" />
     <PackageVersion Include="ReactiveUI.Primitives" Version="10.0.0" />
     <PackageVersion Include="ReactiveUI.Primitives.ObservableEvents" Version="10.0.0" />
-    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="5.0.0" />
+    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="5.1.0" />
   </ItemGroup>
 
   <ItemGroup Label="Platform / HTTP">
