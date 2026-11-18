@@ -100,7 +100,7 @@ internal static class ChromeBars
         // A presentation puts every bar away, and reading mode keeps one slim bar with the way back, as the old window did.
         if (main.SelectedTab is { ShowsChrome: false } fullView)
         {
-            var barHeight = fullView.IsReading ? AddReadBar(items, fullView, runs, metrics, size.Width) : 0;
+            var barHeight = fullView.IsReading ? AddReadBar(items, fullView, look, size.Width, actions) : 0;
             return new(new(0, barHeight, size.Width, Math.Max(0, size.Height - barHeight)), sidebar with { Bounds = default });
         }
 
@@ -144,15 +144,21 @@ internal static class ChromeBars
     /// <summary>Adds the one bar reading mode keeps: the document's name and the button that leaves reading mode.</summary>
     /// <param name="items">Receives the controls.</param>
     /// <param name="tab">The tab read.</param>
-    /// <param name="runs">The text measurer.</param>
-    /// <param name="metrics">The sizes.</param>
-    /// <param name="width">The window width.</param>
+    /// <param name="look">The text measurer and the sizes.</param>
+    /// <param name="windowWidth">The window width.</param>
+    /// <param name="actions">The commands of the window's own controls.</param>
     /// <returns>The height the bar takes.</returns>
-    private static int AddReadBar(List<ChromeItem> items, DocumentTabViewModel tab, TextRuns runs, in ChromeMetrics metrics, int width)
+    private static int AddReadBar(List<ChromeItem> items, DocumentTabViewModel tab, ChromeLook look, int windowWidth, ChromeActions actions)
     {
+        var runs = look.Runs;
+        var metrics = look.Metrics;
         var height = metrics.TabHeight;
         var style = Style(metrics);
-        items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, new(0, 0, width, height), true, false));
+        items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, new(0, 0, windowWidth, height), true, false));
+
+        // A window the system gives no title bar keeps its own buttons at the right, and the bar's contents have the rest.
+        var width = windowWidth - WindowFrame.ButtonsWidth(look);
+        WindowFrame.AddButtons(items, look, windowWidth, actions);
         var buttonWidth = Math.Min(width / ReadBarButtonShare, metrics.TabWidth);
         var room = width - buttonWidth - (metrics.Padding * ReadBarEdges);
         items.Add(new(ChromeItemKind.Label, null, 0, ChromeText.Fit(tab.Title, style, room, runs), new(metrics.Padding, 0, room, height), true, false));
@@ -250,7 +256,10 @@ internal static class ChromeBars
         var tabs = main.Tabs;
         var closeWidth = metrics.TabHeight - metrics.Gap - metrics.Gap;
         var newTabWidth = metrics.TabHeight;
-        var room = width - newTabWidth;
+
+        // A window the system gives no title bar keeps its own buttons at the right of the strip, and the tabs have the rest.
+        var room = width - newTabWidth - WindowFrame.ButtonsWidth(look);
+        WindowFrame.AddButtons(items, look, width, actions);
         var tabWidth = tabs.Count == 0 ? 0 : Math.Min(metrics.TabWidth, Math.Max(Math.Max(closeWidth + metrics.Padding, metrics.TabWidth / NarrowestShare), room / tabs.Count));
 
         // With more tabs than fit at the narrowest width, the strip scrolls just far enough to keep the chosen tab in view.

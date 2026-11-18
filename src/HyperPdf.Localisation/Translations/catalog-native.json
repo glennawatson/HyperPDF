@@ -512,5 +512,8 @@
   "‹ Back": "‹ Back",
   "↑ Up one folder": "↑ Up one folder",
   "Change the Picked Paragraph…": "Change the Picked Paragraph…",
-  "Changed the paragraph.": "Changed the paragraph."
+  "Changed the paragraph.": "Changed the paragraph.",
+  "Minimise": "Minimise",
+  "Maximise": "Maximise",
+  "Restore": "Restore"
 }

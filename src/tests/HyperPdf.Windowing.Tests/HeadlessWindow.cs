@@ -55,6 +55,9 @@ internal sealed class HeadlessWindow : IPlatformWindow
     public bool IsMaximized { get; private set; }
 
     /// <inheritdoc/>
+    public bool HasSystemFrame => !OwnsFrame;
+
+    /// <inheritdoc/>
     public long NativeHandle => 0;
 
     /// <inheritdoc/>
@@ -93,6 +96,18 @@ internal sealed class HeadlessWindow : IPlatformWindow
     /// <summary>Gets the size the viewer last asked for, or <see langword="null"/> when it asked for none.</summary>
     internal SurfaceSize? RequestedSize { get; private set; }
 
+    /// <summary>Gets or sets a value indicating whether the window stands for one the system gives no title bar.</summary>
+    internal bool OwnsFrame { get; set; }
+
+    /// <summary>Gets how many times the viewer started moving the window.</summary>
+    internal int Moves { get; private set; }
+
+    /// <summary>Gets the edges of the last resize the viewer started.</summary>
+    internal WindowEdges ResizedEdges { get; private set; }
+
+    /// <summary>Gets a value indicating whether the viewer put the window away.</summary>
+    internal bool Minimized { get; private set; }
+
     /// <inheritdoc/>
     public void SetTitle(string title) => Title = title;
 
@@ -101,6 +116,18 @@ internal sealed class HeadlessWindow : IPlatformWindow
 
     /// <inheritdoc/>
     public void SetMaximized(bool on) => IsMaximized = on;
+
+    /// <inheritdoc/>
+    public void BeginMove() => Moves++;
+
+    /// <inheritdoc/>
+    public void BeginResize(WindowEdges edges) => ResizedEdges = edges;
+
+    /// <inheritdoc/>
+    public void Minimize() => Minimized = true;
+
+    /// <inheritdoc/>
+    public void AskToClose() => Send(new(WindowEventKind.CloseRequested, 0, 0, 0, 0));
 
     /// <inheritdoc/>
     public void SetSize(int width, int height) => RequestedSize = new(width, height);

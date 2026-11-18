@@ -512,5 +512,8 @@
   "‹ Back": "‹ Retour",
   "↑ Up one folder": "↑ Dossier parent",
   "Change the Picked Paragraph…": "Modifier le paragraphe choisi…",
-  "Changed the paragraph.": "Paragraphe modifié."
+  "Changed the paragraph.": "Paragraphe modifié.",
+  "Minimise": "Réduire",
+  "Maximise": "Agrandir",
+  "Restore": "Restaurer"
 }

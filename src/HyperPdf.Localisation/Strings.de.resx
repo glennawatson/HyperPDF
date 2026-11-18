@@ -3144,6 +3144,9 @@
   <data name="Matching tabs" xml:space="preserve">
     <value>Passende Tabs</value>
   </data>
+  <data name="Maximise" xml:space="preserve">
+    <value>Maximieren</value>
+  </data>
   <data name="Measure" xml:space="preserve">
     <value>Messen</value>
   </data>
@@ -3170,6 +3173,9 @@
   </data>
   <data name="Merge PDFs at end…" xml:space="preserve">
     <value>PDFs am Ende zusammenführen…</value>
+  </data>
+  <data name="Minimise" xml:space="preserve">
+    <value>Minimieren</value>
   </data>
   <data name="Mix the Picked Object's Colours with the Page as {0}" xml:space="preserve">
     <value>Farben des ausgewählten Objekts mit der Seite als {0} mischen</value>
@@ -4625,6 +4631,9 @@
   </data>
   <data name="Restart HyperPDF to apply the interface language." xml:space="preserve">
     <value>Starten Sie HyperPDF neu, um die Sprache der Benutzeroberfläche anzuwenden.</value>
+  </data>
+  <data name="Restore" xml:space="preserve">
+    <value>Wiederherstellen</value>
   </data>
   <data name="Restore the document before its most recent edit." xml:space="preserve">
     <value>Das Dokument vor der letzten Bearbeitung wiederherstellen.</value>

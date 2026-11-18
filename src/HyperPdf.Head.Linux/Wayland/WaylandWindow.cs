@@ -33,6 +33,12 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
     /// <summary>The application id compositors use to find the desktop file and icon.</summary>
     private const string ApplicationId = "hyperpdf";
 
+    /// <summary>
+    /// The environment variable that, when set, keeps the window from asking the compositor for a title bar, so the viewer draws its
+    /// own buttons as it does on a compositor that offers none.
+    /// </summary>
+    private const string OwnFrameVariable = "HYPERPDF_OWN_WINDOW_FRAME";
+
     /// <summary>The wl_seat capability bit for a pointer.</summary>
     private const uint PointerCapability = 1;
 
@@ -114,6 +120,9 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
     /// <summary>Whether the compositor last said the window is maximised.</summary>
     private bool _maximized;
 
+    /// <summary>Whether the compositor draws the window's title bar and frame.</summary>
+    private bool _systemFrame;
+
     /// <summary>Whether the sync callback arrived.</summary>
     private bool _synced;
 
@@ -151,6 +160,9 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
 
     /// <inheritdoc/>
     public bool IsMaximized => _maximized;
+
+    /// <inheritdoc/>
+    public bool HasSystemFrame => _systemFrame;
 
     /// <inheritdoc/>
     public long NativeHandle => 0;
@@ -201,6 +213,26 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
         _connection.Writer.End();
         _connection.Flush();
     }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void BeginMove() => SendFromPress(WaylandProtocol.ToplevelMove, null);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void BeginResize(WindowEdges edges) => SendFromPress(WaylandProtocol.ToplevelResize, (uint)edges);
+
+    /// <inheritdoc/>
+    public void Minimize()
+    {
+        _connection.Writer.Begin(_objects.Toplevel, WaylandProtocol.ToplevelSetMinimized);
+        _connection.Writer.End();
+        _connection.Flush();
+    }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void AskToClose() => Emit(new(WindowEventKind.CloseRequested, 0, 0, 0, 0));
 
     /// <inheritdoc/>
     public void SetSize(int width, int height)
@@ -391,18 +423,67 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
     /// <param name="registry">The registry object.</param>
     private void AskForDecorations(uint registry)
     {
-        if (_globals.Decoration.Name == 0)
+        if (_globals.Decoration.Name == 0 || Environment.GetEnvironmentVariable(OwnFrameVariable) is { Length: > 0 })
         {
             return;
         }
 
         var manager = Bind(registry, WaylandProtocol.DecorationManagerInterface, _globals.Decoration, 1);
-        var decoration = _connection.NewId();
+        _objects.Decoration = _connection.NewId();
         _connection.Writer.Begin(manager, WaylandProtocol.DecorationManagerGetToplevelDecoration);
-        _connection.Writer.WriteUInt(decoration);
+        _connection.Writer.WriteUInt(_objects.Decoration);
         _connection.Writer.WriteUInt(_objects.Toplevel);
         _connection.Writer.End();
-        Send(decoration, WaylandProtocol.ToplevelDecorationSetMode, WaylandProtocol.DecorationModeServerSide);
+        Send(_objects.Decoration, WaylandProtocol.ToplevelDecorationSetMode, WaylandProtocol.DecorationModeServerSide);
+
+        // The compositor answers with the mode it settled on. Until it says otherwise the frame is taken to be its own.
+        _systemFrame = true;
+    }
+
+    /// <summary>
+    /// Handles the compositor's word on who draws the title bar and frame. A compositor may offer the protocol and still leave the
+    /// frame to the application, and the viewer then lays its own buttons out.
+    /// </summary>
+    /// <param name="objectId">The object the event is for.</param>
+    /// <param name="opcode">The event.</param>
+    /// <param name="reader">The event's arguments.</param>
+    /// <returns><see langword="true"/> when the event was the decoration's.</returns>
+    private bool TryHandleDecoration(uint objectId, int opcode, ref WaylandMessageReader reader)
+    {
+        if (_objects.Decoration == 0 || objectId != _objects.Decoration)
+        {
+            return false;
+        }
+
+        if (opcode == WaylandProtocol.ToplevelDecorationConfigure)
+        {
+            _systemFrame = reader.ReadUInt() == WaylandProtocol.DecorationModeServerSide;
+            Emit(new(WindowEventKind.Resized, _size.Width, _size.Height, 0, 0));
+        }
+
+        return true;
+    }
+
+    /// <summary>Sends a request of the toplevel that starts from the last press: the seat, the press's serial and, for a resize, the edges.</summary>
+    /// <param name="opcode">The request.</param>
+    /// <param name="edges">The edges a resize drags, or <see langword="null"/> for a move.</param>
+    private void SendFromPress(int opcode, uint? edges)
+    {
+        if (_objects.Seat == 0)
+        {
+            return;
+        }
+
+        _connection.Writer.Begin(_objects.Toplevel, opcode);
+        _connection.Writer.WriteUInt(_objects.Seat);
+        _connection.Writer.WriteUInt(_serial);
+        if (edges is { } dragged)
+        {
+            _connection.Writer.WriteUInt(dragged);
+        }
+
+        _connection.Writer.End();
+        _connection.Flush();
     }
 
     /// <summary>Asks for the surface's scale as a fraction, where the compositor can report one and can show a buffer at another size.</summary>
@@ -549,7 +630,7 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
     /// <param name="reader">The event arguments.</param>
     private void DispatchInput(uint objectId, int opcode, ref WaylandMessageReader reader)
     {
-        if (_clipboard.TryHandle(objectId, opcode, ref reader))
+        if (_clipboard.TryHandle(objectId, opcode, ref reader) || TryHandleDecoration(objectId, opcode, ref reader))
         {
             return;
         }

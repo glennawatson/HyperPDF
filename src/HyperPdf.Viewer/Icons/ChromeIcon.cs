@@ -213,4 +213,13 @@ public enum ChromeIcon
 
     /// <summary>Three dots: more.</summary>
     More = 68,
+
+    /// <summary>A line at the foot: put the window away.</summary>
+    Minimize = 69,
+
+    /// <summary>A square: make the window as big as the screen.</summary>
+    Maximize = 70,
+
+    /// <summary>Two squares: put the window back to the size it had.</summary>
+    Restore = 71,
 }

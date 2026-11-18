@@ -22,7 +22,8 @@ internal sealed class ChromeActions : IDisposable
     /// <summary>Initializes a new instance of the <see cref="ChromeActions"/> class.</summary>
     /// <param name="chrome">The window's controls, which open the menus and dialogs.</param>
     /// <param name="main">The main view model, which knows the tab shown.</param>
-    internal ChromeActions(ViewerChrome chrome, MainViewModel main)
+    /// <param name="window">The window, which its own buttons put away, size and close.</param>
+    internal ChromeActions(ViewerChrome chrome, MainViewModel main, IPlatformWindow window)
     {
         SelectTab = ReactiveCommand.Create<DocumentTabViewModel>(tab => main.SelectedTab = tab);
         ShowMenu = ReactiveCommand.Create(() => chrome.ShowMenu(MainMenu.Build(main), Under(chrome, ShowMenu)));
@@ -32,7 +33,25 @@ internal sealed class ChromeActions : IDisposable
         ToggleAnnotate = ReactiveCommand.Create(() => ToggleMarking(main));
         ShowSidebarList = ReactiveCommand.Create<SidebarMode>(mode => ShowList(main, chrome, mode));
         PickSidebarRow = ReactiveCommand.Create<object, object>(static target => target);
+        Minimize = ReactiveCommand.Create(window.Minimize);
+        ToggleMaximize = ReactiveCommand.Create(() =>
+        {
+            window.SetMaximized(!window.IsMaximized);
+
+            // The button shows which way the next press goes, so it is laid out again even when the size stays the same.
+            chrome.InvalidateBars();
+        });
+        CloseWindow = ReactiveCommand.Create(window.AskToClose);
     }
+
+    /// <summary>Gets the command that puts the window away, for a window the system gives no title bar.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> Minimize { get; }
+
+    /// <summary>Gets the command that makes the window as big as the screen, or puts it back to the size it had.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> ToggleMaximize { get; }
+
+    /// <summary>Gets the command that asks to close the window, as the system's own close button does.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> CloseWindow { get; }
 
     /// <summary>Gets the command that shows a tab, which is its parameter.</summary>
     internal ReactiveCommand<DocumentTabViewModel, RxVoid> SelectTab { get; }
@@ -72,6 +91,9 @@ internal sealed class ChromeActions : IDisposable
         ToggleAnnotate.Dispose();
         ShowSidebarList.Dispose();
         PickSidebarRow.Dispose();
+        Minimize.Dispose();
+        ToggleMaximize.Dispose();
+        CloseWindow.Dispose();
     }
 
     /// <summary>Runs a command when it can run.</summary>

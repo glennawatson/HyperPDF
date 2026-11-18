@@ -512,5 +512,8 @@
   "‹ Back": "‹ 返回",
   "↑ Up one folder": "↑ 上一级文件夹",
   "Change the Picked Paragraph…": "更改所选段落…",
-  "Changed the paragraph.": "已更改段落。"
+  "Changed the paragraph.": "已更改段落。",
+  "Minimise": "最小化",
+  "Maximise": "最大化",
+  "Restore": "还原"
 }

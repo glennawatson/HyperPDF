@@ -96,6 +96,9 @@ internal static class IconPaths
         e M4,20 L20,4
         n M6,6 L18,6 L18,18 L6,18 Z
         p M6,12 A1,1 0 1 1 4,12 A1,1 0 1 1 6,12 Z M13,12 A1,1 0 1 1 11,12 A1,1 0 1 1 13,12 Z M20,12 A1,1 0 1 1 18,12 A1,1 0 1 1 20,12 Z
+        p M6,17 L18,17
+        p M6,6 L18,6 L18,18 L6,18 Z
+        p M9,9 L9,6 L18,6 L18,15 L15,15 M6,9 L15,9 L15,18 L6,18 Z
 
         """u8;
 
@@ -117,7 +120,7 @@ internal static class IconPaths
     /// <returns>The tones, at the number of each icon.</returns>
     private static IconTone[] ReadTones()
     {
-        var tones = new IconTone[(int)ChromeIcon.More + 1];
+        var tones = new IconTone[(int)ChromeIcon.Restore + 1];
         for (var i = 1; i < tones.Length; i++)
         {
             var line = LineOf((ChromeIcon)i);

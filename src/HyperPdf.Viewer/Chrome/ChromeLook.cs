@@ -22,6 +22,15 @@ internal sealed record ChromeLook(TextRuns Runs, ChromeTheme Theme, ChromeMetric
     /// <summary>Gets the drawn icons, or <see langword="null"/> to draw none.</summary>
     internal IconRuns? Icons { get; init; }
 
+    /// <summary>
+    /// Gets a value indicating whether the window has no title bar of the system's, so the tab strip carries the buttons that put it
+    /// away, make it as big as the screen and close it.
+    /// </summary>
+    internal bool OwnsFrame { get; init; }
+
+    /// <summary>Gets a value indicating whether the window is as big as the screen allows, which the button that changes it shows.</summary>
+    internal bool IsMaximized { get; init; }
+
     /// <summary>Gets a value indicating whether tool bar buttons show their names beside their icons.</summary>
     internal bool ShowLabels { get; init; } = true;
 }

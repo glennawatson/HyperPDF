@@ -31,6 +31,9 @@ internal sealed class WaylandObjects
     /// <summary>Gets or sets the xdg_surface id.</summary>
     internal uint XdgSurface { get; set; }
 
+    /// <summary>Gets or sets the zxdg_toplevel_decoration_v1 id, 0 when the compositor was not asked to draw the frame.</summary>
+    internal uint Decoration { get; set; }
+
     /// <summary>Gets or sets the xdg_toplevel id.</summary>
     internal uint Toplevel { get; set; }
 

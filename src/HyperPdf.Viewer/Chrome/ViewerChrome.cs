@@ -141,6 +141,9 @@ public sealed class ViewerChrome : IDisposable
     /// <summary>What the controls of the preview were made from, or <see langword="null"/> before the first.</summary>
     private TabPreviewKey? _previewKey;
 
+    /// <summary>The presses on the empty part of the top bar, which tell a second press from a first.</summary>
+    private ClickCounter _framePresses;
+
     /// <summary>The place of the tab the pointer was pressed on, or -1 when it was not pressed on a tab.</summary>
     private int _tabDragFrom = -1;
 
@@ -251,7 +254,7 @@ public sealed class ViewerChrome : IDisposable
     }
 
     /// <summary>Gets the commands of the controls that act on the window itself, made when first asked for, once the controls exist to run them.</summary>
-    private ChromeActions Actions => _actions ??= new(this, _main);
+    private ChromeActions Actions => _actions ??= new(this, _main, _window);
 
     /// <summary>Opens a menu.</summary>
     /// <param name="entries">The entries.</param>
@@ -814,7 +817,7 @@ public sealed class ViewerChrome : IDisposable
         if (barsChanged)
         {
             _barsChanged = false;
-            _look = _look with { Metrics = ChromeMetrics.For(_window.Scale) };
+            _look = WindowFrame.Follow(_look with { Metrics = ChromeMetrics.For(_window.Scale) }, _window, _fullScreen);
             var laid = ChromeBars.Build(_bars, _main, _look, _sidebar, _window.ClientSize, Actions);
             _canvasBounds = laid.Canvas;
             _sidebar = laid.Sidebar;
@@ -1023,6 +1026,12 @@ public sealed class ViewerChrome : IDisposable
         _pointer = new(x, y);
         _pointerSeen = true;
         Layout();
+        if (WindowFrame.EdgesAt(_look, _window.ClientSize, x, y) is not WindowEdges.None and var edges)
+        {
+            _window.BeginResize(edges);
+            return true;
+        }
+
         if (_overlay is { } overlay)
         {
             if (IsOverOverlay(x, y))
@@ -1062,6 +1071,13 @@ public sealed class ViewerChrome : IDisposable
     {
         if (Find(_bars, x, y) is not { } item)
         {
+            // The empty part of the bar at the top is the title bar of a window the system gives none: it moves the window, and a second press sizes it.
+            if (_look.OwnsFrame && y < _look.Metrics.TabHeight && (buttons & ViewerButtons.Left) != 0)
+            {
+                _framePresses = _framePresses.Press(x, y, Stopwatch.GetTimestamp());
+                WindowFrame.PressTitle(_window, _framePresses.Count);
+            }
+
             return;
         }
 
