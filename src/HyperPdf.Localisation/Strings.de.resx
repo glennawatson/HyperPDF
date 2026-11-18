@@ -2265,6 +2265,9 @@
   <data name="Follow the page a document opens at" xml:space="preserve">
     <value>Vorgegebene Startseite des Dokuments verwenden</value>
   </data>
+  <data name="Follow the page being read" xml:space="preserve">
+    <value>Der gelesenen Seite folgen</value>
+  </data>
   <data name="Font" xml:space="preserve">
     <value>Schrift</value>
   </data>

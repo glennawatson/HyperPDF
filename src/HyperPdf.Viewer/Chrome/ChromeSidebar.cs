@@ -25,8 +25,9 @@ internal static class ChromeSidebar
     /// <param name="look">The text measurer and the sizes.</param>
     /// <param name="area">The part of the window between the toolbar and the status bar.</param>
     /// <param name="actions">The commands of the window's own controls.</param>
+    /// <param name="follows">Whether the list of pages follows the page being read.</param>
     /// <returns>The width the panel takes, and what it lists now.</returns>
-    internal static SidebarLayout Build(List<ChromeItem> items, DocumentTabViewModel tab, SidebarView view, ChromeLook look, in LayoutRect area, ChromeActions actions)
+    internal static SidebarLayout Build(List<ChromeItem> items, DocumentTabViewModel tab, SidebarView view, ChromeLook look, in LayoutRect area, ChromeActions actions, bool follows)
     {
         var metrics = look.Metrics;
         var width = (int)Math.Min(metrics.SidebarWidth, area.Width);
@@ -34,14 +35,26 @@ internal static class ChromeSidebar
         SidebarRows.Fill(listed, tab);
         var bounds = new LayoutRect(area.X, area.Y, width, area.Height);
         var first = Math.Clamp(view.First, 0, Math.Max(0, listed.Count - 1));
+        var followedTab = view.FollowedTab;
+        var followedPage = view.FollowedPage;
+
+        // The list moves only when the page being read changes, so a list the reader scrolled by hand is left where it is.
+        if (follows && tab.SidebarMode == SidebarMode.Thumbnails && (!ReferenceEquals(followedTab, tab) || followedPage != tab.CurrentPageIndex))
+        {
+            var last = Math.Max(0, listed.Count - Math.Max(1, view.VisibleRows));
+            first = Math.Clamp(SidebarFollow.First(first, view.VisibleRows, listed.Count, tab.CurrentPageIndex), 0, last);
+            followedTab = tab;
+            followedPage = tab.CurrentPageIndex;
+        }
+
         items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, bounds, true, false));
-        var top = (int)area.Y + AddTabs(items, tab, new(look, actions.ShowSidebarList), new(area.X, area.Y, width, area.Height));
+        var top = (int)area.Y + AddTabs(items, tab, new(look, actions.ShowSidebarList), new(area.X, area.Y, width, area.Height), actions, follows);
         var bottom = (int)area.Bottom;
         if (listed.Count == 0)
         {
             var none = ChromeText.Fit(SidebarRows.EmptyText(tab.SidebarMode), ChromeBars.Style(metrics), width - metrics.Padding - metrics.Padding, look.Runs);
             items.Add(new(ChromeItemKind.Label, null, 0, none, new(area.X, top, width, metrics.RowHeight), false, false));
-            return new(width, new([], first, bounds, 0));
+            return new(width, new([], first, bounds, 0, followedTab, followedPage));
         }
 
         var shown = 0;
@@ -58,7 +71,7 @@ internal static class ChromeSidebar
             shown++;
         }
 
-        return new(width, new([.. listed], first, bounds, shown));
+        return new(width, new([.. listed], first, bounds, shown, followedTab, followedPage));
     }
 
     /// <summary>Adds the row of tabs that choose what the panel lists.</summary>
@@ -66,8 +79,10 @@ internal static class ChromeSidebar
     /// <param name="tab">The document tab.</param>
     /// <param name="chosen">The text measurer, the sizes and the command a tab runs with the list it stands for.</param>
     /// <param name="area">The panel's area.</param>
+    /// <param name="actions">The commands of the window's own controls.</param>
+    /// <param name="follows">Whether the list of pages follows the page being read.</param>
     /// <returns>The height the tabs and the name under them take.</returns>
-    private static int AddTabs(List<ChromeItem> items, DocumentTabViewModel tab, SidebarLook chosen, in LayoutRect area)
+    private static int AddTabs(List<ChromeItem> items, DocumentTabViewModel tab, SidebarLook chosen, in LayoutRect area, ChromeActions actions, bool follows)
     {
         var look = chosen.Look;
         var tight = look.Metrics with { Padding = look.Metrics.Gap + look.Metrics.Gap };
@@ -82,6 +97,16 @@ internal static class ChromeSidebar
         var top = (int)area.Y + (row.Lines * tight.ToolbarHeight);
         var name = ChromeText.Fit(SidebarRows.NameOf(tab.SidebarMode), ChromeBars.Style(look.Metrics) with { Bold = true }, (int)area.Width - look.Metrics.Padding - look.Metrics.Padding, look.Runs);
         items.Add(new(ChromeItemKind.Heading, null, 0, name, new(area.X, top, area.Width, look.Metrics.RowHeight), true, false));
+
+        // The list of pages can keep the page being read in view; the switch for it is at the right of the heading.
+        if (tab.SidebarMode == SidebarMode.Thumbnails)
+        {
+            var side = look.Metrics.RowHeight;
+            var place = new LayoutRect(area.Right - side - look.Metrics.Gap, top, side, side);
+            var label = UiText.Get("Follow the page being read");
+            items.Add(new(ChromeItemKind.Button, actions.ToggleFollowPage, 0, label, place, true, follows) { Icon = ChromeIcon.Follow, HidesText = true, Trait = ChromeItemTrait.Switch });
+        }
+
         top += look.Metrics.RowHeight;
         items.Add(new(ChromeItemKind.Separator, null, 0, string.Empty, new(area.X, top, area.Width, look.Metrics.Line), true, false));
         return top + look.Metrics.Line - (int)area.Y;

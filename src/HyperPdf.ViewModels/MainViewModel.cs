@@ -190,6 +190,22 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     /// <summary>Gets a value indicating whether this is a window opened from another, which leaves the session to the first window.</summary>
     public bool IsSecondaryWindow { get; init; }
 
+    /// <summary>Gets or sets a value indicating whether the list of pages in the side panel follows the page being read. The choice is kept for the next start.</summary>
+    public bool SidebarFollowsPage
+    {
+        get => _services.Settings.SidebarFollowsPage;
+        set
+        {
+            if (_services.Settings.SidebarFollowsPage == value)
+            {
+                return;
+            }
+
+            _services.Settings.SidebarFollowsPage = value;
+            _services.SaveSettings();
+        }
+    }
+
     /// <summary>Gets the interaction that shows the Search in Folder window.</summary>
     public Interaction<FolderSearchViewModel, RxVoid> ShowFolderSearchInteraction { get; } = new();
 

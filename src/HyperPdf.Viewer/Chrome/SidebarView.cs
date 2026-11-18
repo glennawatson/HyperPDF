@@ -12,9 +12,11 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="First">The first row shown.</param>
 /// <param name="Bounds">Where the panel is, or the default when it is not shown.</param>
 /// <param name="VisibleRows">The rows that fit the panel as it was last laid out.</param>
+/// <param name="FollowedTab">The tab whose page the list last followed, or <see langword="null"/> when it has followed none.</param>
+/// <param name="FollowedPage">The page the list last followed, so a page the reader scrolled away from by hand is not pulled back.</param>
 [DebuggerDisplay("SidebarView: {Rows.Length} rows from {First}")]
-internal sealed record SidebarView(SidebarRow[] Rows, int First, LayoutRect Bounds, int VisibleRows)
+internal sealed record SidebarView(SidebarRow[] Rows, int First, LayoutRect Bounds, int VisibleRows, object? FollowedTab, int FollowedPage)
 {
     /// <summary>Gets the panel before it was laid out.</summary>
-    internal static SidebarView Empty { get; } = new([], 0, default, 0);
+    internal static SidebarView Empty { get; } = new([], 0, default, 0, null, -1);
 }

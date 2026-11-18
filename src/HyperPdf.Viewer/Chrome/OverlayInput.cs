@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using HyperPdf.Presentation.Input;
 
@@ -13,7 +14,10 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="Item">The control pressed, for a press.</param>
 /// <param name="Key">The key, for a key.</param>
 /// <param name="Modifiers">The modifier keys held, for a key.</param>
-/// <param name="Value">The Unicode scalar value for a typed character, the rows to move down for a scroll, negative to move up, or the x of the pointer on a drawing pad.</param>
+/// <param name="Value">
+/// The Unicode scalar value for a typed character, the rows to move down for a scroll, negative to move up, the presses counted close
+/// together for a press, or the x of the pointer on a drawing pad.
+/// </param>
 /// <param name="Y">The y of the pointer on a drawing pad, in device pixels.</param>
 [DebuggerDisplay("OverlayInput {Kind} {Key} {Value}")]
 internal readonly record struct OverlayInput(OverlayInputKind Kind, ChromeItem? Item, ViewerKey Key, ViewerModifiers Modifiers, int Value, int Y)
@@ -27,7 +31,14 @@ internal readonly record struct OverlayInput(OverlayInputKind Kind, ChromeItem? 
     /// <summary>Makes the press of a control.</summary>
     /// <param name="item">The control.</param>
     /// <returns>The input.</returns>
-    internal static OverlayInput Press(ChromeItem item) => new(OverlayInputKind.Press, item, default, default, 0, 0);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static OverlayInput Press(ChromeItem item) => Press(item, 1);
+
+    /// <summary>Makes the press of a control that was pressed again close behind the one before, as a double click is.</summary>
+    /// <param name="item">The control.</param>
+    /// <param name="clicks">The presses counted close together, this one included.</param>
+    /// <returns>The input, which carries the count in <see cref="Value"/>.</returns>
+    internal static OverlayInput Press(ChromeItem item, int clicks) => new(OverlayInputKind.Press, item, default, default, clicks, 0);
 
     /// <summary>Makes a key press.</summary>
     /// <param name="key">The key.</param>

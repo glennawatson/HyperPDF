@@ -2265,6 +2265,9 @@
   <data name="Follow the page a document opens at" xml:space="preserve">
     <value>اتباع صفحة الفتح المحددة في المستند</value>
   </data>
+  <data name="Follow the page being read" xml:space="preserve">
+    <value>تتبّع الصفحة التي تقرؤها</value>
+  </data>
   <data name="Font" xml:space="preserve">
     <value>الخط</value>
   </data>

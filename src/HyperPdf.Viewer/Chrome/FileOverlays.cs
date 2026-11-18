@@ -24,6 +24,9 @@ internal static class FileOverlays
     /// <summary>The rows of the dialog besides the list: heading, typing box, folder name and buttons.</summary>
     private const int OtherRows = 4;
 
+    /// <summary>The presses close together that make a double click.</summary>
+    private const int DoubleClick = 2;
+
     /// <summary>The mark after the name of a folder.</summary>
     private const string FolderMark = "/";
 
@@ -52,7 +55,8 @@ internal static class FileOverlays
                 many && !saving,
                 picksFolder,
                 false,
-                []));
+                [],
+                string.Empty));
         var input = new Signal<OverlayInput>();
         var state = OverlayStates.Track(input, start, Reduce);
         var answered = state.Where(static current => current.Answered);
@@ -73,7 +77,7 @@ internal static class FileOverlays
     /// <returns>The state after.</returns>
     private static FileState Reduce(FileState state, OverlayInput input) => state.Answered ? state : input switch
     {
-        { Kind: OverlayInputKind.Press, Item: { } item } => Press(state, item),
+        { Kind: OverlayInputKind.Press, Item: { } item } => Press(state, item, input.Value),
         { Kind: OverlayInputKind.Key } => PressKey(state, input.Key),
         { Kind: OverlayInputKind.Scroll } => Scroll(state, input.Value),
         { IsTypedCharacter: true } => state with { Entry = string.Concat(state.Entry, input.TypedText) },
@@ -84,11 +88,12 @@ internal static class FileOverlays
     /// <summary>Takes a press on a control.</summary>
     /// <param name="state">The state before.</param>
     /// <param name="item">The control.</param>
+    /// <param name="clicks">The presses counted close together, this one included.</param>
     /// <returns>The state after.</returns>
-    private static FileState Press(FileState state, ChromeItem item) => item.Action switch
+    private static FileState Press(FileState state, ChromeItem item, int clicks) => item.Action switch
     {
         OverlayAction.ParentFolder => Directory.GetParent(state.Folder) is { } parent ? ShowFolder(state, parent.FullName) : state,
-        OverlayAction.PickRow => Pick(state, item.Index),
+        OverlayAction.PickRow => clicks >= DoubleClick ? Open(state, item.Index) : Pick(state, item.Index),
         OverlayAction.FileKinds => ShowFolder(state with { AllFiles = !state.AllFiles }, state.Folder),
         OverlayAction.Accept => AcceptEntry(state),
         OverlayAction.Cancel => state with { Answered = true },
@@ -145,11 +150,30 @@ internal static class FileOverlays
 
         if (state.Saving)
         {
-            return state with { Entry = state.Names[index] };
+            return state with { Entry = state.Names[index], Pressed = state.Names[index] };
         }
 
-        // A press ticks the file or takes the tick away; the open button opens every ticked file.
-        return state.Many ? state with { Chosen = Toggle(state.Chosen, state.Names[index]) } : state with { Answered = true, Answer = [path] };
+        // A press ticks the file or takes the tick away; the open button, or a double click on a file, opens every ticked file.
+        return state.Many ? state with { Chosen = Toggle(state.Chosen, state.Names[index]), Pressed = state.Names[index] } : state with { Answered = true, Answer = [path] };
+    }
+
+    /// <summary>
+    /// Handles a double click on a row of the list. A file is opened at once, with any other files that are ticked; the first press of the
+    /// double click has already ticked it, so it is only made sure to be ticked. A folder is entered, and a file to save over is taken as the name.
+    /// </summary>
+    /// <param name="state">The state before.</param>
+    /// <param name="index">The row.</param>
+    /// <returns>The state after.</returns>
+    private static FileState Open(FileState state, int index)
+    {
+        if ((uint)index >= (uint)state.Names.Length || index < state.FolderCount || state.Saving || state.Names[index] != state.Pressed)
+        {
+            return Pick(state, index);
+        }
+
+        var name = state.Names[index];
+        var ticked = Array.IndexOf(state.Chosen, name) >= 0 ? state : state with { Chosen = [.. state.Chosen, name] };
+        return ticked.PicksFolder ? ticked : AcceptChosen(ticked);
     }
 
     /// <summary>Adds a name to the ticked names, or takes it away when it is there.</summary>
@@ -216,7 +240,7 @@ internal static class FileOverlays
     /// <param name="folder">The folder.</param>
     /// <returns>The state after.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static FileState ShowFolder(FileState state, string folder) => ReadFolder(state with { Folder = folder, First = 0, Chosen = [] });
+    private static FileState ShowFolder(FileState state, string folder) => ReadFolder(state with { Folder = folder, First = 0, Chosen = [], Pressed = string.Empty });
 
     /// <summary>Reads the names in the folder shown. A folder that cannot be read is shown empty.</summary>
     /// <param name="state">The state before.</param>
