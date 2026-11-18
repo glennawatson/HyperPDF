@@ -6,6 +6,13 @@
   <ItemGroup>
     <!-- The password-protected document the engine tests build, shared so the password dialog is tested with a real locked file. -->
     <Compile Include="..\HyperPdf.Engine.Tests\UserPasswordPdf.cs" Link="UserPasswordPdf.cs" />
+
+    <!-- The icon generator's SVG reader runs inside the compiler, so its sources are compiled here to test what it reads. -->
+    <Compile Include="..\..\HyperPdf.Viewer.Generator\IconReader.cs" Link="IconGenerator\IconReader.cs" />
+    <Compile Include="..\..\HyperPdf.Viewer.Generator\IconModel.cs" Link="IconGenerator\IconModel.cs" />
+    <Compile Include="..\..\HyperPdf.Viewer.Generator\PathNormalizer.cs" Link="IconGenerator\PathNormalizer.cs" />
+    <Compile Include="..\..\HyperPdf.Viewer.Generator\PathScanner.cs" Link="IconGenerator\PathScanner.cs" />
+    <Compile Include="..\..\HyperPdf.Viewer.Generator\SvgPoint.cs" Link="IconGenerator\SvgPoint.cs" />
   </ItemGroup>
 
   <ItemGroup>
