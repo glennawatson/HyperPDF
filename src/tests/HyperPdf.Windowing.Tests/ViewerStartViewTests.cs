@@ -61,7 +61,8 @@ public sealed class ViewerStartViewTests
                 // Each document has its icon and the folder it is in, and a rule sets it apart from the next: one under the heading and one under each.
                 var rules = session.Chrome.OverlayItems.Count(static item => item.Kind == ChromeItemKind.Separator);
                 var documents = session.Chrome.OverlayItems.Count(static item => item is { Kind: ChromeItemKind.Row, Icon: ChromeIcon.Document });
-                var folders = shown.Count(static text => text == "/documents");
+                var listedFolder = Path.GetDirectoryName("/documents/first.pdf");
+                var folders = shown.Count(text => text == listedFolder);
                 var open = session.Chrome.OverlayItems.First(static item => item.Icon == ChromeIcon.Open);
                 var opens = ReferenceEquals(open.Command, session.Main.OpenCommand);
 
