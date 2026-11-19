@@ -106,9 +106,6 @@ public sealed class ViewerChrome : IDisposable
     /// <summary>The menu, dialog or search bar that is open, or <see langword="null"/>.</summary>
     private Overlay? _overlay;
 
-    /// <summary>The control under the pointer, or <see langword="null"/>.</summary>
-    private ChromeItem? _hover;
-
     /// <summary>The part of the window left for the pages.</summary>
     private LayoutRect _canvasBounds;
 
@@ -162,6 +159,7 @@ public sealed class ViewerChrome : IDisposable
         ArgumentNullException.ThrowIfNull(main);
         ArgumentNullException.ThrowIfNull(events);
         _window = window;
+        Pointer = new(window);
         _main = main;
         _runs = new(window.Backend.Surfaces);
         _icons = new(window.Backend.Surfaces);
@@ -257,6 +255,9 @@ public sealed class ViewerChrome : IDisposable
         }
     }
 
+    /// <summary>Gets the pointer feedback for this window.</summary>
+    internal ChromePointer Pointer { get; }
+
     /// <summary>Gets the commands of the controls that act on the window itself, made when first asked for, once the controls exist to run them.</summary>
     private ChromeActions Actions => _actions ??= new(this, _main, _window);
 
@@ -292,12 +293,7 @@ public sealed class ViewerChrome : IDisposable
     public IObservable<string?> PickFile(string folder, string? saveName)
     {
         ArgumentNullException.ThrowIfNull(folder);
-        return Signal.Defer(() =>
-        {
-            var dialog = FileOverlays.Open(folder, saveName, false, false);
-            Show(dialog.Overlay);
-            return dialog.Answer.Select(static paths => paths.Length > 0 ? paths[0] : null);
-        });
+        return PickPaths(new(folder, saveName, false, false, UiText.Get(saveName is null ? "Open a file" : "Save a copy as"))).Select(static paths => paths.Length > 0 ? paths[0] : null);
     }
 
     /// <summary>Asks for a folder in a dialog. The dialog opens when the answer is subscribed to.</summary>
@@ -306,12 +302,7 @@ public sealed class ViewerChrome : IDisposable
     public IObservable<string?> PickFolder(string folder)
     {
         ArgumentNullException.ThrowIfNull(folder);
-        return Signal.Defer(() =>
-        {
-            var dialog = FileOverlays.Open(folder, null, false, true);
-            Show(dialog.Overlay);
-            return dialog.Answer.Select(static paths => paths.Length > 0 ? paths[0] : null);
-        });
+        return PickPaths(new(folder, null, false, true, UiText.Get("Choose a folder"))).Select(static paths => paths.Length > 0 ? paths[0] : null);
     }
 
     /// <summary>Asks for the files to open in a dialog where several can be ticked. The dialog opens when the answer is subscribed to.</summary>
@@ -320,12 +311,7 @@ public sealed class ViewerChrome : IDisposable
     public IObservable<string[]> PickFiles(string folder)
     {
         ArgumentNullException.ThrowIfNull(folder);
-        return Signal.Defer(() =>
-        {
-            var dialog = FileOverlays.Open(folder, null, true, false);
-            Show(dialog.Overlay);
-            return dialog.Answer;
-        });
+        return PickPaths(new(folder, null, true, false, UiText.Get("Open files")));
     }
 
     /// <summary>Asks for one line of text in a dialog. The dialog opens when the answer is subscribed to.</summary>
@@ -464,22 +450,25 @@ public sealed class ViewerChrome : IDisposable
         ArgumentNullException.ThrowIfNull(pass);
         ReleaseRetired();
         Layout();
-        ChromePainter.DrawKept(pass, _bars, _look, _hover);
+        ChromePainter.DrawKept(pass, _bars, _look);
         if (_overlay is not { } overlay)
         {
-            DrawFocus(pass, _bars, false);
             DrawTabPreview(pass);
-            return;
         }
-
-        if (overlay.IsModal)
+        else
         {
-            var size = pass.Size;
-            pass.FillRect(new(0, 0, size.Width, size.Height), _look.Theme.Scrim);
+            if (overlay.IsModal)
+            {
+                var size = pass.Size;
+                pass.FillRect(new(0, 0, size.Width, size.Height), _look.Theme.Scrim);
+            }
+
+            ChromePainter.Draw(pass, _overlayItems, _look);
         }
 
-        ChromePainter.Draw(pass, _overlayItems, _look, _hover);
-        DrawFocus(pass, _overlayItems, true);
+        Pointer.DrawHover(pass, _look);
+        DrawFocus(pass, _overlay is null ? _bars : _overlayItems, _overlay is not null);
+        Pointer.DrawTooltip(pass, _look);
     }
 
     /// <inheritdoc/>
@@ -588,25 +577,6 @@ public sealed class ViewerChrome : IDisposable
     private static bool IsListRow(ChromeItem item) =>
         item.Action is OverlayAction.PickRow or OverlayAction.PickOption || item is { Kind: ChromeItemKind.Row, Command: not null };
 
-    /// <summary>Finds the control at a point that can be pressed.</summary>
-    /// <param name="items">The controls, back to front.</param>
-    /// <param name="x">The x in device pixels.</param>
-    /// <param name="y">The y in device pixels.</param>
-    /// <returns>The control in front, or <see langword="null"/>.</returns>
-    private static ChromeItem? Find(List<ChromeItem> items, int x, int y)
-    {
-        for (var i = items.Count - 1; i >= 0; i--)
-        {
-            var item = items[i];
-            if (item.IsPressable && item.Enabled && item.Bounds.Contains(x, y))
-            {
-                return item;
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>Runs the command of a menu entry the user chose, when it can run.</summary>
     /// <param name="entry">The entry.</param>
     private static void RunEntry(MenuEntry entry)
@@ -615,6 +585,28 @@ public sealed class ViewerChrome : IDisposable
         {
             command.Execute(entry.Parameter);
         }
+    }
+
+    /// <summary>Asks the head for a desktop picker, with the built-in chooser available for hosts without one.</summary>
+    /// <param name="request">The selection requested.</param>
+    /// <returns>The selected paths.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<string[]> PickPaths(FilePickerRequest request) =>
+        Signal.Defer(() => _window.PickPaths(request)?.ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Catch<string[], IOException>(error =>
+            {
+                ErrorTrace.Write(error);
+                return BuiltInPicker(request);
+            }) ?? BuiltInPicker(request));
+
+    /// <summary>Shows the file chooser inside the viewer.</summary>
+    /// <param name="request">The selection requested.</param>
+    /// <returns>The selected paths.</returns>
+    private IObservable<string[]> BuiltInPicker(FilePickerRequest request)
+    {
+        var dialog = FileOverlays.Open(request.Folder, request.SaveName, request.Multiple, request.Directories);
+        Show(dialog.Overlay);
+        return dialog.Answer;
     }
 
     /// <summary>Shows an overlay that needs nothing besides itself, in place of the one that is open.</summary>
@@ -701,6 +693,11 @@ public sealed class ViewerChrome : IDisposable
     private MultipleDisposable RouteEvents() => new(
         Signal.Merge(
                 _incoming.WhereEventKind(WindowEventKind.PointerMoved).WhereUnused(this, static (chrome, e) => chrome.MovePointer(e.X, e.Y)),
+                _incoming.WhereEventKind(WindowEventKind.PointerLeft).Do(_ =>
+                {
+                    _pointerSeen = false;
+                    Pointer.Leave();
+                }),
                 _incoming.WhereEventKind(WindowEventKind.PointerDown).WhereUnused(this, static (chrome, e) => chrome.Press(e)),
                 _incoming.WhereEventKind(WindowEventKind.PointerUp).WhereUnused(this, static (chrome, e) => chrome.Release(e.X, e.Y)),
                 _incoming.WhereEventKind(WindowEventKind.Scrolled).WhereUnused(this, static (chrome, e) => chrome.Scroll(e)),
@@ -709,7 +706,7 @@ public sealed class ViewerChrome : IDisposable
                 _incoming.WhereEventKind(WindowEventKind.TextInput).WhereUnused(this, static (chrome, e) => chrome.Type((int)e.Code)),
                 _incoming.WhereEventKind(WindowEventKind.Resized).Do(_ => InvalidateBars()),
                 _incoming.Where(static e => e.Kind is not (WindowEventKind.PointerMoved or WindowEventKind.PointerDown or WindowEventKind.PointerUp or WindowEventKind.Scrolled
-                    or WindowEventKind.KeyDown or WindowEventKind.KeyUp or WindowEventKind.TextInput or WindowEventKind.Resized)))
+                    or WindowEventKind.KeyDown or WindowEventKind.KeyUp or WindowEventKind.TextInput or WindowEventKind.Resized or WindowEventKind.PointerLeft)))
             .SubscribeSafe(_pageEvents.OnNext, ErrorTrace.Write),
         _incoming.SubscribeSafe(_ => ReleaseRetired(), ErrorTrace.Write));
 
@@ -775,6 +772,7 @@ public sealed class ViewerChrome : IDisposable
         _version++;
         _overlay = null;
         _overlayItems.Clear();
+        Pointer.SetTargets(_overlayItems, true);
         if (_focus.InOverlay)
         {
             _focus = ChromeFocus.None;
@@ -791,7 +789,7 @@ public sealed class ViewerChrome : IDisposable
             return;
         }
 
-        _hover = Find(_bars, _pointer.X, _pointer.Y);
+        _ = FollowPointer();
         _window.RequestFrame();
     }
 
@@ -805,6 +803,15 @@ public sealed class ViewerChrome : IDisposable
         {
             ChromePainter.DrawFocus(pass, focused, _look);
         }
+    }
+
+    /// <summary>Updates the pointer target after a move or layout.</summary>
+    /// <returns>Whether the target changed.</returns>
+    private bool FollowPointer()
+    {
+        var overlay = _overlay is not null && IsOverOverlay(_pointer.X, _pointer.Y);
+        var reachable = _pointerSeen && (overlay || _overlay is not { IsModal: true });
+        return Pointer.Move(reachable ? Pointer.Hit(overlay, _pointer.X, _pointer.Y) : null);
     }
 
     /// <summary>Marks the open overlay as changed and asks for a frame, which lays it out again.</summary>
@@ -824,6 +831,7 @@ public sealed class ViewerChrome : IDisposable
             _barsChanged = false;
             _look = WindowFrame.Follow(_look with { Metrics = ChromeMetrics.For(_window.Scale) }, _window, _fullScreen);
             var laid = ChromeBars.Build(_bars, _main, _look, _sidebar, _window.ClientSize, Actions);
+            Pointer.SetTargets(_bars, false);
             _canvasBounds = laid.Canvas;
             _sidebar = laid.Sidebar;
             if (!_focus.InOverlay)
@@ -840,7 +848,7 @@ public sealed class ViewerChrome : IDisposable
         else if (barsChanged && _pointerSeen)
         {
             // Nothing is under a pointer that has not been seen in the window yet.
-            _hover = Find(_bars, _pointer.X, _pointer.Y);
+            _ = FollowPointer();
         }
     }
 
@@ -854,7 +862,8 @@ public sealed class ViewerChrome : IDisposable
 
         _overlayItems.Clear();
         overlay.Layout(_overlayItems, new(_runs, _look.Metrics, _window.ClientSize, _canvasBounds));
-        _hover = Find(_overlayItems, _pointer.X, _pointer.Y);
+        Pointer.SetTargets(_overlayItems, true);
+        _ = FollowPointer();
         if (_focus.InOverlay)
         {
             _focus = _focus.Follow(_overlayItems);
@@ -875,19 +884,8 @@ public sealed class ViewerChrome : IDisposable
     /// <param name="x">The x in device pixels.</param>
     /// <param name="y">The y in device pixels.</param>
     /// <returns><see langword="true"/> when it is.</returns>
-    private bool IsOverOverlay(int x, int y)
-    {
-        for (var i = 0; i < _overlayItems.Count; i++)
-        {
-            var item = _overlayItems[i];
-            if ((i == 0 || item.Kind == ChromeItemKind.Popup) && item.Bounds.Contains(x, y))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool IsOverOverlay(int x, int y) => ChromePointer.OverOverlay(_overlayItems, x, y);
 
     /// <summary>Follows the pointer, so the control under it is marked.</summary>
     /// <param name="x">The x in device pixels.</param>
@@ -895,6 +893,7 @@ public sealed class ViewerChrome : IDisposable
     /// <returns><see langword="true"/> when the pointer is over the controls.</returns>
     private bool MovePointer(int x, int y)
     {
+        var moved = !_pointerSeen || _pointer.X != x || _pointer.Y != y;
         _pointer = new(x, y);
         _pointerSeen = true;
         if (_padHeld)
@@ -903,15 +902,8 @@ public sealed class ViewerChrome : IDisposable
         }
 
         var over = IsOverChrome(x, y);
-        var hover = IsOverOverlay(x, y) ? Find(_overlayItems, x, y) : null;
-        if (hover is null && _overlay is not { IsModal: true })
+        if (moved && (over ? FollowPointer() : Pointer.Move(null)))
         {
-            hover = Find(_bars, x, y);
-        }
-
-        if (!ReferenceEquals(hover, _hover))
-        {
-            _hover = hover;
             _window.RequestFrame();
         }
 
@@ -935,7 +927,7 @@ public sealed class ViewerChrome : IDisposable
             return;
         }
 
-        if (Find(_overlayItems, x, y) is { } pressed)
+        if (ChromePointer.Find(_overlayItems, x, y) is { } pressed)
         {
             // Presses close together on the same place are a double click, which a list of files takes as "open this one".
             _overlayPresses = _overlayPresses.Press(x, y, Stopwatch.GetTimestamp());
@@ -958,10 +950,12 @@ public sealed class ViewerChrome : IDisposable
     /// <returns><see langword="true"/> when the pointer is over the controls or ended a stroke.</returns>
     private bool Release(int x, int y)
     {
+        Pointer.Release();
+
         // A tab let go over another tab takes that tab's place, which is how tabs are put in a new order.
         var dragged = _tabDragFrom;
         _tabDragFrom = -1;
-        if (dragged >= 0 && Find(_bars, x, y) is { Kind: ChromeItemKind.Tab } target && target.Index != dragged)
+        if (dragged >= 0 && ChromePointer.Find(_bars, x, y) is { Kind: ChromeItemKind.Tab } target && target.Index != dragged)
         {
             _main.MoveTab(dragged, target.Index);
             return true;
@@ -982,7 +976,7 @@ public sealed class ViewerChrome : IDisposable
     private void DrawTabPreview(IFramePass pass)
     {
         _previewTab = null;
-        if (_hover is not { Kind: ChromeItemKind.Tab } hovered || (uint)hovered.Index >= (uint)_main.Tabs.Count)
+        if (Pointer.Hover is not { Kind: ChromeItemKind.Tab } hovered || (uint)hovered.Index >= (uint)_main.Tabs.Count)
         {
             return;
         }
@@ -999,7 +993,7 @@ public sealed class ViewerChrome : IDisposable
             TabPreviews.Add(_previewItems, tab, hovered, _runs, _look.Metrics, key.Scale, key.WindowWidth);
         }
 
-        ChromePainter.Draw(pass, _previewItems, _look, null);
+        ChromePainter.Draw(pass, _previewItems, _look);
     }
 
     /// <summary>Handles a press on a tab with the middle or right button: the middle button closes the tab and the right opens its menu.</summary>
@@ -1033,6 +1027,8 @@ public sealed class ViewerChrome : IDisposable
         _pointer = new(x, y);
         _pointerSeen = true;
         Layout();
+        _ = FollowPointer();
+        Pointer.Press((windowEvent.Buttons & ViewerButtons.Left) != 0);
         if (WindowFrame.EdgesAt(_look, _window.ClientSize, x, y) is not WindowEdges.None and var edges)
         {
             _window.BeginResize(edges);
@@ -1076,7 +1072,7 @@ public sealed class ViewerChrome : IDisposable
     /// <param name="y">The y in device pixels.</param>
     private void PressBars(ViewerButtons buttons, int x, int y)
     {
-        if (Find(_bars, x, y) is not { } item)
+        if (ChromePointer.Find(_bars, x, y) is not { } item)
         {
             // The empty part of the bar at the top is the title bar of a window the system gives none: it moves the window, and a second press sizes it.
             if (_look.OwnsFrame && y < _look.Metrics.TabHeight && (buttons & ViewerButtons.Left) != 0)
@@ -1205,6 +1201,11 @@ public sealed class ViewerChrome : IDisposable
     /// <returns><see langword="true"/> when the key was used.</returns>
     private bool PressKey(ViewerKey key, ViewerModifiers modifiers)
     {
+        if (Pointer.Dismiss() && key == ViewerKey.Escape)
+        {
+            return true;
+        }
+
         Layout();
         if (_overlay is { IsModal: false } && (RunShortcut(key, modifiers) || OpenMenuByKey(key)))
         {

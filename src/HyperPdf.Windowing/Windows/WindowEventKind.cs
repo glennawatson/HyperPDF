@@ -39,4 +39,7 @@ public enum WindowEventKind
 
     /// <summary>A character was typed. The event carries its Unicode scalar value in <c>Code</c>. It follows the key down that made it.</summary>
     TextInput = 10,
+
+    /// <summary>The pointer left the client area.</summary>
+    PointerLeft = 11,
 }

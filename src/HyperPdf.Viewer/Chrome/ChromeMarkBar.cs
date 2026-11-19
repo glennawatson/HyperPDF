@@ -41,7 +41,7 @@ internal static class ChromeMarkBar
 
         // Eleven tools and their settings share one row, so they stand closer together than the main toolbar's buttons.
         var tight = metrics with { Padding = metrics.Gap + metrics.Gap };
-        var row = new ChromeRow(items, look.Runs, tight, tight.Gap, top + tight.Gap, tight.ToolbarHeight - tight.Gap - tight.Gap) { Limit = width - tight.Gap };
+        var row = new ChromeRow(items, look.Runs, tight, tight.Gap, top + tight.Gap, tight.ToolbarHeight - tight.Gap - tight.Gap) { Limit = width - tight.Gap, Describe = ButtonHelp.Marking };
         foreach (var tool in Tools)
         {
             // Every tool button runs the one command that picks a tool, and passes its own tool to it.

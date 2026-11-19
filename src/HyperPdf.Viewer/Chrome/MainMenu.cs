@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Markup;
@@ -35,15 +36,7 @@ internal static class MainMenu
         }
 
         entries.Add(MenuEntry.Separator());
-        entries.Add(MenuEntry.Item(UiText.Get("_Save"), "Ctrl+S", tab.SaveCommand, null, tab.HasUnsavedChanges));
-        entries.Add(MenuEntry.Item(UiText.Get("Save _As…"), null, tab.SaveAsCommand, null, tab.IsLoaded));
-        entries.Add(MenuEntry.Item(UiText.Get("Re_load"), null, tab.ReloadCommand, null, tab.IsLoaded));
-        entries.Add(MenuEntry.Submenu(UiText.Get("Save a Cop_y"), tab.IsLoaded, [..ToolMenus.Copies(tab)]));
-        entries.Add(MenuEntry.Item(UiText.Get("_Print…"), "Ctrl+P", tab.Printing.PrintCommand, null, tab.IsLoaded));
-        entries.Add(MenuEntry.Item(UiText.Get("Print with the System _Dialog…"), null, tab.Printing.PrintWithSystemDialogCommand, null, tab.IsLoaded));
-        entries.Add(MenuEntry.Item(UiText.Get("Document Propert_ies…"), null, main.PropertiesCommand, null, tab.IsLoaded));
-        entries.Add(MenuEntry.Item(UiText.Get("_Compare with Another Document…"), null, tab.Pages.Compare.CompareCommand, null, tab.IsLoaded));
-        entries.Add(MenuEntry.Item(UiText.Get("Remove _Hidden Information…"), null, tab.Pages.Sanitize.ShowCommand, null, tab.IsLoaded));
+        AddDocumentEntries(entries, main, tab);
         entries.Add(MenuEntry.Separator());
         entries.Add(MenuEntry.Submenu(UiText.Get("_View"), tab.IsLoaded, [..View(main, tab)]));
         entries.Add(MenuEntry.Submenu(UiText.Get("_Go"), tab.IsLoaded, [..Go(tab)]));
@@ -73,6 +66,58 @@ internal static class MainMenu
         MenuEntry.Item(UiText.Get("_Save"), null, tab.SaveCommand, null, tab.HasUnsavedChanges),
         MenuEntry.Item(UiText.Get("Re_load"), null, tab.ReloadCommand, null, tab.IsLoaded),
     ];
+
+    /// <summary>Lists the current document's file and output actions.</summary>
+    /// <param name="main">The window's view model.</param>
+    /// <param name="tab">The open document.</param>
+    /// <returns>The toolbar menu.</returns>
+    internal static List<MenuEntry> Document(MainViewModel main, DocumentTabViewModel tab)
+    {
+        var entries = new List<MenuEntry>();
+        AddDocumentEntries(entries, main, tab);
+        ICommand folder = main.ShowInFolderCommand;
+        entries.Add(MenuEntry.Item(UiText.Get("Show the Document in Its F_older"), null, folder, null, folder.CanExecute(null)));
+        return entries;
+    }
+
+    /// <summary>Lists the actions for reading and navigating the current view.</summary>
+    /// <param name="main">The window's view model.</param>
+    /// <param name="tab">The open document.</param>
+    /// <returns>The toolbar menu.</returns>
+    internal static List<MenuEntry> ReadingView(MainViewModel main, DocumentTabViewModel tab)
+    {
+        List<MenuEntry> entries =
+        [
+            MenuEntry.Submenu(UiText.Get("Page _Layout and Zoom"), true, [..ToolMenus.Layout(tab)]),
+            MenuEntry.Submenu(UiText.Get("_Go"), true, [..Go(tab)]),
+        ];
+        AddViewControls(entries, main, tab);
+        entries.Add(MenuEntry.Separator());
+        entries.Add(MenuEntry.Radio(UiText.Get("_Reading Mode"), tab.ReadModeCommand, null, tab.IsReading));
+        entries.Add(MenuEntry.Radio(UiText.Get("Presen_tation"), tab.PresentCommand, null, tab.IsPresenting));
+        entries.Add(MenuEntry.Radio(UiText.Get("Page _by Page"), tab.TogglePageByPageCommand, null, tab.IsPageByPage));
+        entries.Add(MenuEntry.Radio(UiText.Get("_Auto-scroll"), tab.PageTools.ToggleAutoScrollCommand, null, tab.PageTools.IsAutoScrolling));
+        entries.Add(MenuEntry.Separator());
+        AddPointerTools(entries, tab);
+        return entries;
+    }
+
+    /// <summary>Adds the file actions shared by the main and Document menus.</summary>
+    /// <param name="entries">The menu being built.</param>
+    /// <param name="main">The window's view model.</param>
+    /// <param name="tab">The current document.</param>
+    private static void AddDocumentEntries(List<MenuEntry> entries, MainViewModel main, DocumentTabViewModel tab)
+    {
+        entries.Add(MenuEntry.Item(UiText.Get("_Save"), "Ctrl+S", tab.SaveCommand, null, tab.HasUnsavedChanges));
+        entries.Add(MenuEntry.Item(UiText.Get("Save _As…"), null, tab.SaveAsCommand, null, tab.IsLoaded));
+        entries.Add(MenuEntry.Item(UiText.Get("Re_load"), null, tab.ReloadCommand, null, tab.IsLoaded));
+        entries.Add(MenuEntry.Submenu(UiText.Get("Save a Cop_y"), tab.IsLoaded, [..ToolMenus.Copies(tab)]));
+        entries.Add(MenuEntry.Item(UiText.Get("_Print…"), "Ctrl+P", tab.Printing.PrintCommand, null, tab.IsLoaded));
+        entries.Add(MenuEntry.Item(UiText.Get("Print with the System _Dialog…"), null, tab.Printing.PrintWithSystemDialogCommand, null, tab.IsLoaded));
+        entries.Add(MenuEntry.Item(UiText.Get("Document Propert_ies…"), null, main.PropertiesCommand, null, tab.IsLoaded));
+        entries.Add(MenuEntry.Item(UiText.Get("_Compare with Another Document…"), null, tab.Pages.Compare.CompareCommand, null, tab.IsLoaded));
+        entries.Add(MenuEntry.Item(UiText.Get("Remove _Hidden Information…"), null, tab.Pages.Sanitize.ShowCommand, null, tab.IsLoaded));
+    }
 
     /// <summary>Adds the entries about the app itself, which are there with or without a document.</summary>
     /// <param name="entries">Receives the entries.</param>
@@ -105,22 +150,35 @@ internal static class MainMenu
     /// <param name="main">The main view model.</param>
     /// <param name="tab">The tab shown.</param>
     /// <returns>The entries.</returns>
-    private static List<MenuEntry> View(MainViewModel main, DocumentTabViewModel tab) =>
-    [
-        MenuEntry.Item(UiText.Get("Zoom _In"), "Ctrl++", tab.ZoomInCommand, null, true),
-        MenuEntry.Item(UiText.Get("Zoom _Out"), "Ctrl+-", tab.ZoomOutCommand, null, true),
-        MenuEntry.Item(UiText.Get("Actual _Size"), null, tab.ZoomResetCommand, null, true),
-        MenuEntry.Item(UiText.Get("Fit _Width"), null, tab.FitWidthCommand, null, true),
-        MenuEntry.Item(UiText.Get("Fit _Page"), null, tab.FitPageCommand, null, true),
-        MenuEntry.Separator(),
-        MenuEntry.Item(UiText.Get("Rotate _Left"), null, tab.RotateLeftCommand, null, true),
-        MenuEntry.Item(UiText.Get("Rotate _Right"), null, tab.RotateRightCommand, null, true),
-        MenuEntry.Separator(),
-        MenuEntry.Radio(UiText.Get("Page _Tone"), main.TogglePageToneCommand, null, main.PageToneEnabled),
-        MenuEntry.Radio(UiText.Get("_Caret Mode"), tab.ToggleCaretModeCommand, null, tab.IsCaretMode),
-        MenuEntry.Radio(UiText.Get("_Side Panel"), tab.ToggleSidebarCommand, null, tab.SidebarVisible),
-        MenuEntry.Radio(UiText.Get("S_plit the View"), tab.SplitViewCommand, null, tab.IsSplitView),
-    ];
+    private static List<MenuEntry> View(MainViewModel main, DocumentTabViewModel tab)
+    {
+        var entries = new List<MenuEntry>
+        {
+            MenuEntry.Item(UiText.Get("Zoom _In"), "Ctrl++", tab.ZoomInCommand, null, true),
+            MenuEntry.Item(UiText.Get("Zoom _Out"), "Ctrl+-", tab.ZoomOutCommand, null, true),
+            MenuEntry.Item(UiText.Get("Actual _Size"), "Ctrl+0", tab.ZoomResetCommand, null, true),
+            MenuEntry.Item(UiText.Get("Fit _Width"), "Ctrl+2", tab.FitWidthCommand, null, true),
+            MenuEntry.Item(UiText.Get("Fit _Page"), "Ctrl+1", tab.FitPageCommand, null, true),
+        };
+        AddViewControls(entries, main, tab);
+        return entries;
+    }
+
+    /// <summary>Adds rotation and the switches that change the reading view.</summary>
+    /// <param name="entries">The menu being built.</param>
+    /// <param name="main">The window's view model.</param>
+    /// <param name="tab">The current document.</param>
+    private static void AddViewControls(List<MenuEntry> entries, MainViewModel main, DocumentTabViewModel tab)
+    {
+        entries.Add(MenuEntry.Separator());
+        entries.Add(MenuEntry.Item(UiText.Get("Rotate _Left"), null, tab.RotateLeftCommand, null, true));
+        entries.Add(MenuEntry.Item(UiText.Get("Rotate _Right"), null, tab.RotateRightCommand, null, true));
+        entries.Add(MenuEntry.Separator());
+        entries.Add(MenuEntry.Radio(UiText.Get("Page _Tone"), main.TogglePageToneCommand, null, main.PageToneEnabled));
+        entries.Add(MenuEntry.Radio(UiText.Get("_Caret Mode"), tab.ToggleCaretModeCommand, null, tab.IsCaretMode));
+        entries.Add(MenuEntry.Radio(UiText.Get("_Side Panel"), tab.ToggleSidebarCommand, null, tab.SidebarVisible));
+        entries.Add(MenuEntry.Radio(UiText.Get("S_plit the View"), tab.SplitViewCommand, null, tab.IsSplitView));
+    }
 
     /// <summary>Lists the ways to move through the document.</summary>
     /// <param name="tab">The tab shown.</param>
@@ -143,28 +201,35 @@ internal static class MainMenu
     /// <returns>The entries, with the tool in use ticked.</returns>
     private static List<MenuEntry> Tools(DocumentTabViewModel tab)
     {
-        var pages = tab.PageTools;
         var marks = tab.Annotations;
-        var marking = marks.Tool != AnnotationTool.Select;
-        return
-        [
-            MenuEntry.Radio(UiText.Get("_Select Text"), pages.SetPageToolCommand, PageTool.SelectText, !marking && pages.PageTool == PageTool.SelectText),
-            MenuEntry.Radio(UiText.Get("_Hand"), pages.SetPageToolCommand, PageTool.Hand, !marking && pages.PageTool == PageTool.Hand),
-            MenuEntry.Radio(UiText.Get("_Zoom to Area"), pages.SetPageToolCommand, PageTool.ZoomArea, !marking && pages.PageTool == PageTool.ZoomArea),
-            MenuEntry.Separator(),
-            MarkTool(marks, UiText.Get("H_ighlight"), AnnotationTool.Highlight),
-            MarkTool(marks, UiText.Get("_Underline"), AnnotationTool.Underline),
-            MarkTool(marks, UiText.Get("Stri_ke Out"), AnnotationTool.StrikeOut),
-            MarkTool(marks, UiText.Get("_Draw"), AnnotationTool.Draw),
-            MarkTool(marks, UiText.Get("_Note"), AnnotationTool.Note),
-            MarkTool(marks, UiText.Get("_Rectangle"), AnnotationTool.Rectangle),
-            MarkTool(marks, UiText.Get("_Ellipse"), AnnotationTool.Ellipse),
-            MarkTool(marks, UiText.Get("_Arrow"), AnnotationTool.Arrow),
-            MarkTool(marks, UiText.Get("_Line"), AnnotationTool.Line),
-            MenuEntry.Separator(),
-            MenuEntry.Item(UiText.Get("U_ndo"), null, marks.UndoCommand, null, true),
-            MenuEntry.Item(UiText.Get("Re_do"), null, marks.RedoCommand, null, true),
-        ];
+        var entries = new List<MenuEntry>();
+        AddPointerTools(entries, tab);
+        entries.Add(MenuEntry.Separator());
+        entries.Add(MarkTool(marks, UiText.Get("H_ighlight"), AnnotationTool.Highlight));
+        entries.Add(MarkTool(marks, UiText.Get("_Underline"), AnnotationTool.Underline));
+        entries.Add(MarkTool(marks, UiText.Get("Stri_ke Out"), AnnotationTool.StrikeOut));
+        entries.Add(MarkTool(marks, UiText.Get("_Draw"), AnnotationTool.Draw));
+        entries.Add(MarkTool(marks, UiText.Get("_Note"), AnnotationTool.Note));
+        entries.Add(MarkTool(marks, UiText.Get("_Rectangle"), AnnotationTool.Rectangle));
+        entries.Add(MarkTool(marks, UiText.Get("_Ellipse"), AnnotationTool.Ellipse));
+        entries.Add(MarkTool(marks, UiText.Get("_Arrow"), AnnotationTool.Arrow));
+        entries.Add(MarkTool(marks, UiText.Get("_Line"), AnnotationTool.Line));
+        entries.Add(MenuEntry.Separator());
+        entries.Add(MenuEntry.Item(UiText.Get("U_ndo"), null, marks.UndoCommand, null, true));
+        entries.Add(MenuEntry.Item(UiText.Get("Re_do"), null, marks.RedoCommand, null, true));
+        return entries;
+    }
+
+    /// <summary>Adds the three ways to use the pointer on the page.</summary>
+    /// <param name="entries">The menu being built.</param>
+    /// <param name="tab">The current document.</param>
+    private static void AddPointerTools(List<MenuEntry> entries, DocumentTabViewModel tab)
+    {
+        var pages = tab.PageTools;
+        var marking = tab.AnnotationsInUse is { Tool: not AnnotationTool.Select };
+        entries.Add(MenuEntry.Radio(UiText.Get("_Select Text"), pages.SetPageToolCommand, PageTool.SelectText, !marking && pages.PageTool == PageTool.SelectText));
+        entries.Add(MenuEntry.Radio(UiText.Get("_Hand"), pages.SetPageToolCommand, PageTool.Hand, !marking && pages.PageTool == PageTool.Hand));
+        entries.Add(MenuEntry.Radio(UiText.Get("_Zoom to Area"), pages.SetPageToolCommand, PageTool.ZoomArea, !marking && pages.PageTool == PageTool.ZoomArea));
     }
 
     /// <summary>Makes the entry of a marking tool, ticked while it is the tool in use.</summary>

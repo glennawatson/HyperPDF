@@ -6,8 +6,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using HyperPdf.Core.Measuring;
 using HyperPdf.Core.Text;
 using HyperPdf.ViewModels.Dialogs;
+using HyperPdf.ViewModels.Help;
 using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer.Icons;
 
@@ -32,13 +34,14 @@ internal static class ChromeToolBars
     /// <param name="look">The text measurer and the sizes.</param>
     /// <param name="top">The top of the first bar.</param>
     /// <param name="width">The window width.</param>
+    /// <param name="actions">The commands that open dialogs.</param>
     /// <returns>The height the bars take together.</returns>
-    internal static int Add(List<ChromeItem> items, DocumentTabViewModel tab, ChromeLook look, int top, int width)
+    internal static int Add(List<ChromeItem> items, DocumentTabViewModel tab, ChromeLook look, int top, int width, ChromeActions actions)
     {
         var bars = new List<ToolBar>();
         AddNotices(bars, tab);
         AddReadingAids(bars, tab);
-        AddPageTools(bars, tab);
+        AddPageTools(bars, tab, actions);
         var height = 0;
         foreach (var bar in bars)
         {
@@ -164,7 +167,8 @@ internal static class ChromeToolBars
     /// <summary>Adds the state of the tools that work on the page: scrolling by itself, measuring, filling and signing, and changing the page's own content.</summary>
     /// <param name="bars">Receives the bars.</param>
     /// <param name="tab">The tab shown.</param>
-    private static void AddPageTools(List<ToolBar> bars, DocumentTabViewModel tab)
+    /// <param name="actions">The commands that open dialogs.</param>
+    private static void AddPageTools(List<ToolBar> bars, DocumentTabViewModel tab, ChromeActions actions)
     {
         var tools = tab.PageTools;
         if (tools.IsAutoScrolling)
@@ -183,7 +187,15 @@ internal static class ChromeToolBars
             var result = measure.Result.Length > 0 ? measure.Result : UiText.Get("Click the points to measure between.");
             bars.Add(new(
                 Label(UiText.Get("Measure"), result),
-                [Item(ChromeIcon.Add, "Keep as a mark", measure.KeepCommand), Item(ChromeIcon.Close, "Clear", measure.ClearCommand), Item(ChromeIcon.Done, "Done", measure.ToggleCommand)]));
+                [
+                    new(ChromeIcon.Ruler, MenuEntry.Radio(UiText.Get("Distance"), measure.SetModeCommand, MeasureMode.Distance, measure.IsDistance)) { Help = Descriptions.Distance },
+                    new(ChromeIcon.Perimeter, MenuEntry.Radio(UiText.Get("Perimeter"), measure.SetModeCommand, MeasureMode.Perimeter, measure.IsPerimeter)) { Help = Descriptions.Perimeter },
+                    new(ChromeIcon.Area, MenuEntry.Radio(UiText.Get("Area"), measure.SetModeCommand, MeasureMode.Area, measure.IsArea)) { Help = Descriptions.Area },
+                    new(ChromeIcon.Ruler, MenuEntry.Item(Label(UiText.Get("Scale"), measure.ScaleText), null, actions.EditMeasureScale, null, true)) { Help = Descriptions.MeasureScale },
+                    Item(ChromeIcon.Add, "Keep as a mark", measure.KeepCommand, Descriptions.MeasureKeep),
+                    Item(ChromeIcon.Close, "Clear", measure.ClearCommand, Descriptions.MeasureClear),
+                    Item(ChromeIcon.Done, "Done", measure.ToggleCommand, Descriptions.MeasureDone),
+                ]));
         }
 
         AddEditTools(bars, tab);
@@ -297,7 +309,7 @@ internal static class ChromeToolBars
             }
 
             // The button runs the action's own command. Its place among the controls tells it from another button of the same command.
-            row = row.Button(action.Icon, entry.Header, entry.Command, new GroupChoice(items.Count, entry.Parameter, false));
+            row = row.Button(action.Icon, entry.Header, entry.Command, new GroupChoice(items.Count, entry.Parameter, entry.IsChecked) { Help = action.Help });
         }
 
         var height = row.Lines * metrics.ToolbarHeight;
@@ -311,7 +323,16 @@ internal static class ChromeToolBars
     /// <param name="command">The command.</param>
     /// <returns>The button.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static BarAction Item(ChromeIcon icon, string text, ICommand command) => new(icon, MenuEntry.Item(UiText.Get(text), null, command, null, command.CanExecute(null)));
+    private static BarAction Item(ChromeIcon icon, string text, ICommand command) => Item(icon, text, command, null);
+
+    /// <summary>Makes a tool button with contextual help.</summary>
+    /// <param name="icon">The icon drawn before the words.</param>
+    /// <param name="text">The English button label.</param>
+    /// <param name="command">The action.</param>
+    /// <param name="help">The localised help.</param>
+    /// <returns>The button.</returns>
+    private static BarAction Item(ChromeIcon icon, string text, ICommand command, string? help) =>
+        new(icon, MenuEntry.Item(UiText.Get(text), null, command, null, command.CanExecute(null))) { Help = help };
 
     /// <summary>Puts a tool's name before what it says.</summary>
     /// <param name="name">The tool's name.</param>

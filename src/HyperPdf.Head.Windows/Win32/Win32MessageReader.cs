@@ -34,6 +34,9 @@ internal static class Win32MessageReader
     /// <summary>The WM_MOUSEMOVE message.</summary>
     private const uint MouseMove = 0x0200;
 
+    /// <summary>The message sent once when the pointer leaves the client area.</summary>
+    private const uint MouseLeave = 0x02A3;
+
     /// <summary>The WM_LBUTTONDOWN message.</summary>
     private const uint LeftDown = 0x0201;
 
@@ -99,6 +102,7 @@ internal static class Win32MessageReader
         // Windows sends a character outside the basic plane as two halves, which no window control types yet, so only whole characters pass.
         Character when primary >= FirstPrinting && !char.IsSurrogate((char)primary) => new(WindowEventKind.TextInput, 0, 0, (uint)primary, modifiers),
         MouseMove => new(WindowEventKind.PointerMoved, SignedLowWord(secondary), SignedHighWord(secondary), (uint)Win32Input.ToHeldButtons(primary), modifiers),
+        MouseLeave => new(WindowEventKind.PointerLeft, 0, 0, 0, 0),
         LeftDown => Pointer(WindowEventKind.PointerDown, secondary, LeftButton, modifiers),
         LeftUp => Pointer(WindowEventKind.PointerUp, secondary, LeftButton, modifiers),
         RightDown => Pointer(WindowEventKind.PointerDown, secondary, RightButton, modifiers),

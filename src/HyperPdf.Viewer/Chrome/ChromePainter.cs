@@ -40,12 +40,11 @@ internal static class ChromePainter
     /// <param name="pass">The frame.</param>
     /// <param name="items">The controls.</param>
     /// <param name="look">The text, colours and sizes to draw with.</param>
-    /// <param name="hover">The control under the pointer, or <see langword="null"/>.</param>
-    internal static void DrawKept(IFramePass pass, List<ChromeItem> items, ChromeLook look, ChromeItem? hover)
+    internal static void DrawKept(IFramePass pass, List<ChromeItem> items, ChromeLook look)
     {
         if (pass.BeginKeptTrial())
         {
-            Draw(pass, items, look, hover);
+            Draw(pass, items, look);
             if (pass.EndKeptTrial())
             {
                 return;
@@ -53,7 +52,7 @@ internal static class ChromePainter
         }
 
         pass.BeginKeptGroup();
-        Draw(pass, items, look, hover);
+        Draw(pass, items, look);
         pass.EndKeptGroup();
     }
 
@@ -61,23 +60,13 @@ internal static class ChromePainter
     /// <param name="pass">The frame.</param>
     /// <param name="items">The controls.</param>
     /// <param name="look">The text, colours and sizes to draw with.</param>
-    /// <param name="hover">The control under the pointer, or <see langword="null"/>.</param>
-    internal static void Draw(IFramePass pass, List<ChromeItem> items, ChromeLook look, ChromeItem? hover)
+    internal static void Draw(IFramePass pass, List<ChromeItem> items, ChromeLook look)
     {
-        var hovered = false;
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
-            var under = ReferenceEquals(item, hover);
-            hovered |= under;
-            DrawBackground(pass, item, look, under);
+            DrawBackground(pass, item, look);
             DrawText(pass, item, look);
-        }
-
-        // The control under the pointer may be one of an older layout. Its name is only shown while it is one of these.
-        if (hovered)
-        {
-            DrawHint(pass, hover, look);
         }
     }
 
@@ -85,46 +74,42 @@ internal static class ChromePainter
     /// <param name="pass">The frame.</param>
     /// <param name="item">The control.</param>
     /// <param name="look">The colours and sizes.</param>
-    internal static void DrawFocus(IFramePass pass, ChromeItem item, ChromeLook look)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void DrawFocus(IFramePass pass, ChromeItem item, ChromeLook look) =>
+        DrawBorder(pass, item.Bounds, look.Theme.Accent, look.Metrics.Line * MarkLines);
+
+    /// <summary>Draws the hover border over the cached controls without obscuring their labels.</summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="item">The control under the pointer.</param>
+    /// <param name="look">The window theme and scale.</param>
+    /// <param name="pressed">Whether the button is held down.</param>
+    internal static void DrawHover(IFramePass pass, ChromeItem item, ChromeLook look, bool pressed)
     {
-        var weight = look.Metrics.Line * MarkLines;
-        var bounds = item.Bounds;
-        var color = look.Theme.Accent;
-        pass.FillRect(new(bounds.X, bounds.Y, bounds.Width, weight), color);
-        pass.FillRect(new(bounds.X, bounds.Bottom - weight, bounds.Width, weight), color);
-        pass.FillRect(new(bounds.X, bounds.Y, weight, bounds.Height), color);
-        pass.FillRect(new(bounds.Right - weight, bounds.Y, weight, bounds.Height), color);
+        if (item.Kind == ChromeItemKind.Button)
+        {
+            pass.FillRect(item.Bounds, look.Theme.ButtonHover != 0 ? look.Theme.ButtonHover : look.Theme.Surface);
+            DrawState(pass, item, look);
+            DrawText(pass, item, look);
+        }
+        else if (item.Kind == ChromeItemKind.Row)
+        {
+            // Menu shortcuts and list decorations can be separate controls drawn over the row.
+            pass.FillRect(item.Bounds, look.Theme.Hover);
+        }
+
+        DrawBorder(pass, item.Bounds, pressed ? look.Theme.Accent : look.Theme.Border, pressed ? look.Metrics.Line * MarkLines : look.Metrics.Line);
     }
 
-    /// <summary>
-    /// Draws the name of a control that shows its icon alone, in a small box by the control, while the pointer is over it. An icon
-    /// is never the only way to tell what a control does.
-    /// </summary>
+    /// <summary>Draws a filled box with a border.</summary>
     /// <param name="pass">The frame.</param>
-    /// <param name="hovered">The control under the pointer, or <see langword="null"/>.</param>
-    /// <param name="look">The text, colours and sizes.</param>
-    internal static void DrawHint(IFramePass pass, ChromeItem? hovered, ChromeLook look)
+    /// <param name="bounds">The box.</param>
+    /// <param name="fill">The fill colour.</param>
+    /// <param name="border">The border colour.</param>
+    /// <param name="line">The border thickness.</param>
+    internal static void DrawBox(IFramePass pass, in LayoutRect bounds, uint fill, uint border, int line)
     {
-        if (hovered is not { HidesText: true, Text.Length: > 0 })
-        {
-            return;
-        }
-
-        var metrics = look.Metrics;
-        var run = look.Runs.Get(hovered.Text, new(metrics.TextSize, false, look.Theme.Text));
-        var width = run.Width + metrics.Padding + metrics.Padding;
-        var height = metrics.RowHeight;
-        var size = pass.Size;
-
-        // The box sits under the control, kept inside the window, and above it when there is no room below.
-        var x = Math.Clamp(hovered.Bounds.X, 0, Math.Max(0, size.Width - width));
-        var below = hovered.Bounds.Bottom + metrics.Gap;
-        var y = below + height <= size.Height ? below : hovered.Bounds.Y - metrics.Gap - height;
-        DrawBox(pass, new(x, y, width, height), look.Theme.Surface, look.Theme.Border, metrics.Line);
-        if (run.Surface is { } surface)
-        {
-            pass.DrawSurface(surface, new(x + metrics.Padding, y + ((height - run.Height) >> 1), run.Width, run.Height), false);
-        }
+        pass.FillRect(bounds, border);
+        pass.FillRect(new(bounds.X + line, bounds.Y + line, bounds.Width - line - line, bounds.Height - line - line), fill);
     }
 
     /// <summary>Gets the space between an icon and the text after it.</summary>
@@ -137,8 +122,7 @@ internal static class ChromePainter
     /// <param name="pass">The frame.</param>
     /// <param name="item">The control.</param>
     /// <param name="look">The text, colours and sizes.</param>
-    /// <param name="hovered">Whether the pointer is over it.</param>
-    private static void DrawBackground(IFramePass pass, ChromeItem item, ChromeLook look, bool hovered)
+    private static void DrawBackground(IFramePass pass, ChromeItem item, ChromeLook look)
     {
         var theme = look.Theme;
         var line = look.Metrics.Line;
@@ -203,7 +187,7 @@ internal static class ChromePainter
 
             default:
                 {
-                    DrawState(pass, item, look, hovered);
+                    DrawState(pass, item, look);
                     break;
                 }
         }
@@ -239,26 +223,20 @@ internal static class ChromePainter
         return true;
     }
 
-    /// <summary>Draws the wash of a control under the pointer and the mark of a chosen one.</summary>
+    /// <summary>Marks the selected control of a group.</summary>
     /// <param name="pass">The frame.</param>
     /// <param name="item">The control.</param>
     /// <param name="look">The text, colours and sizes.</param>
-    /// <param name="hovered">Whether the pointer is over it.</param>
-    private static void DrawState(IFramePass pass, ChromeItem item, ChromeLook look, bool hovered)
+    private static void DrawState(IFramePass pass, ChromeItem item, ChromeLook look)
     {
-        if (!item.IsPressable || !item.Enabled)
+        if (!item.Selected || !item.IsPressable || !item.Enabled)
         {
             return;
         }
 
-        if (hovered)
+        if (item.Trait == ChromeItemTrait.Switch)
         {
             pass.FillRect(item.Bounds, look.Theme.Hover);
-        }
-
-        if (!item.Selected)
-        {
-            return;
         }
 
         // The chosen row has a bar down its left edge, and the chosen button of a group a line under it.
@@ -275,6 +253,11 @@ internal static class ChromePainter
     /// <param name="look">The text, colours and sizes.</param>
     private static void DrawText(IFramePass pass, ChromeItem item, ChromeLook look)
     {
+        if (item.Text.Length == 0 && item.Icon == ChromeIcon.None && item.Kind != ChromeItemKind.Field)
+        {
+            return;
+        }
+
         var metrics = look.Metrics;
         TextStyle style = new(item.TextSize > 0 ? item.TextSize : metrics.TextSize, item.Kind == ChromeItemKind.Heading, TextColorOf(item, look)) { Serif = item.Serif };
         var run = look.Runs.Get(item.HidesText ? string.Empty : item.Text, style);
@@ -378,15 +361,16 @@ internal static class ChromePainter
         return item.Dimmed ? (color & ColorBits) | DimmedAlpha : color;
     }
 
-    /// <summary>Draws a filled box with a border.</summary>
+    /// <summary>Draws an outline inside a control.</summary>
     /// <param name="pass">The frame.</param>
-    /// <param name="bounds">The box.</param>
-    /// <param name="fill">The fill colour.</param>
-    /// <param name="border">The border colour.</param>
-    /// <param name="line">The border thickness.</param>
-    private static void DrawBox(IFramePass pass, in LayoutRect bounds, uint fill, uint border, int line)
+    /// <param name="bounds">The control bounds.</param>
+    /// <param name="color">The outline colour.</param>
+    /// <param name="weight">The outline thickness.</param>
+    private static void DrawBorder(IFramePass pass, in LayoutRect bounds, uint color, int weight)
     {
-        pass.FillRect(bounds, border);
-        pass.FillRect(new(bounds.X + line, bounds.Y + line, bounds.Width - line - line, bounds.Height - line - line), fill);
+        pass.FillRect(new(bounds.X, bounds.Y, bounds.Width, weight), color);
+        pass.FillRect(new(bounds.X, bounds.Bottom - weight, bounds.Width, weight), color);
+        pass.FillRect(new(bounds.X, bounds.Y, weight, bounds.Height), color);
+        pass.FillRect(new(bounds.Right - weight, bounds.Y, weight, bounds.Height), color);
     }
 }

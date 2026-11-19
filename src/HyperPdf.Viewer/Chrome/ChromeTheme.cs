@@ -35,6 +35,9 @@ public readonly record struct ChromeTheme(uint Bar, uint Surface, uint Text, uin
     /// <summary>Gets the colours of icons by what their action does, as 0xRRGGBB. A colour of zero stands for the text colour.</summary>
     public IconTints Tints { get; init; }
 
+    /// <summary>Gets the opaque theme background for a button under the pointer.</summary>
+    internal uint ButtonHover { get; init; }
+
     /// <summary>Makes the colours of a colour scheme.</summary>
     /// <param name="scheme">The scheme.</param>
     /// <returns>The colours.</returns>
@@ -49,7 +52,7 @@ public readonly record struct ChromeTheme(uint Bar, uint Surface, uint Text, uin
             Opaque | (scheme.Border & ColorMask),
             Opaque | (scheme.Accent & ColorMask),
             HoverAlpha | (scheme.Accent & ColorMask),
-            ScrimColor) { Tints = scheme.Tints };
+            ScrimColor) { Tints = scheme.Tints, ButtonHover = Opaque | (scheme.Selection & ColorMask) };
     }
 
     /// <summary>Gets the colour an icon is drawn in.</summary>

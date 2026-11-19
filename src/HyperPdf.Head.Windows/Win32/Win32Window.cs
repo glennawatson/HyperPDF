@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using HyperPdf.Head.Windows.Accessibility;
+using HyperPdf.Platform.Windows.Shell;
 using HyperPdf.Presentation.Input;
 using HyperPdf.Rendering.Cpu;
 using HyperPdf.Windowing.Accessibility;
@@ -126,6 +127,9 @@ public sealed unsafe class Win32Window : IPlatformWindow
     /// <summary>One once the window is disposed.</summary>
     private int _disposed;
 
+    /// <summary>Whether Windows has a leave notification armed for this window.</summary>
+    private bool _trackingLeave;
+
     /// <summary>Initializes a new instance of the <see cref="Win32Window"/> class.</summary>
     /// <param name="preference">What the settings ask for.</param>
     /// <param name="accessibility">The bridge that publishes this window to UI Automation.</param>
@@ -214,6 +218,13 @@ public sealed unsafe class Win32Window : IPlatformWindow
 
     /// <summary>Gets the native window handle, for tests and for code that talks to the shell about this window.</summary>
     internal long WindowHandle => _window;
+
+    /// <inheritdoc/>
+    public IObservable<string[]> PickPaths(FilePickerRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return Signal.Defer(() => Signal.Return(CommonItemDialog.Choose((nint)_window, request.Folder, request.SaveName, request.Multiple, request.Directories, request.Title)));
+    }
 
     /// <inheritdoc/>
     public void SetTitle(string title)
@@ -463,6 +474,15 @@ public sealed unsafe class Win32Window : IPlatformWindow
         else if (windowEvent.Kind == WindowEventKind.Exposed)
         {
             _ = NativeMethods.ValidateRect(window, null);
+        }
+        else if (windowEvent.Kind == WindowEventKind.PointerMoved && !_trackingLeave)
+        {
+            var request = new TrackMouseRequest(window);
+            _trackingLeave = NativeMethods.TrackMouseEvent(&request) != 0;
+        }
+        else if (windowEvent.Kind == WindowEventKind.PointerLeft)
+        {
+            _trackingLeave = false;
         }
     }
 

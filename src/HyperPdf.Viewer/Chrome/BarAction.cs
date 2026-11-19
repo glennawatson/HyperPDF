@@ -12,4 +12,8 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="Icon">The icon drawn before the words, or <see cref="ChromeIcon.None"/> for the words alone.</param>
 /// <param name="Entry">The words, the command and its parameter, and whether it can run now.</param>
 [DebuggerDisplay("BarAction: {Entry}")]
-internal sealed record BarAction(ChromeIcon Icon, MenuEntry Entry);
+internal sealed record BarAction(ChromeIcon Icon, MenuEntry Entry)
+{
+    /// <summary>Gets the help for this action.</summary>
+    internal string? Help { get; init; }
+}

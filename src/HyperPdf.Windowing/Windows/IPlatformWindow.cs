@@ -51,6 +51,11 @@ public interface IPlatformWindow : IDisposable
     /// </summary>
     bool HasSystemFrame => true;
 
+    /// <summary>Opens the system file chooser.</summary>
+    /// <param name="request">The selection requested.</param>
+    /// <returns>The selected paths, empty on cancellation, or null when this head has no desktop chooser.</returns>
+    IObservable<string[]>? PickPaths(FilePickerRequest request) => null;
+
     /// <summary>Sets the window title.</summary>
     /// <param name="title">The title.</param>
     void SetTitle(string title);

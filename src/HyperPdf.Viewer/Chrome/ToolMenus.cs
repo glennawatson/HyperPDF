@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using HyperPdf.Core.Documents;
@@ -23,6 +24,12 @@ internal static class ToolMenus
 {
     /// <summary>How close two spacings are for them to be the same choice.</summary>
     private const float SpacingTolerance = 0.001F;
+
+    /// <summary>The percentage shown at actual size.</summary>
+    private const int ActualSize = 100;
+
+    /// <summary>The tolerance when identifying a preset zoom factor.</summary>
+    private const double ZoomTolerance = 1e-6;
 
     /// <summary>The zoom levels offered, in percent.</summary>
     private static readonly string[] ZoomLevels = ["50", "75", "100", "125", "150", "200", "400"];
@@ -87,6 +94,17 @@ internal static class ToolMenus
         new("Green", "388E3C"),
         new("Blue", "1976D2"),
         new("Purple", "7B1FA2"),
+    ];
+
+    /// <summary>Lists the tools for measuring, copying a page area and recognising text.</summary>
+    /// <param name="tab">The open document.</param>
+    /// <returns>The tools in menu order.</returns>
+    internal static List<MenuEntry> Tools(DocumentTabViewModel tab) =>
+    [
+        MenuEntry.Radio(UiText.Get("_Measure"), tab.Measure.ToggleCommand, null, tab.Measure.IsOn),
+        MenuEntry.Radio(UiText.Get("_Snapshot"), tab.PageTools.ToggleSnapshotToolCommand, null, tab.PageTools.IsSnapshotTool),
+        Item("Recognise _Text", tab.TextRecognition.RecognizeCommand),
+        Item("Recognise Text in Another _Language…", tab.TextRecognition.ChooseLanguageCommand),
     ];
 
     /// <summary>Lists the kinds of copy that can be saved.</summary>
@@ -236,6 +254,27 @@ internal static class ToolMenus
         foreach (var level in ZoomLevels)
         {
             entries.Add(MenuEntry.Item(UiText.Format("Zoom to {0}%", level), null, tab.SetZoomCommand, level, true));
+        }
+
+        return entries;
+    }
+
+    /// <summary>Lists the fit modes and zoom presets, marking the current choice.</summary>
+    /// <param name="tab">The open document.</param>
+    /// <returns>The zoom choices for the percentage button.</returns>
+    internal static List<MenuEntry> Zoom(DocumentTabViewModel tab)
+    {
+        var entries = new List<MenuEntry>
+        {
+            new(MenuEntryKind.RadioItem, UiText.Get("Fit _Width"), "Ctrl+2", tab.FitWidthCommand, null, true, null, tab.ZoomMode == ZoomMode.FitWidth, []),
+            new(MenuEntryKind.RadioItem, UiText.Get("Fit _Page"), "Ctrl+1", tab.FitPageCommand, null, true, null, tab.ZoomMode == ZoomMode.FitPage, []),
+            MenuEntry.Separator(),
+        };
+        foreach (var level in ZoomLevels)
+        {
+            var percent = int.Parse(level, CultureInfo.InvariantCulture);
+            var selected = tab.ZoomMode == ZoomMode.Free && Math.Abs(tab.Zoom - ((double)percent / ActualSize)) < ZoomTolerance;
+            entries.Add(new(MenuEntryKind.RadioItem, $"{level}%", percent == ActualSize ? "Ctrl+0" : null, tab.SetZoomCommand, level, true, null, selected, []));
         }
 
         return entries;

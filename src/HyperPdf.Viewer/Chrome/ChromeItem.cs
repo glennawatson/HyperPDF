@@ -66,4 +66,7 @@ public sealed record ChromeItem(ChromeItemKind Kind, ICommand? Command, int Inde
 
     /// <summary>Gets a value indicating whether the text is set in the serif font.</summary>
     public bool Serif { get; init; }
+
+    /// <summary>Gets the localised explanation used by the tooltip and accessibility tree.</summary>
+    internal string? Help { get; init; }
 }
