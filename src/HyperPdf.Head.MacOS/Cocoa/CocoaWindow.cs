@@ -56,6 +56,9 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
     /// <summary>The event type of the pointer moving with no button held.</summary>
     private const nuint MouseMoved = 5;
 
+    /// <summary>The NSEvent type for leaving a tracking area.</summary>
+    private const nuint MouseExited = 9;
+
     /// <summary>The event type of the pointer moving with the left button held.</summary>
     private const nuint LeftDragged = 6;
 
@@ -109,6 +112,9 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
 
     /// <summary>The window's content view.</summary>
     private readonly ulong _view;
+
+    /// <summary>The tracking area retained by the content view.</summary>
+    private readonly ulong _trackingArea;
 
     /// <summary>The run loop mode events are taken in.</summary>
     private readonly ulong _mode;
@@ -176,6 +182,7 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
             NativeMethods.SendVoid(window, Selectors.Center);
             var view = NativeMethods.Send(window, Selectors.ContentView);
             _view = (ulong)view;
+            _trackingArea = (ulong)TrackPointerExit(view);
             NativeMethods.SendVoidFlag(view, Selectors.SetWantsLayer, 1);
 
             // Run loop modes are compared as text, and this is the text of the default mode.
@@ -231,6 +238,10 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
 
     /// <inheritdoc/>
     public IObservable<WindowEvent> Events => _events;
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<string[]> PickPaths(FilePickerRequest request) => Signal.Defer(() => Signal.Return(CocoaFilePanel.Choose(request)));
 
     /// <inheritdoc/>
     public void SetTitle(string title)
@@ -429,6 +440,22 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
         };
     }
 
+    /// <summary>Tracks exits across the entire visible view, including after a resize.</summary>
+    /// <param name="view">The content view.</param>
+    /// <returns>The tracking area owned by the view.</returns>
+    private static nint TrackPointerExit(nint view)
+    {
+        const nuint enteredAndExited = 0x01;
+        const nuint activeAlways = 0x80;
+        const nuint inVisibleRect = 0x200;
+        var allocated = NativeMethods.Send(NativeMethods.GetClass("NSTrackingArea"), Selectors.Alloc);
+        var selector = NativeMethods.Selector("initWithRect:options:owner:userInfo:");
+        var area = NativeMethods.SendInitTrackingArea(allocated, selector, default, enteredAndExited | activeAlways | inVisibleRect, view, 0);
+        NativeMethods.SendVoid(view, NativeMethods.Selector("addTrackingArea:"), area);
+        NativeMethods.SendVoid(area, Selectors.Release);
+        return area;
+    }
+
     /// <summary>Starts the Metal backend on a Metal layer in the window.</summary>
     /// <returns>The backend.</returns>
     /// <exception cref="InvalidOperationException">The machine has no GPU Metal can use.</exception>
@@ -563,6 +590,11 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
     /// <returns>The window event, or the default for an event the viewer has no use for.</returns>
     private WindowEvent Translate(nint next, nuint type)
     {
+        if (type == MouseExited)
+        {
+            return (ulong)NativeMethods.Send(next, NativeMethods.Selector("trackingArea")) == _trackingArea ? new(WindowEventKind.PointerLeft, 0, 0, 0, 0) : default;
+        }
+
         var modifiers = (uint)CocoaInput.ToModifiers(NativeMethods.SendCount(next, Selectors.ModifierFlags));
         if (type == ScrollWheel)
         {

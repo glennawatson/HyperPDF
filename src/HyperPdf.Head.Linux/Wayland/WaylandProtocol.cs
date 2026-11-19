@@ -16,6 +16,9 @@ internal static class WaylandProtocol
     /// <summary>The xdg_wm_base interface name.</summary>
     internal const string WmBaseInterface = "xdg_wm_base";
 
+    /// <summary>The global that exports a toplevel for a dialog in another process.</summary>
+    internal const string ExporterInterface = "zxdg_exporter_v2";
+
     /// <summary>The wl_seat interface name.</summary>
     internal const string SeatInterface = "wl_seat";
 
@@ -108,6 +111,9 @@ internal static class WaylandProtocol
 
     /// <summary>The wl_pointer.enter event.</summary>
     internal const int PointerEnter = 0;
+
+    /// <summary>The wl_pointer.leave event.</summary>
+    internal const int PointerLeave = 1;
 
     /// <summary>The wl_pointer.motion event.</summary>
     internal const int PointerMotion = 2;

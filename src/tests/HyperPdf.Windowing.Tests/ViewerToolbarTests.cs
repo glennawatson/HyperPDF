@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Windows.Input;
+using HyperPdf.Core.Layout;
 using HyperPdf.Core.Settings;
 using HyperPdf.Engine;
 using HyperPdf.TestAssets;
@@ -97,10 +98,10 @@ public sealed class ViewerToolbarTests
         await Assert.That(outcome.Lines).IsEqualTo(1);
     }
 
-    /// <summary>On a narrow window the toolbar drops the names and stays on one line, and each button keeps its name for a screen reader.</summary>
+    /// <summary>A narrow toolbar wraps the labels the reader asked to see.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task NarrowWindowShowsIconsAloneOnOneLine()
+    public async Task NarrowWindowWrapsWithLabels()
     {
         var outcome = await WithTab(NarrowWidth, static (session, tab) =>
         {
@@ -115,8 +116,8 @@ public sealed class ViewerToolbarTests
                 buttons.Select(static item => item.Bounds.Y).Distinct().Count());
         });
 
-        await Assert.That(outcome.SaveHidesItsName).IsTrue();
-        await Assert.That(outcome.Lines).IsEqualTo(1);
+        await Assert.That(outcome.SaveHidesItsName).IsFalse();
+        await Assert.That(outcome.Lines).IsGreaterThan(1);
         await Assert.That(outcome.WithIcons).IsEqualTo(outcome.Buttons - 1);
     }
 
@@ -132,6 +133,116 @@ public sealed class ViewerToolbarTests
         });
 
         await Assert.That(hidden).IsTrue();
+    }
+
+    /// <summary>The percentage menu applies a preset and shows the current fit mode when reopened.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ZoomMenuAppliesPresetAndFit()
+    {
+        var changed = await WithTab(NarrowWidth, static (session, tab) =>
+        {
+            var chrome = session.Chrome;
+            chrome.ShowLabels = false;
+            if (!chrome.PressControl(false, chrome.Bars.FindIndex(static item => item.Icon == ChromeIcon.PageDown && item.Trait == ChromeItemTrait.OpensMore)))
+            {
+                return "Zoom button missing";
+            }
+
+            if (!chrome.PressControl(true, IndexOf(chrome.OverlayItems, "150%")))
+            {
+                return "150% choice missing";
+            }
+
+            if (!PumpUntil(session, () => !chrome.HasOverlay && IndexOf(chrome.Bars, "150%") >= 0))
+            {
+                return $"The toolbar did not show the chosen zoom ({tab.ZoomText})";
+            }
+
+            _ = chrome.PressControl(false, IndexOf(chrome.Bars, "150%"));
+            if (!chrome.OverlayItems.Exists(static row => row.Trait == ChromeItemTrait.Ticked && row.Text.EndsWith("150%", StringComparison.Ordinal)))
+            {
+                return "150% is not checked";
+            }
+
+            _ = chrome.PressControl(true, IndexOf(chrome.OverlayItems, "Fit Width"));
+            return PumpUntil(session, () => tab.ZoomMode == ZoomMode.FitWidth && !chrome.HasOverlay) ? "Fit width" : "Fit width did not apply";
+        });
+        await Assert.That(changed).IsEqualTo("Fit width");
+    }
+
+    /// <summary>The named View menu controls page-by-page reading in icons-only mode.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task ViewMenuSwitchesPageByPage()
+    {
+        var changed = await WithTab(NarrowWidth, static (session, tab) =>
+        {
+            var chrome = session.Chrome;
+            chrome.ShowLabels = false;
+            var view = IndexOf(chrome.Bars, "View ▾");
+            if (chrome.Bars[view].HidesText || !chrome.PressControl(false, view))
+            {
+                return false;
+            }
+
+            return chrome.PressControl(true, IndexOf(chrome.OverlayItems, "Page by Page")) && PumpUntil(session, () => tab.IsPageByPage);
+        });
+        await Assert.That(changed).IsTrue();
+    }
+
+    /// <summary>A document action can show a status message, and dismissing it restores the full reading area.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task DocumentMenuStatusUsesSpaceOnlyWhileShown()
+    {
+        var restored = await WithTab(NarrowWidth, static (session, tab) =>
+        {
+            var chrome = session.Chrome;
+            if ((int)chrome.CanvasBounds.Bottom != Height || !chrome.PressControl(false, IndexOf(chrome.Bars, "Document ▾")))
+            {
+                return false;
+            }
+
+            _ = chrome.PressControl(true, IndexOf(chrome.OverlayItems, "Show the Document in Its Folder"));
+            if (!PumpUntil(session, () => chrome.CanvasBounds.Bottom < Height && IndexOf(chrome.Bars, "Dismiss") >= 0))
+            {
+                return false;
+            }
+
+            _ = chrome.PressControl(false, IndexOf(chrome.Bars, "Dismiss"));
+            return PumpUntil(session, () => chrome.CanvasBounds.Bottom >= Height);
+        });
+        await Assert.That(restored).IsTrue();
+    }
+
+    /// <summary>The named Tools menu opens Measure in icons-only mode and its Area button selects the measuring mode.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task NamedToolsMenuOpensMeasureAndSelectsArea()
+    {
+        var selected = await WithTab(NarrowWidth, static (session, tab) =>
+        {
+            var chrome = session.Chrome;
+            chrome.ShowLabels = false;
+            var tools = IndexOf(chrome.Bars, "Tools ▾");
+            if (chrome.Bars[tools].HidesText || !chrome.PressControl(false, tools))
+            {
+                return false;
+            }
+
+            var measure = IndexOf(chrome.OverlayItems, "Measure");
+            _ = chrome.PressControl(true, measure);
+            if (!PumpUntil(session, () => tab.Measure.IsOn && IndexOf(chrome.Bars, "Area") >= 0))
+            {
+                return false;
+            }
+
+            _ = chrome.PressControl(false, IndexOf(chrome.Bars, "Area"));
+            return PumpUntil(session, () => tab.Measure.IsArea && chrome.Bars[IndexOf(chrome.Bars, "Area")].Selected);
+        });
+
+        await Assert.That(selected).IsTrue();
     }
 
     /// <summary>A press on a toolbar button runs the view model's own command: the side panel opens and the pages grow.</summary>

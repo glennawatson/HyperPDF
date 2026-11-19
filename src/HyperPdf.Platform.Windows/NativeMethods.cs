@@ -38,6 +38,15 @@ internal static unsafe partial class NativeMethods
     [LibraryImport("shell32.dll", EntryPoint = "ILCreateFromPathW", StringMarshalling = StringMarshalling.Utf16)]
     internal static partial nint ILCreateFromPath(string path);
 
+    /// <summary>Creates a Shell item for a starting directory.</summary>
+    /// <param name="path">The directory path.</param>
+    /// <param name="context">The optional bind context.</param>
+    /// <param name="interfaceId">The requested interface.</param>
+    /// <param name="item">Receives the Shell item.</param>
+    /// <returns>An HRESULT.</returns>
+    [LibraryImport("shell32.dll", EntryPoint = "SHCreateItemFromParsingName", StringMarshalling = StringMarshalling.Utf16)]
+    internal static partial int CreateShellItem(string path, nint context, Guid* interfaceId, nint* item);
+
     /// <summary>Native <c>ILFree</c>.</summary>
     /// <param name="list">The item identifier list.</param>
     [LibraryImport("shell32.dll", EntryPoint = "ILFree")]

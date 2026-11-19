@@ -25,6 +25,9 @@ internal static unsafe class X11EventReader
     /// <summary>The XEvent type of a pointer move.</summary>
     private const int MotionNotifyType = 6;
 
+    /// <summary>The XEvent type when the pointer leaves the window.</summary>
+    private const int LeaveNotifyType = 8;
+
     /// <summary>The XEvent type of an expose.</summary>
     private const int ExposeType = 12;
 
@@ -76,6 +79,7 @@ internal static unsafe class X11EventReader
             ButtonPressType => ReadButton(raw, pressed: true),
             ButtonReleaseType => ReadButton(raw, pressed: false),
             MotionNotifyType => ReadMotion(raw),
+            LeaveNotifyType => new(WindowEventKind.PointerLeft, 0, 0, 0, 0),
             _ => default,
         };
         return windowEvent != default;

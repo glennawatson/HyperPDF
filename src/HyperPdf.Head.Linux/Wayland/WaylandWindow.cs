@@ -117,6 +117,12 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
     /// <summary>Whether the first xdg_surface configure arrived.</summary>
     private bool _configured;
 
+    /// <summary>The exported surface that reports the portal's parent handle.</summary>
+    private uint _exported;
+
+    /// <summary>The window identifier for portal dialogs, empty on compositors without an exporter.</summary>
+    private string _portalParent = string.Empty;
+
     /// <summary>Whether the compositor last said the window is maximised.</summary>
     private bool _maximized;
 
@@ -195,6 +201,10 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
         var path = Path.IsPathRooted(name) ? name : Path.Combine(Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR") ?? string.Empty, name);
         return File.Exists(path);
     }
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<string[]>? PickPaths(FilePickerRequest request) => PortalFileChooser.Pick(request, _portalParent);
 
     /// <inheritdoc/>
     public void SetTitle(string title)
@@ -410,10 +420,29 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
         _connection.Writer.WriteString(ApplicationId);
         _connection.Writer.End();
         AskForDecorations(registry);
+        ExportForDialogs(registry);
         _connection.Writer.Begin(_objects.Surface, WaylandProtocol.SurfaceCommit);
         _connection.Writer.End();
         _connection.Flush();
         WaitUntil(() => _configured);
+    }
+
+    /// <summary>Exports the toplevel so the desktop can keep its file chooser above this viewer.</summary>
+    /// <param name="registry">The registry object.</param>
+    private void ExportForDialogs(uint registry)
+    {
+        if (_globals.Exporter.Name == 0)
+        {
+            return;
+        }
+
+        var exporter = Bind(registry, WaylandProtocol.ExporterInterface, _globals.Exporter, 1);
+        _exported = _connection.NewId();
+        const int exportToplevel = 1;
+        _connection.Writer.Begin(exporter, exportToplevel);
+        _connection.Writer.WriteUInt(_exported);
+        _connection.Writer.WriteUInt(_objects.Surface);
+        _connection.Writer.End();
     }
 
     /// <summary>
@@ -611,6 +640,10 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
         else if (objectId == _objects.Toplevel)
         {
             HandleToplevel(opcode, ref reader);
+        }
+        else if (objectId == _exported && opcode == 0)
+        {
+            _portalParent = $"wayland:{reader.ReadString()}";
         }
         else if (objectId == _objects.FractionalScale && opcode == WaylandProtocol.FractionalScalePreferred)
         {
@@ -854,6 +887,12 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
                 {
                     _ = reader.ReadUInt();
                     MovePointer(ref reader);
+                    break;
+                }
+
+            case WaylandProtocol.PointerLeave:
+                {
+                    Emit(new(WindowEventKind.PointerLeft, 0, 0, 0, 0));
                     break;
                 }
 

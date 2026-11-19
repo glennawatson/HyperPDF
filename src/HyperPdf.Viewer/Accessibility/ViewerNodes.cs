@@ -166,7 +166,7 @@ internal static class ViewerNodes
             WindowId,
             item.Trait == ChromeItemTrait.Switch ? AccessibleRole.CheckBox : RoleOf(item.Kind),
             item.Text,
-            string.Empty,
+            item.Help ?? string.Empty,
             ControlStates(item, pressable, focused),
             bounds,
             [],

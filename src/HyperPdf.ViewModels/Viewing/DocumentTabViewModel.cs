@@ -1274,6 +1274,11 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void FitPage() => ZoomMode = ZoomMode.FitPage;
 
+    /// <summary>Switches between continuous scrolling and one page or spread at a time.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void TogglePageByPage() => IsPageByPage = !IsPageByPage;
+
     /// <summary>Rotates the pages anti-clockwise.</summary>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

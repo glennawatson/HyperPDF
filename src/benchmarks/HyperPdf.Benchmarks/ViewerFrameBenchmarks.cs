@@ -9,6 +9,8 @@ using HyperPdf.Engine;
 using HyperPdf.TestAssets;
 using HyperPdf.Viewer;
 using HyperPdf.Viewer.Accessibility;
+using HyperPdf.Viewer.Chrome;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Windowing.Tests;
 using HyperPdf.Windowing.Windows;
 
@@ -139,6 +141,22 @@ public class ViewerFrameBenchmarks
         _session.Chrome.Input.OnNext(new(WindowEventKind.PointerMoved, _overFirst ? FirstButtonX : SecondButtonX, ToolbarY, 0, 0));
     }
 
+    /// <summary>Moves between two toolbar buttons and paints the resulting frame.</summary>
+    [Benchmark]
+    public void ChangeHoveredButton()
+    {
+        MovePointerOverControls();
+        _session.Canvas.DrawFrame();
+    }
+
+    /// <summary>Repaints the viewer while the pointer rests over the Open button.</summary>
+    [Benchmark]
+    public void RepaintHoveredButton()
+    {
+        _session.Chrome.Input.OnNext(new(WindowEventKind.PointerMoved, SecondButtonX, ToolbarY, 0, 0));
+        _session.Canvas.DrawFrame();
+    }
+
     /// <summary>Draws the tab strip, the toolbar and the status bar alone, which every frame does after the pages.</summary>
     [Benchmark]
     public void DrawControls()
@@ -146,6 +164,18 @@ public class ViewerFrameBenchmarks
         using var pass = _window.Backend.BeginFrame();
         _session.Chrome.Draw(pass);
     }
+
+    /// <summary>Repaints the Document menu over the toolbar.</summary>
+    [Benchmark]
+    public void DrawDocumentMenu() => DrawMenu(ChromeIcon.Document);
+
+    /// <summary>Repaints the View menu over the toolbar.</summary>
+    [Benchmark]
+    public void DrawViewMenu() => DrawMenu(ChromeIcon.Dual);
+
+    /// <summary>Repaints the current zoom choices over the toolbar.</summary>
+    [Benchmark]
+    public void DrawZoomMenu() => DrawMenu(ChromeIcon.PageDown);
 
     /// <summary>Turns one loop of the viewer with nothing waiting while a screen reader is attached, which checks whether the tree it reads is still right.</summary>
     /// <returns>Whether the window is still open.</returns>
@@ -169,6 +199,35 @@ public class ViewerFrameBenchmarks
     /// <returns>The length of the page text.</returns>
     [Benchmark]
     public int ReadDocumentElement() => _session.Accessibility.Get(ViewerNodes.DocumentId)?.Text?.Value.Length ?? 0;
+
+    /// <summary>Opens the requested toolbar menu on the warm-up call and paints the open menu.</summary>
+    /// <param name="icon">The menu button's icon.</param>
+    /// <exception cref="InvalidOperationException">The requested menu did not open.</exception>
+    private void DrawMenu(ChromeIcon icon)
+    {
+        var chrome = _session.Chrome;
+        if (!chrome.HasOverlay)
+        {
+            var buttons = chrome.Bars;
+            for (var i = 0; i < buttons.Count; i++)
+            {
+                if (buttons[i].Icon != icon || buttons[i].Trait != ChromeItemTrait.OpensMore)
+                {
+                    continue;
+                }
+
+                _ = chrome.PressControl(false, i);
+                break;
+            }
+
+            if (!chrome.HasOverlay)
+            {
+                throw new InvalidOperationException($"The {icon} menu did not open.");
+            }
+        }
+
+        DrawControls();
+    }
 
     /// <summary>Pumps the session until several frames in a row ask for no new tile.</summary>
     /// <exception cref="InvalidOperationException">The tiles did not arrive in time.</exception>

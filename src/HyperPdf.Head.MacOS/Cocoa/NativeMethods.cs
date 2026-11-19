@@ -183,6 +183,17 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(ObjectiveC, EntryPoint = "objc_msgSend")]
     internal static partial nint SendInitWindow(nint receiver, nint selector, CocoaRect content, nuint style, nuint backing, byte defer);
 
+    /// <summary>Initialises an AppKit tracking area.</summary>
+    /// <param name="receiver">The allocated area.</param>
+    /// <param name="selector">The initialiser.</param>
+    /// <param name="bounds">The tracking bounds.</param>
+    /// <param name="options">The tracking options.</param>
+    /// <param name="owner">The view receiving events.</param>
+    /// <param name="userInfo">The optional user data.</param>
+    /// <returns>The initialised area.</returns>
+    [LibraryImport(ObjectiveC, EntryPoint = "objc_msgSend")]
+    internal static partial nint SendInitTrackingArea(nint receiver, nint selector, CocoaRect bounds, nuint options, nint owner, nint userInfo);
+
     /// <summary>Sends <c>nextEventMatchingMask:untilDate:inMode:dequeue:</c>.</summary>
     /// <param name="receiver">The application.</param>
     /// <param name="selector">The selector.</param>

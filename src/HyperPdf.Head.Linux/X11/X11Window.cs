@@ -36,6 +36,9 @@ public sealed unsafe class X11Window : IPlatformWindow
     /// <summary>The Xlib mask for pointer motion events.</summary>
     private const nint PointerMotionMask = 1 << 6;
 
+    /// <summary>The Xlib mask for leaving the window.</summary>
+    private const nint LeaveWindowMask = 1 << 5;
+
     /// <summary>The Xlib mask for exposure events.</summary>
     private const nint ExposureMask = 1 << 15;
 
@@ -206,7 +209,7 @@ public sealed unsafe class X11Window : IPlatformWindow
         _ = NativeMethods.XSelectInput(
             _display,
             window,
-            ExposureMask | StructureNotifyMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask);
+            ExposureMask | StructureNotifyMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask | LeaveWindowMask);
 
         // The desktop rewrites its resource text on the root window when the user changes the display scale.
         _root = NativeMethods.XRootWindow(_display, screen);
@@ -263,6 +266,10 @@ public sealed unsafe class X11Window : IPlatformWindow
 
     /// <summary>Gets the name of the property that holds the states the window manager has put on a window.</summary>
     private static ReadOnlySpan<byte> StateName => "_NET_WM_STATE"u8;
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<string[]>? PickPaths(FilePickerRequest request) => PortalFileChooser.Pick(request, string.Create(CultureInfo.InvariantCulture, $"x11:{NativeHandle:x}"));
 
     /// <inheritdoc/>
     public void SetTitle(string title)

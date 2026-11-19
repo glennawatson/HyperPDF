@@ -152,6 +152,12 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(User32, EntryPoint = "ClientToScreen")]
     internal static partial int ClientToScreen(nint window, int* point);
 
+    /// <summary>Requests a client-area pointer leave notification.</summary>
+    /// <param name="request">The tracking request.</param>
+    /// <returns>Nonzero when tracking started.</returns>
+    [LibraryImport(User32)]
+    internal static partial int TrackMouseEvent(TrackMouseRequest* request);
+
     /// <summary>Native <c>GetClientRect</c>.</summary>
     /// <param name="window">The window.</param>
     /// <param name="rect">Receives left, top, right, bottom as four ints.</param>

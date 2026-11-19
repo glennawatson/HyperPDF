@@ -11,4 +11,8 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="Parameter">The value the button passes to the command.</param>
 /// <param name="Selected">Whether it is the chosen one of the group.</param>
 [DebuggerDisplay("GroupChoice: {Index}, selected {Selected}")]
-internal readonly record struct GroupChoice(int Index, object? Parameter, bool Selected);
+internal readonly record struct GroupChoice(int Index, object? Parameter, bool Selected)
+{
+    /// <summary>Gets the help specific to this action.</summary>
+    internal string? Help { get; init; }
+}

@@ -9,6 +9,7 @@ using HyperPdf.TestAssets;
 using HyperPdf.ViewModels.Services;
 using HyperPdf.Viewer;
 using HyperPdf.Viewer.Chrome;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Windowing.Tests;
 
@@ -105,7 +106,9 @@ public sealed class SidebarPageRowsTests
                 continue;
             }
 
-            if (marked >= 0)
+            var tick = chrome.Bars.Find(control => control.Index == item.Index && control is { Kind: ChromeItemKind.Button, Icon: ChromeIcon.Done, Selected: true });
+            var highlight = chrome.Bars.Find(control => control.Index == item.Index && control is { Kind: ChromeItemKind.Panel, Ground: not 0 });
+            if (marked >= 0 || tick is null || highlight is null || highlight.Bounds.Width < tick.Bounds.Width || highlight.Bounds.Bottom < tick.Bounds.Bottom)
             {
                 return -1;
             }

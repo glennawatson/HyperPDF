@@ -16,6 +16,9 @@ internal sealed class WaylandGlobals
     /// <summary>Gets the xdg shell global.</summary>
     internal WaylandGlobal WmBase { get; private set; }
 
+    /// <summary>Gets the exporter that gives desktop dialogs a parent window.</summary>
+    internal WaylandGlobal Exporter { get; private set; }
+
     /// <summary>Gets the seat global, which stays empty on a machine with no input device.</summary>
     internal WaylandGlobal Seat { get; private set; }
 
@@ -68,12 +71,33 @@ internal sealed class WaylandGlobals
                     break;
                 }
 
+            case WaylandProtocol.ExporterInterface:
+                {
+                    Exporter = global;
+                    break;
+                }
+
             case WaylandProtocol.DataDeviceManagerInterface:
                 {
                     DataDeviceManager = global;
                     break;
                 }
 
+            default:
+                {
+                    RecordRendering(interfaceName, global);
+                    break;
+                }
+        }
+    }
+
+    /// <summary>Keeps the globals that control buffers, scaling and window decoration.</summary>
+    /// <param name="interfaceName">The interface name.</param>
+    /// <param name="global">The advertised global.</param>
+    private void RecordRendering(string? interfaceName, in WaylandGlobal global)
+    {
+        switch (interfaceName)
+        {
             case WaylandProtocol.FractionalScaleManagerInterface:
                 {
                     FractionalScale = global;

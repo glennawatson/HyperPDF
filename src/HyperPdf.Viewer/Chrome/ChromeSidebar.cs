@@ -59,9 +59,15 @@ internal static class ChromeSidebar
 
         var shown = 0;
         var rowLook = new SidebarLook(look, actions.PickSidebarRow);
+
+        // Keep the neighbouring page visible when a labelled toolbar wraps or a page is unusually tall.
+        var available = bottom - top;
+        var captionHeight = metrics.RowHeight + metrics.Gap;
+        var halfHeight = available >> 1;
+        var maximumPictureHeight = Math.Max(1, (halfHeight > captionHeight ? halfHeight : available) - captionHeight);
         for (var i = first; i < listed.Length; i++)
         {
-            var height = AddRow(items, tab, listed[i], i, rowLook, new(area.X, top, width, bottom - top));
+            var height = AddRow(items, tab, listed[i], i, rowLook, new(area.X, top, width, bottom - top), maximumPictureHeight);
             if (height == 0)
             {
                 break;
@@ -87,7 +93,12 @@ internal static class ChromeSidebar
         var look = chosen.Look;
         var tight = look.Metrics with { Padding = look.Metrics.Gap + look.Metrics.Gap };
         var height = tight.ToolbarHeight - tight.Gap - tight.Gap;
-        var row = new ChromeRow(items, look.Runs, tight, (int)area.X + tight.Gap, (int)area.Y + tight.Gap, height) { Limit = (int)area.Right - tight.Gap, ShowLabels = false };
+        var row = new ChromeRow(items, look.Runs, tight, (int)area.X + tight.Gap, (int)area.Y + tight.Gap, height)
+        {
+            Limit = (int)area.Right - tight.Gap,
+            ShowLabels = false,
+            Describe = ButtonHelp.Sidebar,
+        };
         foreach (var mode in SidebarRows.Modes)
         {
             row = row.Button(IconOf(mode), SidebarRows.NameOf(mode), chosen.Pick, new GroupChoice((int)mode, SidebarRows.ValueOf(mode), mode == tab.SidebarMode));
@@ -135,8 +146,9 @@ internal static class ChromeSidebar
     /// <param name="index">The row's place in the list.</param>
     /// <param name="look">The text measurer, the sizes and the command a row runs with what it stands for.</param>
     /// <param name="room">The part of the panel still free.</param>
+    /// <param name="maximumPictureHeight">The available picture height per page.</param>
     /// <returns>The height the row took, or 0 when it does not fit.</returns>
-    private static int AddRow(List<ChromeItem> items, DocumentTabViewModel tab, SidebarRow row, int index, SidebarLook look, in LayoutRect room)
+    private static int AddRow(List<ChromeItem> items, DocumentTabViewModel tab, SidebarRow row, int index, SidebarLook look, in LayoutRect room, int maximumPictureHeight)
     {
         var metrics = look.Look.Metrics;
         var pick = look.Pick;
@@ -155,8 +167,9 @@ internal static class ChromeSidebar
         }
 
         var size = tab.Source.PageSizes[row.Page];
-        var pictureWidth = Math.Floor(room.Width * PictureShare);
-        var pictureHeight = Math.Floor(pictureWidth * size.Height / Math.Max(1, size.Width));
+        var scale = Math.Min(room.Width * PictureShare / Math.Max(1, size.Width), maximumPictureHeight / Math.Max(1.0, size.Height));
+        var pictureWidth = Math.Max(1, Math.Floor(size.Width * scale));
+        var pictureHeight = Math.Max(1, Math.Floor(size.Height * scale));
         var height = (int)pictureHeight + metrics.RowHeight + metrics.Gap;
         if (room.Height < height)
         {
@@ -165,9 +178,15 @@ internal static class ChromeSidebar
 
         // The rows of the pages are kept from one layout to the next, so which page is being read is asked of the tab here.
         var reading = row.Page == tab.CurrentPageIndex;
+        if (reading)
+        {
+            items.Add(new(ChromeItemKind.Panel, null, index, string.Empty, new(room.X, room.Y, room.Width, height), true, false) { Ground = look.Look.Theme.Hover });
+        }
+
         var left = room.X + Math.Floor((room.Width - pictureWidth) * Half);
         items.Add(new(ChromeItemKind.Thumbnail, pick, index, string.Empty, new(left, room.Y + metrics.Gap, pictureWidth, pictureHeight), true, reading) { Parameter = row.Target });
-        items.Add(new(ChromeItemKind.Button, pick, index, row.Text, new(room.X, room.Y + metrics.Gap + pictureHeight, room.Width, metrics.RowHeight), true, reading) { Parameter = row.Target });
+        var caption = new LayoutRect(room.X, room.Y + metrics.Gap + pictureHeight, room.Width, metrics.RowHeight);
+        items.Add(new(ChromeItemKind.Button, pick, index, row.Text, caption, true, reading) { Parameter = row.Target, Icon = reading ? ChromeIcon.Done : ChromeIcon.None });
         return height;
     }
 }

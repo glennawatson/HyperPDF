@@ -4,6 +4,7 @@
 
 using System.Windows.Input;
 using HyperPdf.ViewModels;
+using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Services;
 using HyperPdf.ViewModels.Sidebar;
 using HyperPdf.ViewModels.Viewing;
@@ -27,9 +28,14 @@ internal sealed class ChromeActions : IDisposable
     {
         SelectTab = ReactiveCommand.Create<DocumentTabViewModel>(tab => main.SelectedTab = tab);
         ShowMenu = ReactiveCommand.Create(() => chrome.ShowMenu([..MainMenu.Build(main)], Under(chrome, ShowMenu)));
+        ShowTools = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowTools, static (_, tab) => ToolMenus.Tools(tab)));
+        ShowDocument = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowDocument, MainMenu.Document));
+        ShowView = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowView, MainMenu.ReadingView));
+        ShowZoom = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowZoom, static (_, tab) => ToolMenus.Zoom(tab)));
         ShowMoreMarks = ReactiveCommand.Create(() => ShowMarksMenu(main, chrome, ShowMoreMarks));
         ShowFind = ReactiveCommand.Create(chrome.ShowFind);
         GoToPage = ReactiveCommand.Create(() => AskForPage(main, chrome));
+        EditMeasureScale = ReactiveCommand.Create(() => AskForMeasureScale(main, chrome));
         ToggleAnnotate = ReactiveCommand.Create(() => ToggleMarking(main));
         ShowSidebarList = ReactiveCommand.Create<SidebarMode>(mode => ShowList(main, chrome, mode));
         PickSidebarRow = ReactiveCommand.Create<object, object>(static target => target);
@@ -64,6 +70,18 @@ internal sealed class ChromeActions : IDisposable
     /// <summary>Gets the command that opens the main menu under its button.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowMenu { get; }
 
+    /// <summary>Gets the command that opens the page tools menu.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> ShowTools { get; }
+
+    /// <summary>Gets the command that opens the current document's actions.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> ShowDocument { get; }
+
+    /// <summary>Gets the command that opens the reading and page layout choices.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> ShowView { get; }
+
+    /// <summary>Gets the command that opens the zoom choices.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> ShowZoom { get; }
+
     /// <summary>Gets the command that opens the menu of the extra marking tools under its button.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowMoreMarks { get; }
 
@@ -72,6 +90,9 @@ internal sealed class ChromeActions : IDisposable
 
     /// <summary>Gets the command that asks which page to go to, and goes there.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> GoToPage { get; }
+
+    /// <summary>Gets the command that edits the measuring scale.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> EditMeasureScale { get; }
 
     /// <summary>Gets the command that shows the marking bar, or puts it away when it is shown.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ToggleAnnotate { get; }
@@ -93,9 +114,14 @@ internal sealed class ChromeActions : IDisposable
     {
         SelectTab.Dispose();
         ShowMenu.Dispose();
+        ShowTools.Dispose();
+        ShowDocument.Dispose();
+        ShowView.Dispose();
+        ShowZoom.Dispose();
         ShowMoreMarks.Dispose();
         ShowFind.Dispose();
         GoToPage.Dispose();
+        EditMeasureScale.Dispose();
         ToggleAnnotate.Dispose();
         ShowSidebarList.Dispose();
         PickSidebarRow.Dispose();
@@ -133,6 +159,19 @@ internal sealed class ChromeActions : IDisposable
         return default;
     }
 
+    /// <summary>Builds the menu for the current document when its toolbar button opens.</summary>
+    /// <param name="main">The window's view model.</param>
+    /// <param name="chrome">The window controls.</param>
+    /// <param name="command">The command on the button.</param>
+    /// <param name="entries">Builds the entries for the loaded document.</param>
+    private static void OpenMenu(MainViewModel main, ViewerChrome chrome, ICommand? command, Func<MainViewModel, DocumentTabViewModel, List<MenuEntry>> entries)
+    {
+        if (main.SelectedTab is { IsLoaded: true } tab)
+        {
+            chrome.ShowMenu(entries(main, tab), Under(chrome, command));
+        }
+    }
+
     /// <summary>Opens the menu of the extra marking tools and text settings of the tab shown, under its button.</summary>
     /// <param name="main">The main view model.</param>
     /// <param name="chrome">The window's controls.</param>
@@ -168,6 +207,28 @@ internal sealed class ChromeActions : IDisposable
 
         tab.SidebarMode = mode;
         chrome.ResetSidebarScroll();
+    }
+
+    /// <summary>Edits the measuring scale for the active document.</summary>
+    /// <param name="main">The main view model.</param>
+    /// <param name="chrome">The window's controls.</param>
+    private static void AskForMeasureScale(MainViewModel main, ViewerChrome chrome)
+    {
+        if (main.SelectedTab?.MeasureIfMade is not { IsOn: true } measure)
+        {
+            return;
+        }
+
+        var hint = UiText.Get("Type how the page relates to real size, such as 1 cm = 2 m or 1:100.");
+        _ = chrome.Prompt(new(UiText.Get("Measuring scale"), hint, measure.ScaleText, UiText.Get("Apply"), false)).SubscribeSafe(
+            answer =>
+            {
+                if (answer is not null)
+                {
+                    measure.ScaleText = answer;
+                }
+            },
+            ErrorTrace.Write);
     }
 
     /// <summary>Asks which page of the tab shown to go to, and goes there.</summary>

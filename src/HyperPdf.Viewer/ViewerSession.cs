@@ -231,7 +231,7 @@ public sealed class ViewerSession : IDisposable
     public bool PumpOnce(int timeoutMilliseconds)
     {
         // Work that is already waiting must not sit behind a wait for the window. Work posted after this check wakes the wait itself.
-        _window.PumpEvents(_context.HasWork ? 0 : timeoutMilliseconds);
+        _window.PumpEvents(Chrome.Pointer.HoverTimeout(_context.HasWork ? 0 : timeoutMilliseconds));
         _context.Drain();
 
         // Posted work changes view models without a window event, so whatever reads them once a turn is told after it too.

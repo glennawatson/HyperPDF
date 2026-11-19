@@ -2,11 +2,11 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using HyperPdf.Core.Layout;
 using HyperPdf.ViewModels;
+using HyperPdf.ViewModels.Help;
 using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
@@ -28,9 +28,6 @@ internal static class ChromeBars
 
     /// <summary>The edges of a bar's contents: one on each side.</summary>
     private const int ReadBarEdges = 2;
-
-    /// <summary>One hundred, to show a zoom as a percentage.</summary>
-    private const double Percent = 100;
 
     /// <summary>The width of the status bar's dismiss button, in lines of the bar's height.</summary>
     private const int DismissWidthInLines = 4;
@@ -93,7 +90,6 @@ internal static class ChromeBars
     /// <returns>The part of the window left for the pages, in device pixels, and what the side panel lists.</returns>
     internal static BarLayout Build(List<ChromeItem> items, MainViewModel main, ChromeLook look, SidebarView sidebar, SurfaceSize size, ChromeActions actions)
     {
-        var runs = look.Runs;
         var metrics = look.Metrics;
         items.Clear();
 
@@ -118,13 +114,10 @@ internal static class ChromeBars
 
         if (main.SelectedTab is { IsLoaded: true } shown)
         {
-            top += ChromeToolBars.Add(items, shown, look, top, size.Width);
+            top += ChromeToolBars.Add(items, shown, look, top, size.Width, actions);
         }
 
-        var statusTop = Math.Max(top, size.Height - metrics.StatusHeight);
-        items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, new(0, statusTop, size.Width, metrics.StatusHeight), true, false));
-        AddStatus(items, main, runs, metrics, statusTop, size.Width);
-
+        var statusTop = AddStatus(items, main, look, top, size);
         var between = new LayoutRect(0, top, size.Width, Math.Max(0, statusTop - top));
         if (main.SelectedTab is not { SidebarVisible: true, IsLoaded: true } tab)
         {
@@ -172,29 +165,32 @@ internal static class ChromeBars
     /// <summary>Adds the status message, with a button to put it away when it is a message and not an error of the document.</summary>
     /// <param name="items">Receives the controls.</param>
     /// <param name="main">The main view model.</param>
-    /// <param name="runs">The text measurer.</param>
-    /// <param name="metrics">The sizes.</param>
-    /// <param name="top">The top of the status bar.</param>
-    /// <param name="width">The window width.</param>
-    private static void AddStatus(List<ChromeItem> items, MainViewModel main, TextRuns runs, in ChromeMetrics metrics, int top, int width)
+    /// <param name="look">The text measurer and sizes.</param>
+    /// <param name="toolBottom">The bottom of the toolbars.</param>
+    /// <param name="size">The window size.</param>
+    /// <returns>The bottom of the available reading area.</returns>
+    private static int AddStatus(List<ChromeItem> items, MainViewModel main, ChromeLook look, int toolBottom, SurfaceSize size)
     {
-        var status = main.StatusMessage ?? main.SelectedTab?.ErrorMessage ?? string.Empty;
-        if (status.Length == 0)
+        if ((main.StatusMessage ?? main.SelectedTab?.ErrorMessage) is not { Length: > 0 } status)
         {
-            return;
+            return size.Height;
         }
 
+        var metrics = look.Metrics;
+        var top = Math.Max(toolBottom, size.Height - metrics.StatusHeight);
+        var width = size.Width;
+        items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, new(0, top, width, metrics.StatusHeight), true, false));
         var dismissWidth = main.StatusMessage is null ? 0 : metrics.StatusHeight * DismissWidthInLines;
-        var room = width - metrics.Padding - metrics.Padding - dismissWidth;
-        var fitted = ChromeText.Fit(status, Style(metrics), room, runs);
+        var room = Math.Max(0, width - metrics.Padding - metrics.Padding - dismissWidth);
+        var fitted = ChromeText.Fit(status, Style(metrics), room, look.Runs);
         items.Add(new(ChromeItemKind.Label, null, 0, fitted, new(metrics.Padding, top, room, metrics.StatusHeight), true, false));
-        if (dismissWidth == 0)
+        if (dismissWidth != 0)
         {
-            return;
+            var bounds = new LayoutRect(width - dismissWidth, top, dismissWidth, metrics.StatusHeight);
+            items.Add(new(ChromeItemKind.Button, main.DismissStatusCommand, 0, UiText.Get("Dismiss"), bounds, true, false));
         }
 
-        var bounds = new LayoutRect(width - dismissWidth, top, dismissWidth, metrics.StatusHeight);
-        items.Add(new(ChromeItemKind.Button, main.DismissStatusCommand, 0, UiText.Get("Dismiss"), bounds, true, false));
+        return top;
     }
 
     /// <summary>Adds what the edit bar shows to the stamp: whether the page's own content is being edited, whether something is picked, and whether there is an edit to undo or redo.</summary>
@@ -287,7 +283,13 @@ internal static class ChromeBars
             var selected = ReferenceEquals(tab, main.SelectedTab);
             items.Add(new(ChromeItemKind.Tab, actions.SelectTab, i, ChromeText.Fit(name, style, textRoom, runs), new(x, 0, tabWidth, metrics.TabHeight), true, selected) { Parameter = tab });
             var close = new LayoutRect(x + tabWidth - closeWidth - metrics.Gap, metrics.Gap, closeWidth, closeWidth);
-            items.Add(new(ChromeItemKind.Button, main.CloseTabCommand, i, UiText.Get("Close tab"), close, true, false) { Parameter = tab, Icon = ChromeIcon.Close, HidesText = true });
+            items.Add(new(ChromeItemKind.Button, main.CloseTabCommand, i, UiText.Get("Close tab"), close, true, false)
+            {
+                Parameter = tab,
+                Icon = ChromeIcon.Close,
+                HidesText = true,
+                Help = Descriptions.CloseTab,
+            });
         }
 
         var open = new LayoutRect(Math.Min(x, room), 0, newTabWidth, metrics.TabHeight);
@@ -306,14 +308,7 @@ internal static class ChromeBars
         var metrics = look.Metrics;
         var panel = items.Count;
         items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, default, true, false));
-        var lines = FillToolbar(items, main, look, width, actions, look.ShowLabels);
-        if (lines > 1 && look.ShowLabels)
-        {
-            // Names beside the icons push a narrow window's toolbar onto a second line, which takes room from the page. The icons
-            // alone keep it to one line, and each still shows its name while the pointer is over it.
-            items.RemoveRange(panel + 1, items.Count - panel - 1);
-            lines = FillToolbar(items, main, look, width, actions, false);
-        }
+        var lines = FillToolbar(items, main, look, width, actions);
 
         var height = lines * metrics.ToolbarHeight;
         items[panel] = items[panel] with { Bounds = new(0, metrics.TabHeight, width, height) };
@@ -326,30 +321,32 @@ internal static class ChromeBars
     /// <param name="look">The text measurer and the sizes.</param>
     /// <param name="width">The window width.</param>
     /// <param name="actions">The commands of the window's own controls.</param>
-    /// <param name="showLabels">Whether the buttons show their names beside their icons.</param>
     /// <returns>The lines the buttons took.</returns>
-    private static int FillToolbar(List<ChromeItem> items, MainViewModel main, ChromeLook look, int width, ChromeActions actions, bool showLabels)
+    private static int FillToolbar(List<ChromeItem> items, MainViewModel main, ChromeLook look, int width, ChromeActions actions)
     {
         var metrics = look.Metrics;
         var row = new ChromeRow(items, look.Runs, metrics, metrics.Gap, metrics.TabHeight + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap)
         {
             Limit = width - metrics.Gap,
-            ShowLabels = showLabels,
+            ShowLabels = look.ShowLabels,
+            Describe = ButtonHelp.Toolbar,
         };
 
         // A button whose command belongs to a document has none until a document is open, and is drawn faded.
         var tab = LoadedTab(main);
-        row = row.Button(ChromeIcon.Menu, UiText.Get("Menu"), actions.ShowMenu, true);
+        row = row.MenuButton(ChromeIcon.Menu, UiText.Get("Menu"), actions.ShowMenu, true);
         row = row.Button(ChromeIcon.Open, UiText.Get("Open"), main.OpenCommand, true);
         row = row.Button(ChromeIcon.Save, UiText.Get("Save"), main.SelectedTab?.SaveCommand, main.SelectedTab is { HasUnsavedChanges: true });
         row = row.Button(ChromeIcon.Print, UiText.Get("Print"), tab?.PrintCommand, tab is not null);
+        row = row.MenuButton(ChromeIcon.Document, UiText.Get("Document ▾"), actions.ShowDocument, tab is not null);
         row = row.Divider();
         row = AddTools(row, tab, actions);
         row = row.Divider();
         row = AddNavigation(row, tab, actions);
+        row = row.MenuButton(ChromeIcon.Dual, UiText.Get("View ▾"), actions.ShowView, tab is not null);
         row = row.Divider();
         row = row.IconButton(ChromeIcon.ZoomOut, UiText.Get("Zoom out"), tab?.ZoomOutCommand, tab is not null);
-        row = row.Label(ZoomText(main.SelectedTab));
+        row = row.MenuButton(ChromeIcon.PageDown, tab?.ZoomText ?? "100%", actions.ShowZoom, tab is not null, Descriptions.ZoomMenu);
         row = row.IconButton(ChromeIcon.ZoomIn, UiText.Get("Zoom in"), tab?.ZoomInCommand, tab is not null);
         row = row.IconButton(ChromeIcon.FitWidth, UiText.Get("Fit width"), tab?.FitWidthCommand, tab is not null);
         row = row.IconButton(ChromeIcon.FitPage, UiText.Get("Fit page"), tab?.FitPageCommand, tab is not null);
@@ -384,6 +381,7 @@ internal static class ChromeBars
     private static ChromeRow AddTools(ChromeRow row, DocumentTabViewModel? tab, ChromeActions actions)
     {
         var open = tab is not null;
+        row = row.MenuButton(ChromeIcon.Ruler, UiText.Get("Tools ▾"), actions.ShowTools, open);
         row = row.Toggle(ChromeIcon.Highlight, UiText.Get("Annotate"), tab is { CanAnnotate: true } ? actions.ToggleAnnotate : null, tab is { AnnotationsInUse.IsAnnotating: true });
         row = row.Toggle(ChromeIcon.FillSign, UiText.Get("Fill & Sign"), tab?.ToggleFillAndSignCommand, tab is { FillAndSignIfMade.IsActive: true });
         row = row.Toggle(ChromeIcon.Cursor, UiText.Get("Edit"), tab?.ToggleContentEditingCommand, tab is { ContentEditIfMade.IsEditing: true });
@@ -399,11 +397,4 @@ internal static class ChromeBars
     /// <returns>The text, such as "Page 3 of 40".</returns>
     private static string PageText(DocumentTabViewModel? tab) =>
         tab is { PageCount: > 0 } ? UiText.Format("Page {0} of {1}", tab.CurrentPageIndex + 1, tab.PageCount) : UiText.Get("No pages");
-
-    /// <summary>Says how large the pages are shown.</summary>
-    /// <param name="tab">The tab shown, or <see langword="null"/>.</param>
-    /// <returns>The text, such as "125%".</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string ZoomText(DocumentTabViewModel? tab) =>
-        string.Create(CultureInfo.CurrentCulture, $"{Math.Round((tab?.Zoom ?? 1) * Percent)}%");
 }

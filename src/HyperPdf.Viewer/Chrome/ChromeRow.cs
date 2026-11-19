@@ -43,6 +43,33 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
     /// <summary>Gets a value indicating whether a button with an icon shows its text beside it.</summary>
     internal bool ShowLabels { get; init; } = true;
 
+    /// <summary>Gets the help for icons in this group of controls.</summary>
+    internal Func<ChromeIcon, string?>? Describe { get; init; }
+
+    /// <summary>Adds a menu whose name stays visible in icons-only mode.</summary>
+    /// <param name="icon">The menu icon.</param>
+    /// <param name="text">The visible name.</param>
+    /// <param name="command">Opens the menu.</param>
+    /// <param name="enabled">Whether it can open.</param>
+    /// <returns>The row with the menu button in it.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow MenuButton(ChromeIcon icon, string text, ICommand command, bool enabled) => MenuButton(icon, text, command, enabled, Describe?.Invoke(icon));
+
+    /// <summary>Adds a named menu button with its own tooltip.</summary>
+    /// <param name="icon">The menu icon.</param>
+    /// <param name="text">The visible name.</param>
+    /// <param name="command">Opens the menu.</param>
+    /// <param name="enabled">Whether it can open.</param>
+    /// <param name="help">The localised help.</param>
+    /// <returns>The row with the menu button in it.</returns>
+    internal ChromeRow MenuButton(ChromeIcon icon, string text, ICommand command, bool enabled, string? help)
+    {
+        var named = this with { ShowLabels = true };
+        var next = named.Place(text, icon, false, out var placed);
+        Items.Add(new(ChromeItemKind.Button, command, 0, text, placed.Bounds, enabled, false) { Icon = icon, Help = help, Trait = ChromeItemTrait.OpensMore });
+        return next with { ShowLabels = ShowLabels };
+    }
+
     /// <summary>Adds a button that runs a command.</summary>
     /// <param name="text">The text.</param>
     /// <param name="command">The command a press runs.</param>
@@ -51,7 +78,7 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
     internal ChromeRow Button(string text, ICommand? command, bool enabled)
     {
         var next = Place(text, ChromeIcon.None, false, out var placed);
-        Items.Add(new(ChromeItemKind.Button, command, 0, text, placed.Bounds, enabled, false));
+        Items.Add(new(ChromeItemKind.Button, command, 0, text, placed.Bounds, enabled, false) { Help = Describe?.Invoke(ChromeIcon.None) });
         return next;
     }
 
@@ -64,7 +91,7 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
     internal ChromeRow Button(ChromeIcon icon, string text, ICommand? command, bool enabled)
     {
         var next = Place(text, icon, false, out var placed);
-        Items.Add(new(ChromeItemKind.Button, command, 0, text, placed.Bounds, enabled, false) { Icon = icon, HidesText = placed.HidesText });
+        Items.Add(new(ChromeItemKind.Button, command, 0, text, placed.Bounds, enabled, false) { Icon = icon, HidesText = placed.HidesText, Help = Describe?.Invoke(icon) });
         return next;
     }
 
@@ -77,7 +104,13 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
     internal ChromeRow Button(ChromeIcon icon, string text, ICommand? command, in GroupChoice choice)
     {
         var next = Place(text, icon, false, out var placed);
-        Items.Add(new(ChromeItemKind.Button, command, choice.Index, text, placed.Bounds, true, choice.Selected) { Parameter = choice.Parameter, Icon = icon, HidesText = placed.HidesText });
+        Items.Add(new(ChromeItemKind.Button, command, choice.Index, text, placed.Bounds, true, choice.Selected)
+        {
+            Parameter = choice.Parameter,
+            Icon = icon,
+            HidesText = placed.HidesText,
+            Help = choice.Help ?? Describe?.Invoke(icon),
+        });
         return next;
     }
 
@@ -102,7 +135,7 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
     internal ChromeRow IconButton(ChromeIcon icon, string text, ICommand? command, bool enabled)
     {
         var next = Place(text, icon, true, out var placed);
-        Items.Add(new(ChromeItemKind.Button, command, 0, text, placed.Bounds, enabled, false) { Icon = icon, HidesText = placed.HidesText });
+        Items.Add(new(ChromeItemKind.Button, command, 0, text, placed.Bounds, enabled, false) { Icon = icon, HidesText = placed.HidesText, Help = Describe?.Invoke(icon) });
         return next;
     }
 
@@ -115,7 +148,13 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
     internal ChromeRow Toggle(ChromeIcon icon, string text, ICommand? command, bool on)
     {
         var next = Place(text, icon, false, out var placed);
-        Items.Add(new(ChromeItemKind.Button, command, 0, text, placed.Bounds, command is not null, on) { Icon = icon, HidesText = placed.HidesText, Trait = ChromeItemTrait.Switch });
+        Items.Add(new(ChromeItemKind.Button, command, 0, text, placed.Bounds, command is not null, on)
+        {
+            Icon = icon,
+            HidesText = placed.HidesText,
+            Trait = ChromeItemTrait.Switch,
+            Help = Describe?.Invoke(icon),
+        });
         return next;
     }
 
