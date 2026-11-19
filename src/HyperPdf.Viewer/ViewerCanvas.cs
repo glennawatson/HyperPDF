@@ -456,7 +456,7 @@ public sealed class ViewerCanvas : ICanvasHost, IDisposable
 
         var under = State.GetCanvasRect(field.PageIndex, field.Bounds);
         var scale = _window.Scale;
-        chrome.ShowMenu(ContextMenus.ForChoices(tab.Forms, field), new((int)(_bounds.X + ((under.X - _offset.X) * scale)), (int)(_bounds.Y + ((under.Bottom - _offset.Y) * scale))));
+        chrome.ShowMenu([..ContextMenus.ForChoices(tab.Forms, field)], new((int)(_bounds.X + ((under.X - _offset.X) * scale)), (int)(_bounds.Y + ((under.Bottom - _offset.Y) * scale))));
     }
 
     /// <summary>Opens the right-click menu for what is under the pointer.</summary>

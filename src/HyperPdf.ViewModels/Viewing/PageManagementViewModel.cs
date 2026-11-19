@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.ViewModels.Markup;
 using HyperPdf.ViewModels.Rendering;
@@ -88,7 +89,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         _lifetime = lifetime.Token;
         _subscriptions.Add(lifetime);
         _canEdit = this.WhenChanged(static vm => vm.CanEdit);
-        _canEditSelection = this.WhenChanged(static vm => vm.CanEdit, static vm => vm.SelectedPages, static (canEdit, pages) => canEdit && pages.Count > 0);
+        _canEditSelection = this.WhenChanged(static vm => vm.CanEdit, static vm => vm.SelectedPages, static (canEdit, pages) => canEdit && pages.Length > 0);
         _canMoveEarlier = this.WhenChanged(static vm => vm.CanMoveEarlier);
         _canMoveLater = this.WhenChanged(static vm => vm.CanMoveLater);
         _canDelete = this.WhenChanged(static vm => vm.CanDelete);
@@ -108,7 +109,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Gets the selected zero-based page indexes in document order.</summary>
     [Reactive]
-    public partial IReadOnlyList<int> SelectedPages { get; private set; } = Array.Empty<int>();
+    public partial int[] SelectedPages { get; private set; } = Array.Empty<int>();
 
     /// <summary>Gets the selected thumbnail objects for the sidebar's two-way selection binding.</summary>
     [Reactive]
@@ -219,7 +220,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <param name="thumbnail">The thumbnail, or <see langword="null"/> when there is none.</param>
     public void Follow(ThumbnailItemViewModel? thumbnail)
     {
-        if (thumbnail is not null && SelectedPages.Count <= 1 && !(SelectedPages.Count == 1 && SelectedPages[0] == thumbnail.PageIndex))
+        if (thumbnail is not null && SelectedPages.Length <= 1 && !(SelectedPages.Length == 1 && SelectedPages[0] == thumbnail.PageIndex))
         {
             SelectPages([thumbnail.PageIndex]);
         }
@@ -228,7 +229,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <summary>Moves the selected pages to an index in the document after removing the selection.</summary>
     /// <param name="destination">The destination index after removal.</param>
     /// <returns>A cold signal that ends after the move.</returns>
-    public IObservable<RxVoid> Move(int destination) => SelectedPages.Count == 0 || (uint)destination > (uint)(_owner.PageCount - SelectedPages.Count)
+    public IObservable<RxVoid> Move(int destination) => SelectedPages.Length == 0 || (uint)destination > (uint)(_owner.PageCount - SelectedPages.Length)
         ? Signal.Return(RxVoid.Default)
         : RunEdit(
             static (manager, request, report) => manager.Apply(request, report),
@@ -247,7 +248,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     void ILocalisationChildren.Refresh(HashSet<object> visited)
     {
-        RefreshLabelsAndStatus(GetManager(), SelectedPages.Count);
+        RefreshLabelsAndStatus(GetManager(), SelectedPages.Length);
         LocalisationRefresh.RefreshCore(_owner, visited);
     }
 
@@ -265,9 +266,9 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <param name="current">The current selection.</param>
     /// <param name="next">The proposed selection.</param>
     /// <returns>True when each index matches.</returns>
-    private static bool SameIndexes(IReadOnlyList<int> current, int[] next)
+    private static bool SameIndexes(ReadOnlySpan<int> current, int[] next)
     {
-        if (current.Count != next.Length)
+        if (current.Length != next.Length)
         {
             return false;
         }
@@ -310,13 +311,13 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <returns>The notice, or <see langword="null"/> when everything was kept.</returns>
     private static string? CopyNotice(PageEditReport report)
     {
-        var separations = SeparationText.ChangeNotice(report.SeparationChanges);
+        var separations = SeparationText.ChangeNotice(CollectionsMarshal.AsSpan(report.SeparationChanges));
         if (report.TrapNetworkWarnings.Count == 0)
         {
             return separations;
         }
 
-        var traps = SaveText.TrapNetworkNotice(report.TrapNetworkWarnings);
+        var traps = SaveText.TrapNetworkNotice(CollectionsMarshal.AsSpan(report.TrapNetworkWarnings));
         return separations is null ? traps : $"{separations} {traps}";
     }
 
@@ -400,7 +401,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <returns>A copy of the page indexes.</returns>
     private int[] CopySelectedPages()
     {
-        var copy = new int[SelectedPages.Count];
+        var copy = new int[SelectedPages.Length];
         for (var index = 0; index < copy.Length; index++)
         {
             copy[index] = SelectedPages[index];
@@ -481,7 +482,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     private IObservable<RxVoid> InsertFiles() => Run(
         manager => InsertInteraction.Handle(RxVoid.Default).ToSignal()
             .SwitchMap(paths => paths.Length > 0
-                ? InsertPaths(manager, paths, SelectedPages.Count > 0 ? SelectedPages[0] : Math.Clamp(_owner.CurrentPageIndex, 0, _owner.PageCount))
+                ? InsertPaths(manager, paths, SelectedPages.Length > 0 ? SelectedPages[0] : Math.Clamp(_owner.CurrentPageIndex, 0, _owner.PageCount))
                 : Signal.Return(default(PageManagementOperationResult))),
         UiText.Get("Could not insert pages."),
         true);
@@ -634,7 +635,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <returns>A cold signal giving the result of the operation.</returns>
     private IObservable<PageManagementOperationResult> InsertReadPictures(IPageManager manager, PageImageSource[] images, int chosen)
     {
-        var index = SelectedPages.Count > 0 ? SelectedPages[^1] + 1 : Math.Clamp(_owner.CurrentPageIndex + 1, 0, _owner.PageCount);
+        var index = SelectedPages.Length > 0 ? SelectedPages[^1] + 1 : Math.Clamp(_owner.CurrentPageIndex + 1, 0, _owner.PageCount);
         return OnPool(manager.InsertImages(index, images))
             .Select(_ => InsertedPictures(index, images.Length, chosen));
     }
@@ -685,8 +686,8 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     {
         _owner.SetNotice(
             CopyNotice(report) is { } separations
-                ? LocalizedMessage.Format(UiText, "Extracted {0} pages. {1}", SelectedPages.Count, separations)
-                : LocalizedMessage.Format(UiText, "Extracted {0} pages.", SelectedPages.Count));
+                ? LocalizedMessage.Format(UiText, "Extracted {0} pages. {1}", SelectedPages.Length, separations)
+                : LocalizedMessage.Format(UiText, "Extracted {0} pages.", SelectedPages.Length));
         return default;
     }
 
@@ -782,7 +783,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     {
         var manager = GetManager();
         var pageCount = _owner.PageCount;
-        var selected = SelectedPages.Count;
+        var selected = SelectedPages.Length;
         RefreshCommandAvailability(manager, pageCount, selected);
         RefreshLabelsAndStatus(manager, selected);
     }

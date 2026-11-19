@@ -100,7 +100,7 @@ public sealed class PageLabelsViewModelTests
         _ = await tab.Pages.Labels.ShowCommand.Execute().ToTask();
         var ranges = DocumentFeature<IPageLabeler>.Get(tab.TryGetDocument())!.GetRanges();
 
-        await Assert.That(ranges.Count).IsEqualTo(TwoRanges);
+        await Assert.That(ranges.Length).IsEqualTo(TwoRanges);
         await Assert.That(ranges[0].Style).IsEqualTo(PageLabelStyle.LowerRoman);
         await Assert.That(ranges[1].StartPage).IsEqualTo(Third);
     }
@@ -122,6 +122,6 @@ public sealed class PageLabelsViewModelTests
 
         _ = await tab.Pages.Labels.ShowCommand.Execute().ToTask();
 
-        await Assert.That(DocumentFeature<IPageLabeler>.Get(tab.TryGetDocument())!.GetRanges().Count).IsEqualTo(0);
+        await Assert.That(DocumentFeature<IPageLabeler>.Get(tab.TryGetDocument())!.GetRanges().Length).IsEqualTo(0);
     }
 }

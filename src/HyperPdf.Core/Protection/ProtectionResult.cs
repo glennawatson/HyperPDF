@@ -10,7 +10,7 @@ namespace HyperPdf.Core.Protection;
 /// <param name="Refusal">Why no file was written, in plain words; <see langword="null"/> when it was written.</param>
 /// <param name="Notes">Things to know about the file that was written.</param>
 [DebuggerDisplay("ProtectionResult: written {Written}")]
-public sealed record ProtectionResult(string? Refusal, IReadOnlyList<string> Notes)
+public sealed record ProtectionResult(string? Refusal, string[] Notes)
 {
     /// <summary>Gets a value indicating whether the file was written.</summary>
     public bool Written => Refusal is null;

@@ -29,7 +29,7 @@ public sealed record FormField(
     PageRect Bounds,
     string Value,
     bool IsChecked,
-    IReadOnlyList<string> Options,
+    string[] Options,
     int SelectedOption,
     bool IsReadOnly,
     bool IsRequired,

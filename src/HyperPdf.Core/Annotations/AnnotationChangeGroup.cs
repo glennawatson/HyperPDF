@@ -9,13 +9,13 @@ namespace HyperPdf.Core.Annotations;
 /// <summary>Several changes made by one action, such as marking text over several pages, undone and redone together.</summary>
 /// <param name="Changes">The changes in the order they were made.</param>
 [DebuggerDisplay("AnnotationChangeGroup: {Changes.Count} changes")]
-public sealed record AnnotationChangeGroup(IReadOnlyList<AnnotationChange> Changes) : AnnotationChange(Changes[0].PageIndex, Changes[0].Index)
+public sealed record AnnotationChangeGroup(AnnotationChange[] Changes) : AnnotationChange(Changes[0].PageIndex, Changes[0].Index)
 {
     /// <inheritdoc/>
     public override bool Undo(IAnnotationEditor editor)
     {
         var any = false;
-        for (var i = Changes.Count - 1; i >= 0; i--)
+        for (var i = Changes.Length - 1; i >= 0; i--)
         {
             any |= Changes[i].Undo(editor);
         }

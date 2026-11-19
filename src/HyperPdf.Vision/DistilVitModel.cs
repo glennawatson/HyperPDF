@@ -26,5 +26,5 @@ public static class DistilVitModel
     public static string GenerationFile => "generation_config.json";
 
     /// <summary>Gets the files to download.</summary>
-    public static IReadOnlyList<SpeechModelFile> Files => VisionRelease.Files;
+    public static SpeechModelFile[] Files => VisionRelease.Files;
 }

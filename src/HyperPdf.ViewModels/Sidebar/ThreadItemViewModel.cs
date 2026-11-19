@@ -19,7 +19,7 @@ public sealed class ThreadItemViewModel : ReactiveObject
         ArgumentNullException.ThrowIfNull(thread);
         Title = thread.Title;
         Beads = thread.Beads;
-        Summary = $"{Beads.Count} {(Beads.Count == 1 ? UiText.Get("place") : UiText.Get("places"))}";
+        Summary = $"{Beads.Length} {(Beads.Length == 1 ? UiText.Get("place") : UiText.Get("places"))}";
         SpokenName = $"{Title}, {Summary}";
     }
 
@@ -27,7 +27,7 @@ public sealed class ThreadItemViewModel : ReactiveObject
     public string Title { get; }
 
     /// <summary>Gets the places the article is read, in reading order.</summary>
-    public IReadOnlyList<ArticleBead> Beads { get; }
+    public ArticleBead[] Beads { get; }
 
     /// <summary>Gets how many places the article is read in, in words.</summary>
     public string Summary { get; }

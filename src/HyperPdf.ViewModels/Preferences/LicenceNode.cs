@@ -12,4 +12,4 @@ namespace HyperPdf.ViewModels.Preferences;
 /// <param name="Entry">The component, or <see langword="null"/> for a licence heading.</param>
 /// <param name="Children">The component rows below a heading; empty for a component.</param>
 [DebuggerDisplay("LicenceNode: {Title}")]
-public sealed record LicenceNode(string Title, NoticeEntry? Entry, IReadOnlyList<LicenceNode> Children);
+public sealed record LicenceNode(string Title, NoticeEntry? Entry, LicenceNode[] Children);

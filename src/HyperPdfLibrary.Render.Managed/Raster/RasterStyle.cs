@@ -24,6 +24,12 @@ internal readonly record struct RasterStyle(PdfTextHinting Hinting, bool Lcd, by
     /// <summary>How far a matrix may lean and still count as upright.</summary>
     private const float AxisTolerance = 1e-3F;
 
+    /// <summary>
+    /// Gets a value indicating whether the coverage of small glyphs is kept and used again. Their origins are then moved onto
+    /// steps of a pixel, which is why it is only done when the quality asks for glyph masks.
+    /// </summary>
+    internal bool Masks { get; init; }
+
     /// <summary>Makes the style of a render quality.</summary>
     /// <param name="quality">The quality.</param>
     /// <returns>The style.</returns>
@@ -33,7 +39,7 @@ internal readonly record struct RasterStyle(PdfTextHinting Hinting, bool Lcd, by
         quality.TextEdges == PdfTextEdges.Sharp ? CoverageTables.Sharp : CoverageTables.Contrast(quality.EffectiveTextContrast),
         quality.SmoothGraphics ? null : CoverageTables.Sharp,
         quality.EffectiveMinimumLineWidth,
-        quality.StrokeAdjustment);
+        quality.StrokeAdjustment) { Masks = quality.UsesGlyphMasks };
 
     /// <summary>Moves a glyph onto whole pixels. Slight hinting moves its baseline onto a pixel row; full hinting moves its origin onto a pixel too.</summary>
     /// <param name="matrix">The matrix from the glyph's space to device pixels.</param>

@@ -26,10 +26,10 @@ public sealed record FormFieldInfo(
     FormDesignFlags Flags,
     string Tooltip,
     string? Value,
-    IReadOnlyList<string> Values,
+    string[] Values,
     string? DefaultValue,
     int MaxLength,
     int Quadding,
     string DefaultAppearance,
-    IReadOnlyList<FormChoiceOption> Options,
-    IReadOnlyList<FormWidgetInfo> Widgets);
+    FormChoiceOption[] Options,
+    FormWidgetInfo[] Widgets);

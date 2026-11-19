@@ -131,7 +131,7 @@ public static class CanvasPointerMixins
                 return fx;
             }
 
-            if (tab.ContentEdit.EndResize() || tab.ContentEdit.EndDrag())
+            if (tab.ContentEditIfMade is { } edit && (edit.EndResize() || edit.EndDrag()))
             {
                 fx.ReleaseCapture = true;
                 fx.Handled = true;
@@ -568,7 +568,7 @@ public static class CanvasPointerMixins
 
             // Only a hover shows the tool's pointer; a drag that is selecting, drawing or measuring keeps its own.
             var cursor = state.GetToolCursor();
-            if (tools.Selecting || tab.Measure.IsOn || move.LeftDown || cursor == ViewerCursor.Inherit)
+            if (tools.Selecting || tab.MeasureIfMade is { IsOn: true } || move.LeftDown || cursor == ViewerCursor.Inherit)
             {
                 return false;
             }
@@ -584,7 +584,7 @@ public static class CanvasPointerMixins
         /// <returns><see langword="true"/> while measuring.</returns>
         private bool ContinueMeasure(DocumentTabViewModel tab, CanvasPoint position, InputEffects fx)
         {
-            if (!tab.Measure.IsOn)
+            if (tab.MeasureIfMade is not { IsOn: true })
             {
                 return false;
             }

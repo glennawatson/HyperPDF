@@ -138,4 +138,7 @@ internal enum FeatureSlot
 
     /// <summary>Taking hidden information out of the document.</summary>
     DocumentSanitizer = 42,
+
+    /// <summary>Letting go of what is kept only to draw pages faster, while the document is not shown.</summary>
+    IdleRenderMemory = 43,
 }

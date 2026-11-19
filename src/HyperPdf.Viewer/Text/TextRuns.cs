@@ -46,6 +46,12 @@ public sealed class TextRuns : IDisposable
     /// <summary>The pieces of text drawn so far.</summary>
     private readonly Dictionary<TextRunKey, TextRun> _runs = [with(Capacity)];
 
+    /// <summary>The widths of whole pieces of text measured so far, which a layout asks for again each time it is built.</summary>
+    private readonly Dictionary<TextRunKey, int> _widths = [with(Capacity)];
+
+    /// <summary>The text cut short to fit a width so far.</summary>
+    private readonly Dictionary<TextFitKey, string> _fits = [];
+
     /// <summary>The coverage buffer every piece of text is drawn through.</summary>
     private readonly CoverageBuffer _coverage = new();
 
@@ -122,6 +128,35 @@ public sealed class TextRuns : IDisposable
         return run;
     }
 
+    /// <summary>Measures a whole piece of text, keeping the width so the next layout that shows the same text does not measure it again.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="style">How it looks.</param>
+    /// <returns>The width in device pixels.</returns>
+    public int Width(string text, TextStyle style)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        var key = new TextRunKey(text, style);
+        if (_widths.TryGetValue(key, out var width))
+        {
+            return width;
+        }
+
+        // A face that could not be read measures nothing, and may be read later.
+        if (FaceOf(style) is null)
+        {
+            return 0;
+        }
+
+        if (_widths.Count >= Capacity)
+        {
+            _widths.Clear();
+        }
+
+        width = Measure(text, style);
+        _widths.Add(key, width);
+        return width;
+    }
+
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => Clear();
@@ -150,6 +185,31 @@ public sealed class TextRuns : IDisposable
 
         ArrayPool<byte>.Shared.Return(row);
         return true;
+    }
+
+    /// <summary>Finds text that was cut short to fit a width before.</summary>
+    /// <param name="text">The whole text.</param>
+    /// <param name="style">How it looks.</param>
+    /// <param name="width">The width it must fit, in device pixels.</param>
+    /// <returns>The cut text, or <see langword="null"/> when this text has not been cut to this width.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal string? FindFit(string text, TextStyle style, int width) => _fits.GetValueOrDefault(new(text, style, width));
+
+    /// <summary>Keeps text cut short to fit a width, so the next layout does not cut it again.</summary>
+    /// <param name="text">The whole text.</param>
+    /// <param name="style">How it looks.</param>
+    /// <param name="width">The width it fits.</param>
+    /// <param name="fitted">The text as cut.</param>
+    /// <returns>The text kept.</returns>
+    internal string KeepFit(string text, TextStyle style, int width, string fitted)
+    {
+        if (_fits.Count >= Capacity)
+        {
+            _fits.Clear();
+        }
+
+        _fits[new(text, style, width)] = fitted;
+        return fitted;
     }
 
     /// <summary>Scales a channel by an alpha.</summary>

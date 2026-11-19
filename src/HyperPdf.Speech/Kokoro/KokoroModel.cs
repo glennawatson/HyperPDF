@@ -29,7 +29,7 @@ public static class KokoroModel
     public static int SampleRate => Hertz;
 
     /// <summary>Gets the voices offered: natural sounding American and British English voices.</summary>
-    public static IReadOnlyList<SpeechVoice> Voices { get; } =
+    public static SpeechVoice[] Voices { get; } =
     [
         new("af_heart", "Heart", "American English, warm"),
         new("af_bella", "Bella", "American English, bright"),
@@ -39,7 +39,7 @@ public static class KokoroModel
     ];
 
     /// <summary>Gets the files to download.</summary>
-    public static IReadOnlyList<SpeechModelFile> Files { get; } = BuildFiles();
+    public static SpeechModelFile[] Files { get; } = BuildFiles();
 
     /// <summary>Gets the local path of a voice pack.</summary>
     /// <param name="voiceId">The voice.</param>
@@ -60,7 +60,7 @@ public static class KokoroModel
 
     /// <summary>Lists the files to download.</summary>
     /// <returns>The files.</returns>
-    private static List<SpeechModelFile> BuildFiles()
+    private static SpeechModelFile[] BuildFiles()
     {
         var files = new List<SpeechModelFile> { VoiceRelease.File($"kokoro-{ModelFile}", ModelFile) };
         foreach (var voice in Voices)
@@ -76,6 +76,6 @@ public static class KokoroModel
             }
         }
 
-        return files;
+        return [..files];
     }
 }

@@ -196,14 +196,14 @@ public sealed class ViewerToolbarTests
             var chrome = session.Chrome;
             var toolbarBottom = chrome.Bars.First(static item => item.Icon == ChromeIcon.FitPage).Bounds.Bottom;
             ((ICommand)tab.ContentEdit.ToggleEditingCommand).Execute(null);
-            var editShown = PumpUntil(session, () => chrome.Bars.Any(static item => item.Text == RetypeName));
+            var editShown = PumpUntil(session, () => chrome.Bars.Exists(static item => item.Text == RetypeName));
             var editButtons = BarButtons(chrome.Bars, toolbarBottom);
 
             ((ICommand)tab.ContentEdit.ToggleEditingCommand).Execute(null);
-            var editGone = PumpUntil(session, () => chrome.Bars.All(static item => item.Text != RetypeName));
+            var editGone = PumpUntil(session, () => chrome.Bars.TrueForAll(static item => item.Text != RetypeName));
 
             ((ICommand)tab.FillAndSign.ToggleCommand).Execute(null);
-            var signShown = PumpUntil(session, () => chrome.Bars.Any(static item => item.Text == InitialsName));
+            var signShown = PumpUntil(session, () => chrome.Bars.Exists(static item => item.Text == InitialsName));
             var signButtons = BarButtons(chrome.Bars, toolbarBottom);
             return new BarOutcome(
                 editShown,
@@ -233,7 +233,7 @@ public sealed class ViewerToolbarTests
         {
             var chrome = session.Chrome;
             chrome.ShowFind();
-            var opened = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item.Text == MatchCaseName));
+            var opened = PumpUntil(session, () => chrome.OverlayItems.Exists(static item => item.Text == MatchCaseName));
             var button = chrome.OverlayItems.First(static item => item.Text == MatchCaseName);
             var wired = ReferenceEquals(button.Command, tab.Search.ToggleMatchCaseCommand);
             var offAtFirst = !tab.Search.MatchCase && !button.Selected;
@@ -265,14 +265,14 @@ public sealed class ViewerToolbarTests
     /// <param name="bars">The controls of the bars.</param>
     /// <param name="toolbarBottom">The bottom of the toolbar.</param>
     /// <returns>The buttons.</returns>
-    private static ChromeItem[] BarButtons(IReadOnlyList<ChromeItem> bars, double toolbarBottom) =>
+    private static ChromeItem[] BarButtons(List<ChromeItem> bars, double toolbarBottom) =>
         [.. bars.Where(item => item.Kind == ChromeItemKind.Button && item.Bounds.Y >= toolbarBottom && item.Bounds.Y < toolbarBottom + BarsRoom)];
 
     /// <summary>Finds the place of the first control with a name.</summary>
     /// <param name="items">The controls.</param>
     /// <param name="text">The control's name.</param>
     /// <returns>The place, or -1.</returns>
-    private static int IndexOf(IReadOnlyList<ChromeItem> items, string text)
+    private static int IndexOf(List<ChromeItem> items, string text)
     {
         for (var i = 0; i < items.Count; i++)
         {

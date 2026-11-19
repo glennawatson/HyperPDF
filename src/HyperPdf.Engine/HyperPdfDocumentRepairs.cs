@@ -17,7 +17,7 @@ internal static class HyperPdfDocumentRepairs
     /// <summary>Gets the repairs made so far, in plain words, each once.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The repairs; empty when the document was not repaired.</returns>
-    internal static IReadOnlyList<RepairNote> GetRepairs(HyperPdfDocument self)
+    internal static RepairNote[] GetRepairs(HyperPdfDocument self)
     {
         if (self.IsDisposed)
         {

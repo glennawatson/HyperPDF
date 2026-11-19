@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Geometry;
 
 namespace HyperPdf.Core.Reading;
@@ -90,7 +91,7 @@ public sealed class ReadingDocument
         ArgumentNullException.ThrowIfNull(page);
         var blocks = page.Blocks;
         var length = 0;
-        for (var i = 0; i < blocks.Count; i++)
+        for (var i = 0; i < blocks.Length; i++)
         {
             length += blocks[i].Text.Length + BlockSeparator.Length;
         }
@@ -100,7 +101,7 @@ public sealed class ReadingDocument
         return string.Create(length, new FlattenState(blocks, characterMap), static (text, state) =>
         {
             var at = 0;
-            for (var i = 0; i < state.Blocks.Count; i++)
+            for (var i = 0; i < state.Blocks.Length; i++)
             {
                 var block = state.Blocks[i];
                 block.Text.CopyTo(text[at..]);
@@ -183,7 +184,7 @@ public sealed class ReadingDocument
             source.GetCharacters(pageIndex, characters);
             var tagged = new List<TaggedBlock>();
             var page = sources.Structure is { } structure && structure.GetTaggedBlocks(pageIndex, tagged)
-                ? ReadingOrder.FromStructure(pageIndex, characters, tagged, _workspace)
+                ? ReadingOrder.FromStructure(pageIndex, CollectionsMarshal.AsSpan(characters), CollectionsMarshal.AsSpan(tagged), _workspace)
                 : AnalyzePage(state, pageIndex, source, characters);
             cell.Publish(page);
             return page;
@@ -202,7 +203,7 @@ public sealed class ReadingDocument
     /// <returns>The analyzed page.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private ReadingPage AnalyzePage(ReadingState state, int pageIndex, ITextLayoutSource source, List<PageCharacter> characters) =>
-        ReadingOrder.Analyze(pageIndex, _sizes[pageIndex], characters, GetRepeatedMargins(state, source), _workspace);
+        ReadingOrder.Analyze(pageIndex, _sizes[pageIndex], CollectionsMarshal.AsSpan(characters), GetRepeatedMargins(state, source), _workspace);
 
     /// <summary>Samples pages spread across the document for repeated header and footer lines, once per cache.</summary>
     /// <param name="state">The cache that keeps the signatures.</param>
@@ -230,17 +231,17 @@ public sealed class ReadingDocument
             characters.Clear();
             source.GetCharacters(page, characters);
             var signatures = new List<string>();
-            ReadingOrder.CollectMarginSignatures(_sizes[page], characters, signatures, _workspace);
+            ReadingOrder.CollectMarginSignatures(_sizes[page], CollectionsMarshal.AsSpan(characters), signatures, _workspace);
             pages.Add(signatures);
         }
 
-        return ReadingOrder.FindRepeatedMargins(pages);
+        return ReadingOrder.FindRepeatedMargins(CollectionsMarshal.AsSpan(pages));
     }
 
     /// <summary>The blocks to join and the map that records where their characters came from.</summary>
     /// <param name="Blocks">The blocks.</param>
     /// <param name="Map">Receives the page character index of each character of the joined text.</param>
-    private readonly record struct FlattenState(IReadOnlyList<ReadingBlock> Blocks, int[] Map);
+    private readonly record struct FlattenState(ReadingBlock[] Blocks, int[] Map);
 
     /// <summary>The worked out pages and sampled margins of one generation of the cache.</summary>
     /// <param name="pageCount">The number of pages.</param>

@@ -72,6 +72,6 @@ public sealed class HyperPdfAdapterReadAllocationTests
             throw new InvalidOperationException("The allocation workload's tile could not be rendered.");
         }
 
-        return 1 + HyperPdf.Engine.HyperPdfText.GetCharacterCount(document, PageIndex) + HyperPdf.Engine.HyperPdfNavigation.GetLinks(document, PageIndex).Count;
+        return 1 + HyperPdf.Engine.HyperPdfText.GetCharacterCount(document, PageIndex) + HyperPdf.Engine.HyperPdfNavigation.GetLinks(document, PageIndex).Length;
     }
 }

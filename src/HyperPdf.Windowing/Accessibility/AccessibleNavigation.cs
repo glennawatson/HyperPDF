@@ -34,7 +34,7 @@ public static class AccessibleNavigation
     public static int FirstChild(IAccessibleTree tree, int id)
     {
         ArgumentNullException.ThrowIfNull(tree);
-        return tree.Get(id) is { Children: { Count: > 0 } children } ? children[0] : NoElement;
+        return tree.Get(id) is { Children: { Length: > 0 } children } ? children[0] : NoElement;
     }
 
     /// <summary>Gets the last child of an element.</summary>
@@ -44,7 +44,7 @@ public static class AccessibleNavigation
     public static int LastChild(IAccessibleTree tree, int id)
     {
         ArgumentNullException.ThrowIfNull(tree);
-        return tree.Get(id) is { Children: { Count: > 0 } children } ? children[^1] : NoElement;
+        return tree.Get(id) is { Children: { Length: > 0 } children } ? children[^1] : NoElement;
     }
 
     /// <summary>Gets the sibling after an element.</summary>
@@ -82,16 +82,16 @@ public static class AccessibleNavigation
         }
 
         var at = position + step;
-        return at >= 0 && at < parent.Children.Count ? parent.Children[at] : NoElement;
+        return at >= 0 && at < parent.Children.Length ? parent.Children[at] : NoElement;
     }
 
     /// <summary>Finds a child's position in its parent's list.</summary>
     /// <param name="children">The parent's children.</param>
     /// <param name="id">The child number.</param>
     /// <returns>The position, or -1 when the child is not listed.</returns>
-    private static int IndexOfChild(IReadOnlyList<int> children, int id)
+    private static int IndexOfChild(ReadOnlySpan<int> children, int id)
     {
-        for (var i = 0; i < children.Count; i++)
+        for (var i = 0; i < children.Length; i++)
         {
             if (children[i] == id)
             {

@@ -60,10 +60,10 @@ public class LicenceNoticesBenchmarks
     {
         var length = 0;
         var groups = NoticeDocument.Parse(_utf8).Groups;
-        for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
+        for (var groupIndex = 0; groupIndex < groups.Length; groupIndex++)
         {
             var entries = groups[groupIndex].Entries;
-            for (var entryIndex = 0; entryIndex < entries.Count; entryIndex++)
+            for (var entryIndex = 0; entryIndex < entries.Length; entryIndex++)
             {
                 length += entries[entryIndex].Text.Length;
             }

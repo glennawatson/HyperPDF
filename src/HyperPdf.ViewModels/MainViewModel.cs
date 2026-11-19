@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Platform;
 using HyperPdf.Core.Rendering;
@@ -32,6 +33,9 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
 
     /// <summary>The number of closed tabs that can be reopened.</summary>
     private const int ClosedTabMemory = 32;
+
+    /// <summary>How long a tab goes unshown before it lets go of what it keeps only to draw its pages faster, and how often the tabs are looked over.</summary>
+    private static readonly TimeSpan IdleMemoryPeriod = TimeSpan.FromSeconds(30);
 
     /// <summary>The services.</summary>
     private readonly AppServices _services;
@@ -97,16 +101,19 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
                 .WhenChanged(static t => t.WindowName)).SubscribeSafe(_ => RaiseWindowTitle(), ErrorTrace.Write));
         _subscriptions.Add(this.WhenChanged(static x => x.PageToneEnabled).Skip(1).SubscribeSafe(ApplyPageTone, ErrorTrace.Write));
         _subscriptions.Add(Scope.Create(ReleaseTabs));
+
+        // One timer for the whole window, and not one for each tab, lets tabs that have gone unshown give memory back.
+        _subscriptions.Add(Signal.Interval(IdleMemoryPeriod, RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => ReleaseIdleTabs(), ErrorTrace.Write));
     }
 
     /// <summary>Gets the interaction asking the view for files to open.</summary>
-    public Interaction<RxVoid, IReadOnlyList<string>> OpenFileInteraction { get; } = new();
+    public Interaction<RxVoid, string[]> OpenFileInteraction { get; } = new();
 
     /// <summary>Gets the interaction asking the user to confirm a destructive action.</summary>
     public Interaction<ConfirmRequest, bool> ConfirmInteraction { get; } = new();
 
     /// <summary>Gets the interaction asking which picture files to turn into a PDF.</summary>
-    public Interaction<RxVoid, IReadOnlyList<string>> ConvertPicturesInteraction { get; } = new();
+    public Interaction<RxVoid, string[]> ConvertPicturesInteraction { get; } = new();
 
     /// <summary>Gets the interaction asking where to save the PDF made from pictures.</summary>
     public Interaction<string, string?> ConvertDestinationInteraction { get; } = new();
@@ -438,7 +445,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     public void RefreshRecentDocuments()
     {
         var latest = _services.RecentDocuments.GetRecent(RecentCount);
-        if (SameDocuments(latest))
+        if (SameDocuments(CollectionsMarshal.AsSpan(latest)))
         {
             // Nothing changed since the list was last shown, so the menu and start page keep their items.
             return;
@@ -569,6 +576,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
         if (_activeTab is { } left)
         {
             left.IsSelected = false;
+            left.LeftAt = Environment.TickCount64;
         }
 
         if (SplitTab is { } split && !ReferenceEquals(split.Source, next?.Source))
@@ -582,6 +590,20 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     /// <summary>Tells the window that its title changed.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void RaiseWindowTitle() => this.RaisePropertyChanged(nameof(WindowTitle));
+
+    /// <summary>Lets the tabs that have gone unshown for a while give back what they keep only to draw their pages faster.</summary>
+    private void ReleaseIdleTabs()
+    {
+        var before = Environment.TickCount64 - (long)IdleMemoryPeriod.TotalMilliseconds;
+        foreach (var tab in Tabs)
+        {
+            // The tab in the second view is not the one selected, but it is on screen and its signals are being followed.
+            if (!ReferenceEquals(tab, SplitTab))
+            {
+                tab.ReleaseIdleMemory(before);
+            }
+        }
+    }
 
     /// <summary>Releases the second view and every tab, like closing them: the pool drops each source, which closes its document and forgets its passwords.</summary>
     private void ReleaseTabs()
@@ -616,14 +638,14 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     /// <summary>Determines whether the recent documents shown already match the latest list.</summary>
     /// <param name="latest">The latest list.</param>
     /// <returns><see langword="true"/> when nothing changed.</returns>
-    private bool SameDocuments(IReadOnlyList<RecentDocument> latest)
+    private bool SameDocuments(ReadOnlySpan<RecentDocument> latest)
     {
-        if (latest.Count != RecentDocuments.Count)
+        if (latest.Length != RecentDocuments.Count)
         {
             return false;
         }
 
-        for (var i = 0; i < latest.Count; i++)
+        for (var i = 0; i < latest.Length; i++)
         {
             if (latest[i] != RecentDocuments[i])
             {
@@ -769,7 +791,7 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private IObservable<RxVoid> ConvertPictures() =>
         ConvertPicturesInteraction.Handle(RxVoid.Default).ToSignal()
-            .SwitchMap(pictures => pictures.Count == 0
+            .SwitchMap(pictures => pictures.Length == 0
                 ? Signal.Return(RxVoid.Default)
                 : ConvertDestinationInteraction.Handle(PictureConversion.SuggestName(pictures)).ToSignal()
                     .SwitchMap(destination => destination is null ? Signal.Return(RxVoid.Default) : ConvertTo(pictures, destination)));
@@ -779,8 +801,8 @@ public sealed partial class MainViewModel : ReactiveObject, IDisposable, ILocali
     /// <param name="destination">The PDF to write.</param>
     /// <returns>A cold signal that ends once the PDF is opened or could not be made.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<RxVoid> ConvertTo(IReadOnlyList<string> pictures, string destination) =>
-        PictureConversion.Convert(_services, pictures, destination)
+    private IObservable<RxVoid> ConvertTo(ReadOnlySpan<string> pictures, string destination) =>
+        PictureConversion.Convert(_services, [..pictures], destination)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(pages => Converted(pages, destination))
             .Catch<RxVoid, Exception>(ConversionFailed);

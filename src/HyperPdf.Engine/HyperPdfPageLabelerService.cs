@@ -21,7 +21,7 @@ internal sealed class HyperPdfPageLabelerService : IPageLabeler
     public IDocument Document => _owner;
 
     /// <inheritdoc/>
-    public IReadOnlyList<PageLabelRun> GetRanges()
+    public PageLabelRun[] GetRanges()
     {
         lock (_owner.EditGate)
         {
@@ -38,10 +38,10 @@ internal sealed class HyperPdfPageLabelerService : IPageLabeler
     }
 
     /// <inheritdoc/>
-    public void SetRanges(IReadOnlyList<PageLabelRun> ranges)
+    public void SetRanges(PageLabelRun[] ranges)
     {
         ArgumentNullException.ThrowIfNull(ranges);
-        var converted = new PdfPageLabelRange[ranges.Count];
+        var converted = new PdfPageLabelRange[ranges.Length];
         for (var i = 0; i < converted.Length; i++)
         {
             converted[i] = new(ranges[i].StartPage, (PdfPageLabelStyle)(int)ranges[i].Style, ranges[i].Prefix, ranges[i].FirstNumber);

@@ -18,8 +18,8 @@ public sealed record OptimizeReport(
     long BytesBefore,
     long BytesAfter,
     OptimizeWriteMode Mode,
-    IReadOnlyList<string> Warnings,
-    IReadOnlyList<OptimizeSkip> Skipped)
+    string[] Warnings,
+    OptimizeSkip[] Skipped)
 {
     /// <summary>Gets the bytes saved; negative when the file grew.</summary>
     public long BytesSaved => BytesBefore - BytesAfter;

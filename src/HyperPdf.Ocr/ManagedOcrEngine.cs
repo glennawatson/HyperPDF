@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Ocr;
 using HyperPdf.Ocr.Layout;
 using HyperPdf.Ocr.Lstm;
@@ -125,7 +126,7 @@ public sealed class ManagedOcrEngine : IOcrEngine
         }
 
         _found.Clear();
-        PageReader.Read(_models, image, width, height, new(pixelsPerPoint, _found, _scratch));
+        PageReader.Read(CollectionsMarshal.AsSpan(_models), image, width, height, new(pixelsPerPoint, _found, _scratch));
         foreach (var word in _found)
         {
             if (word.Confidence >= MinimumConfidence)

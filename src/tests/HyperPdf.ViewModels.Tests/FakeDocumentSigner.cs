@@ -25,7 +25,7 @@ internal sealed class FakeDocumentSigner : IDocumentSigner
     internal bool? IncludedVri { get; set; }
 
     /// <summary>Gets or sets the notes every outcome carries.</summary>
-    internal IReadOnlyList<string> Notes { get; set; } = [];
+    internal string[] Notes { get; init; } = [];
 
     /// <summary>Gets the managed thread the last run started on.</summary>
     internal int ThreadId { get; private set; }

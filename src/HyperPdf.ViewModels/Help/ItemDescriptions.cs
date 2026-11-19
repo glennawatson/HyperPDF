@@ -115,7 +115,7 @@ public static class ItemDescriptions
     /// <returns>The description, or an empty string when nothing is picked.</returns>
     public static string DescribeSelection(DocumentTabViewModel? tab)
     {
-        if (tab?.Annotations.Selected is not { } picked)
+        if (tab?.AnnotationsInUse?.Selected is not { } picked)
         {
             return string.Empty;
         }

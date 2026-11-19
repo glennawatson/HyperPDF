@@ -200,7 +200,7 @@ public static class FormScriptEngine
     private static bool TrySimple(FormScript calculate, Func<string, string?> valueOf, out double result)
     {
         result = 0;
-        if (calculate.Fields.Count == 0)
+        if (calculate.Fields.Length == 0)
         {
             return false;
         }
@@ -222,7 +222,7 @@ public static class FormScriptEngine
         result = operation switch
         {
             "SUM" => sum,
-            "AVG" => sum / calculate.Fields.Count,
+            "AVG" => sum / calculate.Fields.Length,
             "PRD" => product,
             "MIN" => min,
             "MAX" => max,

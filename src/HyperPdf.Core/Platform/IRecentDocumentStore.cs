@@ -10,7 +10,7 @@ public interface IRecentDocumentStore
     /// <summary>Gets recently used PDF documents, newest first.</summary>
     /// <param name="maxCount">The maximum number to return.</param>
     /// <returns>The documents.</returns>
-    IReadOnlyList<RecentDocument> GetRecent(int maxCount);
+    List<RecentDocument> GetRecent(int maxCount);
 
     /// <summary>Records that a document was opened.</summary>
     /// <param name="filePath">The file path.</param>

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Accessibility;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Layout;
@@ -107,7 +108,7 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
     /// <inheritdoc/>
     public bool DoAction(int id, int action)
     {
-        if (id < ViewerNodes.FirstControlId || action != 0 || Volatile.Read(ref _current).Nodes.GetValueOrDefault(id) is not { Actions.Count: > 0 })
+        if (id < ViewerNodes.FirstControlId || action != 0 || Volatile.Read(ref _current).Nodes.GetValueOrDefault(id) is not { Actions.Length: > 0 })
         {
             return false;
         }
@@ -252,7 +253,7 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
     /// <param name="blocks">The blocks of the page.</param>
     /// <param name="index">The block.</param>
     /// <returns>The place, or the default when the block is not a list item.</returns>
-    private static ListPlace PlaceInList(IReadOnlyList<ReadingBlock> blocks, int index)
+    private static ListPlace PlaceInList(ReadOnlySpan<ReadingBlock> blocks, int index)
     {
         if (blocks[index].Kind != ReadingBlockKind.ListItem)
         {
@@ -266,7 +267,7 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
         }
 
         var last = index;
-        while (last + 1 < blocks.Count && blocks[last + 1].Kind == ReadingBlockKind.ListItem)
+        while (last + 1 < blocks.Length && blocks[last + 1].Kind == ReadingBlockKind.ListItem)
         {
             last++;
         }
@@ -282,10 +283,10 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
     /// <param name="origin">Where the window's drawing area is on the screen.</param>
     /// <param name="focus">The place in the list of the control the keyboard is on, or -1.</param>
     /// <returns>The number of the text box being typed into, or -1 when there is none.</returns>
-    private static int AddControls(Dictionary<int, AccessibleNode> nodes, List<int> inWindow, IReadOnlyList<ChromeItem> items, int firstId, ScreenPoint origin, int focus)
+    private static int AddControls(Dictionary<int, AccessibleNode> nodes, List<int> inWindow, ReadOnlySpan<ChromeItem> items, int firstId, ScreenPoint origin, int focus)
     {
         var typing = -1;
-        for (var i = 0; i < items.Count; i++)
+        for (var i = 0; i < items.Length; i++)
         {
             var item = items[i];
             if (!ViewerNodes.IsPublished(item.Kind) || item.Text.Length == 0)
@@ -344,8 +345,8 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
         var focused = ViewerNodes.DocumentId;
         if (canvas.Chrome is { } chrome)
         {
-            _ = AddControls(nodes, inWindow, chrome.Bars, ViewerNodes.FirstControlId, origin, chrome.FocusIsInOverlay ? -1 : chrome.FocusedControl);
-            var typing = AddControls(nodes, inWindow, chrome.OverlayItems, ViewerNodes.FirstOverlayId, origin, chrome.FocusIsInOverlay ? chrome.FocusedControl : -1);
+            _ = AddControls(nodes, inWindow, CollectionsMarshal.AsSpan(chrome.Bars), ViewerNodes.FirstControlId, origin, chrome.FocusIsInOverlay ? -1 : chrome.FocusedControl);
+            var typing = AddControls(nodes, inWindow, CollectionsMarshal.AsSpan(chrome.OverlayItems), ViewerNodes.FirstOverlayId, origin, chrome.FocusIsInOverlay ? chrome.FocusedControl : -1);
             focused = typing >= 0 ? typing : focused;
             if (chrome.FocusedControl >= 0)
             {
@@ -355,7 +356,7 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
         }
 
         nodes[ViewerNodes.ApplicationId] = ViewerNodes.CreateApplication([ViewerNodes.WindowId]);
-        nodes[ViewerNodes.WindowId] = ViewerNodes.CreateWindow(main.WindowTitle, new(origin.X, origin.Y, size.Width, size.Height), _window.NativeHandle, inWindow);
+        nodes[ViewerNodes.WindowId] = ViewerNodes.CreateWindow(main.WindowTitle, new(origin.X, origin.Y, size.Width, size.Height), _window.NativeHandle, CollectionsMarshal.AsSpan(inWindow));
         var tab = main.SelectedTab;
         var name = ItemDescriptions.DescribeReader(tab);
         var help = ItemDescriptions.DescribeSelection(tab);
@@ -387,10 +388,10 @@ public sealed class ViewerAccessibleTree : IAccessibleTree, IDisposable
         }
 
         var blocks = reading.GetPage(page).Blocks;
-        var children = new int[blocks.Count];
+        var children = new int[blocks.Length];
         var scale = _window.Scale;
         var offset = canvas.DrawOffset;
-        for (var i = 0; i < blocks.Count; i++)
+        for (var i = 0; i < blocks.Length; i++)
         {
             var id = ViewerNodes.FirstBlockId + i;
             var rect = canvas.State.GetCanvasRect(page, blocks[i].Bounds);

@@ -82,7 +82,7 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
     }
 
     /// <summary>Gets the choices for pictures under a mark.</summary>
-    public IReadOnlyList<RedactionImageOption> ImageOptions { get; } =
+    public RedactionImageOption[] ImageOptions { get; } =
     [
 
         new(RedactionImageChoice.Keep, "Leave pictures alone", "Pictures are not changed, even under a mark."),
@@ -91,7 +91,7 @@ public sealed partial class RedactionViewModel : ReactiveObject, ICopyWindowRequ
     ];
 
     /// <summary>Gets the choices for drawings under a mark.</summary>
-    public IReadOnlyList<RedactionLineArtOption> LineArtOptions { get; } =
+    public RedactionLineArtOption[] LineArtOptions { get; } =
     [
 
         new(RedactionLineArtChoice.Keep, "Leave drawings alone", "Lines and shapes are not changed, even under a mark."),

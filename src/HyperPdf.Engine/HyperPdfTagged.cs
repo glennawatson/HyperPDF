@@ -31,10 +31,9 @@ internal static class HyperPdfTagged
     /// <param name="words">The words, in page space.</param>
     /// <returns>The page's nodes, each labelled as text recognition.</returns>
     /// <exception cref="System.ArgumentNullException"><paramref name="words"/> is <see langword="null"/>.</exception>
-    internal static PdfSemanticPage ReadRecognisedWords(int pageIndex, IReadOnlyList<OcrWord> words)
+    internal static PdfSemanticPage ReadRecognisedWords(int pageIndex, ReadOnlySpan<OcrWord> words)
     {
-        ArgumentNullException.ThrowIfNull(words);
-        var converted = new PdfOcrWord[words.Count];
+        var converted = new PdfOcrWord[words.Length];
         for (var i = 0; i < converted.Length; i++)
         {
             var (text, bounds, confidence) = words[i];

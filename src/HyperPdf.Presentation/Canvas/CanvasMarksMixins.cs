@@ -48,8 +48,8 @@ public static class CanvasMarksMixins
     /// <param name="transform">How the page maps onto the canvas.</param>
     private static void DrawEditOutlines(IMarksPainter painter, DocumentTabViewModel tab, int page, in PageTransform transform)
     {
-        var edit = tab.ContentEdit;
-        if (!edit.IsEditing)
+        // Nothing is being edited in a tab whose editing has not been used, and reading it here would make it for every tab drawn.
+        if (tab.ContentEditIfMade is not { IsEditing: true } edit)
         {
             return;
         }
@@ -117,12 +117,13 @@ public static class CanvasMarksMixins
     /// <param name="viewport">The visible part of the canvas; hits outside it are not drawn.</param>
     private static void DrawHits(IMarksPainter painter, DocumentTabViewModel tab, int page, in PageTransform transform, in LayoutRect viewport)
     {
-        if (tab.Search.GetHits(page) is not { } hits)
+        // A tab whose search has not been used has no hits, and reading the search here would make it for every tab drawn.
+        if (tab.SearchIfMade is not { } search || search.GetHits(page) is not { } hits)
         {
             return;
         }
 
-        var current = tab.Search.CurrentHit;
+        var current = search.CurrentHit;
         foreach (var hit in hits)
         {
             var isCurrent = ReferenceEquals(hit, current);
@@ -144,8 +145,8 @@ public static class CanvasMarksMixins
     /// <param name="transform">How the page maps onto the canvas.</param>
     private static void DrawSpoken(IMarksPainter painter, DocumentTabViewModel tab, int page, in PageTransform transform)
     {
-        var reader = tab.ReadAloud;
-        if (!painter.CanDraw(false) || reader.SpokenPage != page)
+        // Nothing is spoken in a tab whose Read Aloud has not been used, and reading it here would make it for every tab drawn.
+        if (tab.ReadAloudIfMade is not { } reader || !painter.CanDraw(false) || reader.SpokenPage != page)
         {
             return;
         }
@@ -173,8 +174,7 @@ public static class CanvasMarksMixins
     /// <param name="transform">How the page maps onto the canvas.</param>
     private static void DrawFocusBand(IMarksPainter painter, DocumentTabViewModel tab, int page, in PageTransform transform)
     {
-        var reader = tab.ReadAloud;
-        if (!painter.CanDraw(true) || !tab.FocusMode.FocusBand || reader.SpokenPage < 0 || reader.SpokenBounds.Count == 0)
+        if (tab.ReadAloudIfMade is not { } reader || tab.FocusModeIfMade is not { FocusBand: true } || !painter.CanDraw(true) || reader.SpokenPage < 0 || reader.SpokenBounds.Length == 0)
         {
             return;
         }

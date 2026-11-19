@@ -82,6 +82,6 @@ internal static class RequirementMapping
         public string Summary => RequirementDisplay.Summary(assessment);
 
         /// <inheritdoc/>
-        public IReadOnlyList<string> Details => RequirementMapping.Details(assessment);
+        public string[] Details => RequirementMapping.Details(assessment);
     }
 }

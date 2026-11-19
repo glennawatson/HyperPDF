@@ -11,7 +11,7 @@ public static class PictureFiles
     private static readonly string[] Endings = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff"];
 
     /// <summary>Gets the file name patterns of the pictures the viewer opens, for a file dialog.</summary>
-    public static IReadOnlyList<string> Patterns { get; } = ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.tif", "*.tiff"];
+    public static string[] Patterns { get; } = ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.tif", "*.tiff"];
 
     /// <summary>Determines whether a file name is one of the pictures the viewer opens.</summary>
     /// <param name="path">The file path or name.</param>

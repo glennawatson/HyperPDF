@@ -35,7 +35,7 @@ internal static class HyperPdfDocumentXmp
     /// <summary>Gets the properties of the catalog's XMP packet.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The properties in name order; empty when the document has none or the packet cannot be read.</returns>
-    internal static IReadOnlyList<DocumentXmpProperty> GetProperties(HyperPdfDocument self)
+    internal static List<DocumentXmpProperty> GetProperties(HyperPdfDocument self)
     {
         using var access = HyperPdfNavigation.EnterPageRead(self);
         if (!access.IsActive || self.IsDisposed)

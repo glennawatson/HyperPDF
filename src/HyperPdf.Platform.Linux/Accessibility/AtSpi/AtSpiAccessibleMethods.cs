@@ -35,7 +35,7 @@ internal static class AtSpiAccessibleMethods
         ["Name"] = static (in AtSpiCall call, ref MessageWriter writer) => writer.WriteVariantString(call.Node.Name),
         ["Description"] = static (in AtSpiCall call, ref MessageWriter writer) => writer.WriteVariantString(call.Node.Description),
         ["Parent"] = static (in AtSpiCall call, ref MessageWriter writer) => AtSpiWire.WriteReferenceVariant(ref writer, call.Session, call.Node.ParentId),
-        ["ChildCount"] = static (in AtSpiCall call, ref MessageWriter writer) => writer.WriteVariantInt32(call.Node.Children.Count),
+        ["ChildCount"] = static (in AtSpiCall call, ref MessageWriter writer) => writer.WriteVariantInt32(call.Node.Children.Length),
         ["Locale"] = static (in AtSpiCall call, ref MessageWriter writer) => writer.WriteVariantString(string.Empty),
         ["AccessibleId"] = static (in AtSpiCall call, ref MessageWriter writer) => writer.WriteVariantString(call.Node.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
     };
@@ -52,7 +52,7 @@ internal static class AtSpiAccessibleMethods
             interfaces.Add(AtSpiNames.ApplicationInterface);
         }
 
-        if (node.Actions.Count > 0)
+        if (node.Actions.Length > 0)
         {
             interfaces.Add(AtSpiNames.ActionInterface);
         }
@@ -84,7 +84,7 @@ internal static class AtSpiAccessibleMethods
     /// <param name="index">The child's index.</param>
     private static void ReplyChildAt(in AtSpiCall call, int index)
     {
-        if (index < 0 || index >= call.Node.Children.Count)
+        if (index < 0 || index >= call.Node.Children.Length)
         {
             call.Context.ReplyError("org.freedesktop.DBus.Error.InvalidArgs", "There is no child at that index.");
             return;
@@ -126,7 +126,7 @@ internal static class AtSpiAccessibleMethods
             return -1;
         }
 
-        for (var index = 0; index < parent.Children.Count; index++)
+        for (var index = 0; index < parent.Children.Length; index++)
         {
             if (parent.Children[index] == call.Node.Id)
             {

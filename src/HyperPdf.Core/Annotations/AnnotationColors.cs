@@ -35,7 +35,7 @@ public static class AnnotationColors
     public static uint Ink => 0x23324AU;
 
     /// <summary>Gets the named colours in menu order.</summary>
-    public static IReadOnlyList<(string Name, uint Color)> All { get; } =
+    public static (string Name, uint Color)[] All { get; } =
         [("Yellow", Sand), ("Green", Sage), ("Blue", Slate), ("Red", Clay), ("Purple", Heather), ("Orange", Peach), ("Grey", Stone), ("Dark blue", Ink)];
 
     /// <summary>Gets the name of a colour, matching a soft colour or its deeper tone, or <see langword="null"/> for any other colour.</summary>

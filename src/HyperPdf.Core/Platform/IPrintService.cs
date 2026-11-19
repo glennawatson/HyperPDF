@@ -21,7 +21,7 @@ public interface IPrintService
 
     /// <summary>Gets the printers that jobs can be sent to directly.</summary>
     /// <returns>The printers; empty when the print system is not available.</returns>
-    IReadOnlyList<PrinterInfo> GetPrinters();
+    List<PrinterInfo> GetPrinters();
 
     /// <summary>Sends a PDF straight to a printer's queue.</summary>
     /// <param name="filePath">The PDF; it may be deleted once the signal ends.</param>

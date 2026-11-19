@@ -318,8 +318,8 @@ public sealed class ViewerChromeTests
 
         ((System.Windows.Input.ICommand)tab.Printing.PrintCommand).Execute(null);
         var opened = PumpUntil(session, () => chrome.HasOverlay);
-        var shown = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item.Kind == ChromeItemKind.Thumbnail));
-        var picture = chrome.OverlayItems.FirstOrDefault(static item => item.Kind == ChromeItemKind.Thumbnail);
+        var shown = PumpUntil(session, () => chrome.OverlayItems.Exists(static item => item.Kind == ChromeItemKind.Thumbnail));
+        var picture = chrome.OverlayItems.Find(static item => item.Kind == ChromeItemKind.Thumbnail);
         session.Canvas.DrawFrame();
         var ink = picture is null ? 0 : CountInk(window, picture.Bounds);
         window.Send(new(WindowEventKind.KeyDown, 0, 0, (uint)ViewerKey.Escape, 0));
@@ -340,7 +340,7 @@ public sealed class ViewerChromeTests
         using var session = new ViewerSession(window, services, context);
         var chrome = session.Chrome;
         session.Open([path]);
-        var asked = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item.Kind == ChromeItemKind.Field));
+        var asked = PumpUntil(session, () => chrome.OverlayItems.Exists(static item => item.Kind == ChromeItemKind.Field));
 
         // Escape turns the question down, and the dialog must not come straight back.
         window.Send(new(WindowEventKind.KeyDown, 0, 0, (uint)ViewerKey.Escape, 0));
@@ -356,14 +356,14 @@ public sealed class ViewerChromeTests
         session.Main.SelectedTab = null;
         _ = session.PumpOnce(PumpMilliseconds);
         session.Main.SelectedTab = session.Main.Tabs[0];
-        var askedAgain = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item.Kind == ChromeItemKind.Field));
+        var askedAgain = PumpUntil(session, () => chrome.OverlayItems.Exists(static item => item.Kind == ChromeItemKind.Field));
         foreach (var character in Password)
         {
             window.Send(new(WindowEventKind.TextInput, 0, 0, character, 0));
         }
 
-        _ = PumpUntil(session, () => chrome.OverlayItems.FirstOrDefault(static item => item.Kind == ChromeItemKind.Field)?.Text.Length == Password.Length);
-        var shown = chrome.OverlayItems.FirstOrDefault(static item => item.Kind == ChromeItemKind.Field)?.Text ?? string.Empty;
+        _ = PumpUntil(session, () => chrome.OverlayItems.Find(static item => item.Kind == ChromeItemKind.Field)?.Text.Length == Password.Length);
+        var shown = chrome.OverlayItems.Find(static item => item.Kind == ChromeItemKind.Field)?.Text ?? string.Empty;
         window.Send(new(WindowEventKind.KeyDown, 0, 0, (uint)ViewerKey.Enter, 0));
         var opened = PumpUntil(session, () => session.Main.SelectedTab is { IsLoaded: true, NeedsPassword: false });
         return new(asked, staysClosed, askedAgain, shown, opened);
@@ -390,17 +390,17 @@ public sealed class ViewerChromeTests
         }
 
         _ = tab.Forms.Activate(field);
-        var asked = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item.Kind == ChromeItemKind.Field));
+        var asked = PumpUntil(session, () => chrome.OverlayItems.Exists(static item => item.Kind == ChromeItemKind.Field));
 
         // The box lies on the page, over the field, and is not a dialog: nothing else is shown with it.
-        var box = chrome.OverlayItems.FirstOrDefault(static item => item.Kind == ChromeItemKind.Field);
+        var box = chrome.OverlayItems.Find(static item => item.Kind == ChromeItemKind.Field);
         var inPlace = chrome.OverlayItems.Count == 1 && box is not null && chrome.CanvasBounds.Contains((int)box.Bounds.X, (int)box.Bounds.Y);
         foreach (var character in TypedName)
         {
             window.Send(new(WindowEventKind.TextInput, 0, 0, character, 0));
         }
 
-        _ = PumpUntil(session, () => chrome.OverlayItems.FirstOrDefault(static item => item.Kind == ChromeItemKind.Field)?.Text.Length == TypedName.Length);
+        _ = PumpUntil(session, () => chrome.OverlayItems.Find(static item => item.Kind == ChromeItemKind.Field)?.Text.Length == TypedName.Length);
         window.Send(new(WindowEventKind.KeyDown, 0, 0, (uint)ViewerKey.Enter, 0));
         var closed = PumpUntil(session, () => !chrome.HasOverlay && tab.Forms.Editing is null);
         return new(asked, inPlace, closed, FindTextField(tab.Forms)?.Value ?? string.Empty, tab.HasUnsavedChanges);
@@ -435,7 +435,7 @@ public sealed class ViewerChromeTests
         using var session = new ViewerSession(window, services, context);
         var chrome = session.Chrome;
         session.Open([path]);
-        _ = PumpUntil(session, () => session.Main.SelectedTab is { IsLoaded: true, Outline.Count: > 0 });
+        _ = PumpUntil(session, () => session.Main.SelectedTab is { IsLoaded: true, Outline.Length: > 0 });
         if (session.Main.SelectedTab is { SidebarVisible: false })
         {
             Click(window, Find(chrome.Bars, SidePanelName));
@@ -443,7 +443,7 @@ public sealed class ViewerChromeTests
 
         var shown = PumpUntil(session, () => chrome.CanvasBounds.X > 0);
         Click(window, FindMode(chrome.Bars, SidebarMode.Outline));
-        _ = PumpUntil(session, () => session.Main.SelectedTab is { SidebarMode: SidebarMode.Outline } && chrome.Bars.FirstOrDefault(static item => item.Kind == ChromeItemKind.Row) is not null);
+        _ = PumpUntil(session, () => session.Main.SelectedTab is { SidebarMode: SidebarMode.Outline } && chrome.Bars.Find(static item => item.Kind == ChromeItemKind.Row) is not null);
         var rows = chrome.Bars.Count(static item => item.Kind == ChromeItemKind.Row);
         Click(window, chrome.Bars.LastOrDefault(static item => item.Kind == ChromeItemKind.Row));
         _ = PumpUntil(session, () => session.Main.SelectedTab?.SelectedOutlineItem is not null);
@@ -483,16 +483,16 @@ public sealed class ViewerChromeTests
         Click(window, FindMode(chrome.Bars, SidebarMode.Annotations));
         _ = PumpUntil(session, () => session.Main.SelectedTab is { SidebarMode: SidebarMode.Annotations });
         _ = session.PumpOnce(PumpMilliseconds);
-        var noNotes = chrome.Bars.FirstOrDefault(static item => item.Kind == ChromeItemKind.Row) is null;
+        var noNotes = chrome.Bars.Find(static item => item.Kind == ChromeItemKind.Row) is null;
 
         Click(window, Find(chrome.Bars, "Annotate"));
-        _ = PumpUntil(session, () => chrome.Bars.FirstOrDefault(static item => item.Parameter is AnnotationTool) is not null);
+        _ = PumpUntil(session, () => chrome.Bars.Find(static item => item.Parameter is AnnotationTool) is not null);
         var tools = chrome.Bars.Count(static item => item.Parameter is AnnotationTool);
-        Click(window, chrome.Bars.FirstOrDefault(static item => item is { Parameter: AnnotationTool.Highlight }));
+        Click(window, chrome.Bars.Find(static item => item is { Parameter: AnnotationTool.Highlight }));
         _ = PumpUntil(session, () => session.Main.SelectedTab is { Annotations.Tool: AnnotationTool.Highlight });
         var tool = session.Main.SelectedTab?.Annotations.Tool ?? AnnotationTool.Select;
         Click(window, Find(chrome.Bars, "Annotate"));
-        var barGone = PumpUntil(session, () => chrome.Bars.FirstOrDefault(static item => item.Parameter is AnnotationTool) is null);
+        var barGone = PumpUntil(session, () => chrome.Bars.Find(static item => item.Parameter is AnnotationTool) is null);
         return new(pictures, page, noNotes, tools, tool, barGone);
     }
 
@@ -514,8 +514,8 @@ public sealed class ViewerChromeTests
         _ = PumpUntil(session, () => session.Main.SelectedTab is { IsLoaded: true } && window.FramesPresented > 0);
 
         // The document's title arrives with its metadata, which a slow machine can deliver after the first frame, and the strip follows on the next pass.
-        _ = PumpUntil(session, () => chrome.Bars.FirstOrDefault(static item => item.Kind == ChromeItemKind.Tab)?.Text == session.Main.SelectedTab?.Title);
-        var tabText =chrome.Bars.FirstOrDefault(static item => item.Kind == ChromeItemKind.Tab)?.Text ?? string.Empty;
+        _ = PumpUntil(session, () => chrome.Bars.Find(static item => item.Kind == ChromeItemKind.Tab)?.Text == session.Main.SelectedTab?.Title);
+        var tabText =chrome.Bars.Find(static item => item.Kind == ChromeItemKind.Tab)?.Text ?? string.Empty;
         var tabTitle = session.Main.SelectedTab?.Title ?? string.Empty;
         var barText = CountBarText(window, (int)chrome.CanvasBounds.Y);
 
@@ -567,7 +567,7 @@ public sealed class ViewerChromeTests
     private static bool OpenThroughDialog(HeadlessWindow window, ViewerSession session, string path)
     {
         window.Send(new(WindowEventKind.KeyDown, 0, 0, (uint)ViewerKey.O, (uint)ViewerModifiers.Control));
-        var opened = PumpUntil(session, () => session.Chrome.OverlayItems.Any(static item => item.Kind == ChromeItemKind.Field));
+        var opened = PumpUntil(session, () => session.Chrome.OverlayItems.Exists(static item => item.Kind == ChromeItemKind.Field));
         foreach (var rune in path.EnumerateRunes())
         {
             window.Send(new(WindowEventKind.TextInput, 0, 0, (uint)rune.Value, 0));
@@ -591,24 +591,24 @@ public sealed class ViewerChromeTests
         using var services = new AppServices(new SettingsStore(Path.Combine(folder, SettingsFile)), new HyperPdfEngine(), new FallbackPlatform(), new ViewerRenderHead(window));
         using var session = new ViewerSession(window, services, context);
         var chrome = session.Chrome;
-        IReadOnlyList<string>? chosen = null;
+        string[]? chosen = null;
         using var picking = chrome.PickFiles(folder).Subscribe(paths => chosen = paths);
-        _ = PumpUntil(session, () => chrome.OverlayItems.FirstOrDefault(static item => item.Action == OverlayAction.PickRow) is not null);
+        _ = PumpUntil(session, () => chrome.OverlayItems.Find(static item => item.Action == OverlayAction.PickRow) is not null);
         var pdfRows = chrome.OverlayItems.Count(static item => item.Action == OverlayAction.PickRow);
-        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item.Action == OverlayAction.FileKinds));
+        Click(window, chrome.OverlayItems.Find(static item => item.Action == OverlayAction.FileKinds));
         _ = PumpUntil(session, () => chrome.OverlayItems.Count(static item => item.Action == OverlayAction.PickRow) > pdfRows);
         var allRows = chrome.OverlayItems.Count(static item => item.Action == OverlayAction.PickRow);
-        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item.Action == OverlayAction.FileKinds));
+        Click(window, chrome.OverlayItems.Find(static item => item.Action == OverlayAction.FileKinds));
         _ = PumpUntil(session, () => chrome.OverlayItems.Count(static item => item.Action == OverlayAction.PickRow) == pdfRows);
 
-        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item is { Action: OverlayAction.PickRow, Text: FirstFile }));
-        _ = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item is { Action: OverlayAction.PickRow, Selected: true }));
-        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item is { Action: OverlayAction.PickRow, Text: SecondFile }));
+        Click(window, chrome.OverlayItems.Find(static item => item is { Action: OverlayAction.PickRow, Text: FirstFile }));
+        _ = PumpUntil(session, () => chrome.OverlayItems.Exists(static item => item is { Action: OverlayAction.PickRow, Selected: true }));
+        Click(window, chrome.OverlayItems.Find(static item => item is { Action: OverlayAction.PickRow, Text: SecondFile }));
         _ = PumpUntil(session, () => chrome.OverlayItems.Count(static item => item is { Action: OverlayAction.PickRow, Selected: true }) > 1);
         var stayedOpen = chrome.HasOverlay;
-        Click(window, chrome.OverlayItems.FirstOrDefault(static item => item.Action == OverlayAction.Accept));
+        Click(window, chrome.OverlayItems.Find(static item => item.Action == OverlayAction.Accept));
         _ = PumpUntil(session, () => chosen is not null);
-        return new(pdfRows, allRows, stayedOpen, chosen?.Count ?? 0);
+        return new(pdfRows, allRows, stayedOpen, chosen?.Length ?? 0);
     }
 
     /// <summary>Double clicks the second file of the file dialog.</summary>
@@ -623,10 +623,10 @@ public sealed class ViewerChromeTests
         using var services = new AppServices(new SettingsStore(Path.Combine(folder, SettingsFile)), new HyperPdfEngine(), new FallbackPlatform(), new ViewerRenderHead(window));
         using var session = new ViewerSession(window, services, context);
         var chrome = session.Chrome;
-        IReadOnlyList<string>? chosen = null;
+        string[]? chosen = null;
         using var picking = chrome.PickFiles(folder).Subscribe(paths => chosen = paths);
-        _ = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item is { Action: OverlayAction.PickRow, Text: SecondFile }));
-        var row = chrome.OverlayItems.FirstOrDefault(static item => item is { Action: OverlayAction.PickRow, Text: SecondFile });
+        _ = PumpUntil(session, () => chrome.OverlayItems.Exists(static item => item is { Action: OverlayAction.PickRow, Text: SecondFile }));
+        var row = chrome.OverlayItems.Find(static item => item is { Action: OverlayAction.PickRow, Text: SecondFile });
         Click(window, row);
         Click(window, row);
         _ = PumpUntil(session, () => chosen is not null);
@@ -637,20 +637,20 @@ public sealed class ViewerChromeTests
     /// <param name="items">The controls.</param>
     /// <param name="text">The control's name.</param>
     /// <returns>The control, or <see langword="null"/>.</returns>
-    private static ChromeItem? Find(IReadOnlyList<ChromeItem> items, string text) => items.FirstOrDefault(item => item.Text == text);
+    private static ChromeItem? Find(List<ChromeItem> items, string text) => items.Find(item => item.Text == text);
 
     /// <summary>Finds the side panel tab that shows one kind of list.</summary>
     /// <param name="items">The controls.</param>
     /// <param name="mode">The list.</param>
     /// <returns>The tab, or <see langword="null"/>.</returns>
-    private static ChromeItem? FindMode(IReadOnlyList<ChromeItem> items, SidebarMode mode) =>
-        items.FirstOrDefault(item => item.Parameter is SidebarMode shown && shown == mode);
+    private static ChromeItem? FindMode(List<ChromeItem> items, SidebarMode mode) =>
+        items.Find(item => item.Parameter is SidebarMode shown && shown == mode);
 
     /// <summary>Finds the place of the first control that does something.</summary>
     /// <param name="items">The controls.</param>
     /// <param name="text">The control's name.</param>
     /// <returns>The place, or -1.</returns>
-    private static int IndexOf(IReadOnlyList<ChromeItem> items, string text)
+    private static int IndexOf(List<ChromeItem> items, string text)
     {
         for (var i = 0; i < items.Count; i++)
         {

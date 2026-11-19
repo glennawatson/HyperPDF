@@ -87,9 +87,9 @@ public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationC
     /// <param name="raw">The signatures as stored.</param>
     /// <param name="path">The file.</param>
     /// <returns>The checked signatures.</returns>
-    private static DocumentSignature[] VerifyAll(IReadOnlyList<RawSignature> raw, string path)
+    private static DocumentSignature[] VerifyAll(ReadOnlySpan<RawSignature> raw, string path)
     {
-        var results = new DocumentSignature[raw.Count];
+        var results = new DocumentSignature[raw.Length];
         var store = DocumentSecurityStore.Read(File.ReadAllBytes(path));
         for (var i = 0; i < results.Length; i++)
         {
@@ -159,7 +159,7 @@ public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationC
     {
         // The preview asks the tab for its document each time, so a reload while the window is open does not leave it on a closed one.
         var request = new CertificateSignViewModel(
-            _services.Settings.RememberedCertificates,
+            [.._services.Settings.RememberedCertificates],
             Math.Max(0, _owner.CurrentPageIndex),
                 r => PdfSigner.Preview(_owner.TryGetDocument(), r),
             _services.Settings.TimestampServer);

@@ -142,19 +142,19 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable, ILoca
     /// <param name="layers">The layers by id.</param>
     /// <param name="onPage">The layers a visible page uses to limit the list to, or <see langword="null"/> to list them all.</param>
     /// <returns>The entries.</returns>
-    private static List<LayerItemViewModel> Build(IReadOnlyList<DocumentLayerNode> nodes, Dictionary<int, DocumentLayer> layers, HashSet<int>? onPage)
+    private static List<LayerItemViewModel> Build(ReadOnlySpan<DocumentLayerNode> nodes, Dictionary<int, DocumentLayer> layers, HashSet<int>? onPage)
     {
-        var result = new List<LayerItemViewModel>(nodes.Count);
+        var result = new List<LayerItemViewModel>(nodes.Length);
         foreach (var node in nodes)
         {
             var children = Build(node.Children, layers, onPage);
             if (node.IsLabel && children.Count > 0)
             {
-                result.Add(new(0, node.Name, false, false, string.Empty, children));
+                result.Add(new(0, node.Name, false, false, string.Empty, [..children]));
             }
             else if (!node.IsLabel && layers.TryGetValue(node.LayerId, out var layer) && (onPage is null || onPage.Contains(layer.Id) || children.Count > 0))
             {
-                result.Add(new(layer.Id, layer.Name, layer.IsVisible, layer.IsLocked, LayerText.Note(layer), children));
+                result.Add(new(layer.Id, layer.Name, layer.IsVisible, layer.IsLocked, LayerText.Note(layer), [..children]));
             }
         }
 

@@ -97,7 +97,7 @@ public sealed unsafe class X11Window : IPlatformWindow
     private readonly Signal<WindowEvent> _events = new();
 
     /// <summary>Carries the files dropped on the window, on the thread that pumps it.</summary>
-    private readonly Signal<IReadOnlyList<string>> _drops = new();
+    private readonly Signal<string[]> _drops = new();
 
     /// <summary>The atoms of the drag and drop protocol.</summary>
     private readonly X11DropAtoms _dropAtoms;
@@ -256,7 +256,7 @@ public sealed unsafe class X11Window : IPlatformWindow
     public IObservable<WindowEvent> Events => _events;
 
     /// <inheritdoc/>
-    public IObservable<IReadOnlyList<string>> FileDrops => _drops;
+    public IObservable<string[]> FileDrops => _drops;
 
     /// <summary>Gets the shape numbers in the standard X cursor font, by <see cref="ViewerCursor"/> value: none, left pointer, hand, crosshair, text beam and four arrows.</summary>
     private static ReadOnlySpan<uint> CursorShapes => [0x00, 0x44, 0x3C, 0x22, 0x98, 0x34];

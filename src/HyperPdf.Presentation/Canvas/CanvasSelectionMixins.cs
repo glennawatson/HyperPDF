@@ -234,12 +234,12 @@ public static class CanvasSelectionMixins
         /// <summary>Marks the selected text when a markup tool is active, then clears the selection.</summary>
         public void ApplyMarkupTool()
         {
-            if (state.Tab is not { } tab || AnnotationsViewModel.GetMarkupKind(tab.Annotations.Tool) is not { } kind)
+            if (state.Tab is not { AnnotationsInUse: { } marks } tab || AnnotationsViewModel.GetMarkupKind(marks.Tool) is not { } kind)
             {
                 return;
             }
 
-            state.MarkSelection(tab, kind, tab.Annotations.Color);
+            state.MarkSelection(tab, kind, marks.Color);
         }
 
         /// <summary>Marks the selected text and clears the selection.</summary>
@@ -259,7 +259,7 @@ public static class CanvasSelectionMixins
         /// <param name="position">The canvas point.</param>
         /// <param name="copy">The command that copies the selected text.</param>
         /// <returns>The menu, or <see langword="null"/> when there is nothing to offer.</returns>
-        public IReadOnlyList<MenuEntry>? GetContextMenu(CanvasPoint position, ICommand copy)
+        public List<MenuEntry>? GetContextMenu(CanvasPoint position, ICommand copy)
         {
             if (state.Tab is not { } tab)
             {

@@ -184,7 +184,7 @@ internal sealed class PausingEngine : IDocumentEngine
         public string? GetPageLabel(int pageIndex) => inner.GetPageLabel(pageIndex);
 
         /// <inheritdoc/>
-        public IReadOnlyList<OutlineNode> GetOutline() => inner.GetOutline();
+        public OutlineNode[] GetOutline() => inner.GetOutline();
 
         /// <inheritdoc/>
         public IObservable<RxVoid> PreparePage(int pageIndex) =>
@@ -239,7 +239,7 @@ internal sealed class PausingEngine : IDocumentEngine
         public void GetTextBounds(int pageIndex, int start, int count, List<PageRect> output) => inner.GetTextBounds(pageIndex, start, count, output);
 
         /// <inheritdoc/>
-        public IReadOnlyList<PageLink> GetLinks(int pageIndex) => inner.GetLinks(pageIndex);
+        public PageLink[] GetLinks(int pageIndex) => inner.GetLinks(pageIndex);
 
         /// <inheritdoc/>
         public void Find(int pageIndex, string query, SearchOptions options, List<TextMatch> output)

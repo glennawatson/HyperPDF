@@ -40,9 +40,9 @@ internal static class SeparationText
     /// <summary>Says what a page edit could not keep together, or <see langword="null"/> when it kept everything.</summary>
     /// <param name="changes">The printed pages that changed.</param>
     /// <returns>The notice.</returns>
-    internal static string? ChangeNotice(IReadOnlyList<SeparationChange> changes)
+    internal static string? ChangeNotice(ReadOnlySpan<SeparationChange> changes)
     {
-        if (changes.Count == 0)
+        if (changes.IsEmpty)
         {
             return null;
         }

@@ -145,7 +145,7 @@ public static class CpuBlend
             return;
         }
 
-        var i = 0;
+        var i = Vector256.IsHardwareAccelerated ? MixRowsWide(to, upper, lower, weight) : 0;
         if (Vector128.IsHardwareAccelerated)
         {
             var towardLower = Vector128.Create((ushort)weight);
@@ -167,6 +167,32 @@ public static class CpuBlend
         {
             to[i] = (byte)(((upper[i] * (WeightSteps - weight)) + (lower[i] * weight)) >> ByteShift);
         }
+    }
+
+    /// <summary>Mixes two rows of pixels 32 bytes at a time, for as many whole 32s as the row has.</summary>
+    /// <param name="to">The destination row.</param>
+    /// <param name="upper">The upper row.</param>
+    /// <param name="lower">The lower row.</param>
+    /// <param name="weight">The weight of the lower row, out of 256.</param>
+    /// <returns>The bytes written.</returns>
+    private static int MixRowsWide(Span<byte> to, ReadOnlySpan<byte> upper, ReadOnlySpan<byte> lower, uint weight)
+    {
+        var i = 0;
+        var towardLower = Vector256.Create((ushort)weight);
+        var towardUpper = Vector256.Create((ushort)(WeightSteps - weight));
+        ref var first = ref MemoryMarshal.GetReference(upper);
+        ref var second = ref MemoryMarshal.GetReference(lower);
+        ref var target = ref MemoryMarshal.GetReference(to);
+        for (; i <= to.Length - Vector256<byte>.Count; i += Vector256<byte>.Count)
+        {
+            var above = Vector256.LoadUnsafe(ref first, (nuint)i);
+            var below = Vector256.LoadUnsafe(ref second, (nuint)i);
+            var low = ((Vector256.WidenLower(above) * towardUpper) + (Vector256.WidenLower(below) * towardLower)) >>> ByteShift;
+            var high = ((Vector256.WidenUpper(above) * towardUpper) + (Vector256.WidenUpper(below) * towardLower)) >>> ByteShift;
+            Vector256.Narrow(low, high).StoreUnsafe(ref target, (nuint)i);
+        }
+
+        return i;
     }
 
     /// <summary>Blends one premultiplied pixel over another.</summary>

@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Reading;
 
 namespace HyperPdf.Core.Tests.Reading;
@@ -108,15 +109,15 @@ public sealed class ReadingOrderTests
         for (var i = 1; i <= SampledPages; i++)
         {
             var signatures = new List<string>();
-            ReadingOrder.CollectMarginSignatures(PageBuilder.Letter, Page(i).Characters, signatures);
+            ReadingOrder.CollectMarginSignatures(PageBuilder.Letter, CollectionsMarshal.AsSpan(Page(i).Characters), signatures);
             samples.Add(signatures);
         }
 
-        var repeated = ReadingOrder.FindRepeatedMargins(samples);
+        var repeated = ReadingOrder.FindRepeatedMargins(CollectionsMarshal.AsSpan(samples));
         var page = Page(ReadPage).Read(repeated);
 
         await Assert.That(Texts(page)).IsEquivalentTo(["Body text on page 2."]);
-        await Assert.That(new PageBuilder().Body("Only page header", LeftColumn, HeaderTop).Body("Text.", LeftColumn, FirstLine).Read().Blocks.Count).IsEqualTo(KeptBlocks);
+        await Assert.That(new PageBuilder().Body("Only page header", LeftColumn, HeaderTop).Body("Text.", LeftColumn, FirstLine).Read().Blocks.Length).IsEqualTo(KeptBlocks);
     }
 
     /// <summary>Bulleted and numbered lines start their own list items; captions are marked.</summary>

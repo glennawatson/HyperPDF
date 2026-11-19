@@ -9,7 +9,7 @@ public interface IDocumentMediaSource : IDocumentFeature
 {
     /// <summary>Gets the media of the document, in page order.</summary>
     /// <returns>The media; empty when the document has none.</returns>
-    IReadOnlyList<DocumentMedia> GetMedia();
+    DocumentMedia[] GetMedia();
 
     /// <summary>Writes a piece of media into a stream, as a file the system player can open.</summary>
     /// <param name="index">The <see cref="DocumentMedia.Index"/>.</param>

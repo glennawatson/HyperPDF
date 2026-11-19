@@ -30,9 +30,9 @@ public sealed record TagItemViewModel(DocumentTag Tag)
     /// <summary>Lists the rows for tags.</summary>
     /// <param name="tags">The tags in reading order.</param>
     /// <returns>The rows, in the same order.</returns>
-    public static IReadOnlyList<TagItemViewModel> Create(IReadOnlyList<DocumentTag> tags)
+    public static TagItemViewModel[] Create(DocumentTag[] tags)
     {
-        var items = new TagItemViewModel[tags.Count];
+        var items = new TagItemViewModel[tags.Length];
         for (var i = 0; i < items.Length; i++)
         {
             items[i] = new(tags[i]);

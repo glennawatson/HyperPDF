@@ -39,7 +39,7 @@ public sealed class PageCanvasState
     public List<PageRect> CaretBounds { get; } = [];
 
     /// <summary>Gets the links of each page, loaded when first asked for.</summary>
-    public Dictionary<int, IReadOnlyList<PageLink>> Links { get; } = [];
+    public Dictionary<int, PageLink[]> Links { get; } = [];
 
     /// <summary>Gets what the toolkit must do after the canvas has dealt with a pointer event; one instance, reused by every event.</summary>
     public InputEffects Effects { get; } = new();
@@ -58,6 +58,12 @@ public sealed class PageCanvasState
 
     /// <summary>Gets the page measurements the fit zoom comes from, kept so a resize does not walk every page.</summary>
     public PageFitExtentsCache FitExtents { get; } = new();
+
+    /// <summary>
+    /// Gets the layout last made for each document's pages, so coming back to a tab does not lay every page out again. A layout
+    /// is held only while the document's page sizes are, so it goes when the tab does.
+    /// </summary>
+    public ConditionalWeakTable<PageSize[], DocumentLayout> KeptLayouts { get; } = [];
 
     /// <summary>Gets the current layout.</summary>
     public DocumentLayout Layout { get; private set; } = DocumentLayout.Empty;

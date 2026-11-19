@@ -47,7 +47,7 @@ public class HyperPdfAdapterReadBenchmarks
     /// <summary>Reads the cached character and link counts through the adapter.</summary>
     /// <returns>The combined count.</returns>
     [Benchmark]
-    public int WarmRead() => HyperPdfText.GetCharacterCount(_document!, PageIndex) + HyperPdfNavigation.GetLinks(_document!, PageIndex).Count;
+    public int WarmRead() => HyperPdfText.GetCharacterCount(_document!, PageIndex) + HyperPdfNavigation.GetLinks(_document!, PageIndex).Length;
 
     /// <summary>Renders a cached tile and reads its cached character and link counts.</summary>
     /// <returns>The combined count and render result.</returns>
@@ -57,6 +57,6 @@ public class HyperPdfAdapterReadBenchmarks
         var document = _document!;
         var info = new PageRenderInfo(PageIndex, 1, PageRotation.None, 0, 0, RenderFlags.Annotations);
         var rendered = HyperPdfRendering.Render(document, info, new(_pixels, Edge, Edge, Edge * PixelBytes));
-        return (rendered ? 1 : 0) + HyperPdfText.GetCharacterCount(document, PageIndex) + HyperPdfNavigation.GetLinks(document, PageIndex).Count;
+        return (rendered ? 1 : 0) + HyperPdfText.GetCharacterCount(document, PageIndex) + HyperPdfNavigation.GetLinks(document, PageIndex).Length;
     }
 }

@@ -218,11 +218,11 @@ public sealed class HyperPdfDocument : IDocument, IHyperPdfGpuRenderer
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<OutlineNode> GetOutline() => HyperPdfNavigation.GetOutline(this);
+    public OutlineNode[] GetOutline() => HyperPdfNavigation.GetOutline(this);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<PageLink> GetLinks(int pageIndex) => HyperPdfNavigation.GetLinks(
+    public PageLink[] GetLinks(int pageIndex) => HyperPdfNavigation.GetLinks(
             this,
             pageIndex);
 

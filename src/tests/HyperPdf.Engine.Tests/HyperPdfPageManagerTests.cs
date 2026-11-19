@@ -382,7 +382,7 @@ public sealed class HyperPdfPageManagerTests
     private static async Task AssertStructures(HyperPdfDocument document)
     {
         await Assert.That(document.PageCount).IsEqualTo(MergedPageCount);
-        await Assert.That(document.GetOutline().Count).IsEqualTo(OutlineCount);
+        await Assert.That(document.GetOutline().Length).IsEqualTo(OutlineCount);
         var fields = new List<FormField>();
         DocumentFeature<IFormFiller>.Cast(document)!.GetFields(ImportedPage, fields);
         await Assert.That(string.Join(',', fields.ConvertAll(static field => field.Name))).IsEqualTo("Name_1,Address_1.Street");

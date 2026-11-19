@@ -15,7 +15,7 @@ public sealed class PartItemViewModel : ReactiveObject, ILocalisationChildren
     /// <summary>Initializes a new instance of the <see cref="PartItemViewModel"/> class.</summary>
     /// <param name="part">The part.</param>
     /// <param name="children">The entries listed under this one.</param>
-    public PartItemViewModel(DocumentPart part, IReadOnlyList<PartItemViewModel> children)
+    public PartItemViewModel(DocumentPart part, PartItemViewModel[] children)
     {
         ArgumentNullException.ThrowIfNull(part);
         ArgumentNullException.ThrowIfNull(children);
@@ -40,7 +40,7 @@ public sealed class PartItemViewModel : ReactiveObject, ILocalisationChildren
     public string PagesText { get; }
 
     /// <summary>Gets the parts listed under this one.</summary>
-    public IReadOnlyList<PartItemViewModel> Children { get; }
+    public PartItemViewModel[] Children { get; }
 
     /// <summary>Gets the zero based page choosing the part goes to: its first page, or the first page of the first part inside it; <see langword="null"/> when there is none.</summary>
     public int? TargetPage { get; }
@@ -70,7 +70,7 @@ public sealed class PartItemViewModel : ReactiveObject, ILocalisationChildren
     /// <summary>Finds the page the first part that has one starts on.</summary>
     /// <param name="children">The parts.</param>
     /// <returns>The page, or <see langword="null"/>.</returns>
-    private static int? FirstTarget(IReadOnlyList<PartItemViewModel> children)
+    private static int? FirstTarget(ReadOnlySpan<PartItemViewModel> children)
     {
         foreach (var child in children)
         {

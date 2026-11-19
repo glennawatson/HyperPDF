@@ -28,7 +28,7 @@ public sealed class LinuxPrintService : IPrintService
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<PrinterInfo> GetPrinters() => CupsPrinting.GetPrinters();
+    public List<PrinterInfo> GetPrinters() => CupsPrinting.GetPrinters();
 
     /// <inheritdoc/>
     public IObservable<PrintOutcome> Submit(string filePath, string title, PrintJobOptions options)

@@ -12,7 +12,7 @@ namespace HyperPdf.Core.Tests.Speech.Listening;
 /// <param name="Cases">The phrases checked for how they are said.</param>
 /// <param name="Passages">The passages read by the real voice.</param>
 [DebuggerDisplay("ListeningCorpus: {Cases.Count} cases, {Passages.Count} passages")]
-public sealed record ListeningCorpus(string Comment, IReadOnlyList<ListeningCase> Cases, IReadOnlyList<ListeningPassage> Passages)
+public sealed record ListeningCorpus(string Comment, ListeningCase[] Cases, ListeningPassage[] Passages)
 {
     /// <summary>Gets the corpus copied next to the tests.</summary>
     public static ListeningCorpus Instance { get; } = Load();

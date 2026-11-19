@@ -44,11 +44,11 @@ internal static class ParagraphMates
     /// <param name="lines">The numbers of the paragraph's lines, from the first line on.</param>
     /// <param name="picked">The line the paragraph was found from, whose size and direction the texts beside it share.</param>
     /// <returns>The numbers of the lines with the numbers of the texts beside each after it, in the order they read; <paramref name="lines"/> itself when no line has any.</returns>
-    internal static int[] Add(IReadOnlyList<PageObjectInfo> objects, int[] lines, in PageObjectInfo picked)
+    internal static int[] Add(ReadOnlySpan<PageObjectInfo> objects, int[] lines, in PageObjectInfo picked)
     {
-        var frames = ArrayPool<LineFrame>.Shared.Rent(objects.Count + lines.Length);
-        var mates = ArrayPool<int>.Shared.Rent(objects.Count);
-        var rows = ArrayPool<int>.Shared.Rent(objects.Count);
+        var frames = ArrayPool<LineFrame>.Shared.Rent(objects.Length + lines.Length);
+        var mates = ArrayPool<int>.Shared.Rent(objects.Length);
+        var rows = ArrayPool<int>.Shared.Rent(objects.Length);
         try
         {
             FrameLines(objects, lines, frames);
@@ -67,7 +67,7 @@ internal static class ParagraphMates
     /// <param name="objects">The objects of the page.</param>
     /// <param name="lines">The numbers of the lines and the texts beside them, in the order they read.</param>
     /// <returns>The words.</returns>
-    internal static string Join(IReadOnlyList<PageObjectInfo> objects, int[] lines)
+    internal static string Join(ReadOnlySpan<PageObjectInfo> objects, int[] lines)
     {
         var words = new StringBuilder();
         foreach (var index in lines)
@@ -109,9 +109,9 @@ internal static class ParagraphMates
     /// <param name="objects">The objects of the page.</param>
     /// <param name="index">The number.</param>
     /// <returns>The object; <see langword="null"/> when the page has none.</returns>
-    private static PageObjectInfo? Find(IReadOnlyList<PageObjectInfo> objects, int index)
+    private static PageObjectInfo? Find(ReadOnlySpan<PageObjectInfo> objects, int index)
     {
-        for (var i = 0; i < objects.Count; i++)
+        for (var i = 0; i < objects.Length; i++)
         {
             if (objects[i].Index == index)
             {
@@ -126,9 +126,9 @@ internal static class ParagraphMates
     /// <param name="objects">The objects of the page.</param>
     /// <param name="lines">The numbers of the lines.</param>
     /// <param name="frames">Receives the frames, in the order of the lines.</param>
-    private static void FrameLines(IReadOnlyList<PageObjectInfo> objects, int[] lines, LineFrame[] frames)
+    private static void FrameLines(ReadOnlySpan<PageObjectInfo> objects, int[] lines, LineFrame[] frames)
     {
-        for (var i = 0; i < objects.Count; i++)
+        for (var i = 0; i < objects.Length; i++)
         {
             var place = Array.IndexOf(lines, objects[i].Index);
             if (place >= 0)
@@ -144,7 +144,7 @@ internal static class ParagraphMates
     /// <param name="picked">The line whose size and direction the texts share.</param>
     /// <param name="room">Where the frames of the lines are, and where the numbers and rows of the texts found are put.</param>
     /// <returns>How many texts were found.</returns>
-    private static int FindMates(IReadOnlyList<PageObjectInfo> objects, int[] lines, in PageObjectInfo picked, in MateRoom room)
+    private static int FindMates(ReadOnlySpan<PageObjectInfo> objects, int[] lines, in PageObjectInfo picked, in MateRoom room)
     {
         var height = FrameOf(picked).Height;
         var found = 0;
@@ -152,7 +152,7 @@ internal static class ParagraphMates
         do
         {
             grew = false;
-            for (var i = 0; i < objects.Count; i++)
+            for (var i = 0; i < objects.Length; i++)
             {
                 var candidate = objects[i];
                 if (IsKnown(lines, room.Mates, found, candidate.Index) || !SameWay(candidate, picked) || !ParagraphFinder.IsTextLine(candidate))
@@ -235,7 +235,7 @@ internal static class ParagraphMates
     /// <param name="room">The frames of the lines and the texts found, and the numbers and rows of the texts.</param>
     /// <param name="found">How many texts were found.</param>
     /// <returns>The numbers of the lines and the texts.</returns>
-    private static int[] Merge(IReadOnlyList<PageObjectInfo> objects, int[] lines, in MateRoom room, int found)
+    private static int[] Merge(ReadOnlySpan<PageObjectInfo> objects, int[] lines, in MateRoom room, int found)
     {
         var result = new int[lines.Length + found];
         var slots = ArrayPool<int>.Shared.Rent(result.Length);
@@ -267,7 +267,7 @@ internal static class ParagraphMates
     /// <param name="room">The frames of the lines and the texts found, and the numbers and rows of the texts.</param>
     /// <param name="output">The places listed so far, and where the next goes.</param>
     /// <returns>Where the next place after the row goes.</returns>
-    private static int ListRow(IReadOnlyList<PageObjectInfo> objects, int[] lines, int line, in MateRoom room, in RowOutput output)
+    private static int ListRow(ReadOnlySpan<PageObjectInfo> objects, int[] lines, int line, in MateRoom room, in RowOutput output)
     {
         var slots = output.Slots;
         var start = output.At;
@@ -325,9 +325,9 @@ internal static class ParagraphMates
     /// <param name="objects">The objects of the page.</param>
     /// <param name="index">The number of the text.</param>
     /// <returns>The words; empty when the page has no such text.</returns>
-    private static string TextOf(IReadOnlyList<PageObjectInfo> objects, int index)
+    private static string TextOf(ReadOnlySpan<PageObjectInfo> objects, int index)
     {
-        for (var i = 0; i < objects.Count; i++)
+        for (var i = 0; i < objects.Length; i++)
         {
             if (objects[i].Index == index)
             {

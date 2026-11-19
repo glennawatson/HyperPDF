@@ -81,8 +81,8 @@ public sealed class MacAccessibilityBridge : IAccessibilityBridge
     private static AccessibleNode? FindDocument(IAccessibleTree tree)
     {
         var application = tree.Get(tree.RootId);
-        var window = application is { Children.Count: > 0 } ? tree.Get(application.Children[0]) : null;
-        return window is { Children.Count: > 0 } ? tree.Get(window.Children[0]) : null;
+        var window = application is { Children.Length: > 0 } ? tree.Get(application.Children[0]) : null;
+        return window is { Children.Length: > 0 } ? tree.Get(window.Children[0]) : null;
     }
 
     /// <summary>Finds the Cocoa accessibility role of an element.</summary>

@@ -36,7 +36,7 @@ public static class ContextMenus
             MenuEntry.Submenu(
                 UiText.Get("_Highlight"),
                 editable,
-                ColorItems(mark, lines, static (selected, color) => new MarkSelectionRequest(AnnotationKind.Highlight, color, selected))),
+                [..ColorItems(mark, lines, static (selected, color) => new MarkSelectionRequest(AnnotationKind.Highlight, color, selected))]),
             MenuEntry.Item(UiText.Get("_Underline"), null, mark, new MarkSelectionRequest(AnnotationKind.Underline, annotations.Color, lines), editable),
             MenuEntry.Item(UiText.Get("_Strike Out"), null, mark, new MarkSelectionRequest(AnnotationKind.StrikeOut, AnnotationColors.Clay, lines), editable),
             MenuEntry.Item(UiText.Get("S_quiggly Underline"), null, mark, new MarkSelectionRequest(AnnotationKind.Squiggly, AnnotationColors.Clay, lines), editable)
@@ -69,11 +69,11 @@ public static class ContextMenus
             [
 
             MenuEntry.Item(UiText.Get("_Reply"), null, annotations.ReplyInBubbleForCommand, null, true),
-            MenuEntry.Submenu(UiText.Get("_Status"), true, StatusItems(annotations, annotation)),
+            MenuEntry.Submenu(UiText.Get("_Status"), true, [..StatusItems(annotations, annotation)]),
             MenuEntry.Submenu(
                     UiText.Get("C_olour"),
                     true,
-                    ColorItems(annotations.RecolorAnnotationCommand, annotation, static (picked, color) => new AnnotationColorChoice(picked, color))),
+                    [..ColorItems(annotations.RecolorAnnotationCommand, annotation, static (picked, color) => new AnnotationColorChoice(picked, color))]),
             MenuEntry.Separator(),
             MenuEntry.Item(UiText.Format("_Delete {0}", name), "Delete", annotations.DeleteCommand, null, true)
         ]);
@@ -109,8 +109,8 @@ public static class ContextMenus
     {
         ArgumentNullException.ThrowIfNull(forms);
         ArgumentNullException.ThrowIfNull(field);
-        var items = new List<MenuEntry>(field.Options.Count);
-        for (var i = 0; i < field.Options.Count; i++)
+        var items = new List<MenuEntry>(field.Options.Length);
+        for (var i = 0; i < field.Options.Length; i++)
         {
             items.Add(MenuEntry.Radio(field.Options[i], forms.ChooseOptionCommand, new FormChoice(field, i), i == field.SelectedOption));
         }
@@ -143,7 +143,7 @@ public static class ContextMenus
     /// <returns>The entries.</returns>
     private static List<MenuEntry> ColorItems<TState>(ICommand command, TState state, Func<TState, uint, object> parameter)
     {
-        var items = new List<MenuEntry>(AnnotationColors.All.Count);
+        var items = new List<MenuEntry>(AnnotationColors.All.Length);
         foreach (var (name, color) in AnnotationColors.All)
         {
             items.Add(MenuEntry.Item(UiText.Get(name), null, command, parameter(state, color), true).WithSwatch(color));

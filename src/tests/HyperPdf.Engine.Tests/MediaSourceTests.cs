@@ -43,7 +43,7 @@ public sealed class MediaSourceTests
         using var open = await OpenAsync();
         var media = DocumentFeature<IDocumentMediaSource>.Cast(open.Document)!.GetMedia();
 
-        await Assert.That(media.Count).IsEqualTo(MediaCount);
+        await Assert.That(media.Length).IsEqualTo(MediaCount);
         await Assert.That(media[0].Kind).IsEqualTo(DocumentMediaKind.Sound);
         await Assert.That(media[0].Name).IsEqualTo("Sound on page 1");
         await Assert.That(media[0].FileName).IsEqualTo("sound-1.wav");

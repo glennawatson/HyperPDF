@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Optimizing;
 using HyperPdf.Http.Speech;
 using HyperPdf.Vision;
@@ -36,7 +37,7 @@ public sealed record PictureDescriptionSetup(
         var downloads = new SpeechModelDownloader();
         return new(
             DefaultModelDirectory,
-            () => SpeechModelDownloader.TotalBytes(downloads.Missing(DistilVitModel.Files, DefaultModelDirectory)),
+            () => SpeechModelDownloader.TotalBytes(CollectionsMarshal.AsSpan(downloads.Missing(DistilVitModel.Files, DefaultModelDirectory))),
             static () => new DistilVitCaptioner(DefaultModelDirectory),
             progress => downloads.Download(DistilVitModel.Files, DefaultModelDirectory, progress)) { Downloads = downloads, };
     }

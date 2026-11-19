@@ -40,7 +40,7 @@ public sealed class JsonRecentDocumentStore : IRecentDocumentStore
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<RecentDocument> GetRecent(int maxCount)
+    public List<RecentDocument> GetRecent(int maxCount)
     {
         var entries = Read();
         var recent = new List<RecentDocument>(Math.Min(maxCount, entries.Count));

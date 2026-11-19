@@ -91,7 +91,7 @@ internal sealed class FakeDocument : IDocument
     public string? GetPageLabel(int pageIndex) => null;
 
     /// <inheritdoc/>
-    public IReadOnlyList<OutlineNode> GetOutline() => [];
+    public OutlineNode[] GetOutline() => [];
 
     /// <inheritdoc/>
     public IObservable<RxVoid> PreparePage(int pageIndex) =>
@@ -169,7 +169,7 @@ internal sealed class FakeDocument : IDocument
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<PageLink> GetLinks(int pageIndex)
+    public PageLink[] GetLinks(int pageIndex)
     {
         lock (LinksRead)
         {

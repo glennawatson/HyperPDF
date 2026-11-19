@@ -30,12 +30,22 @@ internal static class SpanBlender
     /// <summary>The bits of one byte.</summary>
     private const int ByteBits = 8;
 
+    /// <summary>The longest line, in pixels, that is blended pixel by pixel: about the width of a letter of body text.</summary>
+    private const int ShortLine = 24;
+
     /// <summary>Blends one colour onto a line.</summary>
     /// <param name="pixels">The pixels of the run.</param>
     /// <param name="coverage">The coverage of each pixel of the run.</param>
     /// <param name="color">The premultiplied colour.</param>
     internal static void Solid(Span<uint> pixels, ReadOnlySpan<byte> coverage, uint color)
     {
+        if (coverage.Length <= ShortLine)
+        {
+            // A short line is mostly edge, where each pixel has its own coverage and looking for runs costs more than it saves.
+            SolidEach(pixels, coverage, color);
+            return;
+        }
+
         var opaque = color >> AlphaShift == Full;
         var run = 0;
         for (var at = 0; at < coverage.Length; at += run)
@@ -53,6 +63,29 @@ internal static class SpanBlender
             {
                 Over(pixels.Slice(at, run), Scale(color, value));
             }
+        }
+    }
+
+    /// <summary>
+    /// Blends one colour onto a short line whose coverage changes from pixel to pixel, as a line of a small glyph does. It gives
+    /// the pixels <see cref="Solid"/> gives, without looking for runs of the same coverage, which a glyph's edges hardly have.
+    /// </summary>
+    /// <param name="pixels">The pixels of the run.</param>
+    /// <param name="coverage">The coverage of each pixel of the run.</param>
+    /// <param name="color">The premultiplied colour.</param>
+    internal static void SolidEach(Span<uint> pixels, ReadOnlySpan<byte> coverage, uint color)
+    {
+        var done = Vector128.IsHardwareAccelerated && coverage.Length >= Vector128<uint>.Count ? SolidVector(pixels, coverage, color) : 0;
+        for (var i = done; i < coverage.Length; i++)
+        {
+            var value = coverage[i];
+            if (value == 0)
+            {
+                continue;
+            }
+
+            var source = value == Full ? color : Scale(color, value);
+            pixels[i] = source + Scale(pixels[i], Full - (source >> AlphaShift));
         }
     }
 
@@ -140,6 +173,31 @@ internal static class SpanBlender
         {
             pixels[i] = color + Scale(pixels[i], keep);
         }
+    }
+
+    /// <summary>Blends one colour onto four pixels at a time, through the coverage of each, with the exact result of the one pixel loop.</summary>
+    /// <param name="pixels">The pixels.</param>
+    /// <param name="coverage">The coverage of each pixel.</param>
+    /// <param name="color">The premultiplied colour.</param>
+    /// <returns>How many pixels were done, which is a whole number of vectors.</returns>
+    private static int SolidVector(Span<uint> pixels, ReadOnlySpan<byte> coverage, uint color)
+    {
+        // Scaling by no coverage gives nothing and by full coverage gives the colour itself, so no pixel needs a branch.
+        var full = Vector128.Create(Full);
+        var solid = Vector128.Create(color);
+        var end = coverage.Length - Vector128<uint>.Count;
+        var i = 0;
+        for (; i <= end; i += Vector128<uint>.Count)
+        {
+            var word = Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref MemoryMarshal.GetReference(coverage), i));
+            var value = Vector128.WidenLower(Vector128.WidenLower(Vector128.CreateScalar(word).AsByte()));
+            var source = Scale(solid, value);
+            var keep = full - Vector128.ShiftRightLogical(source, AlphaShift);
+            var under = Vector128.LoadUnsafe(ref MemoryMarshal.GetReference(pixels), (nuint)i);
+            (source + Scale(under, keep)).StoreUnsafe(ref MemoryMarshal.GetReference(pixels), (nuint)i);
+        }
+
+        return i;
     }
 
     /// <summary>

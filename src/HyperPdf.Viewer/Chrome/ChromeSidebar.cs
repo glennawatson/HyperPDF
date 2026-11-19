@@ -31,18 +31,18 @@ internal static class ChromeSidebar
     {
         var metrics = look.Metrics;
         var width = (int)Math.Min(metrics.SidebarWidth, area.Width);
-        var listed = new List<SidebarRow>();
-        SidebarRows.Fill(listed, tab);
+        var pages = SidebarRows.PagesOf(tab);
+        var listed = SidebarRows.List(tab, view);
         var bounds = new LayoutRect(area.X, area.Y, width, area.Height);
-        var first = Math.Clamp(view.First, 0, Math.Max(0, listed.Count - 1));
+        var first = Math.Clamp(view.First, 0, Math.Max(0, listed.Length - 1));
         var followedTab = view.FollowedTab;
         var followedPage = view.FollowedPage;
 
         // The list moves only when the page being read changes, so a list the reader scrolled by hand is left where it is.
         if (follows && tab.SidebarMode == SidebarMode.Thumbnails && (!ReferenceEquals(followedTab, tab) || followedPage != tab.CurrentPageIndex))
         {
-            var last = Math.Max(0, listed.Count - Math.Max(1, view.VisibleRows));
-            first = Math.Clamp(SidebarFollow.First(first, view.VisibleRows, listed.Count, tab.CurrentPageIndex), 0, last);
+            var last = Math.Max(0, listed.Length - Math.Max(1, view.VisibleRows));
+            first = Math.Clamp(SidebarFollow.First(first, view.VisibleRows, listed.Length, tab.CurrentPageIndex), 0, last);
             followedTab = tab;
             followedPage = tab.CurrentPageIndex;
         }
@@ -50,16 +50,16 @@ internal static class ChromeSidebar
         items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, bounds, true, false));
         var top = (int)area.Y + AddTabs(items, tab, new(look, actions.ShowSidebarList), new(area.X, area.Y, width, area.Height), actions, follows);
         var bottom = (int)area.Bottom;
-        if (listed.Count == 0)
+        if (listed.Length == 0)
         {
             var none = ChromeText.Fit(SidebarRows.EmptyText(tab.SidebarMode), ChromeBars.Style(metrics), width - metrics.Padding - metrics.Padding, look.Runs);
             items.Add(new(ChromeItemKind.Label, null, 0, none, new(area.X, top, width, metrics.RowHeight), false, false));
-            return new(width, new([], first, bounds, 0, followedTab, followedPage));
+            return new(width, view with { Rows = listed, First = first, Bounds = bounds, VisibleRows = 0, FollowedTab = followedTab, FollowedPage = followedPage, ListedPages = pages });
         }
 
         var shown = 0;
         var rowLook = new SidebarLook(look, actions.PickSidebarRow);
-        for (var i = first; i < listed.Count; i++)
+        for (var i = first; i < listed.Length; i++)
         {
             var height = AddRow(items, tab, listed[i], i, rowLook, new(area.X, top, width, bottom - top));
             if (height == 0)
@@ -71,7 +71,7 @@ internal static class ChromeSidebar
             shown++;
         }
 
-        return new(width, new([.. listed], first, bounds, shown, followedTab, followedPage));
+        return new(width, view with { Rows = listed, First = first, Bounds = bounds, VisibleRows = shown, FollowedTab = followedTab, FollowedPage = followedPage, ListedPages = pages });
     }
 
     /// <summary>Adds the row of tabs that choose what the panel lists.</summary>
@@ -90,7 +90,7 @@ internal static class ChromeSidebar
         var row = new ChromeRow(items, look.Runs, tight, (int)area.X + tight.Gap, (int)area.Y + tight.Gap, height) { Limit = (int)area.Right - tight.Gap, ShowLabels = false };
         foreach (var mode in SidebarRows.Modes)
         {
-            row = row.Control(new(ChromeItemKind.Button, chosen.Pick, (int)mode, SidebarRows.NameOf(mode), default, true, mode == tab.SidebarMode) { Parameter = mode, Icon = IconOf(mode) });
+            row = row.Button(IconOf(mode), SidebarRows.NameOf(mode), chosen.Pick, new GroupChoice((int)mode, SidebarRows.ValueOf(mode), mode == tab.SidebarMode));
         }
 
         // The tabs show icons alone so all nine fit on one line; the name of the list shown stands under them, over a rule.
@@ -163,9 +163,11 @@ internal static class ChromeSidebar
             return 0;
         }
 
+        // The rows of the pages are kept from one layout to the next, so which page is being read is asked of the tab here.
+        var reading = row.Page == tab.CurrentPageIndex;
         var left = room.X + Math.Floor((room.Width - pictureWidth) * Half);
-        items.Add(new(ChromeItemKind.Thumbnail, pick, index, string.Empty, new(left, room.Y + metrics.Gap, pictureWidth, pictureHeight), true, row.Selected) { Parameter = row.Target });
-        items.Add(new(ChromeItemKind.Button, pick, index, row.Text, new(room.X, room.Y + metrics.Gap + pictureHeight, room.Width, metrics.RowHeight), true, row.Selected) { Parameter = row.Target });
+        items.Add(new(ChromeItemKind.Thumbnail, pick, index, string.Empty, new(left, room.Y + metrics.Gap, pictureWidth, pictureHeight), true, reading) { Parameter = row.Target });
+        items.Add(new(ChromeItemKind.Button, pick, index, row.Text, new(room.X, room.Y + metrics.Gap + pictureHeight, room.Width, metrics.RowHeight), true, reading) { Parameter = row.Target });
         return height;
     }
 }

@@ -21,7 +21,7 @@ public sealed class NullPrintService : IPrintService
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<PrinterInfo> GetPrinters() => [];
+    public List<PrinterInfo> GetPrinters() => [];
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

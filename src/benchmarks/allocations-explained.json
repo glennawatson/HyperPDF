@@ -5408,5 +5408,1470 @@
     "type": "HyperPdfLibrary.PageObjects.PdfPaint",
     "frame": "HyperPdfLibrary.PageObjects.PdfPageContentGradientWriter.WriteFill",
     "reason": "The pattern colour that selects the gradient's pattern for filling. One for each object filled, kept by the colour state while the object is written."
+  },
+  {
+    "type": "System.Collections.Specialized.NotifyCollectionChangedEventArgs",
+    "frame": "HyperPdf.Benchmarks.TabListChangeBenchmarks.MoveOneTabAmongHundreds()",
+    "reason": "The benchmark moves a tab in the list of tabs, and the runtime's ObservableCollection makes this object to announce the move. It is the change being measured, made by the collection and not by the code that follows it, so only a different collection type could remove it."
+  },
+  {
+    "type": "System.Collections.Specialized.SingleItemReadOnlyList",
+    "frame": "HyperPdf.Benchmarks.TabListChangeBenchmarks.MoveOneTabAmongHundreds()",
+    "reason": "The runtime's ObservableCollection wraps the moved tab in this list inside the event it raises for the move. It belongs to the change being measured, made by the collection and not by the code that follows it."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.ViewerSession.FollowTab(",
+    "reason": "Each time a tab is shown the window follows it. ViewerSession.FollowTab registers the window's handlers for the tab's interactions (save as, prompts, form import, print preview) and subscribes to the tab's password, certificate, typing, note, presenting and search status properties through WhenChanged, ObserveOn, SwitchMap and SubscribeSafe. This object is part of that ReactiveUI.Primitives chain and lives until the tab is left. The chain ends in this window's controls, so the tab cannot keep it for the next time it is shown as it keeps its redraw and control signals."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.TabRequests.Follow(",
+    "reason": "Each time a tab is shown, TabRequests.Follow registers the window's handlers for the tab's tool interactions (focus settings, text recognition languages, measuring, media, forms and copies) with RegisterHandler and gathers them in a MultipleDisposable. This object is part of that ReactiveUI.Primitives chain and lives until the tab is left. Each handler opens a form in this window, so the registrations belong to the window and the tab cannot keep them."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.TabRequests.Copy",
+    "reason": "Each time a tab is shown, TabRequests.Copy registers the window's handler for one of the tab's copy actions with RegisterHandler. This object is part of that ReactiveUI.Primitives chain and lives until the tab is left. The handler opens a form in this window, so the registration belongs to the window and the tab cannot keep it."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.ViewerSession.ShowTab(",
+    "reason": "Showing a tab swaps the window's subscriptions to the tab shown before for the new tab's: ViewerSession.ShowTab sets the SwapDisposable that owns what FollowTab and ViewerCanvas.ShowTab subscribe. This object is part of that ReactiveUI.Primitives chain, made once for each tab shown and released when the tab is left."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeBindings.Panel(",
+    "reason": "Each time a tab is shown the window's side panel follows the list the tab's panel shows: ChromeBindings.Panel subscribes to the panel's list through SwitchMap and SubscribeSafe. This object is part of that ReactiveUI.Primitives chain and lives until the tab is left. It ends in this window's controls, so the tab cannot keep it."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeBindings.Tab(",
+    "reason": "Each time a tab is shown the window's controls follow it: ChromeBindings.Tab subscribes to the tab's side panel, annotation and tool state with WhenChanged and SubscribeSafe and gathers the subscriptions in a MultipleDisposable. This object is part of that ReactiveUI.Primitives chain and lives until the tab is left. It ends in this window's controls, so the tab cannot keep it."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.ViewerChrome.JoinTab(",
+    "reason": "Each time a tab is shown the window's controls join it: ViewerChrome.JoinTab replaces the bindings ChromeBindings.Tab made for the tab shown before. This object is part of that ReactiveUI.Primitives chain and lives until the tab is left."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.ViewerCanvas.FollowTab(",
+    "reason": "Each time a tab is shown the page canvas follows it: ViewerCanvas.FollowTab subscribes to the tab's kept redraw and layout signals and to its destinations, page reads, caret mode, page tool and scrolling with SubscribeSafe, and gathers the subscriptions in a MultipleDisposable. The signals behind the redraws are kept by the tab and only followed here. This object is part of that ReactiveUI.Primitives chain and lives until the tab is left."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.ViewerCanvas.ShowTab(",
+    "reason": "Showing a tab ends the page canvas's subscriptions to the tab shown before and starts the new tab's. This object is part of the ReactiveUI.Primitives chain ViewerCanvas.FollowTab makes, released when the tab is left."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.set_IsSelected(",
+    "reason": "Selecting a tab raises its IsSelected property, and the tab's own WhenChanged(IsSelected).DistinctUntilChanged().SwitchMap chain starts the work a selected tab does and ends the work of the tab left. This object is part of that ReactiveUI.Primitives chain and lives while the tab is selected."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.<.ctor>",
+    "reason": "Selecting a tab starts its selected work through the SwitchMap in the tab's constructor: Signal.Using(StartSelectedWork, work => work.Loading). This object is part of that ReactiveUI.Primitives chain and lives while the tab is selected."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel+SelectedWork",
+    "reason": "A selected tab runs its open, search and rendering work under one token, which SelectedWork owns and cancels when the tab is left. This object is that work or part of its ReactiveUI.Primitives loading signal, made once for each time the tab is selected."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.StartSelectedWork(",
+    "reason": "A selected tab runs its open, search and rendering work under one token, which SelectedWork owns and cancels when the tab is left. This object is made once for each time the tab is selected."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.EnsureLoaded(",
+    "reason": "A selected tab makes sure its document is loaded: EnsureLoaded gives a ReactiveUI.Primitives signal that returns at once when the document is open. This object is that signal, made once for each time the tab is selected."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.MainViewModel.set_SelectedTab(",
+    "reason": "Selecting a tab raises the main view model's SelectedTab property, and its WhenChanged(SelectedTab) chains (the window title's SwitchMap, the selection bookkeeping and the control changes) move to the new tab. This object is part of those ReactiveUI.Primitives chains and lives until another tab is selected."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.WindowControlMixins.get_ControlChanges(",
+    "reason": "The window follows the controls signal the tab keeps connected. Each follower is given one value at once for the tab as it is, which StartWith adds over the kept signal. This object is that ReactiveUI.Primitives wrapper, made once for each time the tab is shown; the many property subscriptions behind it are made once for the tab and kept."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Presentation.Canvas.CanvasTabMixins.get_",
+    "reason": "The page canvas follows this state of the tab through one property: WhenChanged, then Skip, Where or AsSignal. With a single property behind it the signal costs no more to make than a kept one would to follow, so it is made each time the tab is shown and not kept. This object is part of that ReactiveUI.Primitives chain and lives until the tab is left."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.MainViewModel.RaiseWindowTitle(",
+    "reason": "Selecting a tab changes the window title, which the main view model raises as a property change for its WhenChanged followers. This object is the event of that ReactiveUI change, made once for each tab selected."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Presentation.Canvas.CanvasViewportMixins.ScrollToPosition(",
+    "reason": "Showing a tab puts the reader back where they were in it. The place is restored once the layout has been measured, so ScrollToPosition keeps it in a delegate until then. It is one delegate for each time a tab is shown."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Core.Rendering.NeighbourPagePreparer.",
+    "reason": "Showing another tab moves the reader to another document and page, so the neighbour page preparer starts one new run for it: Signal.Timer for the pause, then Do, SwitchMap over the neighbouring pages, Catch and Finally, with a ReplaySignal that tells followers when the run ends. This object is part of that ReactiveUI.Primitives chain. It is made once for each page the reader settles on, never for a frame, and ends when the run does. One long lived chain fed by a subject would still make the inner run for each page, because each run carries its own document, page and cancellation."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.MainViewModel+<>c.<.ctor>",
+    "reason": "Selecting a tab moves the main view model's own WhenChanged(SelectedTab) chains to the new tab. This object is part of one of those ReactiveUI.Primitives chains and lives until another tab is selected."
+  },
+  {
+    "type": "HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeBars.",
+    "reason": "Showing another tab changes what the tab strip, the tool bar and the status bar show, so the window lays its controls out again, once for the change and not once a frame. ChromeBars builds the list of controls the painter and the pointer use, and this object is one of those controls or a value its text is made from. The names and widths of the controls are kept between layouts; the controls themselves are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeBars.",
+    "reason": "Showing another tab changes what the tab strip, the tool bar and the status bar show, so the window lays its controls out again, once for the change and not once a frame. ChromeBars builds the list of controls the painter and the pointer use, and this object is one of those controls or a value its text is made from. The names and widths of the controls are kept between layouts; the controls themselves are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeBars.",
+    "reason": "Showing another tab changes what the tab strip, the tool bar and the status bar show, so the window lays its controls out again, once for the change and not once a frame. ChromeBars builds the list of controls the painter and the pointer use, and this object is one of those controls or a value its text is made from. The names and widths of the controls are kept between layouts; the controls themselves are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "System.Int32",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeBars.",
+    "reason": "Showing another tab changes what the tab strip, the tool bar and the status bar show, so the window lays its controls out again, once for the change and not once a frame. ChromeBars builds the list of controls the painter and the pointer use, and this object is one of those controls or a value its text is made from. The names and widths of the controls are kept between layouts; the controls themselves are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "System.Double",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeBars.",
+    "reason": "Showing another tab changes what the tab strip, the tool bar and the status bar show, so the window lays its controls out again, once for the change and not once a frame. ChromeBars builds the list of controls the painter and the pointer use, and this object is one of those controls or a value its text is made from. The names and widths of the controls are kept between layouts; the controls themselves are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeBars.",
+    "reason": "Showing another tab changes what the tab strip, the tool bar and the status bar show, so the window lays its controls out again, once for the change and not once a frame. ChromeBars builds the list of controls the painter and the pointer use, and this object is one of those controls or a value its text is made from. The names and widths of the controls are kept between layouts; the controls themselves are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeRow.",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. ChromeRow adds one control to the row being built, and this object is that control. The controls are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeRow.",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. ChromeRow adds one control to the row being built, and this object is that control. The controls are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeRow.",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. ChromeRow adds one control to the row being built, and this object is that control. The controls are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "System.Int32",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeRow.",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. ChromeRow adds one control to the row being built, and this object is that control. The controls are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "System.Double",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeRow.",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. ChromeRow adds one control to the row being built, and this object is that control. The controls are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeRow.",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. ChromeRow adds one control to the row being built, and this object is that control. The controls are immutable records the painter compares with the last layout, so reusing them would mean a mutable control list."
+  },
+  {
+    "type": "HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeSidebar.",
+    "reason": "Showing another tab makes the window lay its side panel out again for that tab, once for the change and not once a frame. This object is a control of the panel or the measure of its rows. The rows of a tab's page list are kept between layouts; the controls are immutable records the painter compares with the last layout."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeSidebar.",
+    "reason": "Showing another tab makes the window lay its side panel out again for that tab, once for the change and not once a frame. This object is a control of the panel or the measure of its rows. The rows of a tab's page list are kept between layouts; the controls are immutable records the painter compares with the last layout."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeSidebar.",
+    "reason": "Showing another tab makes the window lay its side panel out again for that tab, once for the change and not once a frame. This object is a control of the panel or the measure of its rows. The rows of a tab's page list are kept between layouts; the controls are immutable records the painter compares with the last layout."
+  },
+  {
+    "type": "System.Int32",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeSidebar.",
+    "reason": "Showing another tab makes the window lay its side panel out again for that tab, once for the change and not once a frame. This object is a control of the panel or the measure of its rows. The rows of a tab's page list are kept between layouts; the controls are immutable records the painter compares with the last layout."
+  },
+  {
+    "type": "System.Double",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeSidebar.",
+    "reason": "Showing another tab makes the window lay its side panel out again for that tab, once for the change and not once a frame. This object is a control of the panel or the measure of its rows. The rows of a tab's page list are kept between layouts; the controls are immutable records the painter compares with the last layout."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeSidebar.",
+    "reason": "Showing another tab makes the window lay its side panel out again for that tab, once for the change and not once a frame. This object is a control of the panel or the measure of its rows. The rows of a tab's page list are kept between layouts; the controls are immutable records the painter compares with the last layout."
+  },
+  {
+    "type": "HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeToolBars.",
+    "reason": "Showing another tab makes the window lay out the notice and tool bars that tab shows, once for the change and not once a frame. This object is the list of those bars or one of them."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeToolBars.",
+    "reason": "Showing another tab makes the window lay out the notice and tool bars that tab shows, once for the change and not once a frame. This object is the list of those bars or one of them."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeToolBars.",
+    "reason": "Showing another tab makes the window lay out the notice and tool bars that tab shows, once for the change and not once a frame. This object is the list of those bars or one of them."
+  },
+  {
+    "type": "System.Int32",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeToolBars.",
+    "reason": "Showing another tab makes the window lay out the notice and tool bars that tab shows, once for the change and not once a frame. This object is the list of those bars or one of them."
+  },
+  {
+    "type": "System.Double",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeToolBars.",
+    "reason": "Showing another tab makes the window lay out the notice and tool bars that tab shows, once for the change and not once a frame. This object is the list of those bars or one of them."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeToolBars.",
+    "reason": "Showing another tab makes the window lay out the notice and tool bars that tab shows, once for the change and not once a frame. This object is the list of those bars or one of them."
+  },
+  {
+    "type": "HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeLook.<Clone>",
+    "reason": "Laying the controls out again starts from the window's look with the metrics for the window's scale, written as a with expression on the immutable ChromeLook record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeLook.<Clone>",
+    "reason": "Laying the controls out again starts from the window's look with the metrics for the window's scale, written as a with expression on the immutable ChromeLook record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeLook.<Clone>",
+    "reason": "Laying the controls out again starts from the window's look with the metrics for the window's scale, written as a with expression on the immutable ChromeLook record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "System.Int32",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeLook.<Clone>",
+    "reason": "Laying the controls out again starts from the window's look with the metrics for the window's scale, written as a with expression on the immutable ChromeLook record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "System.Double",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeLook.<Clone>",
+    "reason": "Laying the controls out again starts from the window's look with the metrics for the window's scale, written as a with expression on the immutable ChromeLook record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeLook.<Clone>",
+    "reason": "Laying the controls out again starts from the window's look with the metrics for the window's scale, written as a with expression on the immutable ChromeLook record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeItem.<Clone>",
+    "reason": "Laying the controls out again places each control with a with expression on the immutable ChromeItem record. It is one record for a control in each layout, not for a frame."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeItem.<Clone>",
+    "reason": "Laying the controls out again places each control with a with expression on the immutable ChromeItem record. It is one record for a control in each layout, not for a frame."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeItem.<Clone>",
+    "reason": "Laying the controls out again places each control with a with expression on the immutable ChromeItem record. It is one record for a control in each layout, not for a frame."
+  },
+  {
+    "type": "System.Int32",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeItem.<Clone>",
+    "reason": "Laying the controls out again places each control with a with expression on the immutable ChromeItem record. It is one record for a control in each layout, not for a frame."
+  },
+  {
+    "type": "System.Double",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeItem.<Clone>",
+    "reason": "Laying the controls out again places each control with a with expression on the immutable ChromeItem record. It is one record for a control in each layout, not for a frame."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeItem.<Clone>",
+    "reason": "Laying the controls out again places each control with a with expression on the immutable ChromeItem record. It is one record for a control in each layout, not for a frame."
+  },
+  {
+    "type": "HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.SidebarView.<Clone>",
+    "reason": "Laying the side panel out again records how far it is scrolled and which rows it shows with a with expression on the immutable SidebarView record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.SidebarView.<Clone>",
+    "reason": "Laying the side panel out again records how far it is scrolled and which rows it shows with a with expression on the immutable SidebarView record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.SidebarView.<Clone>",
+    "reason": "Laying the side panel out again records how far it is scrolled and which rows it shows with a with expression on the immutable SidebarView record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "System.Int32",
+    "frame": "HyperPdf.Viewer.Chrome.SidebarView.<Clone>",
+    "reason": "Laying the side panel out again records how far it is scrolled and which rows it shows with a with expression on the immutable SidebarView record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "System.Double",
+    "frame": "HyperPdf.Viewer.Chrome.SidebarView.<Clone>",
+    "reason": "Laying the side panel out again records how far it is scrolled and which rows it shows with a with expression on the immutable SidebarView record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Viewer.Chrome.SidebarView.<Clone>",
+    "reason": "Laying the side panel out again records how far it is scrolled and which rows it shows with a with expression on the immutable SidebarView record. It is one small record for each layout, not for a frame."
+  },
+  {
+    "type": "HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ViewerChrome.Layout(",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. This object is part of the layout's result, which replaces the one before."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ViewerChrome.Layout(",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. This object is part of the layout's result, which replaces the one before."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.ViewerChrome.Layout(",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. This object is part of the layout's result, which replaces the one before."
+  },
+  {
+    "type": "System.Int32",
+    "frame": "HyperPdf.Viewer.Chrome.ViewerChrome.Layout(",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. This object is part of the layout's result, which replaces the one before."
+  },
+  {
+    "type": "System.Double",
+    "frame": "HyperPdf.Viewer.Chrome.ViewerChrome.Layout(",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. This object is part of the layout's result, which replaces the one before."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Viewer.Chrome.ViewerChrome.Layout(",
+    "reason": "Showing another tab makes the window lay its controls out again, once for the change and not once a frame. This object is part of the layout's result, which replaces the one before."
+  },
+  {
+    "type": "HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.PageThumbnails.Get(",
+    "reason": "Showing another tab makes the side panel ask for that tab's page pictures. PageThumbnails keeps the asks of each tab in a small table made the first time the tab's pictures are asked for after the tab is shown. It is made once for each tab shown, not for a frame."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.PageThumbnails.Get(",
+    "reason": "Showing another tab makes the side panel ask for that tab's page pictures. PageThumbnails keeps the asks of each tab in a small table made the first time the tab's pictures are asked for after the tab is shown. It is made once for each tab shown, not for a frame."
+  },
+  {
+    "type": "System.Collections.Generic.Dictionary`2[System.Int32,HyperPdf.Viewer.Chrome.",
+    "frame": "HyperPdf.Viewer.Chrome.PageThumbnails.Get(",
+    "reason": "Showing another tab makes the side panel ask for that tab's page pictures. PageThumbnails keeps the asks of each tab in a small table made the first time the tab's pictures are asked for after the tab is shown. It is made once for each tab shown, not for a frame."
+  },
+  {
+    "type": "System.Int32",
+    "frame": "HyperPdf.Viewer.Chrome.PageThumbnails.Get(",
+    "reason": "Showing another tab makes the side panel ask for that tab's page pictures. PageThumbnails keeps the asks of each tab in a small table made the first time the tab's pictures are asked for after the tab is shown. It is made once for each tab shown, not for a frame."
+  },
+  {
+    "type": "System.Double",
+    "frame": "HyperPdf.Viewer.Chrome.PageThumbnails.Get(",
+    "reason": "Showing another tab makes the side panel ask for that tab's page pictures. PageThumbnails keeps the asks of each tab in a small table made the first time the tab's pictures are asked for after the tab is shown. It is made once for each tab shown, not for a frame."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Viewer.Chrome.PageThumbnails.Get(",
+    "reason": "Showing another tab makes the side panel ask for that tab's page pictures. PageThumbnails keeps the asks of each tab in a small table made the first time the tab's pictures are asked for after the tab is shown. It is made once for each tab shown, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel..ctor(class HyperPdf.Core.Documents.DocumentSource,class HyperPdf.ViewModels.Services.AppServices)",
+    "reason": "Opening a document makes its tab. The tab's constructor makes the tab's commands and its own ReactiveUI chains: WhenChanged over the page, zoom and selection properties, the ToProperty helpers such as ContentVersion, and the SwitchMap that starts and ends the work of a selected tab. This object is the tab's own state or part of one of those ReactiveUI.Primitives chains. It is made once for each tab opened and lives until the tab closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.KeepSignal(class System.Object,class System.Func`2<class HyperPdf.ViewModels.Viewing.DocumentTabViewModel,class ReactiveUI.Primitives.ConnectableSignal`1<!!0>>)",
+    "reason": "The first time a tab is shown it makes the merged signals the window and the canvas follow (control changes, mark redraws, canvas redraws and layout settings) and keeps them connected with Publish and Connect. This object is one of the WhenChanged subscriptions behind those signals. They are made once for the tab and reused each time it is shown again, which is what a tab switch saves."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.FormFilling.FormsViewModel..ctor(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "Opening a document makes the view model of its form fields, which the tab's content version follows. The constructor makes its ReactiveCommands and WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened."
+  },
+  {
+    "type": "System.Buffers.SharedArrayPoolThreadLocalArray[]",
+    "frame": "HyperPdfLibrary.IO.PooledArrays.Return(!!0[]&,int32,bool)",
+    "reason": "Opening a document reads its file through a byte source with pooled pages. This object is the source's state for the new file or a buffer the pool had to grow, made once for each document opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.TabRequests.FollowWhenMade(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel,class System.Func`2<!!0,class System.IDisposable>)",
+    "reason": "Each time a tab is shown the window waits for the parts of the tab that are made on first use: MadeParts, OfType, Take, SwitchMap and Signal.Using. This object is part of that ReactiveUI.Primitives chain and lives until the tab is left. It stands in place of the part and its dialog handlers, which are no longer made for a tab that never uses the part."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_Annotations()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_ContentEdit()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "System.Buffers.SharedArrayPoolThreadLocalArray[]",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser..cctor()",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.Buffers.SharedArrayPoolThreadLocalArray[]",
+    "frame": "HyperPdfLibrary.Document.PdfPageBuffer.Dispose()",
+    "reason": "Opening a document walks its page tree once to read the page sizes. This object is the scratch of that walk, made once for each document opened."
+  },
+  {
+    "type": "System.Buffers.SharedArrayPoolThreadLocalArray[]",
+    "frame": "HyperPdfLibrary.Document.PageTreeWalk.Release()",
+    "reason": "Opening a document walks its page tree once to read the page sizes. This object is the scratch of that walk, made once for each document opened."
+  },
+  {
+    "type": "System.Object[]",
+    "frame": "HyperPdfLibrary.IO.PooledArrays.EnsureRoom(!!0[]&,int32,bool)",
+    "reason": "Opening a document reads its file through a byte source with pooled pages. This object is the source's state for the new file or a buffer the pool had to grow, made once for each document opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Markup.AnnotationsViewModel.WatchTextFormat()",
+    "reason": "Opening a document makes the view models of its marking tools: annotations, content editing, fill and sign, page tools, and the compare and sanitise tools the page management reads. The constructor makes the tool's ReactiveCommands and its WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Markup.AnnotationsViewModel..ctor(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "Opening a document makes the view models of its marking tools: annotations, content editing, fill and sign, page tools, and the compare and sanitise tools the page management reads. The constructor makes the tool's ReactiveCommands and its WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_Forms()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "System.Boolean[]",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser..cctor()",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_FillAndSign()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "System.Char[]",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser..cctor()",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.WindowControlMixins.get_ToolChanges(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "The first time a tab is shown it makes the signal of its control changes: a Merge of WhenChanged over what the tool bar, the marking bar and the side panel show, kept connected by the tab. This object is part of that ReactiveUI.Primitives chain, made once for the tab and reused each time it is shown again."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.WindowControlMixins.get_NewControlChanges(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "The first time a tab is shown it makes the signal of its control changes: a Merge of WhenChanged over what the tool bar, the marking bar and the side panel show, kept connected by the tab. This object is part of that ReactiveUI.Primitives chain, made once for the tab and reused each time it is shown again."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Sidebar.LayersViewModel..ctor(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "Opening a document makes the view models of the side panel lists the tab reads to show the document: layers, attachments and media. The constructor makes the list's ReactiveCommands and WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_Layers()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_Media()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_Attachments()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "HyperPdfLibrary.IO.StreamPdfByteSource",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.OpenAsynchronous(class System.String,int64,class HyperPdfLibrary.Filters.ScratchPools)",
+    "reason": "Opening a document reads its file through a byte source with pooled pages. This object is the source's state for the new file or a buffer the pool had to grow, made once for each document opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_Signatures()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.PdfTextPage",
+    "frame": "HyperPdfLibrary.Text.TextPageBuild.CreatePage(class HyperPdfLibrary.Text.TextPageBuildState,class HyperPdfLibrary.Document.PdfPage)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.FormFilling.FormsViewModel.get_PageTurnedCommand()",
+    "reason": "Opening a document makes the view model of its form fields, which the tab's content version follows. The constructor makes its ReactiveCommands and WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Sidebar.DocumentMediaViewModel.get_OpenSelectedCommand()",
+    "reason": "Opening a document makes the view models of the side panel lists the tab reads to show the document: layers, attachments and media. The constructor makes the list's ReactiveCommands and WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Markup.AnnotationsViewModel.get_MarkSelectionCommand()",
+    "reason": "Opening a document makes the view models of its marking tools: annotations, content editing, fill and sign, page tools, and the compare and sanitise tools the page management reads. The constructor makes the tool's ReactiveCommands and its WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Markup.AnnotationsViewModel.get_GoToCommand()",
+    "reason": "Opening a document makes the view models of its marking tools: annotations, content editing, fill and sign, page tools, and the compare and sanitise tools the page management reads. The constructor makes the tool's ReactiveCommands and its WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_SubmitPasswordCommand()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "Entry[HyperPdfLibrary.Fonts.PdfFont,HyperPdfLibrary.Text.TextFontFacts][]",
+    "frame": "HyperPdfLibrary.Text.TextPageBuild.BuildStyles(class HyperPdfLibrary.Text.TextPageBuildState,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Text.TextBuildChar>)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.PartChanges(class System.Func`2<!!0,class System.IObservable`1<value class ReactiveUI.Primitives.RxVoid>>)",
+    "reason": "A part of the tab that is made on first use is followed from when it is made: MadeParts, OfType, Take and SwitchMap. This object is part of that ReactiveUI.Primitives chain, made once for each kept signal of the tab. It stands in place of the part itself and its property subscriptions, which are no longer made for a tab that never uses the part."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_FileWatch()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.set_Title(class System.String)",
+    "reason": "Opening a document names its tab, and the change is raised to the tab's ReactiveUI followers. This object is the event of that change, made once for each tab opened."
+  },
+  {
+    "type": "System.Char[]",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser.CollectWhiteSpace()",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_Printing()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_Links()",
+    "reason": "The tab makes this part or command the first time it is read, and keeps it until the tab closes. Opening a document reads the parts the tab needs to show its first page: annotations, forms, layers, attachments, media, signatures, links, printing and the file watch. This object is that part, made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.TabNameWatch.Follow(class System.Collections.IList)",
+    "reason": "Opening a document adds a tab, and the tab strip follows the name of every tab: TabNameWatch subscribes to the new tab's Title. This object is part of that ReactiveUI.Primitives chain, made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.get_MadeParts()",
+    "reason": "The tab keeps one ReplaySignal of the parts it makes on first use, so a window can answer a part's questions from when the part exists. It is made once for each tab."
+  },
+  {
+    "type": "HyperPdf.Core.Documents.DocumentSource",
+    "frame": "HyperPdf.Core.Documents.DocumentPool.Create(class System.String,class System.String)",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "Entry[System.Int32,System.Int64][]",
+    "frame": "HyperPdf.Core.Rendering.RenderScheduler.Invalidate(int32,int32)",
+    "reason": "Opening a document drops any pictures waiting for the tab shown before. This object is the list of the requests dropped, made once for each tab opened."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Int32]",
+    "frame": "HyperPdf.Core.Forms.Detection.FormRegionDetector..ctor()",
+    "reason": "Opening a document makes the detector that finds form fields drawn on flat pages. It is made once for each tab opened and holds its own scratch lists."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Markup.FillAndSignViewModel..ctor(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel,class HyperPdf.ViewModels.Services.AppServices)",
+    "reason": "Opening a document makes the view models of its marking tools: annotations, content editing, fill and sign, page tools, and the compare and sanitise tools the page management reads. The constructor makes the tool's ReactiveCommands and its WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Markup.PageContentEditViewModel..ctor(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "Opening a document makes the view models of its marking tools: annotations, content editing, fill and sign, page tools, and the compare and sanitise tools the page management reads. The constructor makes the tool's ReactiveCommands and its WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.FoldedText[]",
+    "frame": "HyperPdfLibrary.Text.PdfTextPage..ctor(class HyperPdfLibrary.Document.PdfPage,value class HyperPdfLibrary.Text.PdfTextChar[],int32[],unsigned int8[],class HyperPdfLibrary.Text.TextStyleTable,class System.String,int32[])",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "HyperPdfLibrary.Document.PdfOpenOptions",
+    "frame": "HyperPdf.Engine.HyperPdfEngine.OpenCoreAsync(class HyperPdf.Engine.HyperPdfEngine,class System.String,class System.String,class System.Security.Cryptography.X509Certificates.X509Certificate2,value class System.Threading.CancellationToken)",
+    "reason": "Opening a document opens it in the engine: the file is read with asynchronous I/O and wrapped in the document the viewer uses. This object is that document, its state or the continuation of that asynchronous open, made once for each document opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.MainViewModel.ToLocalPath(class System.String)",
+    "reason": "Opening a document adds its tab to the window: the main view model resolves the path, makes the tab and selects it, and its WhenChanged(SelectedTab) chains move to the new tab. This object is part of that work or of those ReactiveUI.Primitives chains, made once for each document opened."
+  },
+  {
+    "type": "ValueTaskSourceContinuation",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.ReadInputAsync(int64,value class System.Memory`1<unsigned int8>,value class System.Threading.CancellationToken)",
+    "reason": "Opening a document reads its file through a byte source with pooled pages. This object is the source's state for the new file or a buffer the pool had to grow, made once for each document opened."
+  },
+  {
+    "type": "RuntimeAsyncTask`1[HyperPdf.Core.Documents.IDocument]",
+    "frame": "HyperPdf.Engine.HyperPdfEngine+<>c__DisplayClass19_0.<Load>b__0(value class System.Threading.CancellationToken)",
+    "reason": "Opening a document opens it in the engine: the file is read with asynchronous I/O and wrapped in the document the viewer uses. This object is that document, its state or the continuation of that asynchronous open, made once for each document opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.WindowControlMixins+<>c.<get_ControlChanges>b__4_0(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "The first time a tab is shown it makes the signal of its control changes: a Merge of WhenChanged over what the tool bar, the marking bar and the side panel show, kept connected by the tab. This object is part of that ReactiveUI.Primitives chain, made once for the tab and reused each time it is shown again."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Presentation.Canvas.CanvasTabMixins+<>c.<get_MarkRedraws>b__4_0(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "The first time a tab is shown it makes the signals of its redraws and layout settings: Merges of WhenChanged over what the page canvas draws, kept connected by the tab. This object is part of one of those ReactiveUI.Primitives chains, made once for the tab and reused each time it is shown again."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Presentation.Canvas.CanvasTabMixins+<>c.<get_LayoutSettingsChanges>b__6_0(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "The first time a tab is shown it makes the signals of its redraws and layout settings: Merges of WhenChanged over what the page canvas draws, kept connected by the tab. This object is part of one of those ReactiveUI.Primitives chains, made once for the tab and reused each time it is shown again."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Presentation.Canvas.CanvasTabMixins+<>c.<get_CanvasRedraws>b__5_0(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "The first time a tab is shown it makes the signals of its redraws and layout settings: Merges of WhenChanged over what the page canvas draws, kept connected by the tab. This object is part of one of those ReactiveUI.Primitives chains, made once for the tab and reused each time it is shown again."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Annotations.AnnotationChange]",
+    "frame": "HyperPdf.Core.Annotations.AnnotationHistory..ctor()",
+    "reason": "Opening a document makes the tab's history of annotation edits, for undo. It is made once for each tab opened."
+  },
+  {
+    "type": "HyperPdf.Core.Forms.Detection.FormRegionDetector",
+    "frame": "HyperPdf.Core.Forms.Detection.FlatFormFinder..ctor()",
+    "reason": "Opening a document makes the detector that finds form fields drawn on flat pages. It is made once for each tab opened and holds its own scratch lists."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.TextRunStyle",
+    "frame": "HyperPdfLibrary.Text.TextPageBuild.BuildStyles(class HyperPdfLibrary.Text.TextPageBuildState,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Text.TextBuildChar>)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Navigation.DocumentPosition]",
+    "frame": "HyperPdf.Core.Navigation.NavigationHistory..ctor()",
+    "reason": "Opening a document makes the tab's history of the places the reader has been. It is made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Signing.SignaturesViewModel..ctor(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel,class HyperPdf.ViewModels.Services.AppServices)",
+    "reason": "Opening a document makes the view model of its signatures, which is refreshed when the document loads. This object is that state or part of its ReactiveUI.Primitives chains, made once for each tab opened."
+  },
+  {
+    "type": "System.Func`2[HyperPdf.Core.Reactive.SequenceStep`1[ReactiveUI.Primitives.RxVoid],ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+<>c__0`1[ReactiveUI.Primitives.RxVoid].<Concat>b__0_0(class System.Collections.Generic.IEnumerator`1<class System.IObservable`1<!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.TabFileWatch..ctor(class HyperPdf.Core.Documents.FolderWatches)",
+    "reason": "Opening a document starts watching its file for changes made outside the viewer, through the shared folder watch: Publish, RefCount and Throttle. This object is part of that ReactiveUI.Primitives chain, made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Sidebar.DocumentMediaViewModel..ctor(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel,class HyperPdf.Core.Media.MediaPlaybackFactory)",
+    "reason": "Opening a document makes the view models of the side panel lists the tab reads to show the document: layers, attachments and media. The constructor makes the list's ReactiveCommands and WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Sidebar.AttachmentsViewModel..ctor(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "Opening a document makes the view models of the side panel lists the tab reads to show the document: layers, attachments and media. The constructor makes the list's ReactiveCommands and WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "System.Func`2[System.Int32,ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Rendering.NeighbourPagePreparer+<>c__DisplayClass27_0.<Run>b__1(int64)",
+    "reason": "Opening a document shows its first page, so the neighbour page preparer starts one run for it: Signal.Timer, Do, SwitchMap over the neighbouring pages, Catch and Finally. This object is part of that ReactiveUI.Primitives chain or the order of the pages it visits, made once for each page the reader settles on."
+  },
+  {
+    "type": "System.Uri",
+    "frame": "HyperPdf.Http.Remote.RemoteDocumentDownloader.IsRemote(class System.String,class System.Uri&)",
+    "reason": "Opening a document checks whether its path is a web address. This object is the parsed address the check makes, once for each document opened."
+  },
+  {
+    "type": "System.Func`2[System.Collections.Generic.IEnumerator`1[System.IObservable`1[ReactiveUI.Primitives.RxVoid]],System.IObservable`1[ReactiveUI.Primitives.RxVoid]]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence.Concat(class System.Collections.Generic.IEnumerable`1<class System.IObservable`1<!!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.TabFileLinks..ctor(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "Opening a document makes the tab's links to other files, whose questions the window answers. This object is that state, made once for each tab opened."
+  },
+  {
+    "type": "System.Func`1[System.Collections.Generic.IEnumerator`1[System.IObservable`1[ReactiveUI.Primitives.RxVoid]]]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence.Concat(class System.Collections.Generic.IEnumerable`1<class System.IObservable`1<!!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "System.String[]",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser..cctor()",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.Action`1[HyperPdf.Core.Documents.IDocument]",
+    "frame": "HyperPdf.Core.Documents.DocumentPool+<>c__DisplayClass18_0.<Load>b__0()",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "System.Func`1[System.IObservable`1[HyperPdf.Core.Documents.IDocument]]",
+    "frame": "HyperPdf.Core.Documents.DocumentSource.LoadIfNeeded(class HyperPdf.Core.Documents.IDocumentEngine,class ReactiveUI.Primitives.Concurrency.ISequencer)",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "System.Func`2[HyperPdf.Core.Reactive.SequenceStep`1[ReactiveUI.Primitives.RxVoid],System.Boolean]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+<>c__0`1[ReactiveUI.Primitives.RxVoid].<Concat>b__0_0(class System.Collections.Generic.IEnumerator`1<class System.IObservable`1<!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Markup.AnnotationsViewModel.LoadFontFamilies()",
+    "reason": "Opening a document makes the view models of its marking tools: annotations, content editing, fill and sign, page tools, and the compare and sanitise tools the page management reads. The constructor makes the tool's ReactiveCommands and its WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.MainViewModel.OpenOrFind(class System.String,int32)",
+    "reason": "Opening a document adds its tab to the window: the main view model resolves the path, makes the tab and selects it, and its WhenChanged(SelectedTab) chains move to the new tab. This object is part of that work or of those ReactiveUI.Primitives chains, made once for each document opened."
+  },
+  {
+    "type": "Microsoft.Win32.SafeHandles.SafeFileHandle",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.OpenAsynchronous(class System.String,int64,class HyperPdfLibrary.Filters.ScratchPools)",
+    "reason": "Opening a document reads its file through a byte source with pooled pages. This object is the source's state for the new file or a buffer the pool had to grow, made once for each document opened."
+  },
+  {
+    "type": "System.Func`1[System.IObservable`1[HyperPdf.Core.Reactive.SequenceStep`1[ReactiveUI.Primitives.RxVoid]]]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+<>c__0`1[ReactiveUI.Primitives.RxVoid].<Concat>b__0_0(class System.Collections.Generic.IEnumerator`1<class System.IObservable`1<!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "System.Func`1[System.IObservable`1[HyperPdf.Core.Documents.IDocument]]",
+    "frame": "HyperPdf.Core.Documents.DocumentPool.Load(class HyperPdf.Core.Documents.DocumentSource,class ReactiveUI.Primitives.Concurrency.ISequencer)",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.Load()",
+    "reason": "Opening a document loads it once: the tab's Load makes one ReactiveUI.Primitives chain that opens the file with asynchronous reads and then reads its structure on the window thread. This object is part of that chain and ends when the load does."
+  },
+  {
+    "type": "System.Func`2[System.Threading.CancellationToken,System.Threading.Tasks.Task`1[HyperPdf.Core.Documents.IDocument]]",
+    "frame": "HyperPdf.Engine.HyperPdfEngine.Load(class System.String,class System.String)",
+    "reason": "Opening a document opens it in the engine: the file is read with asynchronous I/O and wrapped in the document the viewer uses. This object is that document, its state or the continuation of that asynchronous open, made once for each document opened."
+  },
+  {
+    "type": "System.Func`2[HyperPdf.Core.Documents.IDocument,HyperPdf.Core.Documents.IDocument]",
+    "frame": "HyperPdf.Core.Documents.DocumentSource.LoadCold(class HyperPdf.Core.Documents.IDocumentEngine,class ReactiveUI.Primitives.Concurrency.ISequencer)",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.WindowControlMixins.get_PanelListChanges(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "The first time a tab is shown it makes the signal of its control changes: a Merge of WhenChanged over what the tool bar, the marking bar and the side panel show, kept connected by the tab. This object is part of that ReactiveUI.Primitives chain, made once for the tab and reused each time it is shown again."
+  },
+  {
+    "type": "System.Text.StringBuilder",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser.CollectWhiteSpace()",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.TapSignal`1[HyperPdf.Core.Documents.IDocument]",
+    "frame": "HyperPdf.Core.Documents.DocumentPool+<>c__DisplayClass18_0.<Load>b__0()",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Sidebar.LayersViewModel+__ReactiveUIHostedEntries+__ReactiveUIHostedBindings.__WhenChanged_7FFFD2BEC1A8ED37(class HyperPdf.ViewModels.Sidebar.LayersViewModel)",
+    "reason": "Opening a document makes the view models of the side panel lists the tab reads to show the document: layers, attachments and media. The constructor makes the list's ReactiveCommands and WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "<>c__DisplayClass18_0",
+    "frame": "HyperPdf.Core.Documents.DocumentPool.Load(class HyperPdf.Core.Documents.DocumentSource,class ReactiveUI.Primitives.Concurrency.ISequencer)",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "<>c__DisplayClass48_0",
+    "frame": "HyperPdf.Core.Documents.DocumentSource.LoadIfNeeded(class HyperPdf.Core.Documents.IDocumentEngine,class ReactiveUI.Primitives.Concurrency.ISequencer)",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "<>c__DisplayClass19_0",
+    "frame": "HyperPdf.Engine.HyperPdfEngine.Load(class System.String,class System.String)",
+    "reason": "Opening a document opens it in the engine: the file is read with asynchronous I/O and wrapped in the document the viewer uses. This object is that document, its state or the continuation of that asynchronous open, made once for each document opened."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.WitnessOnSignal`1[HyperPdf.Core.Documents.IDocument]",
+    "frame": "HyperPdf.Core.Documents.DocumentSource.LoadCold(class HyperPdf.Core.Documents.IDocumentEngine,class ReactiveUI.Primitives.Concurrency.ISequencer)",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.TextStyleTable",
+    "frame": "HyperPdfLibrary.Text.TextPageBuild.BuildStyles(class HyperPdfLibrary.Text.TextPageBuildState,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Text.TextBuildChar>)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.OwnershipMixins.OwnLatest(class System.IObservable`1<!!0>)",
+    "reason": "A view model hands a subscription it starts to its own lifetime, which releases it when the tab closes. This object is the slot that holds the latest subscription, made once for each tab opened."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.TextStyleTable",
+    "frame": "HyperPdfLibrary.Text.TextStyleTable.<Clone>$()",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.ViewerSession.FocusOn(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "Each time a tab is shown the window follows whether focus mode is on, without making the tab's focus mode: MadeParts, OfType, Take, SwitchMap and StartWith. This object is part of that ReactiveUI.Primitives chain and lives until the tab is left."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdf.Engine.HyperPdfDocument..ctor(class HyperPdfLibrary.Document.PdfDocument,class System.String,class System.TimeProvider,class System.Lazy`1<class HyperPdf.Engine.TextBoxFontState>)",
+    "reason": "Opening a document opens it in the engine: the file is read with asynchronous I/O and wrapped in the document the viewer uses. This object is that document, its state or the continuation of that asynchronous open, made once for each document opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Output.TabPrintingViewModel..ctor(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "Opening a document makes the tab's printing view model, whose question the window answers. This object is that state or its ReactiveCommand, made once for each tab opened."
+  },
+  {
+    "type": "TakeWhileSignal`1[HyperPdf.Core.Reactive.SequenceStep`1[ReactiveUI.Primitives.RxVoid]]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+<>c__0`1[ReactiveUI.Primitives.RxVoid].<Concat>b__0_0(class System.Collections.Generic.IEnumerator`1<class System.IObservable`1<!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.MainViewModel.Open(class System.Collections.Generic.IEnumerable`1<class System.String>)",
+    "reason": "Opening a document adds its tab to the window: the main view model resolves the path, makes the tab and selects it, and its WhenChanged(SelectedTab) chains move to the new tab. This object is part of that work or of those ReactiveUI.Primitives chains, made once for each document opened."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Signals.MapSignal`2[System.Int32,ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Rendering.NeighbourPagePreparer+<>c__DisplayClass27_0.<Run>b__1(int64)",
+    "reason": "Opening a document shows its first page, so the neighbour page preparer starts one run for it: Signal.Timer, Do, SwitchMap over the neighbouring pages, Catch and Finally. This object is part of that ReactiveUI.Primitives chain or the order of the pages it visits, made once for each page the reader settles on."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.RepeatSourceSignal`1[HyperPdf.Core.Reactive.SequenceStep`1[ReactiveUI.Primitives.RxVoid]]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+<>c__0`1[ReactiveUI.Primitives.RxVoid].<Concat>b__0_0(class System.Collections.Generic.IEnumerator`1<class System.IObservable`1<!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Markup.PageToolsViewModel..ctor()",
+    "reason": "Opening a document makes the view models of its marking tools: annotations, content editing, fill and sign, page tools, and the compare and sanitise tools the page management reads. The constructor makes the tool's ReactiveCommands and its WhenChanged chains. This object is that state or part of one of those ReactiveUI.Primitives chains, made once for each tab opened and kept until the tab closes."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Signals.MapSignal`2[HyperPdf.Core.Reactive.SequenceStep`1[ReactiveUI.Primitives.RxVoid],ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+<>c__0`1[ReactiveUI.Primitives.RxVoid].<Concat>b__0_0(class System.Collections.Generic.IEnumerator`1<class System.IObservable`1<!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.TextFontFacts",
+    "frame": "HyperPdfLibrary.Text.TextPageBuild.BuildStyles(class HyperPdfLibrary.Text.TextPageBuildState,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Text.TextBuildChar>)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.UseSignal`2[System.Collections.Generic.IEnumerator`1[System.IObservable`1[ReactiveUI.Primitives.RxVoid]],ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence.Concat(class System.Collections.Generic.IEnumerable`1<class System.IObservable`1<!!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "System.Object[]",
+    "frame": "HyperPdfLibrary.Document.PageTreeWalk..ctor(int32)",
+    "reason": "Opening a document walks its page tree once to read the page sizes. This object is the scratch of that walk, made once for each document opened."
+  },
+  {
+    "type": "System.Object[]",
+    "frame": "HyperPdfLibrary.Document.PdfPageBuffer..ctor(int32)",
+    "reason": "Opening a document walks its page tree once to read the page sizes. This object is the scratch of that walk, made once for each document opened."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Signals.MapSignal`2[HyperPdf.Core.Documents.IDocument,HyperPdf.Core.Documents.IDocument]",
+    "frame": "HyperPdf.Core.Documents.DocumentSource.LoadCold(class HyperPdf.Core.Documents.IDocumentEngine,class ReactiveUI.Primitives.Concurrency.ISequencer)",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.FromAsyncSignal`1[HyperPdf.Core.Documents.IDocument]",
+    "frame": "HyperPdf.Engine.HyperPdfEngine.Load(class System.String,class System.String)",
+    "reason": "Opening a document opens it in the engine: the file is read with asynchronous I/O and wrapped in the document the viewer uses. This object is that document, its state or the continuation of that asynchronous open, made once for each document opened."
+  },
+  {
+    "type": "<>c__DisplayClass51_0",
+    "frame": "HyperPdf.Core.Documents.DocumentSource.LoadCold(class HyperPdf.Core.Documents.IDocumentEngine,class ReactiveUI.Primitives.Concurrency.ISequencer)",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "System.Object[]",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser..cctor()",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Forms.Detection.FormRegionDetector+Rule]",
+    "frame": "HyperPdf.Core.Forms.Detection.FormRegionDetector..ctor()",
+    "reason": "Opening a document makes the detector that finds form fields drawn on flat pages. It is made once for each tab opened and holds its own scratch lists."
+  },
+  {
+    "type": "System.SZGenericArrayEnumerator`1[HyperPdfLibrary.Text.PdfWebLink]",
+    "frame": "HyperPdf.Engine.HyperPdfText.GetWebLinksNative(class HyperPdf.Engine.HyperPdfDocument,int32,class System.Collections.Generic.List`1<value class HyperPdf.Core.Documents.PageLink>)",
+    "reason": "Opening a document opens it in the engine: the file is read with asynchronous I/O and wrapped in the document the viewer uses. This object is that document, its state or the continuation of that asynchronous open, made once for each document opened."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Text.PdfWebLink]",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser.Extract(class HyperPdfLibrary.Text.PdfTextPage)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Forms.Detection.DarkRun]",
+    "frame": "HyperPdf.Core.Forms.Detection.FormRegionDetector..ctor()",
+    "reason": "Opening a document makes the detector that finds form fields drawn on flat pages. It is made once for each tab opened and holds its own scratch lists."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.DeferSignal`1[HyperPdf.Core.Documents.IDocument]",
+    "frame": "HyperPdf.Core.Documents.DocumentPool.Load(class HyperPdf.Core.Documents.DocumentSource,class ReactiveUI.Primitives.Concurrency.ISequencer)",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "<>c__0`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+<>c__0`1[ReactiveUI.Primitives.RxVoid]..cctor()",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.DeferSignal`1[HyperPdf.Core.Documents.IDocument]",
+    "frame": "HyperPdf.Core.Documents.DocumentSource.LoadIfNeeded(class HyperPdf.Core.Documents.IDocumentEngine,class ReactiveUI.Primitives.Concurrency.ISequencer)",
+    "reason": "Opening a document makes its source and loads it through the document pool: one ReactiveUI.Primitives chain that opens the file off the window thread and hands the document back on it. This object is the source, the pool's entry or part of that chain, made once for each document opened."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.DeferSignal`1[HyperPdf.Core.Reactive.SequenceStep`1[ReactiveUI.Primitives.RxVoid]]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+<>c__0`1[ReactiveUI.Primitives.RxVoid].<Concat>b__0_0(class System.Collections.Generic.IEnumerator`1<class System.IObservable`1<!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "CountSignal`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Rendering.NeighbourPagePreparer+<>c__DisplayClass27_0.<Run>b__1(int64)",
+    "reason": "Opening a document shows its first page, so the neighbour page preparer starts one run for it: Signal.Timer, Do, SwitchMap over the neighbouring pages, Catch and Finally. This object is part of that ReactiveUI.Primitives chain or the order of the pages it visits, made once for each page the reader settles on."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.OwnershipMixins+<>c__1`1[System.__Canon].<OwnLatest>b__1_0(!0)",
+    "reason": "A view model hands a subscription it starts to its own lifetime, which releases it when the tab closes. This object is the slot that holds the latest subscription, made once for each tab opened."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.PdfWebLink[]",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser.Extract(class HyperPdfLibrary.Text.PdfTextPage)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.WindowControlMixins+<>c.<get_ToolChanges>b__6_4(class HyperPdf.ViewModels.Preferences.TextRecognitionViewModel)",
+    "reason": "The first time a tab is shown it makes the signal of its control changes: a Merge of WhenChanged over what the tool bar, the marking bar and the side panel show, kept connected by the tab. This object is part of that ReactiveUI.Primitives chain, made once for the tab and reused each time it is shown again."
+  },
+  {
+    "type": "<>c__DisplayClass0_0`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+<>c__0`1[ReactiveUI.Primitives.RxVoid].<Concat>b__0_0(class System.Collections.Generic.IEnumerator`1<class System.IObservable`1<!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.WindowControlMixins.PanelList(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel,value class HyperPdf.ViewModels.Sidebar.SidebarMode)",
+    "reason": "The first time a tab is shown it makes the signal of its control changes: a Merge of WhenChanged over what the tool bar, the marking bar and the side panel show, kept connected by the tab. This object is part of that ReactiveUI.Primitives chain, made once for the tab and reused each time it is shown again."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.TabOpenBenchmarks.OpenAnotherDocument()",
+    "reason": "The benchmark hands the path of the document to open to the viewer as a one item list. It is the input of the measured open, not part of the viewer."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.TextBuildChar[]",
+    "frame": "HyperPdfLibrary.Text.TextLineOrder.Complete(class HyperPdfLibrary.Text.TextPageBuildState)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.PdfTextChar[]",
+    "frame": "HyperPdfLibrary.Text.TextPageBuild.CreatePage(class HyperPdfLibrary.Text.TextPageBuildState,class HyperPdfLibrary.Document.PdfPage)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Text.TextPageBuild.CreatePage(class HyperPdfLibrary.Text.TextPageBuildState,class HyperPdfLibrary.Document.PdfPage)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.TextBuildChar[]",
+    "frame": "HyperPdfLibrary.Text.TextLineAssembly.AddCharacter(class HyperPdfLibrary.Text.TextPageBuildState,value class HyperPdfLibrary.Text.TextBuildChar&)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Text.TextPageBuild.BuildStyles(class HyperPdfLibrary.Text.TextPageBuildState,value class System.ReadOnlySpan`1<value class HyperPdfLibrary.Text.TextBuildChar>)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdfLibrary.Text.PdfTextPage..ctor(class HyperPdfLibrary.Document.PdfPage,value class HyperPdfLibrary.Text.PdfTextChar[],int32[],unsigned int8[],class HyperPdfLibrary.Text.TextStyleTable,class System.String,int32[])",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.TextBuildChar[]",
+    "frame": "HyperPdfLibrary.Text.TextLineOrder.JoinToPage(class HyperPdfLibrary.Text.TextPageBuildState,class System.Collections.Generic.List`1<value class HyperPdfLibrary.Text.TextBuildChar>)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.Char[]",
+    "frame": "HyperPdfLibrary.Text.TextPageBuild.CreatePage(class HyperPdfLibrary.Text.TextPageBuildState,class HyperPdfLibrary.Document.PdfPage)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Text.TextPageBuild.CreatePage(class HyperPdfLibrary.Text.TextPageBuildState,class HyperPdfLibrary.Document.PdfPage)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "HyperPdfLibrary.Text.RecentGlyph[]",
+    "frame": "HyperPdfLibrary.Text.TextLineAssembly.AppendGlyph(class HyperPdfLibrary.Text.TextPageBuildState,int32,value class HyperPdfLibrary.Text.TextRun&,value class HyperPdfLibrary.Text.TextGlyph&)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser.Extract(class HyperPdfLibrary.Text.PdfTextPage)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+<>c__0`1[ReactiveUI.Primitives.RxVoid].<Concat>b__0_0(class System.Collections.Generic.IEnumerator`1<class System.IObservable`1<!0>>)",
+    "reason": "Opening a document prepares the pages beside the one shown, one after another: LazySequence.Concat subscribes to each page's preparation in turn. This object is part of that ReactiveUI.Primitives chain, made once for each page the reader settles on."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser..cctor()",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "System.Object[]",
+    "frame": "HyperPdfLibrary.IO.StreamPdfByteSource.StorePages(int64,int32,unsigned int8[],int32)",
+    "reason": "Opening a document reads its file through a byte source with pooled pages. This object is the source's state for the new file or a buffer the pool had to grow, made once for each document opened."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdfLibrary.Text.TextLinkParser.FindWeb(class System.String,int32,int32)",
+    "reason": "Opening a document reads the text of its first page to find web links for the reader. This object is the page's text, its styles or the parser's scratch, made once for each page whose links are read."
+  },
+  {
+    "type": "HyperPdf.Engine.HyperPdfDocument",
+    "frame": "HyperPdf.Engine.HyperPdfEngine.CreateOpened(class HyperPdfLibrary.Document.PdfDocument,class System.String,class System.TimeProvider,class System.Lazy`1<class HyperPdf.Engine.TextBoxFontState>)",
+    "reason": "Opening a document opens it in the engine: the file is read with asynchronous I/O and wrapped in the document the viewer uses. This object is that document, its state or the continuation of that asynchronous open, made once for each document opened."
+  },
+  {
+    "type": "HyperPdf.Core.Geometry.PageSize[]",
+    "frame": "HyperPdf.Engine.HyperPdfDocument..ctor(class HyperPdfLibrary.Document.PdfDocument,class System.String,class System.TimeProvider,class System.Lazy`1<class HyperPdf.Engine.TextBoxFontState>)",
+    "reason": "Opening a document opens it in the engine: the file is read with asynchronous I/O and wrapped in the document the viewer uses. This object is that document, its state or the continuation of that asynchronous open, made once for each document opened."
+  },
+  {
+    "type": "System.Threading.ReaderWriterLockSlim",
+    "frame": "HyperPdf.Engine.HyperPdfDocument..ctor(class HyperPdfLibrary.Document.PdfDocument,class System.String,class System.TimeProvider,class System.Lazy`1<class HyperPdf.Engine.TextBoxFontState>)",
+    "reason": "Opening a document opens it in the engine: the file is read with asynchronous I/O and wrapped in the document the viewer uses. This object is that document, its state or the continuation of that asynchronous open, made once for each document opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.DocumentTabViewModel.Owned(",
+    "reason": "A part the tab makes on first use is handed to the tab's lifetime, which releases it when the tab closes. This object is room the list of what the tab owns takes as it grows, made a few times for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.TabRequests.FollowParts(class HyperPdf.Viewer.Chrome.ViewerChrome,class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "Each time a tab is shown the window subscribes once to the parts the tab makes on first use, and answers the questions of each part from when it is made: SubscribeSafe over the tab's MadeParts signal, with the registrations gathered in a MultipleDisposable. This object is part of that ReactiveUI.Primitives chain and lives until the tab is left. It stands in place of the parts themselves and their dialog handlers, which are no longer made for a tab that never uses them."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.TabAnnotationMixins.get_AnnotatingChanges(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "The tab follows whether it is being annotated or filled without making those tools: WhenChanged over AnnotationsInUse or the MadeParts signal, then SwitchMap to the tool's own property once it exists. This object is part of that ReactiveUI.Primitives chain, made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.TabAnnotationMixins.get_FillingChanges(class HyperPdf.ViewModels.Viewing.DocumentTabViewModel)",
+    "reason": "The tab follows whether it is being annotated or filled without making those tools: WhenChanged over AnnotationsInUse or the MadeParts signal, then SwitchMap to the tool's own property once it exists. This object is part of that ReactiveUI.Primitives chain, made once for each tab opened."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Viewing.TabAnnotationMixins+<>c.<get_AnnotatingChanges>b__3_1(class HyperPdf.ViewModels.Markup.AnnotationsViewModel)",
+    "reason": "The tab follows whether it is being annotated or filled without making those tools: WhenChanged over AnnotationsInUse or the MadeParts signal, then SwitchMap to the tool's own property once it exists. This object is part of that ReactiveUI.Primitives chain, made once for each tab opened."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Core.Reading.ReadingBlocks.ToReadingBlock(class HyperPdf.Core.Reading.ReadingScratch,value class HyperPdf.Core.Reading.BlockRecord,value class HyperPdf.Core.Reading.ReadingRole,value class HyperPdf.Core.Reading.ReadingCell)",
+    "reason": "Analysing a page returns its blocks. Each block is one ReadingBlock with the indexes of its characters and the text joined from them, so these objects, arrays and strings are the result the caller asked for. The caller keeps them, so there is nothing to reuse."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Reading.ReadingBlocks.ToReadingBlock(class HyperPdf.Core.Reading.ReadingScratch,value class HyperPdf.Core.Reading.BlockRecord,value class HyperPdf.Core.Reading.ReadingRole,value class HyperPdf.Core.Reading.ReadingCell)",
+    "reason": "Analysing a page returns its blocks. Each block is one ReadingBlock with the indexes of its characters and the text joined from them, so these objects, arrays and strings are the result the caller asked for. The caller keeps them, so there is nothing to reuse."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.ReadingBlock",
+    "frame": "HyperPdf.Core.Reading.ReadingBlocks.ToReadingBlock(class HyperPdf.Core.Reading.ReadingScratch,value class HyperPdf.Core.Reading.BlockRecord,value class HyperPdf.Core.Reading.ReadingRole,value class HyperPdf.Core.Reading.ReadingCell)",
+    "reason": "Analysing a page returns its blocks. Each block is one ReadingBlock with the indexes of its characters and the text joined from them, so these objects, arrays and strings are the result the caller asked for. The caller keeps them, so there is nothing to reuse."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.ReadingPage",
+    "frame": "HyperPdf.Core.Reading.ReadingOrder.Analyze(int32,value class HyperPdf.Core.Geometry.PageSize,value class System.ReadOnlySpan`1<value class HyperPdf.Core.Reading.PageCharacter>,class System.Collections.Generic.IReadOnlySet`1<class System.String>,class HyperPdf.Core.Reading.ReadingOrderWorkspace)",
+    "reason": "Analysing a page returns one ReadingPage that the caller keeps, so it is made once for each call and cannot be reused."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Core.Reading.ReadingDocument.Flatten(class HyperPdf.Core.Reading.ReadingPage,int32[]&)",
+    "reason": "Flattening a page for a screen reader makes one array of character indexes and the text in reading order. The reader asks for both and keeps them, so they are the result of the call."
+  },
+  {
+    "type": "System.String",
+    "frame": "HyperPdf.Core.Reading.ReadingDocument.Flatten(class HyperPdf.Core.Reading.ReadingPage,int32[]&)",
+    "reason": "Flattening a page for a screen reader makes one array of character indexes and the text in reading order. The reader asks for both and keeps them, so they are the result of the call."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.ReadingPage",
+    "frame": "HyperPdf.Core.Reading.ReadingOrder.FromStructure(int32,value class System.ReadOnlySpan`1<value class HyperPdf.Core.Reading.PageCharacter>,value class System.ReadOnlySpan`1<class HyperPdf.Core.Reading.TaggedBlock>,class HyperPdf.Core.Reading.ReadingOrderWorkspace)",
+    "reason": "Building a page from its tags returns one ReadingPage and the array of its blocks. The caller keeps the page, so it is made once for each call and cannot be reused."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.ReadingBlock[]",
+    "frame": "HyperPdf.Core.Reading.ReadingOrder.FromStructure(int32,value class System.ReadOnlySpan`1<value class HyperPdf.Core.Reading.PageCharacter>,value class System.ReadOnlySpan`1<class HyperPdf.Core.Reading.TaggedBlock>,class HyperPdf.Core.Reading.ReadingOrderWorkspace)",
+    "reason": "Building a page from its tags returns one ReadingPage and the array of its blocks. The caller keeps the page, so it is made once for each call and cannot be reused."
+  },
+  {
+    "type": "System.Int32[]",
+    "frame": "HyperPdf.Engine.TaggedBlockWalker.AddBlock(class HyperPdfLibrary.Structure.Tagged.PdfSemanticNode,value class HyperPdf.Core.Reading.ReadingBlockKind)",
+    "reason": "Walking a tagged page makes one TaggedBlock for each element of the tag tree, with the indexes of its marked content. The blocks are what the walk returns, so they cannot be reused."
+  },
+  {
+    "type": "HyperPdf.Engine.GlyphCharacters[]",
+    "frame": "HyperPdf.Engine.TaggedCharacterMap.Create(class HyperPdfLibrary.Structure.Tagged.PdfMarkedContentPage,class System.Collections.Generic.List`1<value class HyperPdf.Core.Reading.PageCharacter>)",
+    "reason": "The map from the characters of a tagged page to the runs of glyphs that drew them is made once for the page and kept by the caller, so it is the result of the call."
+  },
+  {
+    "type": "HyperPdfLibrary.Structure.Tagged.PdfSemanticNode[]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.PdfSemanticNode.Add(class HyperPdfLibrary.Structure.Tagged.PdfSemanticNode)",
+    "reason": "The semantic tree is built one node at a time as the tag tree is read. Each node keeps its children in a list that grows as they are added and is then kept, so the list is part of the result."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.TaggedBlock",
+    "frame": "HyperPdf.Engine.TaggedBlockWalker.AddBlock(class HyperPdfLibrary.Structure.Tagged.PdfSemanticNode,value class HyperPdf.Core.Reading.ReadingBlockKind)",
+    "reason": "Walking a tagged page makes one TaggedBlock for each element of the tag tree, with the indexes of its marked content. The blocks are what the walk returns, so they cannot be reused."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Structure.Tagged.PdfSemanticNode]",
+    "frame": "HyperPdfLibrary.Structure.Tagged.PdfSemanticNode.Add(class HyperPdfLibrary.Structure.Tagged.PdfSemanticNode)",
+    "reason": "The semantic tree is built one node at a time as the tag tree is read. Each node keeps its children in a list that grows as they are added and is then kept, so the list is part of the result."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.ReadingBlock[]",
+    "frame": "HyperPdf.Core.Reading.ReadingOrder.ToBlocks(class HyperPdf.Core.Reading.ReadingScratch,float32,value class HyperPdf.Core.Geometry.PageSize)",
+    "reason": "The array of the page's blocks is made once at its exact size and returned to the caller, who keeps it."
+  },
+  {
+    "type": "HyperPdf.Core.Reading.ReadingBlock",
+    "frame": "HyperPdf.Core.Reading.ReadingOrder.FromElement(class HyperPdf.Core.Reading.ReadingScratch,class HyperPdf.Core.Reading.TaggedBlock,int32,int32,float32)",
+    "reason": "Building a page from its tags makes one ReadingBlock for each tagged element that has text. The blocks are the result the caller keeps, so they cannot be reused."
+  },
+  {
+    "type": "HyperPdfLibrary.Render.Managed.Pictures.PictureOp[]",
+    "frame": "HyperPdfLibrary.Render.Managed.Pictures.PictureOpList.ToArray()",
+    "reason": "A finished picture keeps its recorded steps in an array of their exact size, copied from the pooled list, which is then given back to the pool."
+  },
+  {
+    "type": "HyperPdfLibrary.Render.Managed.Pictures.PictureOp[]",
+    "frame": "HyperPdfLibrary.Render.Managed.Pictures.PictureOpList.Grow()",
+    "reason": "The list of recorded steps rents an array from the shared pool as it grows. A rent that finds the pool empty on the running thread makes a new array, which happens for the first recordings on a thread and is reused after that. The benchmark opens one document at a time, so it measures those first recordings."
+  },
+  {
+    "type": "System.GCMemoryInfoData",
+    "frame": "HyperPdf.Core.Rendering.MemoryPressure.IsSystemHigh()",
+    "reason": "GC.GetGCMemoryInfo makes the info object it returns on each call. The render hub reads it at most twice a second and keeps the answer between readings, so the object is made at most that often."
+  },
+  {
+    "type": "System.Func`3[System.IObserver`1[ReactiveUI.Primitives.RxVoid],System.IDisposable,System.IDisposable]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "System.Action",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "System.Threading.Lock",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Disposables.SingleDisposable",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Disposables.MultipleDisposable",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "HyperPdfLibrary.Render.Managed.ManagedContentDevice",
+    "frame": "HyperPdfLibrary.Render.Managed.ManagedRenderBackend.CreatePictureDevice(value class HyperPdfLibrary.Drawing.PdfRect,value class HyperPdfLibrary.Drawing.PdfPictureStyle&)",
+    "reason": "Each recording of a page makes one drawing device, with the path builder, the list of recorded steps, the clip stack and the weight it records into. They last for that recording."
+  },
+  {
+    "type": "System.Collections.Generic.HashSet`1[System.UInt32]",
+    "frame": "HyperPdfLibrary.Rendering.PictureWeight..ctor()",
+    "reason": "A recording keeps one weight, with the lists that count its pictures, while it runs. It is made for each recording and given up when the picture is made."
+  },
+  {
+    "type": "System.Action`1[System.Exception]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "HyperPdfLibrary.Render.Managed.Pictures.ManagedPicture",
+    "frame": "HyperPdfLibrary.Render.Managed.ManagedContentDevice.Finish()",
+    "reason": "Finishing a recording makes the picture that the cache keeps, which is the result of the recording."
+  },
+  {
+    "type": "System.Action`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.GuardedWitness`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.PagePictures",
+    "frame": "HyperPdfLibrary.Rendering.PdfPageRenderer.Acquire(int32,bool,float32,value class System.Nullable`1<value class System.Numerics.Matrix3x2>,bool)",
+    "reason": "The pictures of a page are made the first time the page is drawn and kept in the cache, one object for each page."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.EmptyWitness`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "ChainCoordinator`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "TakeUntilCoordinator[ReactiveUI.Primitives.RxVoid,ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "HyperPdfLibrary.Render.Managed.Pictures.PictureOpList",
+    "frame": "HyperPdfLibrary.Render.Managed.ManagedContentDevice..ctor(class HyperPdfLibrary.Rendering.PictureWeight,class HyperPdfLibrary.Rendering.PdfRenderQuality)",
+    "reason": "Each recording of a page makes one drawing device, with the path builder, the list of recorded steps, the clip stack and the weight it records into. They last for that recording."
+  },
+  {
+    "type": "HyperPdfLibrary.Drawing.PdfPathBuilder",
+    "frame": "HyperPdfLibrary.Render.Managed.ManagedContentDevice..ctor(class HyperPdfLibrary.Rendering.PictureWeight,class HyperPdfLibrary.Rendering.PdfRenderQuality)",
+    "reason": "Each recording of a page makes one drawing device, with the path builder, the list of recorded steps, the clip stack and the weight it records into. They last for that recording."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[System.Boolean]",
+    "frame": "HyperPdfLibrary.Render.Managed.ManagedContentDevice..ctor(class HyperPdfLibrary.Rendering.PictureWeight,class HyperPdfLibrary.Rendering.PdfRenderQuality)",
+    "reason": "Each recording of a page makes one drawing device, with the path builder, the list of recorded steps, the clip stack and the weight it records into. They last for that recording."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Rendering.ImageWeight]",
+    "frame": "HyperPdfLibrary.Rendering.PictureWeight..ctor()",
+    "reason": "A recording keeps one weight, with the lists that count its pictures, while it runs. It is made for each recording and given up when the picture is made."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.PictureWeight",
+    "frame": "HyperPdfLibrary.Render.Managed.ManagedContentDevice..ctor(class HyperPdfLibrary.Rendering.PictureWeight,class HyperPdfLibrary.Rendering.PdfRenderQuality)",
+    "reason": "Each recording of a page makes one drawing device, with the path builder, the list of recorded steps, the clip stack and the weight it records into. They last for that recording."
+  },
+  {
+    "type": "DelegateWorkItem`1[System.ValueTuple`3[System.ValueTuple`2[ReactiveUI.Primitives.Advanced.RecoverSignal`2[ReactiveUI.Primitives.RxVoid,System.OperationCanceledException],System.IObserver`1[ReactiveUI.Primitives.RxVoid]],ReactiveUI.Primitives.Disposables.SingleDisposable,System.Func`2[System.ValueTuple`2[ReactiveUI.Primitives.Advanced.RecoverSignal`2[ReactiveUI.Primitives.RxVoid,System.OperationCanceledException],System.IObserver`1[ReactiveUI.Primitives.RxVoid]],System.IDisposable]]]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "CallbackNode",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdf.Core.Documents.PageLink]",
+    "frame": "HyperPdf.Engine.HyperPdfNavigation.ReadAnnotationLinks(class HyperPdf.Engine.HyperPdfDocument,int32)",
+    "reason": "Reading the links of a page makes the list the caller asks for and keeps, one for each page read."
+  },
+  {
+    "type": "Registrations",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.TapWitness`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "System.Func`1[System.IObservable`1[ReactiveUI.Primitives.RxVoid]]",
+    "frame": "HyperPdf.Engine.HyperPdfRendering.PreparePage(class HyperPdf.Engine.HyperPdfDocument,int32)",
+    "reason": "Preparing a page is a deferred signal over an async prefetch. The two delegates those operators take are made for each page prepared and live until the page is ready."
+  },
+  {
+    "type": "System.Func`1[System.IObservable`1[ReactiveUI.Primitives.RxVoid]]",
+    "frame": "HyperPdf.Core.Reactive.CancellationExtensions.ThrowWhenCancelled(class System.IObservable`1<!!0>,value class System.Threading.CancellationToken)",
+    "reason": "Wrapping a signal so that it fails when a token is cancelled makes one deferring delegate for each subscription, which lives as long as the run."
+  },
+  {
+    "type": "System.IObservable`1[ReactiveUI.Primitives.RxVoid][]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "System.Func`2[System.Threading.CancellationToken,System.Threading.Tasks.Task`1[ReactiveUI.Primitives.RxVoid]]",
+    "frame": "HyperPdf.Engine.HyperPdfRendering+<>c__DisplayClass2_0.<PreparePage>b__0()",
+    "reason": "Preparing a page is a deferred signal over an async prefetch. The two delegates those operators take are made for each page prepared and live until the page is ready."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.FromAsyncExternalCancellation`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.FromAsyncSubscription`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.AsyncSubscriptionLifetime",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "System.Threading.CancellationTokenSource",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "HyperPdfLibrary.Rendering.AnnotationPass",
+    "frame": "HyperPdfLibrary.Rendering.PageRecorder.RecordAnnotations(class HyperPdfLibrary.Rendering.PdfRenderCache,class HyperPdfLibrary.Document.PdfPage,bool,value class HyperPdfLibrary.Rendering.PictureScale&,int64&,value class HyperPdfLibrary.Rendering.ImageWeight[]&,value class System.Threading.CancellationToken)",
+    "reason": "Drawing the annotations of a page uses one pass object for the length of the recording."
+  },
+  {
+    "type": "Finally[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "RecoverWitness[ReactiveUI.Primitives.RxVoid,System.OperationCanceledException]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "ChainSignal`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.CancellationExtensions.ThrowWhenCancelled(class System.IObservable`1<!!0>,value class System.Threading.CancellationToken)",
+    "reason": "Wrapping a signal so that it fails when a token is cancelled makes one deferring delegate for each subscription, which lives as long as the run."
+  },
+  {
+    "type": "System.Collections.Generic.Queue`1[System.IObservable`1[ReactiveUI.Primitives.RxVoid]]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "<>c__DisplayClass2_0",
+    "frame": "HyperPdf.Engine.HyperPdfRendering.PreparePage(class HyperPdf.Engine.HyperPdfDocument,int32)",
+    "reason": "Preparing a page is a deferred signal over an async prefetch. The two delegates those operators take are made for each page prepared and live until the page is ready."
+  },
+  {
+    "type": "<>c__DisplayClass2_1",
+    "frame": "HyperPdf.Engine.HyperPdfRendering+<>c__DisplayClass2_0.<PreparePage>b__0()",
+    "reason": "Preparing a page is a deferred signal over an async prefetch. The two delegates those operators take are made for each page prepared and live until the page is ready."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.FromAsyncSignal`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Engine.HyperPdfRendering+<>c__DisplayClass2_0.<PreparePage>b__0()",
+    "reason": "Preparing a page is a deferred signal over an async prefetch. The two delegates those operators take are made for each page prepared and live until the page is ready."
+  },
+  {
+    "type": "TakeUntilSignal`2[ReactiveUI.Primitives.RxVoid,ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.CancellationExtensions.ThrowWhenCancelled(class System.IObservable`1<!!0>,value class System.Threading.CancellationToken)",
+    "reason": "Wrapping a signal so that it fails when a token is cancelled makes one deferring delegate for each subscription, which lives as long as the run."
+  },
+  {
+    "type": "CancellationSignal",
+    "frame": "HyperPdf.Core.Reactive.CancellationExtensions.ThrowWhenCancelled(class System.IObservable`1<!!0>,value class System.Threading.CancellationToken)",
+    "reason": "Wrapping a signal so that it fails when a token is cancelled makes one deferring delegate for each subscription, which lives as long as the run."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Disposables.ActionDisposable",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "TakeUntilSourceWitness[ReactiveUI.Primitives.RxVoid,ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "TakeUntilOtherWitness[ReactiveUI.Primitives.RxVoid,ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "<>c__DisplayClass23_0",
+    "frame": "HyperPdf.Core.Reactive.LazySequence+Walk`1[ReactiveUI.Primitives.RxVoid].Advance()",
+    "reason": "Each step of the walk subscribes to the signal the sequence gives. The objects here are the ones the operators inside that signal make when they are subscribed to: their coordinators, disposables, delegates and locks. The callers build one signal for each page, file or request, so the walk only runs them and makes none of these itself."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.DeferSignal`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.CancellationExtensions.ThrowWhenCancelled(class System.IObservable`1<!!0>,value class System.Threading.CancellationToken)",
+    "reason": "Wrapping a signal so that it fails when a token is cancelled makes one deferring delegate for each subscription, which lives as long as the run."
+  },
+  {
+    "type": "ReactiveUI.Primitives.Advanced.DeferSignal`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Engine.HyperPdfRendering.PreparePage(class HyperPdf.Engine.HyperPdfDocument,int32)",
+    "reason": "Preparing a page is a deferred signal over an async prefetch. The two delegates those operators take are made for each page prepared and live until the page is ready."
+  },
+  {
+    "type": "<>c__DisplayClass1_0`1[ReactiveUI.Primitives.RxVoid]",
+    "frame": "HyperPdf.Core.Reactive.CancellationExtensions.ThrowWhenCancelled(class System.IObservable`1<!!0>,value class System.Threading.CancellationToken)",
+    "reason": "Wrapping a signal so that it fails when a token is cancelled makes one deferring delegate for each subscription, which lives as long as the run."
+  },
+  {
+    "type": "System.Collections.Generic.List`1[HyperPdfLibrary.Document.PdfFileAttachmentAnnotation]",
+    "frame": "HyperPdfLibrary.Document.PdfDocumentFileAttachmentAnnotations.GetFileAttachmentAnnotations(class HyperPdfLibrary.Document.PdfDocument,int32)",
+    "reason": "Reading the file attachments of a page makes the list the caller asks for and keeps, one for each page read."
+  },
+  {
+    "type": "System.Object[]",
+    "frame": "HyperPdfLibrary.Render.Managed.Pictures.PictureOpList.Grow()",
+    "reason": "The list of recorded steps rents an array from the shared pool as it grows. A rent that finds the pool empty on the running thread makes a new array, which happens for the first recordings on a thread and is reused after that. The benchmark opens one document at a time, so it measures those first recordings."
   }
 ]

@@ -180,7 +180,7 @@ public sealed class WaylandWindow : IPlatformWindow, IDmabufWindow
     public IObservable<WindowEvent> Events => _events;
 
     /// <inheritdoc/>
-    public IObservable<IReadOnlyList<string>> FileDrops => _clipboard.Drops;
+    public IObservable<string[]> FileDrops => _clipboard.Drops;
 
     /// <summary>Tells whether a Wayland compositor looks reachable, without opening a window.</summary>
     /// <returns><see langword="true"/> when WAYLAND_DISPLAY names a socket that exists.</returns>

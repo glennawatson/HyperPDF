@@ -45,7 +45,7 @@ public sealed class TagsViewModelTests
         using (Assert.Multiple())
         {
             await Assert.That(tab.Tags.IsTagged).IsTrue();
-            await Assert.That(tab.Tags.Items.Count).IsEqualTo(TaggedCount);
+            await Assert.That(tab.Tags.Items.Length).IsEqualTo(TaggedCount);
             await Assert.That(tab.Tags.Items[1].Row).IsEqualTo("Heading 1");
             await Assert.That(tab.Tags.Items[TaggedCount - 1].Row).StartsWith("Picture");
         }
@@ -66,7 +66,7 @@ public sealed class TagsViewModelTests
         using (Assert.Multiple())
         {
             await Assert.That(tab.Tags.IsTagged).IsFalse();
-            await Assert.That(tab.Tags.Items.Count).IsEqualTo(0);
+            await Assert.That(tab.Tags.Items.Length).IsEqualTo(0);
         }
     }
 
@@ -205,7 +205,7 @@ public sealed class TagsViewModelTests
         tab.Tags.NewRoleTarget = "Div";
 
         _ = await tab.Tags.AddRoleMappingCommand.Execute().ToTask();
-        var listed = tab.Tags.RoleMappings.Count;
+        var listed = tab.Tags.RoleMappings.Length;
         tab.Tags.RoleMappingIndex = 0;
 
         _ = await tab.Tags.RemoveRoleMappingCommand.Execute().ToTask();
@@ -214,13 +214,13 @@ public sealed class TagsViewModelTests
         {
             await Assert.That(standard).IsTrue();
             await Assert.That(listed).IsEqualTo(1);
-            await Assert.That(tab.Tags.RoleMappings.Count).IsEqualTo(0);
+            await Assert.That(tab.Tags.RoleMappings.Length).IsEqualTo(0);
             await Assert.That(tab.Tags.Status).StartsWith("Removed the mapping");
         }
 
         _ = await tab.Pages.UndoCommand.Execute().ToTask();
 
-        await Assert.That(tab.Tags.RoleMappings.Count).IsEqualTo(1);
+        await Assert.That(tab.Tags.RoleMappings.Length).IsEqualTo(1);
     }
 
     /// <summary>A list shows how it labels its items, the form saves a new numbering, and undo takes it back; a paragraph shows no numbering.</summary>
@@ -293,8 +293,8 @@ public sealed class TagsViewModelTests
         tab.Tags.Refresh();
         var paragraph = tab.Tags.Items[2];
         tab.Tags.SelectedItem = paragraph;
-        var targetCount = tab.Tags.MoveTargets.Count;
-        tab.Tags.MoveTargetIndex = tab.Tags.MoveTargets.Count - 1;
+        var targetCount = tab.Tags.MoveTargets.Length;
+        tab.Tags.MoveTargetIndex = tab.Tags.MoveTargets.Length - 1;
 
         _ = await tab.Tags.MoveIntoCommand.Execute().ToTask();
 
@@ -384,7 +384,7 @@ public sealed class TagsViewModelTests
 
         using (Assert.Multiple())
         {
-            await Assert.That(tab.Tags.Problems.Count).IsGreaterThan(0);
+            await Assert.That(tab.Tags.Problems.Length).IsGreaterThan(0);
             await Assert.That(tab.Tags.ProblemSummary).IsNotEqualTo("The check has not run yet.");
         }
     }

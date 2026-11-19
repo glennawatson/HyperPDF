@@ -10,4 +10,4 @@ namespace HyperPdf.Core.Reading;
 /// <param name="PageIndex">The page.</param>
 /// <param name="Blocks">The blocks, in the order to read them; footnotes last.</param>
 [DebuggerDisplay("ReadingPage: Page {PageIndex}: {Blocks.Count} blocks")]
-public sealed record ReadingPage(int PageIndex, IReadOnlyList<ReadingBlock> Blocks);
+public sealed record ReadingPage(int PageIndex, ReadingBlock[] Blocks);

@@ -45,15 +45,15 @@ internal static class ChromeMarkBar
         foreach (var tool in Tools)
         {
             // Every tool button runs the one command that picks a tool, and passes its own tool to it.
-            row = row.Control(new(ChromeItemKind.Button, marks.SetToolCommand, (int)tool, NameOf(tool), default, true, marks.Tool == tool) { Parameter = tool, Icon = IconOf(tool) });
+            row = row.Button(IconOf(tool), NameOf(tool), marks.SetToolCommand, new GroupChoice((int)tool, tool, marks.Tool == tool));
         }
 
         row = row.Button(ChromeIcon.More, UiText.Get("More…"), actions.ShowMoreMarks, true);
         row = row.Divider();
 
         // The colour and the width buttons step to the next one, which is worked out here so the command is given what to set.
-        row = row.Control(new(ChromeItemKind.Button, marks.SetColorCommand, 0, UiText.Format("Colour: {0}", marks.ColorName), default, true, false) { Parameter = NextColor(marks) });
-        row = row.Control(new(ChromeItemKind.Button, marks.SetLineWidthCommand, 0, marks.LineWidthName, default, true, false) { Parameter = NextWidth(marks), Icon = ChromeIcon.LineWidth });
+        row = row.Button(ChromeIcon.None, UiText.Format("Colour: {0}", marks.ColorName), marks.SetColorCommand, new GroupChoice(0, NextColor(marks), false));
+        row = row.Button(ChromeIcon.LineWidth, marks.LineWidthName, marks.SetLineWidthCommand, new GroupChoice(0, NextWidth(marks), false));
         row = row.Divider();
         row = row.Button(ChromeIcon.Undo, UiText.Get("Undo"), marks.UndoCommand, marks.CanUndo);
         row = row.Button(ChromeIcon.Redo, UiText.Get("Redo"), marks.RedoCommand, marks.CanRedo);
@@ -79,12 +79,12 @@ internal static class ChromeMarkBar
     {
         var widths = AnnotationsViewModel.LineWidths;
         var at = 0;
-        while (at < widths.Count && widths[at].Value < marks.LineWidth)
+        while (at < widths.Length && widths[at].Value < marks.LineWidth)
         {
             at++;
         }
 
-        return widths[(at + 1) % widths.Count].NameKey;
+        return widths[(at + 1) % widths.Length].NameKey;
     }
 
     /// <summary>Gets the icon of a tool.</summary>

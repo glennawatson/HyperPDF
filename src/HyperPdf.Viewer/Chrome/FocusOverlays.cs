@@ -99,9 +99,9 @@ internal static class FocusOverlays
     /// <summary>Follows the text of every page, which arrives when a page is first read.</summary>
     /// <param name="pages">The pages.</param>
     /// <returns>A signal now, and again each time a page's text arrives.</returns>
-    private static IObservable<RxVoid> PageChanges(IReadOnlyList<FocusPageViewModel> pages)
+    private static IObservable<RxVoid> PageChanges(FocusPageViewModel[] pages)
     {
-        var changes = new List<IObservable<RxVoid>>(pages.Count);
+        var changes = new List<IObservable<RxVoid>>(pages.Length);
         foreach (var page in pages)
         {
             changes.Add(page.WhenChanged(static p => p.Blocks).AsSignal());
@@ -300,7 +300,7 @@ internal static class FocusOverlays
     /// <param name="wrapped">The wrapped lines of one paragraph, reused for every paragraph.</param>
     private static void WrapPage(FocusPageViewModel page, TextRuns runs, TextStyle style, int width, List<FocusLine> lines, List<FocusBlockViewModel> blocks, List<string> wrapped)
     {
-        if (page.Blocks.Count == 0)
+        if (page.Blocks.Length == 0)
         {
             lines.Add(new(ChromeItemKind.Label, -1, page.PageIndex, false, page.IsEmpty ? UiText.Get("This page has no text.") : UiText.Get("Reading this page…")));
             return;

@@ -27,6 +27,9 @@ public sealed class DocumentPool : IDisposable
     /// <summary>The engine used to open documents.</summary>
     private readonly IDocumentEngine _engine;
 
+    /// <summary>The capacity the open documents were last held to, so a changed capacity is applied the next time a document is asked for.</summary>
+    private int _trimmedCapacity;
+
     /// <summary>Initializes a new instance of the <see cref="DocumentPool"/> class.</summary>
     /// <param name="engine">The document engine.</param>
     public DocumentPool(IDocumentEngine engine)
@@ -108,8 +111,15 @@ public sealed class DocumentPool : IDisposable
     /// <returns>The document.</returns>
     internal IDocument Acquire(DocumentSource source)
     {
+        // A document already open is asked for several times a frame. Nothing opened, so nothing is over the capacity it was
+        // last held to, and counting every tab's source again would cost more the more tabs there are.
+        var opens = !source.IsOpen;
         var document = source.OpenIfNeeded(_engine);
-        Trim(source);
+        if (opens || Capacity != _trimmedCapacity)
+        {
+            Trim(source);
+        }
+
         return document;
     }
 
@@ -127,6 +137,7 @@ public sealed class DocumentPool : IDisposable
     /// <param name="keep">The source to keep open.</param>
     private void Trim(DocumentSource keep)
     {
+        _trimmedCapacity = Capacity;
         for (var open = OpenCount; open > Capacity; open--)
         {
             DocumentSource? oldest = null;

@@ -35,9 +35,9 @@ public sealed record SigningPreview(
     bool LocksDocument,
     string LaterChanges,
     bool TimestampRequired,
-    IReadOnlyList<string> Problems,
-    IReadOnlyList<string> Notes)
+    string[] Problems,
+    string[] Notes)
 {
     /// <summary>Gets a value indicating whether signing can go ahead.</summary>
-    public bool CanSign => Problems.Count == 0;
+    public bool CanSign => Problems.Length == 0;
 }

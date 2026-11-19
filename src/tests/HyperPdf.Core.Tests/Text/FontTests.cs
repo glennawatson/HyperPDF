@@ -80,7 +80,7 @@ public sealed class FontTests
         await Assert.That(italic!.Face.Weight).IsEqualTo(Regular);
         await Assert.That(italic.SynthesizeItalic).IsTrue();
         await Assert.That(catalog.Find("Helvetica", false, false)).IsNull();
-        await Assert.That(FontCatalog.Empty.Families.Count).IsEqualTo(StandardFontFamilies.All.Count);
+        await Assert.That(FontCatalog.Empty.Families.Length).IsEqualTo(StandardFontFamilies.All.Length);
     }
 
     /// <summary>The loaded font gives metrics, advances, kerning and the character map, CJK and Hebrew included.</summary>

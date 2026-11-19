@@ -11,7 +11,7 @@ public interface IAttachmentSource : IDocumentFeature
 {
     /// <summary>Gets the embedded files, read once.</summary>
     /// <returns>The attachments.</returns>
-    IReadOnlyList<DocumentAttachment> GetAttachments();
+    DocumentAttachment[] GetAttachments();
 
     /// <summary>Gets how the document's portfolio asks for its files to be shown.</summary>
     /// <returns>The summary, or <see langword="null"/> when the document is not a portfolio.</returns>

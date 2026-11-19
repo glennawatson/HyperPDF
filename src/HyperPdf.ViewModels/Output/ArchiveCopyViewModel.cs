@@ -71,7 +71,7 @@ public sealed partial class ArchiveCopyViewModel : ReactiveObject, ICopyWindowRe
     }
 
     /// <summary>Gets the level choices, oldest first, with PDF/A-2b suggested.</summary>
-    public IReadOnlyList<ArchiveLevelChoice> Levels { get; } =
+    public ArchiveLevelChoice[] Levels { get; } =
     [
 
         new(

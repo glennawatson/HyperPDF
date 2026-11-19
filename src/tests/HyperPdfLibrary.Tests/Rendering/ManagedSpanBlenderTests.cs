@@ -121,6 +121,52 @@ public sealed class ManagedSpanBlenderTests
         await Assert.That(pixels.AsSpan().SequenceEqual(expected)).IsTrue();
     }
 
+    /// <summary>Blending one colour through the coverage of a short line matches the one pixel formula, for every coverage from nothing to full.</summary>
+    /// <param name="length">The number of pixels.</param>
+    /// <param name="color">The premultiplied colour.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(0, 0x80402010U)]
+    [Arguments(1, 0x80402010U)]
+    [Arguments(3, 0x80402010U)]
+    [Arguments(4, 0x80402010U)]
+    [Arguments(5, 0xFF00FF00U)]
+    [Arguments(9, 0x01010101U)]
+    [Arguments(23, 0xC0FFFFFFU)]
+    [Arguments(24, 0x00000000U)]
+    [Arguments(40, 0xFF123456U)]
+    [Arguments(300, 0x80402010U)]
+    [Arguments(300, 0xFFFFFFFFU)]
+    [Arguments(300, 0xFF000000U)]
+    public async Task SolidEachMatchesTheOnePixelFormula(int length, uint color)
+    {
+        var pixels = new uint[length];
+        var coverage = new byte[length];
+        for (var i = 0; i < length; i++)
+        {
+            pixels[i] = ((uint)(i + 1) * Spread) | ((uint)(i % CoveragePattern) * 0x30000000U);
+
+            // Over 300 pixels every coverage from zero to full occurs.
+            coverage[i] = (byte)i;
+        }
+
+        var expected = (uint[])pixels.Clone();
+        for (var i = 0; i < length; i++)
+        {
+            if (coverage[i] == 0)
+            {
+                continue;
+            }
+
+            var source = coverage[i] == Full ? color : SpanBlender.Scale(color, coverage[i]);
+            expected[i] = source + SpanBlender.Scale(pixels[i], Full - (source >> AlphaShift));
+        }
+
+        SpanBlender.SolidEach(pixels, coverage, color);
+
+        await Assert.That(pixels.AsSpan().SequenceEqual(expected)).IsTrue();
+    }
+
     /// <summary>Multiplying two lines of coverage matches the one byte formula.</summary>
     /// <param name="length">The number of bytes.</param>
     /// <returns>A task.</returns>

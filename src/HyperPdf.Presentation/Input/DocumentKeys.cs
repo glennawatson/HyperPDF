@@ -132,7 +132,7 @@ public static class DocumentKeys
         var focused = forms.Focused;
         return key switch
         {
-            ViewerKey.Tab when focused is not null || tab.FillAndSign.IsActive => MoveField(tab, forms, (modifiers & ViewerModifiers.Shift) != 0),
+            ViewerKey.Tab when focused is not null || tab.FillAndSignIfMade is { IsActive: true } => MoveField(tab, forms, (modifiers & ViewerModifiers.Shift) != 0),
             ViewerKey.Space when focused is not null => Redraw(forms.PressFocused()),
             ViewerKey.Enter when focused is { Kind: FormFieldKind.ComboBox or FormFieldKind.ListBox } => new(FormKeyOutcome.OpenChoices, focused),
             ViewerKey.Escape when focused is not null => Redraw(forms.ClearFocus()),

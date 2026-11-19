@@ -23,7 +23,7 @@ public sealed partial class TextPropertiesViewModel : ReactiveObject
     /// <param name="format">The format.</param>
     /// <param name="wrapWidth">The wrap width in points, or 0.</param>
     /// <param name="families">The font families offered.</param>
-    public TextPropertiesViewModel(string text, TextFormat format, float wrapWidth, IReadOnlyList<string> families)
+    public TextPropertiesViewModel(string text, TextFormat format, float wrapWidth, string[] families)
     {
         ArgumentNullException.ThrowIfNull(format);
         FontFamilies = families;
@@ -55,7 +55,7 @@ public sealed partial class TextPropertiesViewModel : ReactiveObject
     public static IReadOnlyList<string> ColorNames { get; } = UiText.CreateChoices(Names());
 
     /// <summary>Gets the font families offered.</summary>
-    public IReadOnlyList<string> FontFamilies { get; }
+    public string[] FontFamilies { get; }
 
     /// <summary>Gets the answer: whether the settings were accepted.</summary>
     public IObservable<bool> Answered { get; }
@@ -115,7 +115,7 @@ public sealed partial class TextPropertiesViewModel : ReactiveObject
     private uint Color { get; }
 
     /// <summary>Gets the chosen colour: the one offered at <see cref="ColorIndex"/>, or the text's own colour.</summary>
-    private uint ChosenColor => (uint)ColorIndex < (uint)AnnotationsViewModel.TextColors.Count ? AnnotationsViewModel.TextColors[ColorIndex].Color : Color;
+    private uint ChosenColor => (uint)ColorIndex < (uint)AnnotationsViewModel.TextColors.Length ? AnnotationsViewModel.TextColors[ColorIndex].Color : Color;
 
     /// <summary>Builds the format the settings describe.</summary>
     /// <returns>The format, clamped to usable values.</returns>
@@ -138,7 +138,7 @@ public sealed partial class TextPropertiesViewModel : ReactiveObject
     /// <returns>The names.</returns>
     private static string[] Names()
     {
-        var names = new string[AnnotationsViewModel.TextColors.Count];
+        var names = new string[AnnotationsViewModel.TextColors.Length];
         for (var i = 0; i < names.Length; i++)
         {
             names[i] = AnnotationsViewModel.TextColors[i].NameKey;
@@ -152,7 +152,7 @@ public sealed partial class TextPropertiesViewModel : ReactiveObject
     /// <returns>Its index, or -1.</returns>
     private static int IndexOfColor(uint color)
     {
-        for (var i = 0; i < AnnotationsViewModel.TextColors.Count; i++)
+        for (var i = 0; i < AnnotationsViewModel.TextColors.Length; i++)
         {
             if (AnnotationsViewModel.TextColors[i].Color == color)
             {

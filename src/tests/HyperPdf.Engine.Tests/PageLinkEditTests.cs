@@ -35,7 +35,7 @@ public sealed class PageLinkEditTests
         var links = test.Document.GetLinks(0);
 
         await Assert.That(added).IsGreaterThanOrEqualTo(0);
-        await Assert.That(links.Any(static link => link.Target.Kind == LinkTargetKind.Uri && link.Target.Uri == "https://example.com/")).IsTrue();
+        await Assert.That(Array.Exists(links, static link => link.Target.Kind == LinkTargetKind.Uri && link.Target.Uri == "https://example.com/")).IsTrue();
     }
 
     /// <summary>A link to a page is read back as one to that page.</summary>
@@ -50,7 +50,7 @@ public sealed class PageLinkEditTests
         var links = test.Document.GetLinks(0);
 
         await Assert.That(added).IsGreaterThanOrEqualTo(0);
-        await Assert.That(links.Any(static link => link.Target.Kind == LinkTargetKind.Page && link.Target.PageIndex == Pages - 1)).IsTrue();
+        await Assert.That(Array.Exists(links, static link => link.Target.Kind == LinkTargetKind.Page && link.Target.PageIndex == Pages - 1)).IsTrue();
     }
 
     /// <summary>A target that is not an address, and a page that is not there, add nothing.</summary>
@@ -61,10 +61,10 @@ public sealed class PageLinkEditTests
         using var test = new HyperPdfTestDocument(Pages);
         var editor = DocumentFeature<IAnnotationEditor>.Get(test.Document)!;
 
-        var before = test.Document.GetLinks(0).Count;
+        var before = test.Document.GetLinks(0).Length;
 
         await Assert.That(editor.AddLink(0, Area, "not an address")).IsEqualTo(-1);
         await Assert.That(editor.AddLink(0, Area, "page:99")).IsEqualTo(-1);
-        await Assert.That(test.Document.GetLinks(0).Count).IsEqualTo(before);
+        await Assert.That(test.Document.GetLinks(0).Length).IsEqualTo(before);
     }
 }

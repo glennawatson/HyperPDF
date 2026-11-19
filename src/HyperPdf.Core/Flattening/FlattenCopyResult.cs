@@ -20,9 +20,9 @@ public sealed record FlattenCopyResult(
     int FormFieldsFlattened,
     int AnnotationsFlattened,
     bool FormRemoved,
-    IReadOnlyList<ArchiveNote> Notes,
-    IReadOnlyList<ArchiveNote> Problems)
+    ArchiveNote[] Notes,
+    ArchiveNote[] Problems)
 {
     /// <summary>Gets a value indicating whether the copy was written.</summary>
-    public bool Flattened => Problems.Count == 0;
+    public bool Flattened => Problems.Length == 0;
 }

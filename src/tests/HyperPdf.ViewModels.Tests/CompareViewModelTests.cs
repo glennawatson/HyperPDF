@@ -37,7 +37,7 @@ public sealed class CompareViewModelTests
 
         _ = await compare.CompareCommand.Execute().ToTask();
 
-        await Assert.That(compare.Differences.Count).IsEqualTo(0);
+        await Assert.That(compare.Differences.Length).IsEqualTo(0);
     }
 
     /// <summary>A page with the same words but a large coloured box added is listed as looking different, with no words changed.</summary>
@@ -55,7 +55,7 @@ public sealed class CompareViewModelTests
 
         _ = await compare.CompareCommand.Execute().ToTask();
 
-        await Assert.That(compare.Differences.Count).IsEqualTo(1);
+        await Assert.That(compare.Differences.Length).IsEqualTo(1);
         await Assert.That(compare.Differences[0].Added + compare.Differences[0].Removed).IsEqualTo(0);
         await Assert.That(compare.Differences[0].LookChange).IsGreaterThan(MinimumLook);
     }
@@ -75,7 +75,7 @@ public sealed class CompareViewModelTests
 
         _ = await compare.CompareCommand.Execute().ToTask();
 
-        await Assert.That(compare.Differences.Count).IsEqualTo(1);
+        await Assert.That(compare.Differences.Length).IsEqualTo(1);
         await Assert.That(compare.Differences[0].Page).IsEqualTo(Pages);
         await Assert.That(compare.Differences[0].Added).IsGreaterThan(0);
     }

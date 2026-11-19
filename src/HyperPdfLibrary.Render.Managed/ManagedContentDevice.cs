@@ -44,7 +44,7 @@ internal sealed class ManagedContentDevice : IPictureDevice, IType3GlyphScope
     private const int GreenShift = 8;
 
     /// <summary>The steps recorded so far.</summary>
-    private readonly List<PictureOp> _ops = [];
+    private readonly PictureOpList _ops = new();
 
     /// <summary>How the picture is drawn for the screen: its text placement, its edges and its line widths.</summary>
     private readonly PdfRenderQuality _quality;
@@ -238,11 +238,11 @@ internal sealed class ManagedContentDevice : IPictureDevice, IType3GlyphScope
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IPdfRenderPicture Finish() => new ManagedPicture([.. _ops], RasterStyle.From(_quality));
+    public IPdfRenderPicture Finish() => new ManagedPicture(_ops.ToArray(), RasterStyle.From(_quality));
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _ops.Clear();
+    public void Dispose() => _ops.Dispose();
 
     /// <summary>Determines whether a text render mode is in a set.</summary>
     /// <param name="modes">A bit set with bit n set for render mode n.</param>

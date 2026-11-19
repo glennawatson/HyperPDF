@@ -25,7 +25,7 @@ public sealed class PolygonDraft
     public bool IsActive => Page >= 0;
 
     /// <summary>Gets the corners placed, in page space.</summary>
-    public IReadOnlyList<PagePoint> Corners => _corners;
+    public List<PagePoint> Corners => _corners;
 
     /// <summary>Places a corner, or finishes the polygon when the press was a double-click.</summary>
     /// <param name="annotations">The annotation state that receives a finished shape.</param>

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Layout;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Presentation.Input;
@@ -91,7 +92,7 @@ public sealed class ViewerChrome : IDisposable
     private ThumbnailAsks _thumbnails = ThumbnailAsks.None;
 
     /// <summary>What the side panel lists, as it was last laid out.</summary>
-    private SidebarView _sidebar = SidebarView.Empty;
+    private SidebarView _sidebar = SidebarView.Empty with { PageRows = [] };
 
     /// <summary>What the open overlay is joined to: its changes, its wish to close and everything the overlay itself follows and owns.</summary>
     private IDisposable? _overlayLinks;
@@ -237,7 +238,7 @@ public sealed class ViewerChrome : IDisposable
     public bool IsFullScreen => _fullScreen;
 
     /// <summary>Gets the controls of the bars, back to front.</summary>
-    public IReadOnlyList<ChromeItem> Bars
+    public List<ChromeItem> Bars
     {
         get
         {
@@ -247,7 +248,7 @@ public sealed class ViewerChrome : IDisposable
     }
 
     /// <summary>Gets the controls of the open menu, dialog or search bar, back to front. Empty when none is open.</summary>
-    public IReadOnlyList<ChromeItem> OverlayItems
+    public List<ChromeItem> OverlayItems
     {
         get
         {
@@ -262,12 +263,12 @@ public sealed class ViewerChrome : IDisposable
     /// <summary>Opens a menu.</summary>
     /// <param name="entries">The entries.</param>
     /// <param name="at">Where the menu's top left corner is wanted, in device pixels.</param>
-    public void ShowMenu(IReadOnlyList<MenuEntry> entries, ScreenPoint at)
+    public void ShowMenu(List<MenuEntry> entries, ScreenPoint at)
     {
         ArgumentNullException.ThrowIfNull(entries);
 
         // A menu entry carries its own command, so the entry chosen says which command to run.
-        Show(MenuOverlays.Open(entries, at, RunEntry));
+        Show(MenuOverlays.Open(CollectionsMarshal.AsSpan(entries), at, RunEntry));
     }
 
     /// <summary>Asks a yes or no question in a dialog. The dialog opens when the answer is subscribed to.</summary>
@@ -295,7 +296,7 @@ public sealed class ViewerChrome : IDisposable
         {
             var dialog = FileOverlays.Open(folder, saveName, false, false);
             Show(dialog.Overlay);
-            return dialog.Answer.Select(static paths => paths.Count > 0 ? paths[0] : null);
+            return dialog.Answer.Select(static paths => paths.Length > 0 ? paths[0] : null);
         });
     }
 
@@ -309,14 +310,14 @@ public sealed class ViewerChrome : IDisposable
         {
             var dialog = FileOverlays.Open(folder, null, false, true);
             Show(dialog.Overlay);
-            return dialog.Answer.Select(static paths => paths.Count > 0 ? paths[0] : null);
+            return dialog.Answer.Select(static paths => paths.Length > 0 ? paths[0] : null);
         });
     }
 
     /// <summary>Asks for the files to open in a dialog where several can be ticked. The dialog opens when the answer is subscribed to.</summary>
     /// <param name="folder">The folder to start in.</param>
     /// <returns>One value when the dialog closes: the paths chosen, or none when it was cancelled.</returns>
-    public IObservable<IReadOnlyList<string>> PickFiles(string folder)
+    public IObservable<string[]> PickFiles(string folder)
     {
         ArgumentNullException.ThrowIfNull(folder);
         return Signal.Defer(() =>
@@ -463,7 +464,7 @@ public sealed class ViewerChrome : IDisposable
         ArgumentNullException.ThrowIfNull(pass);
         ReleaseRetired();
         Layout();
-        ChromePainter.Draw(pass, _bars, _look, _hover);
+        ChromePainter.DrawKept(pass, _bars, _look, _hover);
         if (_overlay is not { } overlay)
         {
             DrawFocus(pass, _bars, false);
@@ -1018,7 +1019,7 @@ public sealed class ViewerChrome : IDisposable
             return false;
         }
 
-        ShowMenu(MainMenu.ForTab(_main, _main.Tabs[tabItem.Index]), new((int)tabItem.Bounds.X, (int)tabItem.Bounds.Bottom));
+        ShowMenu([..MainMenu.ForTab(_main, _main.Tabs[tabItem.Index])], new((int)tabItem.Bounds.X, (int)tabItem.Bounds.Bottom));
         return true;
     }
 

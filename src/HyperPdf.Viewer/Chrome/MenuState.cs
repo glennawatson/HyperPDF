@@ -14,4 +14,4 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="Chosen">The entry that was chosen, or <see langword="null"/> while none was.</param>
 /// <param name="Done">Whether the menu was closed, by a choice, by going back from the top menu, or by being sent away.</param>
 [DebuggerDisplay("MenuState: {Shown.Count} entries, cursor {Cursor}, done {Done}")]
-internal sealed record MenuState(IReadOnlyList<MenuEntry> Shown, IReadOnlyList<MenuEntry>[] Parents, int Cursor, MenuEntry? Chosen, bool Done);
+internal sealed record MenuState(MenuEntry[] Shown, MenuEntry[][] Parents, int Cursor, MenuEntry? Chosen, bool Done);

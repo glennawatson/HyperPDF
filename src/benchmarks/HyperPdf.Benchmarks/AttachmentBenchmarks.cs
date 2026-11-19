@@ -41,7 +41,7 @@ public class AttachmentBenchmarks
     /// <summary>Lists the embedded files.</summary>
     /// <returns>The count.</returns>
     [Benchmark]
-    public int ListAttachments() => _source.GetAttachments().Count;
+    public int ListAttachments() => _source.GetAttachments().Length;
 
     /// <summary>Copies the embedded file into a stream.</summary>
     /// <returns>Whether it was copied.</returns>

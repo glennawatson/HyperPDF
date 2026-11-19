@@ -16,7 +16,7 @@ public static class BundledScreenFonts
     private static readonly string[] FamilyNames = ["Arimo", "Tinos", "Cousine"];
 
     /// <summary>Gets the family names of the fonts, in the order sans, serif, fixed width.</summary>
-    public static IReadOnlyList<string> Families => FamilyNames;
+    public static string[] Families => FamilyNames;
 
     /// <summary>Reads the font file of a family.</summary>
     /// <param name="family">The family, one of <see cref="Families"/> (not case sensitive).</param>

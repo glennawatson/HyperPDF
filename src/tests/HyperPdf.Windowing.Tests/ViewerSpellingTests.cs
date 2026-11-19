@@ -80,14 +80,14 @@ public sealed class ViewerSpellingTests
             PageSettling.Wait(session);
             var tab = session.Main.SelectedTab!;
             _ = tab.Forms.Activate(FindTextField(tab.Forms)!);
-            _ = PumpUntil(session, () => chrome.OverlayItems.Any(static item => item.Kind == ChromeItemKind.Field));
+            _ = PumpUntil(session, () => chrome.OverlayItems.Exists(static item => item.Kind == ChromeItemKind.Field));
             foreach (var character in Slip)
             {
                 window.Send(new(WindowEventKind.TextInput, 0, 0, character, 0));
             }
 
             offered = PumpUntil(session, () => Corrections(chrome).Any());
-            underlined = chrome.OverlayItems.Any(static item => item.Kind == ChromeItemKind.Underline);
+            underlined = chrome.OverlayItems.Exists(static item => item.Kind == ChromeItemKind.Underline);
             detail = $"editing {tab.Forms.Editing?.Name}, focused {tab.Forms.Focused?.Name}, loaded {tab.IsLoaded}, overlay {chrome.HasOverlay}, "
                 + $"checks {tab.Forms.ChecksSpelling}, text \"{tab.Forms.EditText}\", items {string.Join(",", chrome.OverlayItems.Select(static item => item.Kind))}";
             var row = Corrections(chrome).FirstOrDefault();

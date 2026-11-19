@@ -72,7 +72,7 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
     }
 
     /// <summary>Gets the choices of what to flatten.</summary>
-    public IReadOnlyList<FlattenScopeChoice> Scopes { get; } =
+    public FlattenScopeChoice[] Scopes { get; } =
     [
 
         new(
@@ -91,7 +91,7 @@ public sealed partial class FlattenCopyViewModel : ReactiveObject, ICopyWindowRe
     ];
 
     /// <summary>Gets the choices of which look to keep.</summary>
-    public IReadOnlyList<FlattenLookChoice> Looks { get; } =
+    public FlattenLookChoice[] Looks { get; } =
     [
 
         new(FlattenCopyLook.Screen, "As it looks on screen", "Keeps what you see on screen. Items marked not to show on screen are left out."),

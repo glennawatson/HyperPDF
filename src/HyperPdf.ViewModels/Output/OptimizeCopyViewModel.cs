@@ -92,7 +92,7 @@ public sealed partial class OptimizeCopyViewModel : ReactiveObject, ICopyWindowR
     }
 
     /// <summary>Gets the size choices.</summary>
-    public IReadOnlyList<OptimizePresetChoice> Presets { get; } =
+    public OptimizePresetChoice[] Presets { get; } =
     [
 
         new(

@@ -26,7 +26,7 @@ public sealed class WindowsRecentDocumentStore : IRecentDocumentStore
 
     /// <inheritdoc/>
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<RecentDocument> GetRecent(int maxCount) => _store.GetRecent(maxCount);
+    public List<RecentDocument> GetRecent(int maxCount) => _store.GetRecent(maxCount);
 
     /// <inheritdoc/>
     public void Add(string filePath)

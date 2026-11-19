@@ -10,4 +10,4 @@ namespace HyperPdf.Core.Documents;
 /// <param name="Title">The article's title, or a plain label such as "Article 2" when it has none.</param>
 /// <param name="Beads">The places the article is read, in reading order.</param>
 [DebuggerDisplay("ArticleThread: {Title} {Beads.Count} beads")]
-public sealed record ArticleThread(string Title, IReadOnlyList<ArticleBead> Beads);
+public sealed record ArticleThread(string Title, ArticleBead[] Beads);

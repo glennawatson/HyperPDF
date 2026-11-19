@@ -103,7 +103,7 @@ internal sealed class FakeOcr : IOcrEngine
     /// <param name="directory">The pack folder.</param>
     /// <param name="progress">The progress.</param>
     /// <returns>A cold signal that writes the placeholders when subscribed.</returns>
-    internal IObservable<RxVoid> Download(IReadOnlyList<OcrLanguagePack> packs, string directory, IProgress<double> progress) =>
+    internal IObservable<RxVoid> Download(OcrLanguagePack[] packs, string directory, IProgress<double> progress) =>
         Signal.Defer(() =>
         {
             Downloads++;

@@ -50,7 +50,7 @@ public static class SheetGrid
     private const int Three = 3;
 
     /// <summary>Gets the choices offered for pages per sheet.</summary>
-    public static IReadOnlyList<int> Choices { get; } = [1, Two, Four, Six, Nine, Sixteen];
+    public static int[] Choices { get; } = [1, Two, Four, Six, Nine, Sixteen];
 
     /// <summary>Gets the grid for a number of pages per sheet; two and six pages turn the sheet sideways.</summary>
     /// <param name="pagesPerSheet">The pages per sheet.</param>

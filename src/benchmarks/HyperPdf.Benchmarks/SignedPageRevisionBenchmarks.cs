@@ -62,15 +62,15 @@ public class SignedPageRevisionBenchmarks
     /// <summary>Reads cached current and historical signature details.</summary>
     /// <returns>The retained signatures and their signed authority.</returns>
     [Benchmark]
-    public IReadOnlyList<PdfSignatureDetails> ReadCachedSignatureDetails() => PdfDocumentSignatureValidation.GetSignatureDetails(_document);
+    public PdfSignatureDetails[] ReadCachedSignatureDetails() => [..PdfDocumentSignatureValidation.GetSignatureDetails(_document)];
 
     /// <summary>Discovers current and historical signatures after invalidating only the signature-detail cache.</summary>
     /// <returns>The newly retained signatures and their signed authority.</returns>
     [Benchmark]
-    public IReadOnlyList<PdfSignatureDetails> ReadUncachedSignatureDetails()
+    public PdfSignatureDetails[] ReadUncachedSignatureDetails()
     {
         Volatile.Write(ref _document.State.SignatureDetails, null);
-        return PdfDocumentSignatureValidation.GetSignatureDetails(_document);
+        return [..PdfDocumentSignatureValidation.GetSignatureDetails(_document)];
     }
 
     /// <summary>Disposes both revision stores.</summary>

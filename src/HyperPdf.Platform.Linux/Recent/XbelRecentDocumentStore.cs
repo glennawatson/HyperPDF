@@ -96,7 +96,7 @@ public sealed class XbelRecentDocumentStore : IRecentDocumentStore
     public string FilePath { get; }
 
     /// <inheritdoc/>
-    public IReadOnlyList<RecentDocument> GetRecent(int maxCount)
+    public List<RecentDocument> GetRecent(int maxCount)
     {
         var root = Load()?.Root;
         if (root is null)

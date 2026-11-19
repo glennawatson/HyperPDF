@@ -27,7 +27,7 @@ public sealed record MenuEntry(
     bool IsEnabled,
     uint? Swatch,
     bool IsChecked,
-    IReadOnlyList<MenuEntry> Children)
+    MenuEntry[] Children)
 {
     /// <summary>Creates a line between groups of items.</summary>
     /// <returns>The entry.</returns>
@@ -54,7 +54,7 @@ public sealed record MenuEntry(
     /// <param name="isEnabled">Whether it can be opened.</param>
     /// <param name="children">The entries of the menu.</param>
     /// <returns>The entry.</returns>
-    public static MenuEntry Submenu(string header, bool isEnabled, IReadOnlyList<MenuEntry> children) =>
+    public static MenuEntry Submenu(string header, bool isEnabled, MenuEntry[] children) =>
         new(MenuEntryKind.Submenu, header, null, null, null, isEnabled, null, false, children);
 
     /// <summary>Creates an item in a group of which one is ticked.</summary>

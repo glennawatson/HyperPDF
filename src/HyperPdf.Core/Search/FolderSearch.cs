@@ -91,14 +91,14 @@ public static class FolderSearch
                 {
                     if (found.Count == maxMatches)
                     {
-                        return new(path, found, null, true);
+                        return new(path, [..found], null, true);
                     }
 
                     found.Add(Snippet(document, hit));
                 }
             }
 
-            return new(path, found, null, false);
+            return new(path, [..found], null, false);
         }
     }
 
@@ -138,7 +138,7 @@ public static class FolderSearch
                 .TakeWhile(_ => !more.Truncated)
                 .Do(page => Collect(document, page, found, more, maxMatches))
                 .Count()
-                .Select(_ => new FolderSearchFile(path, found, null, more.Truncated));
+                .Select(_ => new FolderSearchFile(path, [..found], null, more.Truncated));
         });
 
     /// <summary>Keeps the matches of a page, up to the most kept for the file.</summary>

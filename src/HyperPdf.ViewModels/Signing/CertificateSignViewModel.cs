@@ -67,7 +67,7 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
 
     /// <summary>Initializes a new instance of the <see cref="CertificateSignViewModel"/> class.</summary>
     /// <param name="remembered">The certificates the user chose to remember, most recently used first.</param>
-    public CertificateSignViewModel(IReadOnlyList<RememberedCertificate> remembered)
+    public CertificateSignViewModel(RememberedCertificate[] remembered)
         : this(remembered, 0, null, string.Empty)
     {
     }
@@ -77,7 +77,7 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     /// <param name="pageIndex">The page a new signature field goes on.</param>
     /// <param name="previewer">Works out what signing would do for a request, or <see langword="null"/> for no preview.</param>
     /// <param name="timestampServer">The address of the timestamp server from Preferences; empty for none.</param>
-    public CertificateSignViewModel(IReadOnlyList<RememberedCertificate> remembered, int pageIndex, Func<SigningRequest, SigningPreview?>? previewer, string timestampServer)
+    public CertificateSignViewModel(RememberedCertificate[] remembered, int pageIndex, Func<SigningRequest, SigningPreview?>? previewer, string timestampServer)
     {
         ArgumentNullException.ThrowIfNull(remembered);
         _pageIndex = pageIndex;

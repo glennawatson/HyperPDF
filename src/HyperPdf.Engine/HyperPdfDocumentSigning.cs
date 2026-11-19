@@ -54,7 +54,7 @@ internal static class HyperPdfDocumentSigning
         }
         catch (PdfSigningRefusedException ex)
         {
-            throw new SigningRefusedException(ex.Reasons);
+            throw new SigningRefusedException([..ex.Reasons]);
         }
         catch (PdfException ex)
         {
@@ -89,7 +89,7 @@ internal static class HyperPdfDocumentSigning
         }
         catch (PdfSigningRefusedException ex)
         {
-            throw new SigningRefusedException(ex.Reasons);
+            throw new SigningRefusedException([..ex.Reasons]);
         }
         catch (PdfException ex)
         {
@@ -124,7 +124,7 @@ internal static class HyperPdfDocumentSigning
         }
         catch (PdfSigningRefusedException ex)
         {
-            throw new SigningRefusedException(ex.Reasons);
+            throw new SigningRefusedException([..ex.Reasons]);
         }
         catch (PdfException ex)
         {
@@ -226,7 +226,7 @@ internal static class HyperPdfDocumentSigning
     /// <summary>Maps the library's result to the app's.</summary>
     /// <param name="result">The result.</param>
     /// <returns>The file and its notes.</returns>
-    private static SigningOutcome Outcome(PdfSigningResult result) => new(result.Bytes, result.Notes);
+    private static SigningOutcome Outcome(PdfSigningResult result) => new(result.Bytes, [..result.Notes]);
 
     /// <summary>Checks that a pending signature is one the engine prepared, and takes its one completion.</summary>
     /// <param name="pending">The pending signature.</param>

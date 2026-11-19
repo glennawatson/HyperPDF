@@ -238,7 +238,7 @@ public sealed class ExternalSignViewModelTests
         using (Assert.Multiple())
         {
             await Assert.That(loaded.Subject).IsEqualTo("Chain Leaf");
-            await Assert.That(loaded.Identity.Certificates.Count).IsEqualTo(ChainLength);
+            await Assert.That(loaded.Identity.Certificates.Length).IsEqualTo(ChainLength);
             await Assert.That(loaded.Identity.Certificates[0]).IsEquivalentTo(leaf.RawData);
             await Assert.That(loaded.Identity.Certificates[1]).IsEquivalentTo(root.RawData);
             await Assert.That(loaded.Identity.KeyKind).IsEqualTo(SigningKeyKind.Ecdsa);

@@ -57,7 +57,7 @@ public sealed class FontCatalog
             list.Add(face);
         }
 
-        Faces = all;
+        Faces = [..all];
         var installed = _byFamily.Keys.Order(StringComparer.OrdinalIgnoreCase);
         Families = [.. StandardFontFamilies.All, .. installed];
         foreach (var family in _byFamily.Keys)
@@ -76,23 +76,23 @@ public sealed class FontCatalog
     public static FontCatalog Empty { get; } = new([]);
 
     /// <summary>Gets the families offered: the built in three, then installed families in name order.</summary>
-    public IReadOnlyList<string> Families { get; }
+    public string[] Families { get; }
 
     /// <summary>
     /// Gets the installed families none of whose faces can be embedded, because their licence forbids it or their
     /// outlines are variable or bitmap only. Text in them can be shown on screen, and is saved in the closest built in family.
     /// </summary>
-    public IReadOnlyList<string> PreviewOnlyFamilies { get; }
+    public string[] PreviewOnlyFamilies { get; }
 
     /// <summary>Gets the built in families, then every installed family, preview only ones included, in name order.</summary>
-    public IReadOnlyList<string> AllFamilies { get; }
+    public string[] AllFamilies { get; }
 
     /// <summary>Gets every embeddable installed face.</summary>
-    public IReadOnlyList<FontFace> Faces { get; }
+    public FontFace[] Faces { get; }
 
     /// <summary>Gets the folders fonts are installed in on this operating system, for every user and for this user.</summary>
     /// <returns>The folders that exist.</returns>
-    public static IReadOnlyList<string> SystemDirectories()
+    public static List<string> SystemDirectories()
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         string[] candidates;

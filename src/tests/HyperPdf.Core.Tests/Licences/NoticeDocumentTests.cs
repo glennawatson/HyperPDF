@@ -65,9 +65,9 @@ public sealed class NoticeDocumentTests
     {
         var document = NoticeDocument.Parse(Sample);
 
-        await Assert.That(document.Groups.Count).IsEqualTo(GroupCount);
+        await Assert.That(document.Groups.Length).IsEqualTo(GroupCount);
         await Assert.That(document.Groups[0].Licence).IsEqualTo(Mit);
-        await Assert.That(document.Groups[0].Entries.Count).IsEqualTo(MitEntries);
+        await Assert.That(document.Groups[0].Entries.Length).IsEqualTo(MitEntries);
         var own = document.Groups[0].Entries[0];
         await Assert.That(own.Name).IsEqualTo("HyperPDF");
         await Assert.That(own.Copyright).IsEqualTo("Copyright (c) 2026 Glenn Watson");
@@ -82,7 +82,7 @@ public sealed class NoticeDocumentTests
     /// <summary>Text with no components reads as an empty document.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task EmptyTextHasNoGroups() => await Assert.That(NoticeDocument.Parse("# Title\n\nOnly an intro.").Groups.Count).IsEqualTo(0);
+    public async Task EmptyTextHasNoGroups() => await Assert.That(NoticeDocument.Parse("# Title\n\nOnly an intro.").Groups.Length).IsEqualTo(0);
 
     /// <summary>Supported line endings are normalized when licence text is first read.</summary>
     /// <param name="lineEnding">The line ending used by the input file.</param>

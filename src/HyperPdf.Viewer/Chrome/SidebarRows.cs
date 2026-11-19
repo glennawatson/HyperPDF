@@ -51,12 +51,28 @@ internal static class SidebarRows
         [SidebarMode.Tags] = "This document has no accessibility tags.",
     };
 
+    /// <summary>
+    /// Each tab of the side panel as the value its button passes to the command, in the order of the tab's number. A command takes
+    /// its value as an object, so the values are made once here and not each time the panel is laid out.
+    /// </summary>
+    private static readonly object[] Values =
+    [
+        SidebarMode.Thumbnails, SidebarMode.Outline, SidebarMode.Search, SidebarMode.Annotations, SidebarMode.Attachments, SidebarMode.Layers, SidebarMode.Tags,
+        SidebarMode.Parts, SidebarMode.Media,
+    ];
+
     /// <summary>Gets the tabs of the side panel, in the order they are shown.</summary>
     internal static ReadOnlySpan<SidebarMode> Modes =>
     [
         SidebarMode.Thumbnails, SidebarMode.Outline, SidebarMode.Search, SidebarMode.Annotations, SidebarMode.Attachments, SidebarMode.Layers, SidebarMode.Parts,
         SidebarMode.Media, SidebarMode.Tags,
     ];
+
+    /// <summary>Gets a tab of the side panel as the value its button passes to the command.</summary>
+    /// <param name="mode">The tab.</param>
+    /// <returns>The value.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static object ValueOf(SidebarMode mode) => (uint)mode < (uint)Values.Length ? Values[(int)mode] : mode;
 
     /// <summary>Gets the name of a tab of the side panel.</summary>
     /// <param name="mode">The tab.</param>
@@ -70,24 +86,70 @@ internal static class SidebarRows
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string EmptyText(SidebarMode mode) => UiText.Get(EmptyTexts.GetValueOrDefault(mode, string.Empty));
 
+    /// <summary>Gets the list of pages the side panel shows, when it is on its pages.</summary>
+    /// <param name="tab">The document tab.</param>
+    /// <returns>The list of pages, or <see langword="null"/> when the panel lists something else.</returns>
+    internal static ThumbnailItemViewModel[]? PagesOf(DocumentTabViewModel tab) => tab.SidebarMode == SidebarMode.Thumbnails ? tab.Thumbnails : null;
+
     /// <summary>Lists the rows of the tab the side panel is on.</summary>
+    /// <param name="tab">The document tab.</param>
+    /// <param name="view">What the panel listed before.</param>
+    /// <returns>The rows.</returns>
+    internal static SidebarRow[] List(DocumentTabViewModel tab, SidebarView view)
+    {
+        if (PagesOf(tab) is { } pages)
+        {
+            // A long document has a row for every page, so the rows made for the same pages are used again and not made on every page turn.
+            if (ReferenceEquals(pages, view.ListedPages))
+            {
+                return view.Rows;
+            }
+
+            // Nor are they made again each time the reader comes back to the tab.
+            if (view.PageRows is not { } kept)
+            {
+                return ListPages(pages);
+            }
+
+            if (!kept.TryGetValue(pages, out var made) || made.Length != pages.Length)
+            {
+                made = ListPages(pages);
+                kept.AddOrUpdate(pages, made);
+            }
+
+            return made;
+        }
+
+        var rows = new List<SidebarRow>();
+        Fill(rows, tab);
+        return [.. rows];
+    }
+
+    /// <summary>
+    /// Lists a row for each page. A row does not say whether its page is the one being read, which is told from the tab when the row
+    /// is laid out, so the rows stay right as the reader moves and are only made again when the pages themselves change.
+    /// </summary>
+    /// <param name="pages">The pages.</param>
+    /// <returns>The rows.</returns>
+    private static SidebarRow[] ListPages(ReadOnlySpan<ThumbnailItemViewModel> pages)
+    {
+        var rows = new SidebarRow[pages.Length];
+        for (var i = 0; i < rows.Length; i++)
+        {
+            var page = pages[i];
+            rows[i] = new(page.Caption, page, false, true, page.PageIndex);
+        }
+
+        return rows;
+    }
+
+    /// <summary>Lists the rows of every tab but the pages.</summary>
     /// <param name="rows">Receives the rows.</param>
     /// <param name="tab">The document tab.</param>
-    internal static void Fill(List<SidebarRow> rows, DocumentTabViewModel tab)
+    private static void Fill(List<SidebarRow> rows, DocumentTabViewModel tab)
     {
-        rows.Clear();
         switch (tab.SidebarMode)
         {
-            case SidebarMode.Thumbnails:
-                {
-                    foreach (var page in tab.Thumbnails)
-                    {
-                        rows.Add(new(page.Caption, page, page.PageIndex == tab.CurrentPageIndex, true, page.PageIndex));
-                    }
-
-                    break;
-                }
-
             case SidebarMode.Outline:
                 {
                     AddBookmarks(rows, tab, tab.Outline, string.Empty);
@@ -142,7 +204,7 @@ internal static class SidebarRows
 
             case SidebarMode.Parts:
                 {
-                    AddParts(rows, tab, tab.Parts.Parts, string.Empty);
+                    AddParts(rows, tab, [..tab.Parts.Parts], string.Empty);
                     foreach (var thread in tab.Parts.Threads)
                     {
                         rows.Add(new(thread.SpokenName, thread, ReferenceEquals(thread, tab.Parts.SelectedThread), true, -1));
@@ -173,7 +235,7 @@ internal static class SidebarRows
 
             default:
                 {
-                    AddLayers(rows, tab.Layers.Items, string.Empty);
+                    AddLayers(rows, [..tab.Layers.Items], string.Empty);
                     break;
                 }
         }
@@ -184,7 +246,7 @@ internal static class SidebarRows
     /// <param name="tab">The document tab.</param>
     /// <param name="parts">The parts of one level.</param>
     /// <param name="indent">The space that sets the level in.</param>
-    private static void AddParts(List<SidebarRow> rows, DocumentTabViewModel tab, IReadOnlyList<PartItemViewModel> parts, string indent)
+    private static void AddParts(List<SidebarRow> rows, DocumentTabViewModel tab, ReadOnlySpan<PartItemViewModel> parts, string indent)
     {
         foreach (var part in parts)
         {
@@ -198,12 +260,12 @@ internal static class SidebarRows
     /// <param name="tab">The document tab.</param>
     /// <param name="bookmarks">The bookmarks of one level.</param>
     /// <param name="indent">The space that sets the level in.</param>
-    private static void AddBookmarks(List<SidebarRow> rows, DocumentTabViewModel tab, IReadOnlyList<OutlineItemViewModel> bookmarks, string indent)
+    private static void AddBookmarks(List<SidebarRow> rows, DocumentTabViewModel tab, ReadOnlySpan<OutlineItemViewModel> bookmarks, string indent)
     {
         foreach (var bookmark in bookmarks)
         {
             var mark = NoMark;
-            if (bookmark.Children.Count > 0)
+            if (bookmark.Children.Length > 0)
             {
                 mark = bookmark.IsExpanded ? OpenMark : ClosedMark;
             }
@@ -220,7 +282,7 @@ internal static class SidebarRows
     /// <param name="rows">Receives the rows.</param>
     /// <param name="layers">The layers of one level.</param>
     /// <param name="indent">The space that sets the level in.</param>
-    private static void AddLayers(List<SidebarRow> rows, IReadOnlyList<LayerItemViewModel> layers, string indent)
+    private static void AddLayers(List<SidebarRow> rows, ReadOnlySpan<LayerItemViewModel> layers, string indent)
     {
         foreach (var layer in layers)
         {

@@ -12,4 +12,4 @@ namespace HyperPdf.Core.Creation;
 /// <param name="ClaimsPdfUa">Whether the metadata claims PDF/UA.</param>
 /// <param name="Notes">Plain-language notes for the user, such as why the PDF/UA claim was left out.</param>
 [DebuggerDisplay("DocumentCreationResult: {PageCount} pages, tagged {IsTagged}, PDF/UA {ClaimsPdfUa}")]
-public sealed record DocumentCreationResult(int PageCount, bool IsTagged, bool ClaimsPdfUa, IReadOnlyList<string> Notes);
+public sealed record DocumentCreationResult(int PageCount, bool IsTagged, bool ClaimsPdfUa, string[] Notes);

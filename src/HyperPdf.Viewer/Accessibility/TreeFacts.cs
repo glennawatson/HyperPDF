@@ -77,7 +77,7 @@ internal readonly record struct TreeFacts(
             tab.PageCount,
             tab.WindowName,
             tab.GetReadingDocument(),
-            tab.Annotations.Selected,
+            tab.PickedAnnotation,
             canvas.Offset,
             canvas.State.PageScale,
             window.ClientSize,

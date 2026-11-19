@@ -40,7 +40,7 @@ public interface IPlatformWindow : IDisposable
     /// Gets the files the user dropped on the window, one list for each drop, published on the thread that calls <see cref="PumpEvents"/>.
     /// A window whose system does not tell it about drops publishes none.
     /// </summary>
-    IObservable<IReadOnlyList<string>> FileDrops => Signal.Never<IReadOnlyList<string>>();
+    IObservable<string[]> FileDrops => Signal.Never<string[]>();
 
     /// <summary>Gets a value indicating whether the window is maximised: made as big as the screen allows while keeping its frame.</summary>
     bool IsMaximized => false;

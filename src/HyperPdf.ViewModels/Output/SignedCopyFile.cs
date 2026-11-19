@@ -39,9 +39,9 @@ internal static class SignedCopyFile
     internal static string[] Lines(SigningOutcome outcome, string path)
     {
         ArgumentNullException.ThrowIfNull(outcome);
-        var lines = new string[outcome.Notes.Count + 1];
+        var lines = new string[outcome.Notes.Length + 1];
         lines[0] = UiText.Format("Saved as {0}.", Path.GetFileName(path));
-        for (var i = 0; i < outcome.Notes.Count; i++)
+        for (var i = 0; i < outcome.Notes.Length; i++)
         {
             lines[i + 1] = $"• {outcome.Notes[i]}";
         }
@@ -55,7 +55,7 @@ internal static class SignedCopyFile
     internal static string NotesSuffix(SigningOutcome outcome)
     {
         ArgumentNullException.ThrowIfNull(outcome);
-        return outcome.Notes.Count == 0 ? string.Empty : $" {string.Join(' ', outcome.Notes)}";
+        return outcome.Notes.Length == 0 ? string.Empty : $" {string.Join(' ', outcome.Notes)}";
     }
 
     /// <summary>Writes the signed bytes; the write runs on the pool.</summary>

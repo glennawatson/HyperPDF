@@ -136,7 +136,7 @@ public sealed class ViewerSignaturePadTests
     /// <summary>Finds the drawing pad of the open window: the picture beside its rows.</summary>
     /// <param name="chrome">The window's controls.</param>
     /// <returns>The pad, or <see langword="null"/> when none is shown.</returns>
-    private static ChromeItem? Pad(ViewerChrome chrome) => chrome.OverlayItems.FirstOrDefault(static item => item.Kind == ChromeItemKind.Pad);
+    private static ChromeItem? Pad(ViewerChrome chrome) => chrome.OverlayItems.Find(static item => item.Kind == ChromeItemKind.Pad);
 
     /// <summary>Pumps the session until a condition holds or the time runs out.</summary>
     /// <param name="session">The session.</param>

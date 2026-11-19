@@ -14,7 +14,7 @@ namespace HyperPdf.ViewModels.Markup;
 /// <param name="PageLabel">The page label shown, for example "iv" or "12".</param>
 /// <param name="Replies">The replies to it and its review status changes, oldest first.</param>
 [DebuggerDisplay("AnnotationItemViewModel: {Summary}")]
-public sealed record AnnotationItemViewModel(PageAnnotation Annotation, string PageLabel, IReadOnlyList<AnnotationReply> Replies) : ILocalisationChildren
+public sealed record AnnotationItemViewModel(PageAnnotation Annotation, string PageLabel, AnnotationReply[] Replies) : ILocalisationChildren
 {
     /// <summary>The cached words used by the text filter, which are made again after the language changes.</summary>
     private string? _searchText;
@@ -30,7 +30,7 @@ public sealed record AnnotationItemViewModel(PageAnnotation Annotation, string P
     {
         get
         {
-            for (var i = Replies.Count - 1; i >= 0; i--)
+            for (var i = Replies.Length - 1; i >= 0; i--)
             {
                 if (Replies[i].State != ReviewState.None)
                 {

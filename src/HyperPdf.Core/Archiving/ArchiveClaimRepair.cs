@@ -13,4 +13,4 @@ namespace HyperPdf.Core.Archiving;
 /// <param name="Level">The level the file claims and still meets.</param>
 /// <param name="Repairs">What was fixed, in plain words.</param>
 [DebuggerDisplay("ArchiveClaimRepair: {Level}, {Repairs.Count} fixes")]
-public sealed record ArchiveClaimRepair(ArchiveLevel Level, IReadOnlyList<string> Repairs);
+public sealed record ArchiveClaimRepair(ArchiveLevel Level, string[] Repairs);

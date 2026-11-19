@@ -22,6 +22,9 @@ namespace HyperPdf.ViewModels.Rendering;
 [DebuggerDisplay("RenderHub: {Cache}")]
 public sealed partial class RenderHub : ReactiveObject, IDisposable
 {
+    /// <summary>The fewest milliseconds between two readings of the system memory load, which changes slowly.</summary>
+    private const long LoadReadInterval = 500;
+
     /// <summary>
     /// Passes a software recovery request from a render thread, which asks for one when the GPU is lost, to the signal
     /// the constructor's chain moves onto the UI thread. It is a signal because the requests come from any thread; the
@@ -43,6 +46,12 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
 
     /// <summary>One while a software recovery callback is queued.</summary>
     private int _recoveryQueued;
+
+    /// <summary>The time the system memory load was last read, in milliseconds since the machine started.</summary>
+    private long _loadReadAt;
+
+    /// <summary>One when the last reading found the system memory load high.</summary>
+    private int _systemHigh;
 
     /// <summary>Initializes a new instance of the <see cref="RenderHub"/> class.</summary>
     /// <param name="cacheBytes">The tile cache budget in bytes.</param>
@@ -154,7 +163,24 @@ public sealed partial class RenderHub : ReactiveObject, IDisposable
     /// single 64-bit read, which is safe to make from the preparation thread; a stale value only moves the decision by a tile.
     /// </summary>
     /// <returns><see langword="true"/> when neighbouring pages should not be prepared.</returns>
-    private bool UnderPressure() => MemoryPressure.IsSystemHigh() || MemoryPressure.IsCacheFull(Cache);
+    private bool UnderPressure() => IsSystemHigh() || MemoryPressure.IsCacheFull(Cache);
+
+    /// <summary>
+    /// Tells whether the system memory load is high. Reading it makes an object each time, so it is read at most twice a second and
+    /// the answer is kept between readings; the load does not change faster than that matters to a page that is only a neighbour.
+    /// </summary>
+    /// <returns><see langword="true"/> when the last reading found the load high.</returns>
+    private bool IsSystemHigh()
+    {
+        var now = Environment.TickCount64;
+        if (now - Volatile.Read(ref _loadReadAt) >= LoadReadInterval)
+        {
+            Volatile.Write(ref _systemHigh, MemoryPressure.IsSystemHigh() ? 1 : 0);
+            Volatile.Write(ref _loadReadAt, now);
+        }
+
+        return Volatile.Read(ref _systemHigh) != 0;
+    }
 
     /// <summary>Marks the hub closed, so work that finishes while the rest is released finds it closed.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -20,7 +20,7 @@ public sealed class ParallelLayer : NetworkLayer
         : base(name, layers.Length > 0 ? layers[0].Inputs : 0, SumOutputs(layers)) => _layers = layers;
 
     /// <summary>Gets the layers.</summary>
-    public IReadOnlyList<NetworkLayer> Layers => _layers;
+    public NetworkLayer[] Layers => _layers;
 
     /// <inheritdoc/>
     public override int XScale => _layers.Length > 0 ? _layers[0].XScale : 1;

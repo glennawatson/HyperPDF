@@ -34,12 +34,11 @@ internal static class HyperPdfDocumentPageFileExport
     /// <returns>A cold signal giving what the export did; unsubscribing cancels it. A bad request fails the signal with the argument exception.</returns>
     internal static IObservable<PageFileExportResult> Export(
         HyperPdfDocument self,
-        IReadOnlyList<int> pages,
+        int[] pages,
         PageFileFormat format,
         PageFileExportOptions options,
         Stream destination)
     {
-        ArgumentNullException.ThrowIfNull(pages);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(destination);
         return Signal.Defer(() =>
@@ -63,10 +62,10 @@ internal static class HyperPdfDocumentPageFileExport
     /// <param name="options">The options.</param>
     /// <exception cref="ArgumentException">There are no pages, or the format takes one page and more were given.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A page is not in the document, or the resolution is outside the allowed range.</exception>
-    private static void Validate(HyperPdfDocument self, IReadOnlyList<int> pages, PageFileFormat format, PageFileExportOptions options)
+    private static void Validate(HyperPdfDocument self, int[] pages, PageFileFormat format, PageFileExportOptions options)
     {
         var info = PageFileFormats.Get(format);
-        if (pages.Count == 0 || (pages.Count > 1 && !info.AllowsSeveralPages))
+        if (pages.Length == 0 || (pages.Length > 1 && !info.AllowsSeveralPages))
         {
             throw new ArgumentException($"{info.Name} files hold one page; give one page.", nameof(pages));
         }
@@ -189,7 +188,7 @@ internal static class HyperPdfDocumentPageFileExport
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static IObservable<PageFileExportResult> WritePostScript(
         HyperPdfDocument self,
-        IReadOnlyList<int> pages,
+        int[] pages,
         RenderFlags flags,
         PdfPostScriptOptions postScript,
         Stream destination) =>
@@ -211,7 +210,7 @@ internal static class HyperPdfDocumentPageFileExport
     /// <param name="self">The owning document.</param>
     /// <param name="pages">The zero based pages.</param>
     /// <returns>A cold signal per page.</returns>
-    private static IEnumerable<IObservable<RxVoid>> PreparePages(HyperPdfDocument self, IReadOnlyList<int> pages)
+    private static IEnumerable<IObservable<RxVoid>> PreparePages(HyperPdfDocument self, int[] pages)
     {
         foreach (var page in pages)
         {
@@ -226,7 +225,7 @@ internal static class HyperPdfDocumentPageFileExport
     /// <param name="postScript">Whether to write a document or one encapsulated page.</param>
     /// <param name="cancellationToken">Cancels the export.</param>
     /// <returns>The file and its report, or <see langword="null"/> when the document is closed.</returns>
-    private static PostScriptOutput? BuildPostScript(HyperPdfDocument self, IReadOnlyList<int> pages, RenderFlags flags, PdfPostScriptOptions postScript, CancellationToken cancellationToken)
+    private static PostScriptOutput? BuildPostScript(HyperPdfDocument self, int[] pages, RenderFlags flags, PdfPostScriptOptions postScript, CancellationToken cancellationToken)
     {
         using var access = HyperPdfNavigation.EnterPageRead(self);
         if (self.IsDisposed)

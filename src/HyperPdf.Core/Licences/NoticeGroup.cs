@@ -10,4 +10,4 @@ namespace HyperPdf.Core.Licences;
 /// <param name="Licence">The SPDX licence expression.</param>
 /// <param name="Entries">The components, in file order.</param>
 [DebuggerDisplay("NoticeGroup: {Licence}: {Entries.Count} components")]
-public sealed record NoticeGroup(string Licence, IReadOnlyList<NoticeEntry> Entries);
+public sealed record NoticeGroup(string Licence, NoticeEntry[] Entries);

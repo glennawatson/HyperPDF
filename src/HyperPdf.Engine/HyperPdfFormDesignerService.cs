@@ -27,7 +27,7 @@ internal sealed class HyperPdfFormDesignerService : IFormDesigner
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<IReadOnlyList<FormFieldInfo>> GetFields() => Signal.FromAsync(token => GetFieldsAsync(token).AsTask());
+    public IObservable<FormFieldInfo[]> GetFields() => Signal.FromAsync(token => GetFieldsAsync(token).AsTask());
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -56,7 +56,7 @@ internal sealed class HyperPdfFormDesignerService : IFormDesigner
     /// <summary>Runs GetFields against the library.</summary>
     /// <param name="cancellationToken">Cancels the work.</param>
     /// <returns>The library's task.</returns>
-    internal async ValueTask<IReadOnlyList<FormFieldInfo>> GetFieldsAsync(CancellationToken cancellationToken)
+    internal async ValueTask<FormFieldInfo[]> GetFieldsAsync(CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_owner.IsDisposed, _owner);
         await HyperPdfEditPrefetch.PagesAsync(_owner.Document, cancellationToken).ConfigureAwait(false);

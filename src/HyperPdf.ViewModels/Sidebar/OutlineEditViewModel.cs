@@ -130,13 +130,13 @@ public sealed partial class OutlineEditViewModel : ReactiveObject, IDisposable, 
     /// <param name="parentIndex">The parent's position among its siblings.</param>
     /// <param name="id">The entry's object number.</param>
     /// <returns>The place, or <see langword="null"/> when the entry is not in the tree.</returns>
-    internal static OutlinePlace? Locate(IReadOnlyList<OutlineItemViewModel> items, int parentId, int parentParentId, int parentIndex, int id)
+    internal static OutlinePlace? Locate(ReadOnlySpan<OutlineItemViewModel> items, int parentId, int parentParentId, int parentIndex, int id)
     {
-        for (var i = 0; i < items.Count; i++)
+        for (var i = 0; i < items.Length; i++)
         {
             if (items[i].Id == id)
             {
-                return new(parentId, parentParentId, parentIndex, i, items.Count, i > 0 ? items[i - 1].Id : 0);
+                return new(parentId, parentParentId, parentIndex, i, items.Length, i > 0 ? items[i - 1].Id : 0);
             }
 
             if (Locate(items[i].Children, items[i].Id, parentId, i, id) is { } found)

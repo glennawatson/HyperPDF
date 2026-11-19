@@ -106,14 +106,14 @@ internal static class ChromeBars
 
         AddTabs(items, main, look, size.Width, actions);
         var top = metrics.TabHeight + AddToolbar(items, main, look, size.Width, actions);
-        if (main.SelectedTab is { IsLoaded: true, Annotations.IsAnnotating: true } marking)
+        if (main.SelectedTab is { IsLoaded: true, AnnotationsInUse.IsAnnotating: true } marking)
         {
             top += ChromeMarkBar.Add(items, marking.Annotations, look, top, size.Width, actions);
         }
 
-        if (main.SelectedTab is { IsLoaded: true } listening && ChromeMediaBar.IsShown(listening.Media))
+        if (main.SelectedTab is { IsLoaded: true, MediaIfMade: { } media } && ChromeMediaBar.IsShown(media))
         {
-            top += ChromeMediaBar.Add(items, listening.Media, look, top, size.Width);
+            top += ChromeMediaBar.Add(items, media, look, top, size.Width);
         }
 
         if (main.SelectedTab is { IsLoaded: true } shown)
@@ -202,17 +202,19 @@ internal static class ChromeBars
     /// <param name="tab">The tab shown.</param>
     private static void AddEditing(ref HashCode hash, DocumentTabViewModel tab)
     {
-        var edit = tab.ContentEdit;
-        hash.Add(edit.IsEditing);
-        if (!edit.IsEditing)
+        var edit = tab.ContentEditIfMade;
+        hash.Add(edit is { IsEditing: true });
+        if (edit is not { IsEditing: true })
         {
             return;
         }
 
         hash.Add(edit.Selected is not null);
         hash.Add(edit.TextEdit is not null);
-        hash.Add(((ICommand)tab.Pages.UndoCommand).CanExecute(null));
-        hash.Add(((ICommand)tab.Pages.RedoCommand).CanExecute(null));
+
+        // A tab whose pages have not been managed has nothing to undo, and reading the page tools here would make them for every tab shown.
+        hash.Add(tab.PagesInUse is { } pages && ((ICommand)pages.UndoCommand).CanExecute(null));
+        hash.Add(tab.PagesInUse is { } managed && ((ICommand)managed.RedoCommand).CanExecute(null));
     }
 
     /// <summary>Adds what the marking bar and the notes, files and layers lists show to the stamp.</summary>
@@ -232,7 +234,12 @@ internal static class ChromeBars
             });
         }
 
-        var marks = tab.Annotations;
+        // A tab whose annotation tools have not been used shows none of their state.
+        if (tab.AnnotationsInUse is not { } marks)
+        {
+            return;
+        }
+
         hash.Add(marks.IsAnnotating);
         hash.Add((int)marks.Tool);
         hash.Add(marks.Color);
@@ -335,7 +342,7 @@ internal static class ChromeBars
         row = row.Button(ChromeIcon.Menu, UiText.Get("Menu"), actions.ShowMenu, true);
         row = row.Button(ChromeIcon.Open, UiText.Get("Open"), main.OpenCommand, true);
         row = row.Button(ChromeIcon.Save, UiText.Get("Save"), main.SelectedTab?.SaveCommand, main.SelectedTab is { HasUnsavedChanges: true });
-        row = row.Button(ChromeIcon.Print, UiText.Get("Print"), tab?.Printing.PrintCommand, tab is not null);
+        row = row.Button(ChromeIcon.Print, UiText.Get("Print"), tab?.PrintCommand, tab is not null);
         row = row.Divider();
         row = AddTools(row, tab, actions);
         row = row.Divider();
@@ -377,13 +384,13 @@ internal static class ChromeBars
     private static ChromeRow AddTools(ChromeRow row, DocumentTabViewModel? tab, ChromeActions actions)
     {
         var open = tab is not null;
-        row = row.Toggle(ChromeIcon.Highlight, UiText.Get("Annotate"), tab is { Annotations.CanAnnotate: true } ? actions.ToggleAnnotate : null, tab is { Annotations.IsAnnotating: true });
-        row = row.Toggle(ChromeIcon.FillSign, UiText.Get("Fill & Sign"), tab?.FillAndSign.ToggleCommand, tab is { FillAndSign.IsActive: true });
-        row = row.Toggle(ChromeIcon.Cursor, UiText.Get("Edit"), tab?.ContentEdit.ToggleEditingCommand, tab is { ContentEdit.IsEditing: true });
+        row = row.Toggle(ChromeIcon.Highlight, UiText.Get("Annotate"), tab is { CanAnnotate: true } ? actions.ToggleAnnotate : null, tab is { AnnotationsInUse.IsAnnotating: true });
+        row = row.Toggle(ChromeIcon.FillSign, UiText.Get("Fill & Sign"), tab?.ToggleFillAndSignCommand, tab is { FillAndSignIfMade.IsActive: true });
+        row = row.Toggle(ChromeIcon.Cursor, UiText.Get("Edit"), tab?.ToggleContentEditingCommand, tab is { ContentEditIfMade.IsEditing: true });
         row = row.Divider();
         row = row.Button(ChromeIcon.Search, UiText.Get("Find"), open ? actions.ShowFind : null, open);
-        row = row.Toggle(ChromeIcon.Focus, UiText.Get("Focus"), tab?.FocusMode.ToggleCommand, tab is { FocusMode.IsOn: true });
-        row = row.Toggle(ChromeIcon.Speaker, UiText.Get("Read Aloud"), tab?.ReadAloud.ToggleCommand, tab is { ReadAloud.IsOpen: true });
+        row = row.Toggle(ChromeIcon.Focus, UiText.Get("Focus"), tab?.ToggleFocusModeCommand, tab is { FocusModeIfMade.IsOn: true });
+        row = row.Toggle(ChromeIcon.Speaker, UiText.Get("Read Aloud"), tab?.ToggleReadAloudCommand, tab is { ReadAloudIfMade.IsOpen: true });
         return row.Toggle(ChromeIcon.Sidebar, UiText.Get("Side panel"), tab?.ToggleSidebarCommand, tab is { SidebarVisible: true });
     }
 

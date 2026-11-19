@@ -13,7 +13,7 @@ internal static class ProtectionChecks
     private const int SummaryExtraLines = 2;
 
     /// <summary>Gets the choices of encryption, strongest first.</summary>
-    internal static IReadOnlyList<ProtectionFormatChoice> Formats { get; } =
+    internal static ProtectionFormatChoice[] Formats { get; } =
     [
 
         new(
@@ -93,7 +93,7 @@ internal static class ProtectionChecks
             return [UiText.Format("No file was saved, so {0} did not happen. Here is why:", action), $"• {result.Refusal}"];
         }
 
-        var lines = new List<string>(result.Notes.Count + SummaryExtraLines) { UiText.Format("Saved as {0}. Your open file was not changed.", Path.GetFileName(path)) };
+        var lines = new List<string>(result.Notes.Length + SummaryExtraLines) { UiText.Format("Saved as {0}. Your open file was not changed.", Path.GetFileName(path)) };
         foreach (var note in result.Notes)
         {
             lines.Add($"• {note}");

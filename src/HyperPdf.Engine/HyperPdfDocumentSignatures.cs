@@ -18,7 +18,7 @@ internal static class HyperPdfDocumentSignatures
     /// <summary>Reads every digital signature.</summary>
     /// <param name="self">The owning document.</param>
     /// <returns>The signatures as stored.</returns>
-    internal static IReadOnlyList<RawSignature> GetSignatures(HyperPdfDocument self)
+    internal static RawSignature[] GetSignatures(HyperPdfDocument self)
     {
         if (self.IsDisposed)
         {

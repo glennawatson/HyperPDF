@@ -20,7 +20,7 @@ public static class PdfLayers
     /// <summary>Reads the layers and whether each is shown by default.</summary>
     /// <param name="file">The PDF.</param>
     /// <returns>The layers; empty when there are none or the structure cannot be read.</returns>
-    public static IReadOnlyList<DocumentLayer> Read(byte[] file)
+    public static List<DocumentLayer> Read(byte[] file)
     {
         ArgumentNullException.ThrowIfNull(file);
         try

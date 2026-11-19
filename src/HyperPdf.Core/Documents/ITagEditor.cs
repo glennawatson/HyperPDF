@@ -16,17 +16,17 @@ public interface ITagEditor : IDocumentFeature
 
     /// <summary>Gets the tags in reading order; empty when the document is not tagged.</summary>
     /// <returns>The tags.</returns>
-    IReadOnlyList<DocumentTag> GetTags();
+    List<DocumentTag> GetTags();
 
     /// <summary>Gets what a person should look at, such as a picture with no description.</summary>
     /// <param name="cancellationToken">Cancels the check.</param>
     /// <returns>The problems; empty when the check found none.</returns>
-    IReadOnlyList<DocumentTagProblem> GetProblems(CancellationToken cancellationToken);
+    List<DocumentTagProblem> GetProblems(CancellationToken cancellationToken);
 
     /// <summary>Gets the types a tag may take, which depend on the file's version.</summary>
     /// <param name="id">The tag.</param>
     /// <returns>The type names; empty when the tag is not in the document.</returns>
-    IReadOnlyList<string> GetTypeChoices(int id);
+    string[] GetTypeChoices(int id);
 
     /// <summary>Changes a tag's type.</summary>
     /// <param name="id">The tag.</param>
@@ -60,11 +60,11 @@ public interface ITagEditor : IDocumentFeature
 
     /// <summary>Gets the custom tag types the document maps to standard types.</summary>
     /// <returns>The mappings; empty when the document has none or is not tagged.</returns>
-    IReadOnlyList<DocumentRoleMapping> GetRoleMap();
+    DocumentRoleMapping[] GetRoleMap();
 
     /// <summary>Gets the standard tag types a custom type can be mapped to.</summary>
     /// <returns>The type names for the document's version.</returns>
-    IReadOnlyList<string> GetStandardTypes();
+    string[] GetStandardTypes();
 
     /// <summary>Maps a custom tag type to a standard type, replacing an earlier mapping for it.</summary>
     /// <param name="type">The custom type.</param>

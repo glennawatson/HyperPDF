@@ -18,8 +18,8 @@ public sealed class SystemFontTests
         var catalog = SystemCatalog();
 
         await Assert.That(FontCatalog.SystemDirectories().Count).IsGreaterThan(0);
-        await Assert.That(catalog.Faces.Count).IsGreaterThan(0);
-        await Assert.That(catalog.Families.Count).IsGreaterThan(StandardFontFamilies.All.Count);
+        await Assert.That(catalog.Faces.Length).IsGreaterThan(0);
+        await Assert.That(catalog.Families.Length).IsGreaterThan(StandardFontFamilies.All.Length);
         await Assert.That(catalog.Faces.Select(static face => face.Family).All(catalog.Contains)).IsTrue();
     }
 
@@ -29,7 +29,7 @@ public sealed class SystemFontTests
     private static FontCatalog SystemCatalog()
     {
         var catalog = FontCatalog.Scan(FontCatalog.SystemDirectories());
-        if (catalog.Faces.Count == 0 && !OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
+        if (catalog.Faces.Length == 0 && !OperatingSystem.IsWindows() && !OperatingSystem.IsMacOS())
         {
             throw new TUnit.Core.Exceptions.SkipTestException("No embeddable fonts are installed.");
         }

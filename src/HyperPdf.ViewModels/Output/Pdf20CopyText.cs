@@ -21,7 +21,7 @@ internal static class Pdf20CopyText
         ArgumentNullException.ThrowIfNull(result);
         if (!result.Converted)
         {
-            var problems = new List<string>(result.Problems.Count + 1) { UiText.Get("The copy could not be made as a PDF 2.0 file, so no file was saved. Here is why:") };
+            var problems = new List<string>(result.Problems.Length + 1) { UiText.Get("The copy could not be made as a PDF 2.0 file, so no file was saved. Here is why:") };
             foreach (var problem in result.Problems)
             {
                 problems.Add($"• {problem.Description}");
@@ -30,8 +30,8 @@ internal static class Pdf20CopyText
             return [.. problems];
         }
 
-        var lines = new List<string>(result.Changes.Count + HeadingLines) { UiText.Format("Saved as {0}. The copy is a PDF 2.0 file. Your open file was not changed.", Path.GetFileName(path)) };
-        if (result.Changes.Count == 0)
+        var lines = new List<string>(result.Changes.Length + HeadingLines) { UiText.Format("Saved as {0}. The copy is a PDF 2.0 file. Your open file was not changed.", Path.GetFileName(path)) };
+        if (result.Changes.Length == 0)
         {
             lines.Add(UiText.Get("Nothing needed to change."));
             return [.. lines];

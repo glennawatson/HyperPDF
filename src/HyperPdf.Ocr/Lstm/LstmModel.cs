@@ -96,7 +96,7 @@ public sealed class LstmModel
     private static InputShape FindShape(NetworkLayer network)
     {
         var layer = network;
-        while (layer is SeriesLayer series && series.Layers.Count > 0)
+        while (layer is SeriesLayer series && series.Layers.Length > 0)
         {
             layer = series.Layers[0];
         }

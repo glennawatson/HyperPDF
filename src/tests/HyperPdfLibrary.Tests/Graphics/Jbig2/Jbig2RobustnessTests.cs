@@ -84,7 +84,7 @@ public sealed class Jbig2RobustnessTests
             }
         }
 
-        await Assert.That(decodes).IsGreaterThan(Jbig2Samples.All.Count);
+        await Assert.That(decodes).IsGreaterThan(Jbig2Samples.All.Length);
     }
 
     /// <summary>Every small sample with a few bytes changed decodes without throwing.</summary>

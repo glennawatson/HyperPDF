@@ -27,11 +27,12 @@ internal sealed partial class TabFileWatch : ReactiveObject
     private long _savedAt;
 
     /// <summary>Initializes a new instance of the <see cref="TabFileWatch"/> class.</summary>
-    internal TabFileWatch() =>
+    /// <param name="watches">The watchers the open documents share, one for each folder.</param>
+    internal TabFileWatch(FolderWatches watches) =>
         Changes = this.WhenChanged(static watch => watch.WatchedPath)
             .KeepNotNull()
             .DistinctUntilChanged()
-            .SwitchMap(FileChanges.Watch);
+            .SwitchMap(watches.Watch);
 
     /// <summary>Gets the moments the watched file may have changed, on the watcher's thread; nothing is watched until <see cref="Start"/>.</summary>
     internal IObservable<RxVoid> Changes { get; }

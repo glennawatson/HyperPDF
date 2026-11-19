@@ -23,6 +23,6 @@ internal sealed class HyperPdfPageFileExporterService : IPageFileExporter
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<PageFileExportResult> Export(IReadOnlyList<int> pages, PageFileFormat format, PageFileExportOptions options, Stream destination) =>
+    public IObservable<PageFileExportResult> Export(int[] pages, PageFileFormat format, PageFileExportOptions options, Stream destination) =>
         HyperPdfDocumentPageFileExport.Export(_owner, pages, format, options, destination);
 }

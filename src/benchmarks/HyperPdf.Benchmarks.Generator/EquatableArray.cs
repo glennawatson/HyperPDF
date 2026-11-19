@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
-using System.Collections.Generic;
 
 namespace HyperPdf.Benchmarks.Generator;
 
@@ -35,7 +34,7 @@ internal readonly struct EquatableArray<T> : IEquatable<EquatableArray<T>>
     internal bool IsEmpty => Length == 0;
 
     /// <summary>Gets the elements.</summary>
-    internal IReadOnlyList<T> Items => _array ?? System.Array.Empty<T>();
+    internal T[] Items => _array ?? System.Array.Empty<T>();
 
     /// <inheritdoc/>
     public bool Equals(EquatableArray<T> other)

@@ -9,11 +9,11 @@ public interface IPageLabeler : IDocumentFeature
 {
     /// <summary>Gets the ranges of page labels.</summary>
     /// <returns>The ranges in page order; empty when pages are numbered 1, 2, 3.</returns>
-    IReadOnlyList<PageLabelRun> GetRanges();
+    PageLabelRun[] GetRanges();
 
     /// <summary>Replaces the ranges of page labels as one undo step.</summary>
     /// <param name="ranges">The ranges in page order; the first starts on the first page.</param>
     /// <exception cref="ArgumentException">There is no range, the first does not start on the first page, or the starts do not rise.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A range starts on a page that does not exist or its first number is below 1.</exception>
-    void SetRanges(IReadOnlyList<PageLabelRun> ranges);
+    void SetRanges(PageLabelRun[] ranges);
 }

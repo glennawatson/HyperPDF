@@ -32,11 +32,10 @@ public sealed class OcrLanguagePackDownloader : IDisposable
     /// <summary>Gets how many bytes a set of packs needs.</summary>
     /// <param name="packs">The packs.</param>
     /// <returns>The total.</returns>
-    public static long TotalBytes(IReadOnlyList<OcrLanguagePack> packs)
+    public static long TotalBytes(ReadOnlySpan<OcrLanguagePack> packs)
     {
-        ArgumentNullException.ThrowIfNull(packs);
         var total = 0L;
-        for (var i = 0; i < packs.Count; i++)
+        for (var i = 0; i < packs.Length; i++)
         {
             total += packs[i].Bytes;
         }
@@ -59,7 +58,7 @@ public sealed class OcrLanguagePackDownloader : IDisposable
     /// <param name="packs">The packs.</param>
     /// <param name="directory">The language pack folder.</param>
     /// <returns>The missing packs.</returns>
-    public List<OcrLanguagePack> Missing(IReadOnlyList<OcrLanguagePack> packs, string directory)
+    public List<OcrLanguagePack> Missing(OcrLanguagePack[] packs, string directory)
     {
         using var snapshot = FindMissing(packs, directory);
         var missing = new List<OcrLanguagePack>(snapshot.Count);
@@ -89,7 +88,7 @@ public sealed class OcrLanguagePackDownloader : IDisposable
     /// with <see cref="HttpRequestException"/> when the server fails a request and with <see cref="InvalidDataException"/> when a download does not match its SHA-256.
     /// </returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<RxVoid> Download(IReadOnlyList<OcrLanguagePack> packs, string directory, IProgress<double> progress)
+    public IObservable<RxVoid> Download(OcrLanguagePack[] packs, string directory, IProgress<double> progress)
     {
         ArgumentNullException.ThrowIfNull(progress);
         return DownloadMissing(null, packs, directory, progress);
@@ -101,7 +100,7 @@ public sealed class OcrLanguagePackDownloader : IDisposable
     /// <param name="directory">The language pack folder.</param>
     /// <param name="progress">Receives the fraction done, 0 to 1.</param>
     /// <returns>A cold signal giving one value once every pack is in place; unsubscribing stops the download and keeps packs already finished.</returns>
-    public IObservable<RxVoid> Download(IRemoteDocumentApi api, IReadOnlyList<OcrLanguagePack> packs, string directory, IProgress<double> progress)
+    public IObservable<RxVoid> Download(IRemoteDocumentApi api, OcrLanguagePack[] packs, string directory, IProgress<double> progress)
     {
         ArgumentNullException.ThrowIfNull(api);
         ArgumentNullException.ThrowIfNull(progress);
@@ -122,7 +121,7 @@ public sealed class OcrLanguagePackDownloader : IDisposable
     /// <param name="progress">Receives the fraction done, 0 to 1.</param>
     /// <returns>A cold signal giving one value once every pack is in place.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<RxVoid> DownloadMissing(IRemoteDocumentApi? api, IReadOnlyList<OcrLanguagePack> packs, string directory, IProgress<double> progress) =>
+    private IObservable<RxVoid> DownloadMissing(IRemoteDocumentApi? api, OcrLanguagePack[] packs, string directory, IProgress<double> progress) =>
         Signal.Using(
             () => FindMissing(packs, directory),
             missing =>
@@ -141,20 +140,19 @@ public sealed class OcrLanguagePackDownloader : IDisposable
     /// <param name="packs">The chosen packs.</param>
     /// <param name="directory">The download folder.</param>
     /// <returns>The snapshot; the caller disposes it.</returns>
-    private DownloadBatch<OcrLanguagePack> FindMissing(IReadOnlyList<OcrLanguagePack> packs, string directory)
+    private DownloadBatch<OcrLanguagePack> FindMissing(ReadOnlySpan<OcrLanguagePack> packs, string directory)
     {
-        ArgumentNullException.ThrowIfNull(packs);
-        if (packs.Count == 0)
+        if (packs.IsEmpty)
         {
             return new([], 0, 0);
         }
 
-        var items = ArrayPool<OcrLanguagePack>.Shared.Rent(packs.Count);
+        var items = ArrayPool<OcrLanguagePack>.Shared.Rent(packs.Length);
         try
         {
             var count = 0;
             var bytes = 0L;
-            for (var i = 0; i < packs.Count; i++)
+            for (var i = 0; i < packs.Length; i++)
             {
                 var pack = packs[i];
                 if (IsInstalled(pack, directory))

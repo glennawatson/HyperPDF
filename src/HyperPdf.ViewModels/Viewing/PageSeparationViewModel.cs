@@ -72,7 +72,7 @@ public sealed partial class PageSeparationViewModel : ReactiveObject, IDisposabl
 
     /// <summary>Gets the colourants of the current page's printed page, in the file's order.</summary>
     [Reactive]
-    public partial IReadOnlyList<string> Colorants { get; private set; } = [];
+    public partial ObservableCollection<string> Colorants { get; private set; } = [];
 
     /// <summary>Gets or sets the position of the shown separation in <see cref="Colorants"/>; choosing another shows that page.</summary>
     [Reactive]

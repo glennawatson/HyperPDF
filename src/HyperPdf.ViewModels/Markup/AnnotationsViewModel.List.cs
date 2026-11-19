@@ -197,9 +197,9 @@ public sealed partial class AnnotationsViewModel
     /// <returns>The choices.</returns>
     private static string[] CreateColorFilterOptions()
     {
-        var options = new string[AnnotationColors.All.Count + 1];
+        var options = new string[AnnotationColors.All.Length + 1];
         options[0] = "All colours";
-        for (var i = 0; i < AnnotationColors.All.Count; i++)
+        for (var i = 0; i < AnnotationColors.All.Length; i++)
         {
             options[i + 1] = AnnotationColors.All[i].Name;
         }

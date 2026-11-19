@@ -12,4 +12,4 @@ namespace HyperPdf.Core.Search;
 /// <param name="Problem">Why the file could not be searched, such as needing a password; otherwise <see langword="null"/>.</param>
 /// <param name="IsTruncated">Whether the file had more matches than were kept.</param>
 [DebuggerDisplay("FolderSearchFile: {Path}: {Matches.Count} matches")]
-public sealed record FolderSearchFile(string Path, IReadOnlyList<FolderSearchMatch> Matches, string? Problem, bool IsTruncated);
+public sealed record FolderSearchFile(string Path, FolderSearchMatch[] Matches, string? Problem, bool IsTruncated);

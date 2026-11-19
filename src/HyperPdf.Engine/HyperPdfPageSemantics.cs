@@ -20,7 +20,7 @@ internal static class HyperPdfPageSemantics
     /// <param name="self">The owning document.</param>
     /// <param name="pageIndex">The zero based page index.</param>
     /// <returns>The items; empty for a page that is out of range or whose structure cannot be read.</returns>
-    internal static IReadOnlyList<PageSemanticItem> GetItems(HyperPdfDocument self, int pageIndex)
+    internal static List<PageSemanticItem> GetItems(HyperPdfDocument self, int pageIndex)
     {
         using var access = HyperPdfNavigation.EnterPageRead(self);
         if (!access.IsActive || self.IsDisposed || (uint)pageIndex >= (uint)self.PageCount)

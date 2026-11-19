@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Geometry;
 using HyperPdf.Core.Reading;
 
@@ -54,5 +55,5 @@ internal sealed class PageBuilder
     /// <summary>Works out the page's reading order.</summary>
     /// <param name="repeated">The repeated margin signatures.</param>
     /// <returns>The block texts in reading order.</returns>
-    internal ReadingPage Read(IReadOnlySet<string>? repeated = null) => ReadingOrder.Analyze(0, Letter, Characters, repeated ?? new HashSet<string>());
+    internal ReadingPage Read(IReadOnlySet<string>? repeated = null) => ReadingOrder.Analyze(0, Letter, CollectionsMarshal.AsSpan(Characters), repeated ?? new HashSet<string>());
 }

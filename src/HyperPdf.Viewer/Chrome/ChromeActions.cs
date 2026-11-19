@@ -26,7 +26,7 @@ internal sealed class ChromeActions : IDisposable
     internal ChromeActions(ViewerChrome chrome, MainViewModel main, IPlatformWindow window)
     {
         SelectTab = ReactiveCommand.Create<DocumentTabViewModel>(tab => main.SelectedTab = tab);
-        ShowMenu = ReactiveCommand.Create(() => chrome.ShowMenu(MainMenu.Build(main), Under(chrome, ShowMenu)));
+        ShowMenu = ReactiveCommand.Create(() => chrome.ShowMenu([..MainMenu.Build(main)], Under(chrome, ShowMenu)));
         ShowMoreMarks = ReactiveCommand.Create(() => ShowMarksMenu(main, chrome, ShowMoreMarks));
         ShowFind = ReactiveCommand.Create(chrome.ShowFind);
         GoToPage = ReactiveCommand.Create(() => AskForPage(main, chrome));
@@ -141,7 +141,7 @@ internal sealed class ChromeActions : IDisposable
     {
         if (main.SelectedTab is { } tab)
         {
-            chrome.ShowMenu(ToolMenus.MoreMarks(tab.Annotations), Under(chrome, command));
+            chrome.ShowMenu([..ToolMenus.MoreMarks(tab.Annotations)], Under(chrome, command));
         }
     }
 

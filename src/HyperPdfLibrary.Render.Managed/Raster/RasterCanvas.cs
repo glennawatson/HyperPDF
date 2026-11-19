@@ -30,8 +30,26 @@ internal sealed class RasterCanvas : IDisposable
     /// <summary>The edges of a clip that is a rectangle with level edges left out: its two sides.</summary>
     private const int RectangleEdges = 2;
 
+    /// <summary>The steps a pixel is cut into, across and down, for where the origin of a kept glyph may sit.</summary>
+    private const int PixelSteps = 4;
+
+    /// <summary>The bits that hold the step inside a pixel of an origin counted in steps.</summary>
+    private const int StepMask = PixelSteps - 1;
+
+    /// <summary>The shift that turns an origin counted in steps into its pixel.</summary>
+    private const int StepShift = 2;
+
+    /// <summary>The widest and tallest glyph, in pixels, whose coverage is kept. Larger text is rare on a page and costs more to keep than it saves.</summary>
+    private const int MaxKeptSide = 96;
+
+    /// <summary>How far from the top left of the page the origin of a kept glyph may be, in pixels, so its place in steps fits a whole number.</summary>
+    private const float MaxKeptOrigin = 1_000_000;
+
     /// <summary>The edges of the shape being drawn.</summary>
     private readonly EdgeList _edges = new();
+
+    /// <summary>The coverage of the glyphs drawn before, kept to be used again.</summary>
+    private readonly GlyphCoverageCache _kept = new();
 
     /// <summary>The coverage of the shape being drawn.</summary>
     private readonly CoverageBuffer _coverage = new();
@@ -82,6 +100,7 @@ internal sealed class RasterCanvas : IDisposable
         _coverage.Dispose();
         _clip.Dispose();
         _stroker.Dispose();
+        _kept.Clear();
         _tiles?.Dispose();
         foreach (var layer in _spare)
         {
@@ -169,6 +188,11 @@ internal sealed class RasterCanvas : IDisposable
         if (Style.Lcd && paint.Shader == RasterShaderKind.None && paint.Blend == PdfBlendMode.Normal && _frames.Count == 0)
         {
             FillStripes(path, placed, paint.Color);
+            return;
+        }
+
+        if (Style.Masks && TryFillKept(path, placed, paint))
+        {
             return;
         }
 
@@ -428,6 +452,138 @@ internal sealed class RasterCanvas : IDisposable
             }
 
             Blend(target.Row(y).Slice(x, covered.Length), covered, paint, x, y);
+        }
+    }
+
+    /// <summary>
+    /// Fills a glyph from its kept coverage, measuring and keeping the coverage first when the glyph is new. The glyph's origin
+    /// is moved to the nearest step of a pixel, so the same coverage serves every glyph that lands on that step.
+    /// </summary>
+    /// <param name="path">The outline.</param>
+    /// <param name="matrix">The matrix from the glyph's space to device pixels, already placed.</param>
+    /// <param name="paint">The colour or shader.</param>
+    /// <returns><see langword="true"/> when the glyph was drawn; <see langword="false"/> when it is too large or too far off to keep and must be filled as a shape.</returns>
+    private bool TryFillKept(PdfPath path, Matrix3x2 matrix, in RasterPaint paint)
+    {
+        if (!(MathF.Abs(matrix.M31) < MaxKeptOrigin) || !(MathF.Abs(matrix.M32) < MaxKeptOrigin))
+        {
+            return false;
+        }
+
+        var stepX = (int)MathF.Round(matrix.M31 * PixelSteps);
+        var stepY = (int)MathF.Round(matrix.M32 * PixelSteps);
+        var key = new GlyphCoverageKey(
+            path,
+            BitConverter.SingleToInt32Bits(matrix.M11),
+            BitConverter.SingleToInt32Bits(matrix.M12),
+            BitConverter.SingleToInt32Bits(matrix.M21),
+            BitConverter.SingleToInt32Bits(matrix.M22),
+            (byte)(stepX & StepMask),
+            (byte)(stepY & StepMask),
+            Style.TextTable);
+        if (!_kept.TryGet(key, out var kept) && !TryKeep(path, matrix, key, out kept))
+        {
+            return false;
+        }
+
+        // Shifting right rounds down, which is the pixel the origin is in for a negative position too.
+        DrawKept(kept, stepX >> StepShift, stepY >> StepShift, paint);
+        return true;
+    }
+
+    /// <summary>Measures the coverage of a glyph with its origin on a step of the pixel at the top left of the page, and keeps it.</summary>
+    /// <param name="path">The outline.</param>
+    /// <param name="matrix">The matrix from the glyph's space to device pixels.</param>
+    /// <param name="key">The glyph as it is drawn.</param>
+    /// <param name="kept">Receives where its coverage is.</param>
+    /// <returns><see langword="true"/> when the coverage was kept; <see langword="false"/> when the glyph is too large to keep.</returns>
+    private bool TryKeep(PdfPath path, Matrix3x2 matrix, in GlyphCoverageKey key, out GlyphCoverage kept)
+    {
+        kept = default;
+        matrix.M31 = key.SubX / (float)PixelSteps;
+        matrix.M32 = key.SubY / (float)PixelSteps;
+        _edges.Clear();
+        PathFlattener.AddFill(path, matrix, _edges);
+        if (_edges.Count == 0)
+        {
+            kept = _kept.Add(key, 0, 0, 0, 0);
+            return true;
+        }
+
+        var bounds = PixelRect.Around(_edges.Left, _edges.Top, _edges.Right, _edges.Bottom);
+        if (bounds.IsEmpty || bounds.Width > MaxKeptSide || bounds.Height > MaxKeptSide || bounds.Width > _coverageRow.Length)
+        {
+            return false;
+        }
+
+        kept = _kept.Add(key, bounds.Left, bounds.Top, bounds.Width, bounds.Height);
+        _coverage.Begin(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
+        _coverage.Add(_edges);
+        var measured = _coverageRow.AsSpan(0, bounds.Width);
+        for (var row = 0; row < bounds.Height; row++)
+        {
+            var line = _kept.Row(kept, row);
+            var range = _coverage.ReadRow(row, false, measured);
+            if (range.IsEmpty)
+            {
+                line.Clear();
+                continue;
+            }
+
+            // Only the pixels from the first one an edge touched are written, so the ones before it are cleared.
+            line[..range.Start].Clear();
+            var covered = line[range.Start..range.End];
+            measured[range.Start..range.End].CopyTo(covered);
+            line[range.End..].Clear();
+            if (Style.TextTable is { } table)
+            {
+                CoverageTables.Apply(covered, table);
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Blends the kept coverage of a glyph onto the pixels around its origin, through the clip.</summary>
+    /// <param name="kept">Where the coverage is.</param>
+    /// <param name="originX">The pixel across the glyph's origin is in.</param>
+    /// <param name="originY">The line the glyph's origin is in.</param>
+    /// <param name="paint">The colour or shader.</param>
+    private void DrawKept(in GlyphCoverage kept, int originX, int originY, in RasterPaint paint)
+    {
+        var left = originX + kept.Left;
+        var top = originY + kept.Top;
+        var bounds = new PixelRect(left, top, left + kept.Width, top + kept.Height).Intersect(_clip.Bounds);
+        if (bounds.IsEmpty)
+        {
+            return;
+        }
+
+        var target = _target!;
+        if (paint.Shader == RasterShaderKind.None && paint.Blend == PdfBlendMode.Normal && !_clip.HasMask)
+        {
+            // Nearly every glyph is one colour drawn straight onto the page, so its lines skip the choices the other paints need.
+            for (var y = bounds.Top; y < bounds.Bottom; y++)
+            {
+                SpanBlender.SolidEach(target.Row(y).Slice(bounds.Left, bounds.Width), _kept.Row(kept, y - top).Slice(bounds.Left - left, bounds.Width), paint.Color);
+            }
+
+            return;
+        }
+
+        for (var y = bounds.Top; y < bounds.Bottom; y++)
+        {
+            ReadOnlySpan<byte> covered = _kept.Row(kept, y - top).Slice(bounds.Left - left, bounds.Width);
+            if (_clip.HasMask)
+            {
+                // The clip thins the coverage, which must not change what is kept, so a copy of the line is thinned.
+                var thinned = _coverageRow.AsSpan(0, bounds.Width);
+                covered.CopyTo(thinned);
+                SpanBlender.Multiply(thinned, _clip.MaskRow(y, bounds.Left, bounds.Width));
+                covered = thinned;
+            }
+
+            Blend(target.Row(y).Slice(bounds.Left, bounds.Width), covered, paint, bounds.Left, y);
         }
     }
 

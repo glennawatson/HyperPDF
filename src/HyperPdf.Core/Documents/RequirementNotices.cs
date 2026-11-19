@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace HyperPdf.Core.Documents;
@@ -41,7 +42,7 @@ public static class RequirementNotices
     {
         ArgumentNullException.ThrowIfNull(report);
         var details = report.LocalisedText?.Details ?? report.Details;
-        if (details.Count == 0)
+        if (details.Length == 0)
         {
             return null;
         }
@@ -58,10 +59,6 @@ public static class RequirementNotices
     /// <summary>Gets the note shown after a save that removed requirements the file no longer needs.</summary>
     /// <param name="warnings">The warnings, one for each requirement removed.</param>
     /// <returns>The note.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="warnings"/> is <see langword="null"/>.</exception>
-    public static string SaveNotice(IReadOnlyList<string> warnings)
-    {
-        ArgumentNullException.ThrowIfNull(warnings);
-        return string.Join(' ', warnings);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string SaveNotice(ReadOnlySpan<string> warnings) => string.Join(' ', warnings);
 }

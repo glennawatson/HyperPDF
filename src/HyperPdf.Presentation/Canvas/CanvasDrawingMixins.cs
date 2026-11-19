@@ -61,7 +61,7 @@ public static class CanvasDrawingMixins
         /// <returns><see langword="true"/> when the key was used.</returns>
         public bool HandlePolygonKey(ViewerKey key)
         {
-            if (state.Tab is not { } tab || !DocumentKeys.HandlePolygon(state.Drawing.Polygon, tab.Annotations, key))
+            if (state.Tab is not { AnnotationsInUse: { } marks } || !DocumentKeys.HandlePolygon(state.Drawing.Polygon, marks, key))
             {
                 return false;
             }
@@ -176,7 +176,7 @@ public static class CanvasDrawingMixins
         public void HoverRegion(bool isOverPage, int page, PagePoint point)
         {
             HoveredFormRegion? hovered = null;
-            if (isOverPage && state.Tab is { Annotations: { Tool: AnnotationTool.Text, IsEditingText: false } annotations }
+            if (isOverPage && state.Tab is { AnnotationsInUse: { Tool: AnnotationTool.Text, IsEditingText: false } annotations }
                 && annotations.RegionAt(page, point) is { } region)
             {
                 hovered = new(page, region);
@@ -199,7 +199,7 @@ public static class CanvasDrawingMixins
         public bool MovePlacement(DocumentTabViewModel tab, float dx, float dy)
         {
             ArgumentNullException.ThrowIfNull(tab);
-            if (tab.FillAndSign.Placement is not { } placement || (uint)placement.Page >= (uint)state.Sizes.Length)
+            if (tab.FillAndSignIfMade?.Placement is not { } placement || (uint)placement.Page >= (uint)state.Sizes.Length)
             {
                 return false;
             }

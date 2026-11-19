@@ -31,7 +31,7 @@ internal static class Pdf20Resave
     /// <param name="result">What the conversion did.</param>
     /// <returns>The plain-words reason, or <see langword="null"/> when the file was converted or no reason was given.</returns>
     private static string? ReasonOf(Pdf20CopyResult result) =>
-        result.Converted || result.Problems.Count == 0 ? null : result.Problems[0].Description;
+        result.Converted || result.Problems.Length == 0 ? null : result.Problems[0].Description;
 
     /// <summary>Turns an expected failure into a refusal with no reason, and passes on any other.</summary>
     /// <param name="error">The failure.</param>

@@ -24,7 +24,7 @@ internal static class HyperPdfFormDesignMapping
     /// <exception cref="ArgumentException">A widget names a page the document does not have.</exception>
     internal static PdfFieldDefinition ToDefinition(PdfDocument document, FormFieldDesign design)
     {
-        var widgets = new PdfWidgetPlacement[design.Widgets.Count];
+        var widgets = new PdfWidgetPlacement[design.Widgets.Length];
         for (var i = 0; i < widgets.Length; i++)
         {
             var widget = design.Widgets[i];
@@ -118,9 +118,9 @@ internal static class HyperPdfFormDesignMapping
     /// <summary>Converts choices.</summary>
     /// <param name="options">The viewer's choices.</param>
     /// <returns>The library's choices.</returns>
-    private static PdfFieldOption[] ToOptions(IReadOnlyList<FormChoiceOption> options)
+    private static PdfFieldOption[] ToOptions(ReadOnlySpan<FormChoiceOption> options)
     {
-        var result = new PdfFieldOption[options.Count];
+        var result = new PdfFieldOption[options.Length];
         for (var i = 0; i < result.Length; i++)
         {
             result[i] = new(options[i].Value, options[i].Label);

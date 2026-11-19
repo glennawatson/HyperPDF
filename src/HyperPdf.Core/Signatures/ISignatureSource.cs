@@ -14,5 +14,5 @@ public interface ISignatureSource : IDocumentFeature
 
     /// <summary>Reads every digital signature.</summary>
     /// <returns>The signatures as stored.</returns>
-    IReadOnlyList<RawSignature> GetSignatures();
+    RawSignature[] GetSignatures();
 }

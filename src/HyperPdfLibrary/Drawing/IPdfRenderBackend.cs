@@ -13,6 +13,13 @@ namespace HyperPdfLibrary.Drawing;
 /// <summary>Creates owned drawing resources and reusable caller-buffer sessions.</summary>
 public interface IPdfRenderBackend
 {
+    /// <summary>
+    /// Gets a value indicating whether a picture recorded with glyph masks, fitted lines or a minimum line width is made for one
+    /// page matrix, so a page shown at another scale has to be recorded again. A backend that applies those choices when it draws
+    /// a picture, and not when it records one, returns <see langword="false"/> and has each page recorded once for every scale.
+    /// </summary>
+    bool RecordsForDevice => true;
+
     /// <summary>Gets a drawing session isolated to the calling thread.</summary>
     /// <returns>The reusable session.</returns>
     IPdfDrawingSession GetDrawingSession();

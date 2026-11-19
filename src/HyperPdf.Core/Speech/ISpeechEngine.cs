@@ -14,7 +14,7 @@ public interface ISpeechEngine : IDisposable
     bool IsReady { get; }
 
     /// <summary>Gets the voices.</summary>
-    IReadOnlyList<SpeechVoice> Voices { get; }
+    SpeechVoice[] Voices { get; }
 
     /// <summary>Speaks a piece of text into audio.</summary>
     /// <param name="text">The text, normally one sentence.</param>

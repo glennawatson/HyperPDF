@@ -21,9 +21,6 @@ public sealed class VulkanRenderBackend : IRenderBackend
     /// <summary>The GPU objects of tiles that were disposed and wait for the next frame to free them.</summary>
     private readonly ConcurrentQueue<VulkanRetired> _retired = new();
 
-    /// <summary>The operations recorded for the current frame, reused each frame.</summary>
-    private readonly List<VulkanDrawOp> _ops = [];
-
     /// <summary>The tiles uploaded in the current frame, reused each frame.</summary>
     private readonly List<VulkanTileSurface> _uploads = [];
 
@@ -32,6 +29,15 @@ public sealed class VulkanRenderBackend : IRenderBackend
 
     /// <summary>The GPU objects every frame uses.</summary>
     private readonly VulkanFrameResources _frame;
+
+    /// <summary>The operations recorded for the current frame, reused each frame.</summary>
+    private List<VulkanDrawOp> _ops = [];
+
+    /// <summary>The operations the frame target was last drawn from, which it still shows.</summary>
+    private List<VulkanDrawOp> _drawn = [];
+
+    /// <summary>The target that holds the frame drawn from <see cref="_drawn"/>, or <see langword="null"/> when no target does.</summary>
+    private VulkanFrameTarget? _drawnTarget;
 
     /// <summary>The pass handed out for every frame, so a frame allocates nothing. It is made on the first frame.</summary>
     private VulkanFramePass? _pass;
@@ -72,6 +78,9 @@ public sealed class VulkanRenderBackend : IRenderBackend
 
     /// <summary>Gets the name of the GPU.</summary>
     public string DeviceName => _context.DeviceName;
+
+    /// <summary>Gets the number of frames that were only shown again, because the target already held them.</summary>
+    internal int KeptFrames { get; private set; }
 
     /// <inheritdoc/>
     public void Resize(in SurfaceSize size)
@@ -210,6 +219,19 @@ public sealed class VulkanRenderBackend : IRenderBackend
             return;
         }
 
-        VulkanFrameRecorder.Render(_frame, _ops, _uploads, _window);
+        var target = _frame.TargetOrNull;
+        var previous = ReferenceEquals(target, _drawnTarget) ? _drawn : null;
+
+        // A frame that fails part way leaves the target holding no frame that can be shown again.
+        _drawnTarget = null;
+        if (VulkanFrameRecorder.Render(_frame, _ops, previous, _uploads, _window))
+        {
+            KeptFrames++;
+        }
+
+        _drawnTarget = target;
+        var recorded = _ops;
+        _ops = _drawn;
+        _drawn = recorded;
     }
 }

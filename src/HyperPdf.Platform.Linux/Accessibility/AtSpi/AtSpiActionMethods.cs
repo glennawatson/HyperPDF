@@ -24,7 +24,7 @@ internal static class AtSpiActionMethods
     /// <summary>Gets the properties by name.</summary>
     internal static Dictionary<string, AtSpiProperty> Properties { get; } = new(StringComparer.Ordinal)
     {
-        ["NActions"] = static (in AtSpiCall call, ref MessageWriter writer) => writer.WriteVariantInt32(call.Node.Actions.Count),
+        ["NActions"] = static (in AtSpiCall call, ref MessageWriter writer) => writer.WriteVariantInt32(call.Node.Actions.Length),
     };
 
     /// <summary>Replies with the name of an action.</summary>
@@ -32,7 +32,7 @@ internal static class AtSpiActionMethods
     /// <param name="index">The action's index.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ReplyName(in AtSpiCall call, int index) =>
-        call.ReplyString(index >= 0 && index < call.Node.Actions.Count ? call.Node.Actions[index] : string.Empty);
+        call.ReplyString(index >= 0 && index < call.Node.Actions.Length ? call.Node.Actions[index] : string.Empty);
 
     /// <summary>Replies with every action as a name, a description and a key binding.</summary>
     /// <param name="call">The request.</param>

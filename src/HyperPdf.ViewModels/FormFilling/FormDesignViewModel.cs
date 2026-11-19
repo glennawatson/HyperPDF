@@ -74,7 +74,7 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
     /// <summary>Finds a field name that no field of the form has: Field1, Field2 and on.</summary>
     /// <param name="fields">The form's fields.</param>
     /// <returns>The name.</returns>
-    private static string NextName(IReadOnlyList<FormFieldInfo> fields)
+    private static string NextName(ReadOnlySpan<FormFieldInfo> fields)
     {
         var taken = new HashSet<string>(StringComparer.Ordinal);
         foreach (var field in fields)

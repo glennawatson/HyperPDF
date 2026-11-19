@@ -11,5 +11,5 @@ public interface IRequirementText
     string Summary { get; }
 
     /// <summary>Gets the current translated unmet requirement details.</summary>
-    IReadOnlyList<string> Details { get; }
+    string[] Details { get; }
 }

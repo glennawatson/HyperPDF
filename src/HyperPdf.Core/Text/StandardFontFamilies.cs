@@ -20,7 +20,7 @@ public static class StandardFontFamilies
     public static string Mono => "Courier";
 
     /// <summary>Gets the three families in menu order.</summary>
-    public static IReadOnlyList<string> All { get; } = [Sans, Serif, Mono];
+    public static string[] All { get; } = [Sans, Serif, Mono];
 
     /// <summary>Determines whether a family is one of the built in three.</summary>
     /// <param name="family">The family.</param>

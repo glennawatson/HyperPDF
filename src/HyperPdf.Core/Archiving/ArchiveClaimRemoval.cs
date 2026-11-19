@@ -13,8 +13,8 @@ namespace HyperPdf.Core.Archiving;
 /// <param name="Level">The level the file claimed.</param>
 /// <param name="BrokenRules">The rules the file broke, in plain words.</param>
 [DebuggerDisplay("ArchiveClaimRemoval: {Level}, {BrokenRules.Count} rules")]
-public sealed record ArchiveClaimRemoval(ArchiveLevel Level, IReadOnlyList<string> BrokenRules)
+public sealed record ArchiveClaimRemoval(ArchiveLevel Level, string[] BrokenRules)
 {
     /// <summary>Gets why the file could not be fixed, in plain words; empty when no reason was given.</summary>
-    public IReadOnlyList<string> Reasons { get; init; } = [];
+    public string[] Reasons { get; init; } = [];
 }

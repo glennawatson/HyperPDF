@@ -21,15 +21,15 @@ internal static class TrapNetworkMapping
             return;
         }
 
-        caller.TrapNetworkWarnings.AddRange(Warnings(writer.TrapNetworks));
+        caller.TrapNetworkWarnings.AddRange(Warnings([..writer.TrapNetworks]));
     }
 
     /// <summary>Gets the warnings the user should see: every change other than a fix that kept the network.</summary>
     /// <param name="changes">The library's changes.</param>
     /// <returns>The messages.</returns>
-    internal static string[] Warnings(IReadOnlyList<PdfTrapNetworkChange> changes)
+    internal static string[] Warnings(ReadOnlySpan<PdfTrapNetworkChange> changes)
     {
-        var warnings = new List<string>(changes.Count);
+        var warnings = new List<string>(changes.Length);
         foreach (var change in changes)
         {
             if (change.Action != PdfTrapNetworkAction.Repaired)

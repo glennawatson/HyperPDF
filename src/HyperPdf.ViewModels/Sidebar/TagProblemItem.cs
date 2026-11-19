@@ -27,9 +27,9 @@ public sealed record TagProblemItem(DocumentTagProblem Problem)
     /// <summary>Lists the rows for problems.</summary>
     /// <param name="problems">The problems.</param>
     /// <returns>The rows, in the same order.</returns>
-    public static IReadOnlyList<TagProblemItem> Create(IReadOnlyList<DocumentTagProblem> problems)
+    public static TagProblemItem[] Create(DocumentTagProblem[] problems)
     {
-        var items = new TagProblemItem[problems.Count];
+        var items = new TagProblemItem[problems.Length];
         for (var i = 0; i < items.Length; i++)
         {
             items[i] = new(problems[i]);

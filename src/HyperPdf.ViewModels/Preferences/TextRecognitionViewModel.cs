@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdf.Core.Documents;
 using HyperPdf.Core.Ocr;
 using HyperPdf.Core.Reactive;
@@ -65,7 +66,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         _isRunning = this.WhenChanged(static vm => vm.IsRunning);
         _isIdle = this.WhenChanged(static vm => vm.IsBusy).Select(static busy => !busy);
         LanguageIndex = IndexOf(_chosen[0]);
-        LanguageActionText = DescribeAction(services.Ocr, _chosen);
+        LanguageActionText = DescribeAction(services.Ocr, CollectionsMarshal.AsSpan(_chosen));
 
         // A language the reader picks is the one the next run uses; the bar setting its own index is not a pick. The
         // filter reads the view model's own flag: a constructor cannot hand 'this' to a state-passing operator.
@@ -75,7 +76,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     }
 
     /// <summary>Gets the languages offered in the language bar, English first.</summary>
-    public static IReadOnlyList<string> LanguageNames { get; } = BuildLanguageNames();
+    public static string[] LanguageNames { get; } = BuildLanguageNames();
 
     /// <summary>Gets the interaction that shows the window that manages the languages; the output says whether the window was accepted.</summary>
     public Interaction<OcrLanguagesViewModel, bool> ManageLanguagesInteraction { get; } = new();
@@ -168,15 +169,16 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     /// <param name="setup">The text recognition setup.</param>
     /// <param name="codes">The chosen language codes.</param>
     /// <returns>"Download …" when packs are missing, otherwise "Recognise in …".</returns>
-    internal static string DescribeAction(OcrSetup setup, IReadOnlyList<string> codes)
+    internal static string DescribeAction(OcrSetup setup, ReadOnlySpan<string> codes)
     {
-        var needed = setup.PacksNeededFor(codes, []);
+        var needed = setup.PacksNeededFor([..codes], []);
         if (needed.Count > 0)
         {
-            return UiText.Format("Download {0} ({1})", OcrLanguagesViewModel.DescribePacks(needed), OcrLanguageCatalog.DescribeSize(OcrLanguagePackDownloader.TotalBytes(needed)));
+            var missing = CollectionsMarshal.AsSpan(needed);
+            return UiText.Format("Download {0} ({1})", OcrLanguagesViewModel.DescribePacks(missing), OcrLanguageCatalog.DescribeSize(OcrLanguagePackDownloader.TotalBytes(missing)));
         }
 
-        var names = new List<OcrLanguagePack>(codes.Count);
+        var names = new List<OcrLanguagePack>(codes.Length);
         foreach (var code in codes)
         {
             if (OcrLanguageCatalog.Find(code) is { } pack)
@@ -185,7 +187,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
             }
         }
 
-        return UiText.Format("Recognise in {0}", OcrLanguagesViewModel.DescribePacks(names));
+        return UiText.Format("Recognise in {0}", OcrLanguagesViewModel.DescribePacks(CollectionsMarshal.AsSpan(names)));
     }
 
     /// <summary>Gets a language's place in <see cref="LanguageNames"/>.</summary>
@@ -194,7 +196,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     private static int IndexOf(string code)
     {
         var packs = OcrLanguageCatalog.Packs;
-        for (var i = 0; i < packs.Count; i++)
+        for (var i = 0; i < packs.Length; i++)
         {
             if (string.Equals(packs[i].Code, code, StringComparison.Ordinal))
             {
@@ -210,7 +212,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     private static string[] BuildLanguageNames()
     {
         var packs = OcrLanguageCatalog.Packs;
-        var names = new string[packs.Count];
+        var names = new string[packs.Length];
         for (var i = 0; i < names.Length; i++)
         {
             names[i] = packs[i].Name;
@@ -267,10 +269,10 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     [ReactiveCommand(CanExecute = nameof(_isIdle))]
     private IObservable<RxVoid> ConfirmLanguage()
     {
-        _services.Settings.OcrLanguage = OcrLanguageCatalog.Format(_chosen);
+        _services.Settings.OcrLanguage = OcrLanguageCatalog.Format(CollectionsMarshal.AsSpan(_chosen));
         _services.SaveSettings();
-        var needed = _services.Ocr.PacksNeededFor(_chosen, []);
-        return (needed.Count > 0 ? Download(needed) : Signal.Return(true))
+        var needed = _services.Ocr.PacksNeededFor([.._chosen], []);
+        return (needed.Count > 0 ? Download(CollectionsMarshal.AsSpan(needed)) : Signal.Return(true))
             .SwitchMap(ready => ready ? RunConfirmed() : Signal.Return(RxVoid.Default));
     }
 
@@ -300,8 +302,8 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
     private void UseLanguage(int index)
     {
         var packs = OcrLanguageCatalog.Packs;
-        _chosen = [packs[Math.Clamp(index, 0, packs.Count - 1)].Code];
-        LanguageActionText = DescribeAction(_services.Ocr, _chosen);
+        _chosen = [packs[Math.Clamp(index, 0, packs.Length - 1)].Code];
+        LanguageActionText = DescribeAction(_services.Ocr, CollectionsMarshal.AsSpan(_chosen));
     }
 
     /// <summary>Shows the language bar with the current choice.</summary>
@@ -312,24 +314,24 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         LanguageIndex = IndexOf(_chosen[0]);
         _settingIndex = false;
         LanguageBarText = message;
-        LanguageActionText = DescribeAction(_services.Ocr, _chosen);
+        LanguageActionText = DescribeAction(_services.Ocr, CollectionsMarshal.AsSpan(_chosen));
         IsLanguageBarOpen = true;
     }
 
     /// <summary>Downloads packs, explaining any failure in the language bar.</summary>
     /// <param name="packs">The packs.</param>
     /// <returns>A cold signal giving <see langword="true"/> when they downloaded; unsubscribing stops the download.</returns>
-    private IObservable<bool> Download(IReadOnlyList<OcrLanguagePack> packs)
+    private IObservable<bool> Download(ReadOnlySpan<OcrLanguagePack> packs)
     {
         var download = new CancellationDisposable();
         DownloadRun = download;
         IsDownloading = true;
         IsBusy = true;
         DownloadProgress = 0;
-        LanguageBarText = UiText.Format("Downloading {0}. It stays on this computer for next time.", OcrLanguagesViewModel.DescribePacks(packs));
+        LanguageBarText = UiText.Format("Downloading {0}. It stays on this computer for next time.", OcrLanguagesViewModel.DescribePacks([..packs]));
         var progress = new Progress<double>(fraction => DownloadProgress = fraction);
 
-        return _services.Ocr.Download(packs, progress)
+        return _services.Ocr.Download([..packs], progress)
             .Select(static _ => true)
             .ThrowWhenCancelled(download.Token)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
@@ -574,7 +576,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
         if (run.Unsure)
         {
             OpenLanguageBar(
-                UiText.Format("The first scanned page does not read well as {0}, ", OcrLanguagesViewModel.DescribePacks(ChosenPacks()))
+                UiText.Format("The first scanned page does not read well as {0}, ", OcrLanguagesViewModel.DescribePacks([..CollectionsMarshal.AsSpan(ChosenPacks())]))
                 + UiText.Get("so nothing has been changed yet. Choose the language of this document."));
             return RxVoid.Default;
         }
@@ -618,7 +620,7 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
 
         _chosen = OcrLanguageCatalog.Parse(_services.Settings.OcrLanguage);
         var unknown = new List<string>();
-        var needed = setup.PacksNeededFor(_chosen, unknown);
+        var needed = setup.PacksNeededFor([.._chosen], unknown);
         if (unknown.Count > 0)
         {
             _ = _chosen.RemoveAll(unknown.Contains);
@@ -633,13 +635,13 @@ public sealed partial class TextRecognitionViewModel : ReactiveObject, IDisposab
 
         if (needed.Count > 0)
         {
-            OpenLanguageBar(UiText.Format("This document is set to {0}, which is not on this computer yet.", OcrLanguagesViewModel.DescribePacks(ChosenPacks())));
+            OpenLanguageBar(UiText.Format("This document is set to {0}, which is not on this computer yet.", OcrLanguagesViewModel.DescribePacks([..CollectionsMarshal.AsSpan(ChosenPacks())])));
             return false;
         }
 
         try
         {
-            setup.GatherLanguages(_chosen);
+            setup.GatherLanguages([.._chosen]);
         }
         catch (IOException ex)
         {

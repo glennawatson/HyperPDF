@@ -25,5 +25,5 @@ internal sealed class HyperPdfRepairReportService : IRepairReport
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IReadOnlyList<RepairNote> GetRepairs() => HyperPdfDocumentRepairs.GetRepairs(_owner);
+    public RepairNote[] GetRepairs() => HyperPdfDocumentRepairs.GetRepairs(_owner);
 }

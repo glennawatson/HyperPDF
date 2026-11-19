@@ -59,7 +59,7 @@ public sealed class DocumentSearchTests
         foreach (var result in await DocumentSearch.Search(document, "ALPHA", SearchOptions.None, startPage).ToList().ToTask())
         {
             pages.Add(result.PageIndex);
-            total += result.Hits.Count;
+            total += result.Hits.Length;
         }
 
         await Assert.That(pages).IsEquivalentTo([startPage, 0, 1]);

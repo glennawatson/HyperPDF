@@ -17,11 +17,7 @@ public static class PictureConversion
     /// <summary>Gets the name suggested for the new PDF: the first picture's name with the PDF extension.</summary>
     /// <param name="paths">The picture files.</param>
     /// <returns>The file name.</returns>
-    public static string SuggestName(IReadOnlyList<string> paths)
-    {
-        ArgumentNullException.ThrowIfNull(paths);
-        return (paths.Count == 0 ? "Pictures" : Path.GetFileNameWithoutExtension(paths[0])) + PdfExtension;
-    }
+    public static string SuggestName(string[] paths) => (paths.Length == 0 ? "Pictures" : Path.GetFileNameWithoutExtension(paths[0])) + PdfExtension;
 
     /// <summary>Reads the pictures and writes them as a PDF.</summary>
     /// <param name="services">The app services, whose engine writes the PDF and whose render head reads the pictures.</param>
@@ -31,10 +27,9 @@ public static class PictureConversion
     /// A cold signal giving the number of pages written, which is 0 when no file could be read as a picture or the engine cannot write
     /// PDFs from pictures. Unsubscribing stops reading and writing.
     /// </returns>
-    public static IObservable<int> Convert(AppServices services, IReadOnlyList<string> paths, string destination)
+    public static IObservable<int> Convert(AppServices services, string[] paths, string destination)
     {
         ArgumentNullException.ThrowIfNull(services);
-        ArgumentNullException.ThrowIfNull(paths);
         ArgumentException.ThrowIfNullOrWhiteSpace(destination);
         return services.Engine is not IPictureDocumentWriter writer
             ? Signal.Return(0)
@@ -55,9 +50,9 @@ public static class PictureConversion
     /// <param name="services">The app services.</param>
     /// <param name="paths">The picture files.</param>
     /// <returns>The pictures that were read.</returns>
-    private static PageImageSource[] Read(AppServices services, IReadOnlyList<string> paths)
+    private static PageImageSource[] Read(AppServices services, string[] paths)
     {
-        var pictures = new List<PageImageSource>(paths.Count);
+        var pictures = new List<PageImageSource>(paths.Length);
         foreach (var path in paths)
         {
             if (services.Head.LoadImage(path) is { } decoded)

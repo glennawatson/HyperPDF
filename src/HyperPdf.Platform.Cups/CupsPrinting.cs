@@ -37,7 +37,7 @@ public static unsafe class CupsPrinting
 
     /// <summary>Gets the printers, the default first.</summary>
     /// <returns>The printers; empty when CUPS is not installed or not running.</returns>
-    public static IReadOnlyList<PrinterInfo> GetPrinters()
+    public static List<PrinterInfo> GetPrinters()
     {
         if (!IsAvailable)
         {

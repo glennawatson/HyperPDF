@@ -11,7 +11,7 @@ namespace HyperPdf.Core.Documents;
 /// <param name="LayerId">The layer's object number; 0 for a label.</param>
 /// <param name="Children">The entries listed under this one.</param>
 [DebuggerDisplay("DocumentLayerNode: {Name} id={LayerId} children={Children.Count}")]
-public sealed record DocumentLayerNode(string Name, int LayerId, IReadOnlyList<DocumentLayerNode> Children)
+public sealed record DocumentLayerNode(string Name, int LayerId, DocumentLayerNode[] Children)
 {
     /// <summary>Gets a value indicating whether this entry is a label rather than a layer.</summary>
     public bool IsLabel => LayerId == 0;

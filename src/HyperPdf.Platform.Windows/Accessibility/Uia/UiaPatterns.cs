@@ -31,7 +31,7 @@ internal static class UiaPatterns
     /// <returns>The index in the element's actions, or -1 when it has no such action.</returns>
     internal static int IndexOf(AccessibleNode node, string action)
     {
-        for (var index = 0; index < node.Actions.Count; index++)
+        for (var index = 0; index < node.Actions.Length; index++)
         {
             if (string.Equals(node.Actions[index], action, StringComparison.Ordinal))
             {

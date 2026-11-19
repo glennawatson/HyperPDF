@@ -165,7 +165,7 @@ public sealed class ViewerStartViewTests
         private readonly List<RecentDocument> _items = [];
 
         /// <inheritdoc/>
-        public IReadOnlyList<RecentDocument> GetRecent(int maxCount) => [.. _items.Take(maxCount)];
+        public List<RecentDocument> GetRecent(int maxCount) => [.. _items.Take(maxCount)];
 
         /// <inheritdoc/>
         public void Add(string filePath) => _items.Insert(0, new(filePath, DateTimeOffset.UnixEpoch));
