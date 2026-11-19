@@ -572,7 +572,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Binding
-- Version: 10.1.0
+- Version: 11.0.0
 - Origin: NuGet package
 - Copyright: Copyright (c) 2026 ReactiveUI and Contributors
 - Link: https://github.com/reactiveui/ReactiveUI.Binding.SourceGenerators
@@ -632,7 +632,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Disposables
-- Version: 10.0.0
+- Version: 10.1.0
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
@@ -662,7 +662,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Primitives
-- Version: 10.0.0
+- Version: 10.1.0
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
@@ -692,7 +692,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Primitives.Core
-- Version: 10.0.0
+- Version: 10.1.0
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
@@ -722,7 +722,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.SourceGenerators
-- Version: 5.1.0
+- Version: 6.0.0
 - Origin: NuGet package
 - Copyright: Copyright (c) 2026 ReactiveUI and Contributors
 - Link: https://github.com/reactiveui/ReactiveUI.Binding.SourceGenerators
