@@ -5,11 +5,11 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Shared Version Variables">
-    <TUnitVersion>1.86.6</TUnitVersion>
+    <TUnitVersion>1.87.12</TUnitVersion>
     <!-- StyleSharp.Analyzers, PerformanceSharp.Analyzers and SecuritySharp.Analyzers ship from the
          same release pipeline and always share a version. -->
     <RoslynCommonAnalyzersVersion>5.2.0</RoslynCommonAnalyzersVersion>
-    <SkiaVersion>4.156.1</SkiaVersion>
+    <SkiaVersion>4.157.0</SkiaVersion>
   </PropertyGroup>
 
   <ItemGroup Label="ReactiveUI">
@@ -17,11 +17,11 @@
     <PackageVersion Include="HyperCodecs.Platform.Linux" Version="1.1.0" />
     <PackageVersion Include="Localisation.Core" Version="3.0.1" />
     <PackageVersion Include="Localisation.Generators" Version="3.0.1" />
-    <PackageVersion Include="ReactiveUI" Version="27.0.1" />
-    <PackageVersion Include="ReactiveUI.Binding" Version="11.0.0" />
-    <PackageVersion Include="ReactiveUI.Primitives" Version="10.1.0" />
-    <PackageVersion Include="ReactiveUI.Primitives.ObservableEvents" Version="10.1.0" />
-    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="6.0.0" />
+    <PackageVersion Include="ReactiveUI" Version="28.0.0" />
+    <PackageVersion Include="ReactiveUI.Binding" Version="12.1.0" />
+    <PackageVersion Include="ReactiveUI.Primitives" Version="10.2.3" />
+    <PackageVersion Include="ReactiveUI.Primitives.ObservableEvents" Version="10.2.3" />
+    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="7.1.0" />
   </ItemGroup>
 
   <ItemGroup Label="Platform / HTTP">
@@ -36,7 +36,7 @@
     <PackageVersion Include="TUnit" Version="$(TUnitVersion)" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.16.0-preview.2" />
-    <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="4.0.0" />
+    <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="4.0.2" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
   </ItemGroup>
 
