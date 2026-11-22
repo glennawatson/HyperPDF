@@ -30,7 +30,7 @@ internal sealed partial class OptimizeSession
             return PdfValue.FromStream(subset);
         }
 
-        if (_options.RecompressStreams && StreamRecompressor.TryRecompress(stream, _source.Objects.ScratchPools, _cancellationToken) is { } smaller)
+        if (_options.RecompressStreams && StreamRecompressor.TryRecompress(stream, _options.Compression, _source.Objects.ScratchPools, _cancellationToken) is { } smaller)
         {
             _report.Measure(PdfOptimizeCategory.Streams, stream.RawLength, smaller.RawLength);
             return PdfValue.FromStream(smaller);

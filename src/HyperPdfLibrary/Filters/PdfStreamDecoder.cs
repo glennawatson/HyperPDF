@@ -54,7 +54,9 @@ internal static class PdfStreamDecoder
             data = plain;
         }
 
-        return Apply(data, dictionary.Get(KnownName.Filter), dictionary.Get(KnownName.DecodeParms), new(context, stream.Id.Number, cancellationToken), ref output);
+        var filters = dictionary.Get(KnownName.Filter);
+        var expected = IsOnlyDictionaryCoder(filters) ? DecodedLengthEstimate.ForImage(dictionary, data.Length) : 0;
+        return Apply(data, filters, dictionary.Get(KnownName.DecodeParms), new(context, stream.Id.Number, cancellationToken), expected, ref output);
     }
 
     /// <summary>Applies a filter chain to data.</summary>
@@ -75,14 +77,26 @@ internal static class PdfStreamDecoder
     /// <param name="source">The cancellation and diagnostics context, and the stream's object number.</param>
     /// <param name="output">The buffer receiving the decoded data.</param>
     /// <returns>The image codec still to apply, if any.</returns>
-    internal static PdfImageCodec Apply(ReadOnlySpan<byte> data, PdfValue filters, PdfValue parameters, in DecodeSource source, ref PooledBuffer output)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PdfImageCodec Apply(ReadOnlySpan<byte> data, PdfValue filters, PdfValue parameters, in DecodeSource source, ref PooledBuffer output) =>
+        Apply(data, filters, parameters, source, 0, ref output);
+
+    /// <summary>Applies a filter chain to data whose decoded length the caller can estimate.</summary>
+    /// <param name="data">The encoded data.</param>
+    /// <param name="filters">The /Filter value: a name, an array of names, or null.</param>
+    /// <param name="parameters">The /DecodeParms value: a dictionary, an array, or null.</param>
+    /// <param name="source">The cancellation and diagnostics context, and the stream's object number.</param>
+    /// <param name="expectedLength">The bytes the first filter is expected to produce, or 0 when unknown. The first buffer is rented at this size.</param>
+    /// <param name="output">The buffer receiving the decoded data.</param>
+    /// <returns>The image codec still to apply, if any.</returns>
+    internal static PdfImageCodec Apply(ReadOnlySpan<byte> data, PdfValue filters, PdfValue parameters, in DecodeSource source, int expectedLength, ref PooledBuffer output)
     {
         var filterArray = filters.AsArray();
         var declared = filterArray?.Count ?? (filters.Kind == PdfKind.Name ? 1 : 0);
         var count = Math.Min(declared, PdfLimits.MaxFilters);
         ReportExtraFilters(declared, count, source);
-        var scratch = default(PooledBuffer);
         var maximumLength = ConfiguredOutputLength(source);
+        var scratch = FirstBuffer(expectedLength, maximumLength);
         output.MaximumLength = maximumLength;
         scratch.MaximumLength = maximumLength;
         try
@@ -126,6 +140,13 @@ internal static class PdfStreamDecoder
         }
     }
 
+    /// <summary>Reports a stream that decodes to more than the general size cap.</summary>
+    /// <param name="context">The context that receives the report, or <see langword="null"/>.</param>
+    /// <param name="objectNumber">The stream's object number, or 0.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void ReportSizeCapped(PdfOpenContext? context, int objectNumber) =>
+        PdfOpenContext.Report(context, PdfDiagnosticCode.DecodeSizeCapped, "A stream decoded to more than the size cap and was cut short.", objectNumber, -1);
+
     /// <summary>Gets the image codec a filter name stands for.</summary>
     /// <param name="name">The filter name.</param>
     /// <returns>The codec, or none for byte filters.</returns>
@@ -163,6 +184,28 @@ internal static class PdfStreamDecoder
     /// <param name="name">The filter name.</param>
     /// <returns><see langword="true"/> for a filter this library knows.</returns>
     internal static bool IsKnownFilter(PdfName name) => ByteFilters.Contains(name.ToKnownName()) || ImageCodec(name) != PdfImageCodec.None;
+
+    /// <summary>Makes the buffer the first filter decodes into, with room for the expected output when that is known.</summary>
+    /// <param name="expectedLength">The bytes expected, or 0 when unknown.</param>
+    /// <param name="maximumLength">The configured output bound, or 0 for the general limit.</param>
+    /// <returns>The buffer; empty when nothing is expected, so the filter sizes it.</returns>
+    private static PooledBuffer FirstBuffer(int expectedLength, int maximumLength)
+    {
+        var capacity = maximumLength > 0 ? Math.Min(expectedLength, maximumLength) : expectedLength;
+        return capacity > 0 ? new(capacity) : default;
+    }
+
+    /// <summary>
+    /// Determines whether a stream's only filter is FlateDecode or LZWDecode, so what the filter produces is the image's
+    /// samples and the image's size predicts its length. In a longer chain the filter produces another codec's data.
+    /// </summary>
+    /// <param name="filters">The /Filter value: a name, an array of names, or null.</param>
+    /// <returns><see langword="true"/> when the one filter is a dictionary coder.</returns>
+    private static bool IsOnlyDictionaryCoder(PdfValue filters)
+    {
+        var only = filters.AsArray() is { Count: 1 } array ? array.GetName(0) : filters.AsName();
+        return only.ToKnownName() is KnownName.FlateDecode or KnownName.Fl or KnownName.LZWDecode or KnownName.LZW;
+    }
 
     /// <summary>Gets the output byte bound for this decoding operation.</summary>
     /// <param name="source">The context carrying the configured byte bound.</param>
@@ -207,7 +250,7 @@ internal static class PdfStreamDecoder
         }
         catch (InvalidDataException)
         {
-            PdfOpenContext.Report(source.Context, PdfDiagnosticCode.DecodeSizeCapped, "A stream decoded to more than the size cap and was cut short.", source.ObjectNumber, -1);
+            ReportSizeCapped(source.Context, source.ObjectNumber);
             return false;
         }
     }

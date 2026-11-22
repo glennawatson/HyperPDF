@@ -2,7 +2,9 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using HyperPdfLibrary.Filters;
 
 namespace HyperPdfLibrary.Graphics.Images;
@@ -65,6 +67,15 @@ internal static class ImageBoxReduction
 
     /// <summary>The index of alpha in a BGRA pixel.</summary>
     private const int AlphaIndex = 3;
+
+    /// <summary>The bits green sits above blue in a BGRA pixel read as one little-endian value.</summary>
+    private const int GreenShift = 8;
+
+    /// <summary>The bits red sits above blue.</summary>
+    private const int RedShift = 16;
+
+    /// <summary>The bits alpha sits above blue.</summary>
+    private const int AlphaShift = 24;
 
     /// <summary>The linear light values of the 256 sRGB values.</summary>
     private static readonly short[] ToLinear = CreateToLinear();
@@ -181,26 +192,31 @@ internal static class ImageBoxReduction
     /// <summary>Adds the premultiplied pixels of one run to the sums, weighting each straight colour by its alpha.</summary>
     /// <param name="run">The BGRA pixels of one row of a block.</param>
     /// <param name="sums">The sums to add to.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void AddRun(ReadOnlySpan<byte> run, ref BlockSums sums)
     {
         var (blue, green, red, alphaSum) = sums;
-        var opaque = OpaqueWeighted;
-        for (var p = 0; p < run.Length; p += BgraBytes)
+
+        // Each pixel is read as one value and its channels index the table without a range check: a byte always fits the
+        // table's 256 entries. A run is only a few pixels, so the checks would cost more than the sums.
+        ref var opaque = ref MemoryMarshal.GetArrayDataReference(OpaqueWeighted);
+        foreach (var stored in MemoryMarshal.Cast<byte, uint>(run))
         {
-            int alpha = run[p + AlphaIndex];
+            var pixel = BitConverter.IsLittleEndian ? stored : BinaryPrimitives.ReverseEndianness(stored);
+            var alpha = (int)(pixel >> AlphaShift);
             if (alpha == ByteMax)
             {
-                blue += opaque[run[p]];
-                green += opaque[run[p + GreenIndex]];
-                red += opaque[run[p + RedIndex]];
+                blue += Unsafe.Add(ref opaque, (byte)pixel);
+                green += Unsafe.Add(ref opaque, (byte)(pixel >> GreenShift));
+                red += Unsafe.Add(ref opaque, (byte)(pixel >> RedShift));
                 alphaSum += ByteMax;
             }
             else if (alpha != 0)
             {
                 alphaSum += alpha;
-                blue += Weighted(run[p], alpha);
-                green += Weighted(run[p + GreenIndex], alpha);
-                red += Weighted(run[p + RedIndex], alpha);
+                blue += Weighted((byte)pixel, alpha);
+                green += Weighted((byte)(pixel >> GreenShift), alpha);
+                red += Weighted((byte)(pixel >> RedShift), alpha);
             }
         }
 

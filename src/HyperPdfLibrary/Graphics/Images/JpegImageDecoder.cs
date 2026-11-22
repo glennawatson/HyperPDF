@@ -150,6 +150,11 @@ internal static class JpegImageDecoder
             IsStencil = false,
             ColorSpace = matches ? space : PdfColorSpace.FromComponents(info.Components),
             Decode = matches ? header.Decode : null,
+
+            // The halvings were counted from the size the image dictionary gives, and a mask plane has that size. A JPEG
+            // of another size is left at full size for the caller, which works out the halvings that still apply from the
+            // size it gets back and applies the mask to the decoded image.
+            BoxLevels = info.Width == header.Width && info.Height == header.Height ? header.BoxLevels : 0,
         };
     }
 

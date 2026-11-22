@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using HyperPdfLibrary.PdfUa;
 using HyperPdfLibrary.Structure.Tagged;
+using HyperPdfLibrary.Writing;
 
 namespace HyperPdfLibrary.Optimizing;
 
@@ -38,8 +39,18 @@ public readonly record struct PdfOptimizeOptions
     {
     }
 
-    /// <summary>Gets the preset for the smallest file: colour and grey images at 150 dpi, black-and-white images at 200 dpi, JPEG quality 70.</summary>
-    public static PdfOptimizeOptions Smaller { get; } = new() { ColorImageDpi = SmallerDpi, GrayImageDpi = SmallerDpi, MonochromeImageDpi = SmallerMonochromeDpi, JpegQuality = SmallerQuality };
+    /// <summary>
+    /// Gets the preset for the smallest file: colour and grey images at 150 dpi, black-and-white images at 200 dpi, JPEG
+    /// quality 70, and streams recompressed at the smallest level.
+    /// </summary>
+    public static PdfOptimizeOptions Smaller { get; } = new()
+    {
+        ColorImageDpi = SmallerDpi,
+        GrayImageDpi = SmallerDpi,
+        MonochromeImageDpi = SmallerMonochromeDpi,
+        JpegQuality = SmallerQuality,
+        Compression = PdfCompressionLevel.Smallest,
+    };
 
     /// <summary>Gets the balanced preset: colour and grey images at 200 dpi, black-and-white images at 300 dpi, JPEG quality 80.</summary>
     public static PdfOptimizeOptions Balanced { get; } = new();
@@ -94,8 +105,16 @@ public readonly record struct PdfOptimizeOptions
     /// </summary>
     public PdfJbig2Mode Jbig2 { get; init; } = PdfJbig2Mode.Off;
 
-    /// <summary>Gets a value indicating whether uncompressed streams are compressed and Flate streams recompressed at the best level.</summary>
+    /// <summary>Gets a value indicating whether uncompressed streams are compressed and Flate streams recompressed at the level <see cref="Compression"/> names.</summary>
     public bool RecompressStreams { get; init; } = true;
+
+    /// <summary>
+    /// Gets how hard <see cref="RecompressStreams"/> works at making each stream small. The default is
+    /// <see cref="PdfCompressionLevel.Balanced"/>, which on ordinary files comes within a small fraction of a percent of
+    /// <see cref="PdfCompressionLevel.Smallest"/> in about four fifths of the time; <see cref="Smaller"/> uses the
+    /// smallest level. A stream is only replaced when the result is smaller than what it had.
+    /// </summary>
+    public PdfCompressionLevel Compression { get; init; } = PdfCompressionLevel.Balanced;
 
     /// <summary>Gets a value indicating whether identical streams, fonts and graphics states are merged.</summary>
     public bool RemoveDuplicates { get; init; } = true;

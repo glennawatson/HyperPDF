@@ -1,7 +1,9 @@
 // Copyright (c) 2026 Glenn Watson. All rights reserved.
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+using System.Buffers;
 using System.Diagnostics;
+using HyperPdfLibrary.Compat;
 using HyperPdfLibrary.Content;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Graphics.Images;
@@ -18,6 +20,9 @@ namespace HyperPdfLibrary.Document;
 [DebuggerDisplay("PdfDocumentChecker: {_faults.Count} faults")]
 internal sealed class PdfDocumentChecker
 {
+    /// <summary>The bytes of the window a Flate stream is read through when it is only checked: 64 KiB.</summary>
+    private const int CleanCheckWindow = 64 * 1024;
+
     /// <summary>The faults found by the steps, in order.</summary>
     private readonly List<PdfDiagnostic> _faults = [];
 
@@ -251,6 +256,11 @@ internal sealed class PdfDocumentChecker
     private void CheckStream(PdfStream stream, int number)
     {
         _streams++;
+        if (IsCheckedAsFlate(stream, number))
+        {
+            return;
+        }
+
         var buffer = default(PooledBuffer);
         try
         {
@@ -267,6 +277,47 @@ internal sealed class PdfDocumentChecker
         finally
         {
             buffer.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Checks a stream whose only filter is FlateDecode by reading it through one small window. Most streams are whole
+    /// and sound, and a large image then costs no buffer of its decoded size. One that decodes past the general size cap
+    /// is reported as the full decode reports it. Any other stream, and one that is not plainly sound, is decoded in
+    /// full, which reports what is wrong with it.
+    /// </summary>
+    /// <param name="stream">The stream.</param>
+    /// <param name="number">The stream's object number.</param>
+    /// <returns><see langword="true"/> when the stream needs no further check.</returns>
+    private bool IsCheckedAsFlate(PdfStream stream, int number)
+    {
+        var filter = stream.Dictionary.Get(KnownName.Filter);
+        var name = filter.AsArray() is { Count: 1 } array ? array.GetName(0) : filter.AsName();
+        if (stream.IsEncrypted || name.ToKnownName() is not (KnownName.FlateDecode or KnownName.Fl))
+        {
+            return false;
+        }
+
+        PdfOpenContext.ThrowIfCancelled(_context);
+        using var raw = stream.LeaseRawData();
+        var window = ArrayPool<byte>.Shared.Rent(CleanCheckWindow);
+        try
+        {
+            // A document opened with its own, lower bound throws at that bound, which only the full decode does.
+            var general = _context.MaxDecompressedBytes >= PdfLimits.MaxDecodedLength;
+            var maximumLength = Math.Min(_context.MaxDecompressedBytes, PdfLimits.MaxDecodedLength);
+            var found = ZLibCodec.Check(raw.Span, maximumLength, window, _context.CancellationToken);
+            if (found == ZLibCheck.TooLong && general)
+            {
+                PdfStreamDecoder.ReportSizeCapped(_context, number);
+                return true;
+            }
+
+            return found == ZLibCheck.Clean;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(window);
         }
     }
 

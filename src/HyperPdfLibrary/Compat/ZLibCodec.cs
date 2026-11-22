@@ -67,6 +67,15 @@ internal static class ZLibCodec
         }
 
         var hint = (int)Math.Min(PdfLimits.MaxDecodedLength, (long)input.Length * ExpectedRatio);
+
+        // A caller that knows the decoded size has rented room for it. That room is used before any guess from the usual
+        // ratio, which would swap it for a larger array at once. A small default buffer does not count as such room.
+        var room = (output.Array?.Length ?? 0) - output.Length;
+        if (room >= input.Length)
+        {
+            hint = Math.Min(hint, room);
+        }
+
 #if NET11_0_OR_GREATER
         return raw
             ? DecompressRaw(input, ref output, hint, scratchPools?.Objects<DeflateDecoder>(), cancellationToken)
@@ -102,6 +111,50 @@ internal static class ZLibCodec
 #else
         CompressStream(input, level, ref output, scratchPools);
 #endif
+    }
+
+    /// <summary>
+    /// Determines whether zlib data is whole and sound without keeping what it decodes to, so a caller that only checks
+    /// a stream needs one small window however large the stream is.
+    /// </summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="maximumLength">The most bytes the data may decode to.</param>
+    /// <param name="window">The space the decoded bytes pass through and are dropped from.</param>
+    /// <param name="cancellationToken">Cancels the check.</param>
+    /// <returns>Whether the data ends cleanly within the length, runs past it, or is not plainly sound.</returns>
+    internal static ZLibCheck Check(ReadOnlySpan<byte> input, int maximumLength, Span<byte> window, CancellationToken cancellationToken)
+    {
+#if NET11_0_OR_GREATER
+        using var decoder = new ZLibDecoder();
+        var total = 0L;
+        var status = OperationStatus.DestinationTooSmall;
+        while (status == OperationStatus.DestinationTooSmall && total <= maximumLength)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            status = decoder.Decompress(input, window, out var consumed, out var written);
+            input = input[consumed..];
+            total += written;
+        }
+
+        return Checked(total, maximumLength, status == OperationStatus.Done);
+#else
+        return CheckStream(input, maximumLength, window, cancellationToken);
+#endif
+    }
+
+    /// <summary>Names what a check found from how far it read and how it ended.</summary>
+    /// <param name="total">The bytes the data decoded to before the check stopped.</param>
+    /// <param name="maximumLength">The most bytes the data may decode to.</param>
+    /// <param name="ended">Whether the data ended cleanly.</param>
+    /// <returns>The result.</returns>
+    private static ZLibCheck Checked(long total, int maximumLength, bool ended)
+    {
+        if (total > maximumLength)
+        {
+            return ZLibCheck.TooLong;
+        }
+
+        return ended ? ZLibCheck.Clean : ZLibCheck.Unsound;
     }
 
 #if NET11_0_OR_GREATER
@@ -403,6 +456,40 @@ internal static class ZLibCodec
 
         // The inflater asks for more input only until the final block and checksum are complete.
         return clean && !source.EndReached;
+    }
+
+    /// <summary>Reads zlib data to its end through one window, noting only whether it was whole and sound.</summary>
+    /// <param name="input">The compressed bytes.</param>
+    /// <param name="maximumLength">The most bytes the data may decode to.</param>
+    /// <param name="window">The space the decoded bytes pass through.</param>
+    /// <param name="cancellationToken">Cancels the check.</param>
+    /// <returns>Whether the data ended cleanly within the length, ran past it, or is not plainly sound.</returns>
+    private static unsafe ZLibCheck CheckStream(ReadOnlySpan<byte> input, int maximumLength, Span<byte> window, CancellationToken cancellationToken)
+    {
+        using var source = new EndTrackingStream();
+        fixed (byte* pointer = input)
+        {
+            source.Reset(pointer, input.Length);
+            try
+            {
+                using var inflater = new ZLibStream(source, CompressionMode.Decompress, leaveOpen: true);
+                var total = 0L;
+                var clean = true;
+                var read = 1;
+                while (read > 0 && total <= maximumLength)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    read = ReadSome(inflater, window, ref clean);
+                    total += read;
+                }
+
+                return Checked(total, maximumLength, clean && !source.EndReached);
+            }
+            finally
+            {
+                source.Release();
+            }
+        }
     }
 
     /// <summary>Reads decoded bytes, treating damaged data as the end of the stream.</summary>
