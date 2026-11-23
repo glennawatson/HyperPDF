@@ -50,6 +50,9 @@ public sealed class HyperPdfPageManagerTests
     /// <summary>The notes' colour.</summary>
     private const uint NoteColor = 0xFFFF00;
 
+    /// <summary>A clockwise quarter turn.</summary>
+    private const int QuarterTurn = 90;
+
     /// <summary>The unedited page order.</summary>
     private const string OriginalTexts = "Page 1,Page 2,Page 3";
 
@@ -136,6 +139,28 @@ public sealed class HyperPdfPageManagerTests
         }
 
         await Assert.That(reopened.Document.GetPageSizes()[page].Width).IsEqualTo(PageHeight);
+    }
+
+    /// <summary>Undo and redo of a page edit put back the page sizes kept from before and after it, without reading the pages.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task UndoAndRedoPutBackTheKeptPageSizes()
+    {
+        using var document = Open(EditingTestDocuments.CreateFlat(PageCount));
+        var manager = HyperPdf.Engine.HyperPdfDocumentPageManagement.GetPageManager(document);
+        var before = Volatile.Read(ref document.PageSizes);
+        await manager.Apply(new(PageEditKind.Rotate, SecondSelection, QuarterTurn)).ToTask();
+        var rotated = Volatile.Read(ref document.PageSizes);
+
+        _ = await manager.Undo().ToTask();
+        var undone = Volatile.Read(ref document.PageSizes);
+        _ = await manager.Redo().ToTask();
+        var redone = Volatile.Read(ref document.PageSizes);
+
+        await Assert.That(rotated[1].Width).IsEqualTo(PageHeight);
+        await Assert.That(ReferenceEquals(undone, before)).IsTrue();
+        await Assert.That(ReferenceEquals(redone, rotated)).IsTrue();
+        await Assert.That(undone[1].Width).IsEqualTo(PageWidth);
     }
 
     /// <summary>Multiple source files form one edit and retain copied fields, outlines and links through redo and saving.</summary>

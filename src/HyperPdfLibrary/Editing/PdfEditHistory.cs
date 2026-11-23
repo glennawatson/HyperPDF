@@ -108,6 +108,30 @@ public sealed class PdfEditHistory
         }
     }
 
+    /// <summary>Gets the record undo would revert, or <see langword="null"/>.</summary>
+    internal PdfEditRecord? NextUndo
+    {
+        get
+        {
+            lock (_store.Gate)
+            {
+                return _undo.Count > 0 ? _undo[^1] : null;
+            }
+        }
+    }
+
+    /// <summary>Gets the record redo would apply again, or <see langword="null"/>.</summary>
+    internal PdfEditRecord? NextRedo
+    {
+        get
+        {
+            lock (_store.Gate)
+            {
+                return _redo.Count > 0 ? _redo[^1] : null;
+            }
+        }
+    }
+
     /// <summary>Reverts the most recent committed transaction.</summary>
     /// <returns><see langword="true"/> when one was reverted.</returns>
     /// <exception cref="InvalidOperationException">A transaction is open.</exception>

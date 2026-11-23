@@ -6,6 +6,7 @@ using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using HyperPdf.Core.Documents;
+using HyperPdf.Core.Geometry;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
@@ -35,6 +36,9 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
 
     /// <summary>Sources kept open while imported objects or undo records can still refer to them.</summary>
     private readonly List<PdfDocument> _imports = [];
+
+    /// <summary>The page sizes before and after each page edit still in the history; an entry goes when the history drops its record.</summary>
+    private readonly ConditionalWeakTable<PdfEditRecord, PageSizesAround> _sizes = new();
 
     /// <summary>The page-edit generation used to reject selections changed during asynchronous reads.</summary>
     private long _revision;
@@ -700,21 +704,45 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
             ThrowIfDisposed();
             cancellationToken.ThrowIfCancellationRequested();
             using var access = HyperPdfNavigation.EnterPageWrite(_owner);
+            var history = PdfDocumentEditing.GetHistory(_document);
+            var record = undo ? history.NextUndo : history.NextRedo;
             var changed = HyperPdfEditTransactions.Step(_document, undo);
             if (changed)
             {
-                Changed();
+                // The history puts back exactly the pages it had at that point, so their sizes are the ones kept then.
+                var sizes = KeptSizes(record, undo);
+                _revision++;
+                HyperPdfNavigation.PagesEdited(_owner, PdfCacheScopes.All, sizes);
             }
 
             return changed;
         }
     }
 
-    /// <summary>Publishes a committed edit to the adapter's page caches and unsaved state.</summary>
+    /// <summary>Gets the page sizes kept for a history step.</summary>
+    /// <param name="record">The record undone or redone, or <see langword="null"/>.</param>
+    /// <param name="undo">Whether it is undone.</param>
+    /// <returns>The sizes it puts back, or <see langword="null"/> when none were kept.</returns>
+    private PageSize[]? KeptSizes(PdfEditRecord? record, bool undo)
+    {
+        if (record is null || !_sizes.TryGetValue(record, out var kept))
+        {
+            return null;
+        }
+
+        return undo ? kept.Before : kept.After;
+    }
+
+    /// <summary>Publishes a committed edit to the adapter's page caches and unsaved state, and keeps the page sizes before and after it for undo and redo.</summary>
     private void Changed()
     {
+        var before = Volatile.Read(ref _owner.PageSizes);
         _revision++;
         HyperPdfNavigation.PagesEdited(_owner);
+        if (PdfDocumentEditing.GetHistory(_document).NextUndo is { } record)
+        {
+            _sizes.AddOrUpdate(record, new(before, Volatile.Read(ref _owner.PageSizes)));
+        }
     }
 
     /// <summary>Rejects operations after either owner has been disposed.</summary>
@@ -726,4 +754,10 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
     /// <param name="Pages">Its pages in insertion order.</param>
     [DebuggerDisplay("ImportDocument: {Pages.Length} pages")]
     private sealed record ImportDocument(PdfDocument Document, int[] Pages);
+
+    /// <summary>The page sizes before and after a page edit; published arrays are never written to, so they can be published again.</summary>
+    /// <param name="Before">The sizes before the edit, which its undo puts back.</param>
+    /// <param name="After">The sizes after it, which its redo puts back.</param>
+    [DebuggerDisplay("PageSizesAround: {Before.Length} to {After.Length} pages")]
+    private sealed record PageSizesAround(PageSize[] Before, PageSize[] After);
 }

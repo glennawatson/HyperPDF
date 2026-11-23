@@ -147,7 +147,14 @@ internal static class HyperPdfNavigation
     /// <summary>Refreshes page geometry and navigation after a committed edit that changed only some parts of the document.</summary>
     /// <param name="self">The owning document.</param>
     /// <param name="scopes">The parts of the document the edit can have changed.</param>
-    internal static void PagesEdited(HyperPdfDocument self, PdfCacheScopes scopes)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void PagesEdited(HyperPdfDocument self, PdfCacheScopes scopes) => PagesEdited(self, scopes, null);
+
+    /// <summary>Refreshes page geometry and navigation after an undo or redo whose page sizes are already known.</summary>
+    /// <param name="self">The owning document.</param>
+    /// <param name="scopes">The parts of the document the edit can have changed.</param>
+    /// <param name="sizes">The sizes of the pages the undo or redo put back, or <see langword="null"/> to read them from the pages.</param>
+    internal static void PagesEdited(HyperPdfDocument self, PdfCacheScopes scopes, PageSize[]? sizes)
     {
         HyperPdfEditing.Edited(self);
         if ((scopes & (PdfCacheScopes.PageSet | PdfCacheScopes.PageContent)) != PdfCacheScopes.None)
@@ -161,9 +168,10 @@ internal static class HyperPdfNavigation
         }
 
         // A page's size comes from its boxes and rotation, so an edit that names no page part leaves every size as published.
+        // Known sizes are those the pages had at that point of the history, so no page is read for them.
         if (scopes != PdfCacheScopes.None)
         {
-            Volatile.Write(ref self.PageSizes, ReadPageSizes(self.Document, Volatile.Read(ref self.PageSizes)));
+            Volatile.Write(ref self.PageSizes, sizes ?? ReadPageSizes(self.Document, Volatile.Read(ref self.PageSizes)));
         }
 
         Volatile.Write(ref self.Outline, null);
