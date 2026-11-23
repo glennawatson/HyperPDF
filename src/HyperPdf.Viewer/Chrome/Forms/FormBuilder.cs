@@ -61,6 +61,15 @@ internal sealed class FormBuilder
     internal void Choice(string label, IReadOnlyList<string> options, int selected, int id) =>
         Rows.Add(new(FormRowKind.Choice, label, string.Empty, options, selected, options.Count > 0, id, null));
 
+    /// <summary>Adds a setting whose few values are all shown at once.</summary>
+    /// <param name="label">The setting's name.</param>
+    /// <param name="options">The values.</param>
+    /// <param name="selected">The chosen value.</param>
+    /// <param name="id">The row's number.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Options(string label, IReadOnlyList<string> options, int selected, int id) =>
+        Rows.Add(new(FormRowKind.Options, label, string.Empty, options, selected, options.Count > 0, id, null));
+
     /// <summary>Adds a setting typed as text.</summary>
     /// <param name="label">The setting's name.</param>
     /// <param name="value">The text now.</param>

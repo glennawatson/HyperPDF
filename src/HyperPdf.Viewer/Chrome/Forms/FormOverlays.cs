@@ -28,6 +28,12 @@ internal static class FormOverlays
     /// <summary>The character shown in place of each letter of a secret.</summary>
     private const char Dot = '•';
 
+    /// <summary>The fewest lines a dialog with a picture or a pad is tall, so the picture has room.</summary>
+    private const int PictureLines = 10;
+
+    /// <summary>The height of the line of words shown in place of a picture, in device pixels.</summary>
+    private const int PreviewLineHeight = 40;
+
     /// <summary>The lines moved by Page Up and Page Down.</summary>
     private const int PageLines = 12;
 
@@ -201,12 +207,21 @@ internal static class FormOverlays
     {
         // The rows are read again first, so two characters typed between frames both land on the text the view model holds.
         Describe(request, builder);
-        var focus = ui.Value.Focus;
-        if ((uint)focus < (uint)builder.Rows.Count && builder.Rows[focus] is { Kind: FormRowKind.Field } row)
+        var focus = FocusedField(builder, ui.Value.Focus);
+        if (focus >= 0)
         {
-            Apply(builder, edits, focus, 0, edit(row.Value));
+            Apply(builder, edits, focus, 0, edit(builder.Rows[focus].Value));
         }
     }
+
+    /// <summary>Finds the text box that typing goes to: the one pressed, or the first one when none was pressed, so a dialog can be typed into as soon as it opens.</summary>
+    /// <param name="builder">The rows.</param>
+    /// <param name="pressed">The row pressed last, or -1.</param>
+    /// <returns>The row of the text box, or -1 when the dialog has none.</returns>
+    private static int FocusedField(FormBuilder builder, int pressed) =>
+        (uint)pressed < (uint)builder.Rows.Count && builder.Rows[pressed].Kind == FormRowKind.Field
+            ? pressed
+            : builder.Rows.FindIndex(static row => row.Kind == FormRowKind.Field);
 
     /// <summary>Follows the pointer on the pad: a stroke starts where it goes down, grows as it moves and is finished where it is let go.</summary>
     /// <param name="ui">What the user has done.</param>
@@ -249,15 +264,18 @@ internal static class FormOverlays
         var rowsWidth = Math.Min(metrics.DialogWidth + metrics.PopupWidth, size.Width);
 
         // A dialog with a picture, such as the sheet a print makes, is wider by the picture's column when the window has the room.
-        var pictureWidth = request.Picture is null && request.Pad is null ? 0 : Math.Min(metrics.DialogWidth >> 1, size.Width - rowsWidth);
+        var pictureWidth = request.Picture is null && request.Pad is null ? 0 : Math.Min(metrics.DialogWidth >> 1, Math.Max(0, size.Width - rowsWidth));
         var width = rowsWidth + pictureWidth;
         var inner = rowsWidth - metrics.Padding - metrics.Padding;
-        var lines = Flatten(builder, ui.Value, runs, ChromeBars.Style(metrics), inner - metrics.Padding - metrics.Padding);
+        var focused = FocusedField(builder, ui.Value.Focus);
+        var lines = Flatten(builder, ui.Value with { Focus = focused }, runs, ChromeBars.Style(metrics), inner - metrics.Padding - metrics.Padding);
         var first = Math.Clamp(ui.Value.First, 0, Math.Max(0, lines.Count - VisibleLines));
 
-        // A short window shows fewer lines, so the heading and the buttons always fit.
+        // A short window shows fewer lines, so the heading and the buttons always fit. A dialog with few rows is only as tall
+        // as its rows, with room kept for a picture or a pad, so it is not a slab of empty space.
         var around = metrics.RowHeight + metrics.RowHeight + metrics.ToolbarHeight + metrics.Padding + metrics.Padding;
-        var shown = Math.Min(VisibleLines, Math.Max(1, (size.Height - around) / metrics.RowHeight));
+        var wanted = Math.Max(lines.Count + 1, pictureWidth > 0 ? PictureLines : 1);
+        var shown = Math.Min(Math.Min(VisibleLines, wanted), Math.Max(1, (size.Height - around) / metrics.RowHeight));
         var height = (metrics.RowHeight * (shown + 1)) + metrics.ToolbarHeight + metrics.Padding + metrics.Padding;
         var left = (size.Width - width) >> 1;
         var top = Math.Max(0, (size.Height - height) >> 1);
@@ -348,14 +366,21 @@ internal static class FormOverlays
     /// <returns>The picture, and where the picture or the pad lies.</returns>
     private static FormUi AddPicture(List<ChromeItem> items, FormRequest request, in LayoutRect column)
     {
-        if (request.Pad is not null)
+        // A dialog with a pad shows the pad while it is drawn on, and its picture or its words the rest of the time.
+        if (request.Pad is not null && (request.PadShown?.Invoke() ?? true))
         {
             return AddPad(items, request, column);
         }
 
         var none = FormUi.Start;
-        if (request.Picture is not { } make || column.Width <= 0 || column.Height <= 0 || make(new((int)column.Width, (int)column.Height)) is not { } picture)
+        if (column.Width <= 0 || column.Height <= 0)
         {
+            return none;
+        }
+
+        if (request.Picture?.Invoke(new((int)column.Width, (int)column.Height)) is not { } picture)
+        {
+            AddPreviewText(items, request, column);
             return none;
         }
 
@@ -363,7 +388,24 @@ internal static class FormOverlays
         var y = column.Y + ((column.Height - picture.Height) / HalfDivisor);
         var area = new LayoutRect(x, y, picture.Width, picture.Height);
         items.Add(new(ChromeItemKind.Thumbnail, null, Overlay.PictureIndex, string.Empty, area, true, false));
-        return none with { Picture = picture, Pad = area };
+
+        // Only a dialog without a pad takes the pointer on its picture; one with a pad draws on the pad alone.
+        return none with { Picture = picture, Pad = request.Pad is null ? area : default };
+    }
+
+    /// <summary>Adds the words a dialog shows where its picture would be, in the middle of the column.</summary>
+    /// <param name="items">Receives the words.</param>
+    /// <param name="request">What the dialog shows.</param>
+    /// <param name="column">The room beside the rows, in device pixels.</param>
+    private static void AddPreviewText(List<ChromeItem> items, FormRequest request, in LayoutRect column)
+    {
+        if (request.PreviewText?.Invoke() is not { Length: > 0 } words)
+        {
+            return;
+        }
+
+        var top = column.Y + ((column.Height - PreviewLineHeight) / HalfDivisor);
+        items.Add(new(ChromeItemKind.Heading, null, 0, words, new(column.X, top, column.Width, PreviewLineHeight), true, false));
     }
 
     /// <summary>Turns the rows into the lines that are shown.</summary>
@@ -411,6 +453,23 @@ internal static class FormOverlays
         return lines;
     }
 
+    /// <summary>Turns a setting with a few values into its lines: its name, then every value, so the one chosen is seen and another is one press away.</summary>
+    /// <param name="lines">Receives the lines.</param>
+    /// <param name="row">The row.</param>
+    /// <param name="index">The row's index.</param>
+    /// <param name="runs">The text measurer.</param>
+    /// <param name="style">How the text looks.</param>
+    /// <param name="width">The width a line of text must fit.</param>
+    private static void FlattenOptions(List<FormLine> lines, FormRow row, int index, TextRuns runs, TextStyle style, int width)
+    {
+        lines.Add(new(ChromeItemKind.Label, OverlayAction.None, index, ChromeText.Fit(row.Label, style, width, runs), true, false));
+        for (var option = 0; option < row.Options.Count; option++)
+        {
+            var text = ChromeText.Fit(string.Concat(option == row.Selected ? "●  " : "○  ", row.Options[option]), style, width, runs);
+            lines.Add(new(ChromeItemKind.Row, OverlayAction.PickOption, (index * OptionSpan) + option, text, row.Enabled, option == row.Selected));
+        }
+    }
+
     /// <summary>Turns a row that can be pressed into its lines.</summary>
     /// <param name="lines">Receives the lines.</param>
     /// <param name="row">The row.</param>
@@ -444,6 +503,12 @@ internal static class FormOverlays
                         lines.Add(new(ChromeItemKind.Row, OverlayAction.PickOption, (index * OptionSpan) + option, text, true, option == row.Selected));
                     }
 
+                    break;
+                }
+
+            case FormRowKind.Options:
+                {
+                    FlattenOptions(lines, row, index, runs, style, width);
                     break;
                 }
 

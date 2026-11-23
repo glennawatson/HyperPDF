@@ -155,7 +155,7 @@ internal static class TabRequests
         FillAndSignViewModel filling => filling.MarkInteraction.RegisterHandler(context =>
         {
             var browsing = context.Input.BrowseImageInteraction.RegisterHandler(where => chrome.PickFile(FolderOf(tab), null).Do(where.SetOutput));
-            return chrome.ShowForm(ToolForms.SignatureMark(context.Input)).Do(context.SetOutput).Finally(browsing.Dispose);
+            return chrome.ShowSignatureMark(context.Input).Do(context.SetOutput).Finally(browsing.Dispose);
         }),
         DocumentMediaViewModel media => FollowMedia(chrome, tab, media),
         SignaturesViewModel signatures => FollowSignatures(chrome, tab, signatures),

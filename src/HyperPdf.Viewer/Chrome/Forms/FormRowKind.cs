@@ -24,4 +24,7 @@ internal enum FormRowKind
 
     /// <summary>Something to do, run by a press.</summary>
     Action = 5,
+
+    /// <summary>A few values that are all shown at once, one of which is chosen by a press.</summary>
+    Options = 6,
 }

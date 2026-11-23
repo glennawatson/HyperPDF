@@ -98,18 +98,19 @@ internal static class ToolForms
     /// <summary>The rows of the window that makes the mark of a hand signature or of initials.</summary>
     private static readonly FormSetting<SignatureMarkViewModel>[] MarkRows =
     [
-        FormSettings.Choice<SignatureMarkViewModel>("How to make it", [..UiText.CreateChoices(MarkStyles)], static m => (int)m.Style, static (m, value) => m.Style = (SignatureMarkStyle)value),
-        FormSettings.Field<SignatureMarkViewModel>("Your name or initials, as you sign", static m => m.Text, static (m, text) => m.Text = text).When(static m => m.Style == SignatureMarkStyle.Typed),
+        FormSettings.Options<SignatureMarkViewModel>("How to make it", [..UiText.CreateChoices(MarkStyles)], static m => (int)m.Style, static (m, value) => m.Style = (SignatureMarkStyle)value),
+        FormSettings.Field<SignatureMarkViewModel>(static m => m.TextLabel, static m => m.Text, static (m, text) => m.Text = text).When(static m => m.Style == SignatureMarkStyle.Typed),
+        FormSettings.Note<SignatureMarkViewModel>("Draw in the box on the right with the mouse, a pen or a finger.").When(static m => m.Style == SignatureMarkStyle.Drawn),
+        FormSettings.Action<SignatureMarkViewModel>("Start the drawing again", static m => m.ClearDrawingCommand).When(static m => m.Style == SignatureMarkStyle.Drawn),
         FormSettings.Action<SignatureMarkViewModel>("Choose a picture of it…", static m => m.ChooseImageCommand).When(static m => m.Style == SignatureMarkStyle.Image),
+        FormSettings.Text<SignatureMarkViewModel>(static m => m.SourceImage?.Name).When(static m => m.Style == SignatureMarkStyle.Image),
         FormSettings.Toggle<SignatureMarkViewModel>(
             "Take the paper out of the picture",
             static m => m.RemovePaper,
-            static (m, on) => m.RemovePaper = on).When(static m => m.Style == SignatureMarkStyle.Image),
-        FormSettings.Text<SignatureMarkViewModel>(static m => m.ImageError),
-        FormSettings.Action<SignatureMarkViewModel>("Start the drawing again", static m => m.ClearDrawingCommand).When(static m => m.Style == SignatureMarkStyle.Drawn),
+            static (m, on) => m.RemovePaper = on).When(static m => m.Style == SignatureMarkStyle.Image && m.SourceImage is not null),
+        FormSettings.Text<SignatureMarkViewModel>(static m => m.ImageError).When(static m => m.Style == SignatureMarkStyle.Image),
         FormSettings.Toggle<SignatureMarkViewModel>("Keep it for next time", static m => m.Remember, static (m, on) => m.Remember = on),
         FormSettings.Action<SignatureMarkViewModel>("Forget the one that was kept", static m => m.ForgetCommand).When(static m => m.HasSaved),
-        FormSettings.Action<SignatureMarkViewModel>("Use it", static m => m.UseCommand),
     ];
 
     /// <summary>The rows of the window that sets how typed text looks.</summary>
@@ -431,10 +432,16 @@ internal static class ToolForms
     /// mark is drawn with the pointer on a pad beside the rows.
     /// </summary>
     /// <param name="model">The view model.</param>
+    /// <param name="picture">Makes the picture of a mark that came from a picture file, for the room beside the rows.</param>
     /// <returns>What the window shows.</returns>
-    internal static FormRequest SignatureMark(SignatureMarkViewModel model) => FormSettings.Window(model.Title, model, MarkRows) with
+    internal static FormRequest SignatureMark(SignatureMarkViewModel model, Func<SurfaceSize, IRenderSurface?> picture) => FormSettings.Window(model.Title, model, MarkRows) with
     {
+        // The button that uses the mark sits with Cancel along the bottom, and Enter presses it.
+        AcceptText = model.UseText,
+        CanAccept = () => model.Preview is not null,
         Answered = model.Answered,
+        Picture = picture,
+        PreviewText = () => model.IsTyped ? model.Preview?.Text : null,
         Pad = strokes => strokes.Where(static stroke => stroke.Done).Select(static stroke => stroke.Points).InvokeCommand(model.AddStrokeCommand),
         PadShown = () => model.IsDrawn,
         PadSeed = area => PadInks.FromMark(model.Drawing, area),

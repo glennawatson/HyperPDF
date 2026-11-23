@@ -45,4 +45,7 @@ internal sealed record FormRequest(
 
     /// <summary>Gets a stream that wipes the pad each time it signals, or <see langword="null"/> when the pad is never wiped.</summary>
     internal IObservable<RxVoid>? PadCleared { get; init; }
+
+    /// <summary>Gets what reads the words shown where the picture would be while there is no picture, or <see langword="null"/> for none.</summary>
+    internal Func<string?>? PreviewText { get; init; }
 }

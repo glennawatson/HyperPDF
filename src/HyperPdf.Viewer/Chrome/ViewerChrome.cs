@@ -10,6 +10,7 @@ using HyperPdf.Core.Rendering;
 using HyperPdf.Presentation.Input;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Dialogs;
+using HyperPdf.ViewModels.Markup;
 using HyperPdf.ViewModels.Output;
 using HyperPdf.ViewModels.Preferences;
 using HyperPdf.ViewModels.Reading;
@@ -372,6 +373,12 @@ public sealed class ViewerChrome : IDisposable
         ArgumentNullException.ThrowIfNull(player);
         return ShowForm(ToolForms.MediaPlayer(player, _ => ShownFilm(player))).Finally(() => Signal.Return(RxVoid.Default).InvokeCommand(player.StopCommand).Dispose());
     }
+
+    /// <summary>Shows the window that makes a hand signature or initials when subscribed to, with a picture of a mark that came from a picture file.</summary>
+    /// <param name="mark">The view model of the mark being made.</param>
+    /// <returns>One value when the window closes: <see langword="true"/> to use the mark.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public IObservable<bool> ShowSignatureMark(SignatureMarkViewModel mark) => MarkPreview.Show(ShowForm, _window.Backend.Surfaces, mark);
 
     /// <summary>Opens the search bar of the tab shown.</summary>
     public void ShowFind()

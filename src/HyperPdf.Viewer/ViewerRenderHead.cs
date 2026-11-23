@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.Engine;
 using HyperPdf.ViewModels.Rendering;
 using HyperPdf.ViewModels.Services;
 using HyperPdf.Windowing.Windows;
@@ -31,10 +32,8 @@ public sealed class ViewerRenderHead(IPlatformWindow window) : IRenderHead
     public void InvalidateDisplay() => window.RequestFrame();
 
     /// <inheritdoc/>
-    public DecodedImage? LoadImage(string path)
-    {
-        // Picture decoding for signature marks arrives with the fill and sign panel of the native heads.
-        _ = path;
-        return null;
-    }
+    public DecodedImage? LoadImage(string path) =>
+        string.IsNullOrEmpty(path) || HyperPdfPictureFiles.Read(path, CancellationToken.None) is not { } picture
+            ? null
+            : new(Path.GetFileName(path), picture.Pixels, picture.Width, picture.Height);
 }
