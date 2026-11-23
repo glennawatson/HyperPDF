@@ -4,18 +4,20 @@
 
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using HyperPdf.Core.Exporting;
 using HyperPdf.ViewModels.Output;
 using HyperPdf.ViewModels.Security;
 using HyperPdf.ViewModels.Signing;
 using HyperPdf.Viewer.Icons;
+using ReactiveUI;
 
 namespace HyperPdf.Viewer.Chrome.Forms;
 
 /// <summary>
 /// The windows that write a changed copy of the document: a plain copy, a smaller one, an archive copy, a PDF 2.0 copy, a flattened
 /// one, pages as pictures, a protected or unprotected copy, a redacted one and one with signature validation data. Each is a table
-/// of rows over its view model, which does the work.
+/// of rows over its view model, with its primary save action in the footer.
 /// </summary>
 internal static class CopyForms
 {
@@ -24,6 +26,9 @@ internal static class CopyForms
 
     /// <summary>The smallest resolution pictures of pages are written at, in dots per inch.</summary>
     private const int MinDpi = 36;
+
+    /// <summary>The English label of the primary button that saves a copy.</summary>
+    private const string SaveCopyText = "Save the copy…";
 
     /// <summary>The rows of the save a copy window.</summary>
     private static readonly FormSetting<SaveCopyViewModel>[] SaveCopyRows =
@@ -57,7 +62,6 @@ internal static class CopyForms
             static c => UiText.Get(c.NameKey),
             static m => m.Flatten.SelectedScope,
             static (m, c) => m.Flatten.SelectedScope = c).When(static m => m.IsFlattenFormat),
-        FormSettings.Action<SaveCopyViewModel>("Save the copy…", static m => m.SaveCommand).With(ChromeIcon.Save),
         FormSettings.Action<SaveCopyViewModel>("Stop", static m => m.CancelCommand).With(ChromeIcon.Stop).When(static m => m.IsRunning),
         FormSettings.Text<SaveCopyViewModel>(static m => Progress(m.IsRunning, m.ProgressPercent, m.StatusText)),
         FormSettings.Text<SaveCopyViewModel>(static m => m.Error),
@@ -80,7 +84,6 @@ internal static class CopyForms
         FormSettings.Toggle<OptimizeCopyViewModel>("Describe pictures", static m => m.DescribePictures, static (m, on) => m.DescribePictures = on).When(static m => m.CanDescribePictures),
         FormSettings.Text<OptimizeCopyViewModel>(static m => m.PictureDescriptionNote),
         FormSettings.Toggle<OptimizeCopyViewModel>("Remove unused parts", static m => m.CleanUp, static (m, on) => m.CleanUp = on),
-        FormSettings.Action<OptimizeCopyViewModel>("Save the copy…", static m => m.SaveCommand).With(ChromeIcon.Save),
         FormSettings.Action<OptimizeCopyViewModel>("Stop", static m => m.CancelCommand).With(ChromeIcon.Stop).When(static m => m.IsRunning),
         FormSettings.Text<OptimizeCopyViewModel>(static m => Progress(m.IsRunning, m.ProgressPercent, m.StatusText)),
         FormSettings.Text<OptimizeCopyViewModel>(static m => m.Error),
@@ -97,7 +100,6 @@ internal static class CopyForms
             static m => m.SelectedLevel,
             static (m, c) => m.SelectedLevel = c),
         FormSettings.Text<ArchiveCopyViewModel>(static m => m.SelectedLevel is { } level ? UiText.Get(level.DescriptionKey) : null),
-        FormSettings.Action<ArchiveCopyViewModel>("Save the copy…", static m => m.SaveCommand).With(ChromeIcon.Save),
         FormSettings.Action<ArchiveCopyViewModel>("Stop", static m => m.CancelCommand).With(ChromeIcon.Stop).When(static m => m.IsRunning),
         FormSettings.Text<ArchiveCopyViewModel>(static m => Progress(m.IsRunning, m.ProgressPercent, m.StatusText)),
         FormSettings.Text<ArchiveCopyViewModel>(static m => m.Error),
@@ -108,7 +110,6 @@ internal static class CopyForms
     private static readonly FormSetting<Pdf20CopyViewModel>[] Pdf20Rows =
     [
         FormSettings.Note<Pdf20CopyViewModel>("Writes a copy in the PDF 2.0 format. The document shown is not changed."),
-        FormSettings.Action<Pdf20CopyViewModel>("Save the copy…", static m => m.SaveCommand).With(ChromeIcon.Save),
         FormSettings.Action<Pdf20CopyViewModel>("Stop", static m => m.CancelCommand).With(ChromeIcon.Stop).When(static m => m.IsRunning),
         FormSettings.Text<Pdf20CopyViewModel>(static m => Progress(m.IsRunning, m.ProgressPercent, m.StatusText)),
         FormSettings.Text<Pdf20CopyViewModel>(static m => m.Error),
@@ -132,7 +133,6 @@ internal static class CopyForms
             static m => m.SelectedLook,
             static (m, c) => m.SelectedLook = c),
         FormSettings.Toggle<FlattenCopyViewModel>("Turn pages upright", static m => m.TurnPagesUpright, static (m, on) => m.TurnPagesUpright = on),
-        FormSettings.Action<FlattenCopyViewModel>("Save the copy…", static m => m.SaveCommand).With(ChromeIcon.Save),
         FormSettings.Action<FlattenCopyViewModel>("Stop", static m => m.CancelCommand).With(ChromeIcon.Stop).When(static m => m.IsRunning),
         FormSettings.Text<FlattenCopyViewModel>(static m => Progress(m.IsRunning, m.ProgressPercent, m.StatusText)),
         FormSettings.Text<FlattenCopyViewModel>(static m => m.Error),
@@ -161,7 +161,6 @@ internal static class CopyForms
             static m => m.Dpi.ToString(CultureInfo.CurrentCulture),
             static (m, text) => m.Dpi = ReadDpi(text, m.Dpi)).When(static m => m.SelectedFormat.IsRaster),
         FormSettings.Toggle<ExportPagesViewModel>("Include notes and marks", static m => m.IncludeMarkup, static (m, on) => m.IncludeMarkup = on),
-        FormSettings.Action<ExportPagesViewModel>("Save the pages…", static m => m.SaveCommand).With(ChromeIcon.Save),
         FormSettings.Action<ExportPagesViewModel>("Stop", static m => m.CancelCommand).With(ChromeIcon.Stop).When(static m => m.IsRunning),
         FormSettings.Text<ExportPagesViewModel>(static m => Progress(m.IsRunning, m.ProgressPercent, m.StatusText)),
         FormSettings.Text<ExportPagesViewModel>(static m => m.Error),
@@ -178,15 +177,15 @@ internal static class CopyForms
             static m => m.SelectedFormat,
             static (m, c) => m.SelectedFormat = c),
         FormSettings.Text<ProtectViewModel>(static m => m.SelectedFormat is { } format ? UiText.Get(format.DescriptionKey) : null),
-        FormSettings.Field<ProtectViewModel>(
+        FormSettings.Secret<ProtectViewModel>(
             "The owner password this document has now",
-            static m => Mask(m.CurrentOwnerPassword),
-            static (m, text) => m.CurrentOwnerPassword = Typed(m.CurrentOwnerPassword, text))
+            static m => m.CurrentOwnerPassword,
+            static (m, text) => m.CurrentOwnerPassword = text)
             .When(static m => m.NeedsCurrentOwner),
-        FormSettings.Field<ProtectViewModel>("Password to open the copy", static m => Mask(m.UserPassword), static (m, text) => m.UserPassword = Typed(m.UserPassword, text)),
-        FormSettings.Field<ProtectViewModel>("The same password again", static m => Mask(m.UserPasswordRepeat), static (m, text) => m.UserPasswordRepeat = Typed(m.UserPasswordRepeat, text)),
-        FormSettings.Field<ProtectViewModel>("Password to change the copy", static m => Mask(m.OwnerPassword), static (m, text) => m.OwnerPassword = Typed(m.OwnerPassword, text)),
-        FormSettings.Field<ProtectViewModel>("The same password again", static m => Mask(m.OwnerPasswordRepeat), static (m, text) => m.OwnerPasswordRepeat = Typed(m.OwnerPasswordRepeat, text)),
+        FormSettings.Secret<ProtectViewModel>("Password to open the copy", static m => m.UserPassword, static (m, text) => m.UserPassword = text),
+        FormSettings.Secret<ProtectViewModel>("The same password again", static m => m.UserPasswordRepeat, static (m, text) => m.UserPasswordRepeat = text),
+        FormSettings.Secret<ProtectViewModel>("Password to change the copy", static m => m.OwnerPassword, static (m, text) => m.OwnerPassword = text),
+        FormSettings.Secret<ProtectViewModel>("The same password again", static m => m.OwnerPasswordRepeat, static (m, text) => m.OwnerPasswordRepeat = text),
         FormSettings.Heading<ProtectViewModel>("What readers may do"),
         FormSettings.Toggle<ProtectViewModel>("Print", static m => m.AllowPrint, static (m, on) => m.AllowPrint = on),
         FormSettings.Toggle<ProtectViewModel>("Copy text and pictures", static m => m.AllowCopy, static (m, on) => m.AllowCopy = on),
@@ -195,7 +194,6 @@ internal static class CopyForms
         FormSettings.Toggle<ProtectViewModel>("Read with a screen reader", static m => m.AllowAccessibility, static (m, on) => m.AllowAccessibility = on),
         FormSettings.Text<ProtectViewModel>(static m => m.AccessibilityWarning),
         FormSettings.Toggle<ProtectViewModel>("Protect the document's details too", static m => m.EncryptMetadata, static (m, on) => m.EncryptMetadata = on),
-        FormSettings.Action<ProtectViewModel>("Save the copy…", static m => m.SaveCommand).With(ChromeIcon.Save),
         FormSettings.Action<ProtectViewModel>("Stop", static m => m.CancelCommand).With(ChromeIcon.Stop).When(static m => m.IsRunning),
         FormSettings.Text<ProtectViewModel>(static m => Progress(m.IsRunning, m.ProgressPercent, m.StatusText)),
         FormSettings.Text<ProtectViewModel>(static m => m.Error),
@@ -206,11 +204,10 @@ internal static class CopyForms
     private static readonly FormSetting<RemoveProtectionViewModel>[] UnprotectRows =
     [
         FormSettings.Note<RemoveProtectionViewModel>("Writes a copy anyone can open and change. The document shown is not changed."),
-        FormSettings.Field<RemoveProtectionViewModel>(
+        FormSettings.Secret<RemoveProtectionViewModel>(
             "The owner password",
-            static m => Mask(m.OwnerPassword),
-            static (m, text) => m.OwnerPassword = Typed(m.OwnerPassword, text)).When(static m => m.NeedsOwnerPassword),
-        FormSettings.Action<RemoveProtectionViewModel>("Save the copy…", static m => m.SaveCommand).With(ChromeIcon.Save),
+            static m => m.OwnerPassword,
+            static (m, text) => m.OwnerPassword = text).When(static m => m.NeedsOwnerPassword),
         FormSettings.Action<RemoveProtectionViewModel>("Stop", static m => m.CancelCommand).With(ChromeIcon.Stop).When(static m => m.IsRunning),
         FormSettings.Text<RemoveProtectionViewModel>(static m => Progress(m.IsRunning, m.ProgressPercent, m.StatusText)),
         FormSettings.Text<RemoveProtectionViewModel>(static m => m.Error),
@@ -239,7 +236,6 @@ internal static class CopyForms
         FormSettings.Toggle<RedactionViewModel>("Remove the document's details", static m => m.ScrubMetadata, static (m, on) => m.ScrubMetadata = on),
         FormSettings.Text<RedactionViewModel>(static m => m.WarningText),
         FormSettings.Toggle<RedactionViewModel>("I understand this cannot be undone in the copy", static m => m.Understands, static (m, on) => m.Understands = on),
-        FormSettings.Action<RedactionViewModel>("Save the redacted copy…", static m => m.ApplyCommand).With(ChromeIcon.Save),
         FormSettings.Action<RedactionViewModel>("Stop", static m => m.CancelCommand).With(ChromeIcon.Stop).When(static m => m.IsRunning),
         FormSettings.Text<RedactionViewModel>(static m => m.StatusText),
         FormSettings.Text<RedactionViewModel>(static m => m.Error),
@@ -257,7 +253,6 @@ internal static class CopyForms
             static (m, c) => m.SelectedAction = c),
         FormSettings.Text<ValidationDataViewModel>(static m => m.SelectedAction is { } action ? UiText.Get(action.DescriptionKey) : null),
         FormSettings.Toggle<ValidationDataViewModel>("Include the data of each signature", static m => m.IncludeVri, static (m, on) => m.IncludeVri = on),
-        FormSettings.Action<ValidationDataViewModel>("Save the copy…", static m => m.SaveCommand).With(ChromeIcon.Save),
         FormSettings.Action<ValidationDataViewModel>("Stop", static m => m.CancelCommand).With(ChromeIcon.Stop).When(static m => m.IsRunning),
         FormSettings.Text<ValidationDataViewModel>(static m => Progress(m.IsRunning, m.ProgressPercent, m.StatusText)),
         FormSettings.Text<ValidationDataViewModel>(static m => m.Error),
@@ -268,61 +263,90 @@ internal static class CopyForms
     /// <param name="model">The view model.</param>
     /// <returns>What the window shows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static FormRequest SaveCopy(SaveCopyViewModel model) => FormSettings.Window(UiText.Format("Save a copy of {0}", model.FileName), model, SaveCopyRows);
+    internal static FormRequest SaveCopy(SaveCopyViewModel model) =>
+        CopyWindow(UiText.Format("Save a copy of {0}", model.FileName), model, SaveCopyRows, SaveCopyText, ChromeIcon.Save, model.SaveCommand);
 
     /// <summary>Makes the smaller copy window.</summary>
     /// <param name="model">The view model.</param>
     /// <returns>What the window shows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static FormRequest Optimize(OptimizeCopyViewModel model) => FormSettings.Window(UiText.Format("Save a smaller copy of {0}", model.FileName), model, OptimizeRows);
+    internal static FormRequest Optimize(OptimizeCopyViewModel model) =>
+        CopyWindow(UiText.Format("Save a smaller copy of {0}", model.FileName), model, OptimizeRows, SaveCopyText, ChromeIcon.Save, model.SaveCommand);
 
     /// <summary>Makes the archive copy window.</summary>
     /// <param name="model">The view model.</param>
     /// <returns>What the window shows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static FormRequest Archive(ArchiveCopyViewModel model) => FormSettings.Window(UiText.Format("Save an archive copy of {0}", model.FileName), model, ArchiveRows);
+    internal static FormRequest Archive(ArchiveCopyViewModel model) =>
+        CopyWindow(UiText.Format("Save an archive copy of {0}", model.FileName), model, ArchiveRows, SaveCopyText, ChromeIcon.Save, model.SaveCommand);
 
     /// <summary>Makes the PDF 2.0 copy window.</summary>
     /// <param name="model">The view model.</param>
     /// <returns>What the window shows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static FormRequest Pdf20(Pdf20CopyViewModel model) => FormSettings.Window(UiText.Format("Save a PDF 2.0 copy of {0}", model.FileName), model, Pdf20Rows);
+    internal static FormRequest Pdf20(Pdf20CopyViewModel model) =>
+        CopyWindow(UiText.Format("Save a PDF 2.0 copy of {0}", model.FileName), model, Pdf20Rows, SaveCopyText, ChromeIcon.Save, model.SaveCommand);
 
     /// <summary>Makes the flattened copy window.</summary>
     /// <param name="model">The view model.</param>
     /// <returns>What the window shows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static FormRequest Flatten(FlattenCopyViewModel model) => FormSettings.Window(UiText.Format("Save a flattened copy of {0}", model.FileName), model, FlattenRows);
+    internal static FormRequest Flatten(FlattenCopyViewModel model) =>
+        CopyWindow(UiText.Format("Save a flattened copy of {0}", model.FileName), model, FlattenRows, SaveCopyText, ChromeIcon.Save, model.SaveCommand);
 
     /// <summary>Makes the window that writes pages as pictures or text.</summary>
     /// <param name="model">The view model.</param>
     /// <returns>What the window shows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static FormRequest ExportPages(ExportPagesViewModel model) => FormSettings.Window(UiText.Format("Save pages of {0}", model.FileName), model, ExportRows);
+    internal static FormRequest ExportPages(ExportPagesViewModel model) =>
+        CopyWindow(UiText.Format("Save pages of {0}", model.FileName), model, ExportRows, "Save the pages…", ChromeIcon.Save, model.SaveCommand);
 
     /// <summary>Makes the window that writes a protected copy.</summary>
     /// <param name="model">The view model.</param>
     /// <returns>What the window shows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static FormRequest Protect(ProtectViewModel model) => FormSettings.Window(UiText.Format("Protect a copy of {0}", model.FileName), model, ProtectRows);
+    internal static FormRequest Protect(ProtectViewModel model) =>
+        CopyWindow(UiText.Format("Protect a copy of {0}", model.FileName), model, ProtectRows, SaveCopyText, ChromeIcon.Lock, model.SaveCommand);
 
     /// <summary>Makes the window that writes a copy without protection.</summary>
     /// <param name="model">The view model.</param>
     /// <returns>What the window shows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static FormRequest Unprotect(RemoveProtectionViewModel model) => FormSettings.Window(UiText.Format("Remove protection from a copy of {0}", model.FileName), model, UnprotectRows);
+    internal static FormRequest Unprotect(RemoveProtectionViewModel model) =>
+        CopyWindow(UiText.Format("Remove protection from a copy of {0}", model.FileName), model, UnprotectRows, SaveCopyText, ChromeIcon.Unlock, model.SaveCommand);
 
     /// <summary>Makes the redaction window.</summary>
     /// <param name="model">The view model.</param>
     /// <returns>What the window shows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static FormRequest Redact(RedactionViewModel model) => FormSettings.Window(UiText.Format("Redact a copy of {0}", model.FileName), model, RedactRows);
+    internal static FormRequest Redact(RedactionViewModel model) =>
+        CopyWindow(UiText.Format("Redact a copy of {0}", model.FileName), model, RedactRows, "Save the redacted copy…", ChromeIcon.Save, model.ApplyCommand);
 
     /// <summary>Makes the window that adds signature validation data.</summary>
     /// <param name="model">The view model.</param>
     /// <returns>What the window shows.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static FormRequest Validation(ValidationDataViewModel model) => FormSettings.Window(UiText.Format("Keep signatures checkable in a copy of {0}", model.FileName), model, ValidationRows);
+    internal static FormRequest Validation(ValidationDataViewModel model) =>
+        CopyWindow(UiText.Format("Keep signatures checkable in a copy of {0}", model.FileName), model, ValidationRows, SaveCopyText, ChromeIcon.Certificate, model.SaveCommand);
+
+    /// <summary>Builds a copy window with its primary save command in the bottom bar.</summary>
+    /// <typeparam name="T">The view model type.</typeparam>
+    /// <param name="title">The window heading.</param>
+    /// <param name="model">The view model.</param>
+    /// <param name="rows">The form rows.</param>
+    /// <param name="acceptKey">The English label of the primary button.</param>
+    /// <param name="icon">The primary button icon.</param>
+    /// <param name="command">The command run by the primary button.</param>
+    /// <returns>The form request.</returns>
+    private static FormRequest CopyWindow<T>(string title, T model, FormSetting<T>[] rows, string acceptKey, ChromeIcon icon, ICommand command)
+        where T : class, IReactiveObject =>
+        FormSettings.Window(title, model, rows) with
+        {
+            AcceptText = UiText.Get(acceptKey),
+            AcceptIcon = icon,
+            AcceptCommand = command,
+            CloseText = UiText.Get("Close"),
+        };
 
     /// <summary>Makes the line that tells how far the work is.</summary>
     /// <param name="running">Whether the work is going on.</param>
@@ -338,26 +362,4 @@ internal static class CopyForms
     /// <returns>The dots per inch.</returns>
     private static int ReadDpi(string text, int current) =>
         int.TryParse(text, NumberStyles.None, CultureInfo.CurrentCulture, out var dpi) ? Math.Clamp(dpi, MinDpi, MaxDpi) : current;
-
-    /// <summary>Hides a password as it is shown in its typing box, one dot for each character.</summary>
-    /// <param name="password">The password.</param>
-    /// <returns>The dots.</returns>
-    private static string Mask(string password) => new('•', password.Length);
-
-    /// <summary>
-    /// Works out a password from what its typing box holds after a key. The box shows dots, so the text that comes back is the dots
-    /// with a typed character at the end, or one dot fewer after Backspace.
-    /// </summary>
-    /// <param name="password">The password before the key.</param>
-    /// <param name="shown">The text of the typing box after the key.</param>
-    /// <returns>The password after the key.</returns>
-    private static string Typed(string password, string shown)
-    {
-        if (shown.Length < password.Length)
-        {
-            return password[..shown.Length];
-        }
-
-        return shown.Length > password.Length ? string.Concat(password, shown.AsSpan(password.Length)) : password;
-    }
 }

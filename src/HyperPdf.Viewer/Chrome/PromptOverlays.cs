@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Presentation.Input;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
@@ -14,8 +15,8 @@ namespace HyperPdf.Viewer.Chrome;
 /// <summary>The dialog that asks for one line of text, drawn inside the window, such as the password of a locked document.</summary>
 internal static class PromptOverlays
 {
-    /// <summary>The rows of the dialog besides the buttons: heading, label and typing box.</summary>
-    private const int Rows = 3;
+    /// <summary>The sides of padding (left and right, or top and bottom).</summary>
+    private const int MarginSides = 2;
 
     /// <summary>The mark that stands for each character of a password.</summary>
     private const char MaskCharacter = '•';
@@ -66,24 +67,38 @@ internal static class PromptOverlays
         var size = place.Size;
         var style = ChromeBars.Style(metrics);
         var width = Math.Min(metrics.DialogWidth, size.Width);
-        var inner = width - metrics.Padding - metrics.Padding;
-        var height = (metrics.RowHeight * Rows) + metrics.ToolbarHeight + metrics.Padding + metrics.Padding;
-        var left = (size.Width - width) >> 1;
-        var top = Math.Max(0, (size.Height - height) >> 1);
-        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(left, top, width, height), true, false));
-        var y = top + metrics.Padding;
-        items.Add(new(ChromeItemKind.Heading, null, 0, ChromeText.Fit(request.Title, style, inner, runs), new(left, y, width, metrics.RowHeight), true, false));
+        var inner = Math.Max(1, width - (metrics.Padding * MarginSides));
+        var labelLines = new List<string>();
+        ChromeText.Wrap(request.Label, style, inner, runs, labelLines);
+        var panelIndex = items.Count;
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, default, true, false));
+        var y = metrics.Padding;
+        items.Add(new(ChromeItemKind.Heading, null, 0, ChromeText.Fit(request.Title, style, inner, runs), new(0, y, width, metrics.RowHeight), true, false));
         y += metrics.RowHeight;
-        items.Add(new(ChromeItemKind.Label, null, 0, ChromeText.Fit(request.Label, style, inner, runs), new(left, y, width, metrics.RowHeight), true, false));
-        y += metrics.RowHeight;
+        for (var i = 0; i < labelLines.Count; i++)
+        {
+            items.Add(new(ChromeItemKind.Label, null, i, labelLines[i], new(0, y, width, metrics.RowHeight), true, false));
+            y += metrics.RowHeight;
+        }
 
         // A password is never drawn or handed to a screen reader: each character shows as a dot.
         var shown = request.Masked ? new string(MaskCharacter, state.Entry.Length) : state.Entry;
-        var fitted = ChromeText.FitEnd(shown, style, inner - metrics.Padding - metrics.Padding, runs);
-        items.Add(new(ChromeItemKind.Field, null, 0, fitted, new(left + metrics.Padding, y, inner, metrics.RowHeight), true, true));
+        var fieldIcon = request.Masked ? ChromeIcon.Lock : ChromeIcon.None;
+        var iconRoom = fieldIcon == ChromeIcon.None ? 0 : metrics.IconSize + ChromePainter.IconGap(metrics);
+        var fitted = ChromeText.FitEnd(shown, style, Math.Max(1, inner - (metrics.Padding * MarginSides) - iconRoom), runs);
+        items.Add(new(ChromeItemKind.Field, null, 0, fitted, new(metrics.Padding, y, inner, metrics.RowHeight), true, true) { Icon = fieldIcon });
         y += metrics.RowHeight;
-        var buttons = new ChromeRow(items, runs, metrics, left + metrics.Padding, y + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap);
+        var buttons = new ChromeRow(items, runs, metrics, metrics.Padding, y + metrics.Gap, metrics.ToolbarHeight - (metrics.Gap * MarginSides)) { Limit = width - metrics.Padding };
         buttons = buttons.Button(request.AcceptText, OverlayAction.Accept, true);
         buttons = buttons.Button(UiText.Get("Cancel"), OverlayAction.Cancel, true);
+        var height = y + (buttons.Lines * metrics.ToolbarHeight) + metrics.Padding;
+        var left = (size.Width - width) >> 1;
+        var top = Math.Max(0, (size.Height - height) >> 1);
+        items[panelIndex] = items[panelIndex] with { Bounds = new(left, top, width, height) };
+        for (var i = panelIndex + 1; i < items.Count; i++)
+        {
+            var bounds = items[i].Bounds;
+            items[i] = items[i] with { Bounds = new(bounds.X + left, bounds.Y + top, bounds.Width, bounds.Height) };
+        }
     }
 }

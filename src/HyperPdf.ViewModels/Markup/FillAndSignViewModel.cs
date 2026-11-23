@@ -34,7 +34,7 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
     private readonly IObservable<bool> _canChangePlaced;
 
     /// <summary>The mark placed last, with the annotation it became, so it can be adjusted or removed.</summary>
-    private (PageAnnotation Annotation, SignaturePlacement Placement)? _lastPlaced;
+    private PlacedSignatureMark? _lastPlaced;
 
     /// <summary>The placed mark being adjusted; it is put back if adjusting is cancelled.</summary>
     private SignaturePlacement? _adjusting;
@@ -47,6 +47,7 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
         (_owner, _services) = (owner, services);
         _isPlacing = this.WhenChanged(static vm => vm.Placement).Select(static placement => placement is not null);
         _canChangePlaced = this.WhenChanged(static vm => vm.HasPlacedMark, static vm => vm.Placement, static (placed, placement) => placed && placement is null);
+        RefreshSavedMarks();
     }
 
     /// <summary>Gets the steps shown while a mark is being placed.</summary>
@@ -69,6 +70,17 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
     /// <summary>Gets a value indicating whether the last placed mark can be adjusted or removed.</summary>
     [Reactive]
     public partial bool HasPlacedMark { get; private set; }
+
+    /// <summary>Gets a value indicating whether a valid signature mark is remembered for immediate placement.</summary>
+    [Reactive]
+    public partial bool HasSavedSignature { get; private set; }
+
+    /// <summary>Gets a value indicating whether valid initials are remembered for immediate placement.</summary>
+    [Reactive]
+    public partial bool HasSavedInitials { get; private set; }
+
+    /// <summary>Gets a value indicating whether clicking the page types text rather than placing a mark.</summary>
+    public bool IsTypingText => Placement is null && _owner.AnnotationsInUse is { Tool: AnnotationTool.Text };
 
     /// <summary>Gets the hint shown in the tool row.</summary>
     public string Hint => Placement is null ? FillingHint : PlacingHint;
@@ -173,7 +185,7 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
             return false;
         }
 
-        _lastPlaced = (placed, placement);
+        _lastPlaced = new(placed, placement);
         HasPlacedMark = true;
         return true;
     }
@@ -196,7 +208,7 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
         _adjusting = null;
         if (Annotations.PlaceMark(original.Page, original.Bounds, original.Mark) is { } placed)
         {
-            _lastPlaced = (placed, original);
+            _lastPlaced = new(placed, original);
             HasPlacedMark = true;
         }
 
@@ -249,7 +261,7 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
 
     /// <summary>Checks the last placed mark is still on the page as it was placed.</summary>
     /// <returns>The mark, or <see langword="null"/> when it was removed or changed since.</returns>
-    private (PageAnnotation Annotation, SignaturePlacement Placement)? CurrentPlaced()
+    private PlacedSignatureMark? CurrentPlaced()
     {
         if (_lastPlaced is { } placed && Annotations.Find(placed.Annotation.PageIndex, placed.Annotation.Index) == placed.Annotation)
         {
@@ -261,17 +273,65 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
         return null;
     }
 
-    /// <summary>Asks for a signature, offering the remembered one, then starts placing it.</summary>
-    /// <returns>A signal that ends once the mark is made or the window was given up.</returns>
-    [ReactiveCommand]
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<RxVoid> Signature() => CreateMark(SignatureMarkKind.Signature);
+    /// <summary>Updates whether remembered signature and initials marks exist.</summary>
+    private void RefreshSavedMarks()
+    {
+        HasSavedSignature = _services.SignatureMarks.Get(SignatureMarkKind.Signature) is { IsValid: true };
+        HasSavedInitials = _services.SignatureMarks.Get(SignatureMarkKind.Initials) is { IsValid: true };
+    }
 
-    /// <summary>Asks for initials, offering the remembered ones, then starts placing them.</summary>
-    /// <returns>A signal that ends once the mark is made or the window was given up.</returns>
+    /// <summary>Places the remembered signature right away when one exists, or opens the signature pad to make one.</summary>
+    /// <returns>A signal that ends once placing has started or the window was given up.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<RxVoid> Initials() => CreateMark(SignatureMarkKind.Initials);
+    private IObservable<RxVoid> Signature() => UseOrCreateMark(SignatureMarkKind.Signature);
+
+    /// <summary>Places the remembered initials right away when they exist, or opens the initials pad to make them.</summary>
+    /// <returns>A signal that ends once placing has started or the window was given up.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Initials() => UseOrCreateMark(SignatureMarkKind.Initials);
+
+    /// <summary>Opens the signature window to remake or forget the remembered signature.</summary>
+    /// <returns>A signal that ends once the window closes.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> EditSignature() => CreateMark(SignatureMarkKind.Signature);
+
+    /// <summary>Opens the initials window to remake or forget the remembered initials.</summary>
+    /// <returns>A signal that ends once the window closes.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> EditInitials() => CreateMark(SignatureMarkKind.Initials);
+
+    /// <summary>Returns to typing text anywhere on the page.</summary>
+    [ReactiveCommand]
+    private void TypeText()
+    {
+        _ = Cancel();
+        Annotations.IsAnnotating = false;
+        Annotations.Tool = AnnotationTool.Text;
+        IsActive = true;
+        this.RaisePropertyChanged(nameof(IsTypingText));
+    }
+
+    /// <summary>Starts placing a remembered mark without opening a dialog when one is saved, or opens the mark window.</summary>
+    /// <param name="kind">Signature or initials.</param>
+    /// <returns>A signal that ends once placing has started or the window closes.</returns>
+    private IObservable<RxVoid> UseOrCreateMark(SignatureMarkKind kind)
+    {
+        RefreshSavedMarks();
+        if (_services.SignatureMarks.Get(kind) is { IsValid: true } remembered)
+        {
+            _ = Cancel();
+            if (BeginPlacement(remembered))
+            {
+                return Signal.Return(RxVoid.Default);
+            }
+        }
+
+        return CreateMark(kind);
+    }
 
     /// <summary>Shows the window that makes a mark, applies the user's remember choice, then starts placing the mark.</summary>
     /// <param name="kind">Signature or initials.</param>
@@ -300,6 +360,7 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
             _services.SaveSignatureMarks();
         }
 
+        RefreshSavedMarks();
         if (mark is not null)
         {
             _ = BeginPlacement(mark);
@@ -361,6 +422,7 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
     private void Start()
     {
         // As on paper, clicking anywhere types there; form fields are still filled by clicking them.
+        RefreshSavedMarks();
         Annotations.IsAnnotating = false;
         Annotations.Tool = AnnotationTool.Text;
         IsActive = true;
@@ -388,4 +450,9 @@ public sealed partial class FillAndSignViewModel : ReactiveObject, ILocalisation
         Annotations.Tool = AnnotationTool.Select;
         IsActive = false;
     }
+
+    /// <summary>The annotation placed on the page and the placement that produced it.</summary>
+    /// <param name="Annotation">The placed page annotation.</param>
+    /// <param name="Placement">The placement bounds and mark.</param>
+    private readonly record struct PlacedSignatureMark(PageAnnotation Annotation, SignaturePlacement Placement);
 }

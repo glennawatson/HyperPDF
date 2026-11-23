@@ -32,11 +32,17 @@ internal sealed class FormBuilder
 
     /// <summary>Adds plain text, which wraps.</summary>
     /// <param name="text">The text.</param>
-    internal void Text(string text)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Text(string text) => Text(ChromeIcon.None, text);
+
+    /// <summary>Adds plain text with an icon on its first line.</summary>
+    /// <param name="icon">The icon.</param>
+    /// <param name="text">The text.</param>
+    internal void Text(ChromeIcon icon, string text)
     {
         if (text.Length > 0)
         {
-            Rows.Add(new(FormRowKind.Text, text, string.Empty, [], 0, true, NoId, null));
+            Rows.Add(new(FormRowKind.Text, text, string.Empty, [], 0, true, NoId, null) { Icon = icon });
         }
     }
 
@@ -100,7 +106,7 @@ internal sealed class FormBuilder
     /// <param name="target">What the action is done to, which comes back with the press, or <see langword="null"/>.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Action(string label, bool enabled, int id, object? target) =>
-        Rows.Add(new(FormRowKind.Action, label, string.Empty, [], 0, enabled, id, target));
+        Action(ChromeIcon.None, label, enabled, id, target);
 
     /// <summary>Adds something to do, with an icon before its words.</summary>
     /// <param name="icon">The icon.</param>
@@ -109,5 +115,15 @@ internal sealed class FormBuilder
     /// <param name="id">The row's number.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Action(ChromeIcon icon, string label, bool enabled, int id) =>
-        Rows.Add(new(FormRowKind.Action, label, string.Empty, [], 0, enabled, id, null) { Icon = icon });
+        Action(icon, label, enabled, id, null);
+
+    /// <summary>Adds something to do on a target item, with an icon before its words.</summary>
+    /// <param name="icon">The icon.</param>
+    /// <param name="label">What it does.</param>
+    /// <param name="enabled">Whether it can be done now.</param>
+    /// <param name="id">The row's number.</param>
+    /// <param name="target">What the action is done to, which comes back with the press, or <see langword="null"/>.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Action(ChromeIcon icon, string label, bool enabled, int id, object? target) =>
+        Rows.Add(new(FormRowKind.Action, label, string.Empty, [], 0, enabled, id, target) { Icon = icon });
 }

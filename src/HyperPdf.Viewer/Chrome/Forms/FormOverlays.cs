@@ -56,10 +56,13 @@ internal static class FormOverlays
         var ui = changes.ScanWithInitial(FormUi.Start, static (current, change) => change(current)).ToReadOnlyState(FormUi.Start, static current => current);
         var presses = input.SelectPressedItems();
         var keys = input.WhereKeyPress();
+        var acceptTriggers = Signal.Merge(
+            presses.Where(static item => item.Action == OverlayAction.Accept).AsSignal(),
+            keys.Where(key => key.Key == ViewerKey.Enter && request.AcceptText is not null && CanRunAccept(request)).AsSignal());
         var answers = Signal.Merge(
-                presses.Where(static item => item.Action is OverlayAction.Accept or OverlayAction.Cancel).Select(static item => item.Action == OverlayAction.Accept),
+                acceptTriggers.Where(_ => request.AcceptCommand is null).Select(static _ => true),
+                presses.Where(static item => item.Action == OverlayAction.Cancel).Select(static _ => false),
                 keys.Where(static key => key.Key == ViewerKey.Escape).Select(static _ => false),
-                keys.Where(key => key.Key == ViewerKey.Enter && request.AcceptText is not null && (request.CanAccept?.Invoke() ?? true)).Select(static _ => true),
                 input.SelectDismissals().Select(static _ => false),
                 (request.Answered ?? Signal.Never<bool>()).ObserveOn(RxSchedulers.MainThreadScheduler))
             .Select(static agreed => (bool?)agreed)
@@ -82,6 +85,7 @@ internal static class FormOverlays
                 answers,
                 request.Bind(edits),
                 request.Pad?.Invoke(strokes) ?? EmptyDisposable.Instance,
+                request.AcceptCommand is { } acceptCommand ? acceptTriggers.InvokeCommand(acceptCommand) : EmptyDisposable.Instance,
                 (request.PadCleared ?? Signal.Never<RxVoid>()).SubscribeSafe(_ => changes.OnNext(static current => current with { Ink = PadInk.Empty }), ErrorTrace.Write),
                 input.WherePad().SubscribeSafe(pointer => Draw(ui, changes, strokes, in pointer), ErrorTrace.Write),
                 presses.Where(static item => item.Action == OverlayAction.PickOption).SubscribeSafe(item => ChooseValue(request, builder, edits, changes, item.Index), ErrorTrace.Write),
@@ -300,10 +304,11 @@ internal static class FormOverlays
 
         var last = Math.Min(lines.Count, first + shown);
         FormLayout.AddLines(items, lines.GetRange(first, last - first), new(left, y, rowsWidth, metrics.RowHeight), new(labelWidth, metrics.Padding, metrics.Gap, runs, fit.Style));
-        FormLayout.AddScrollBar(items, new(left + rowsWidth - metrics.Padding, y, metrics.Gap, metrics.RowHeight * shown), first, shown, lines.Count);
+        FormLayout.AddScrollBar(items, new(left + rowsWidth - metrics.Padding, y, metrics.Gap, metrics.RowHeight * shown), first, shown, lines.Count, place.Theme);
 
         var buttonsTop = top + height - metrics.ToolbarHeight - metrics.Padding + metrics.Gap;
-        var buttons = AddButtons(new(items, runs, metrics, left + metrics.Padding, buttonsTop, metrics.ToolbarHeight - metrics.Gap - metrics.Gap), request);
+        var buttonRow = new ChromeRow(items, runs, metrics, left + metrics.Padding, buttonsTop, metrics.ToolbarHeight - metrics.Gap - metrics.Gap) { Limit = left + rowsWidth - metrics.Padding };
+        var buttons = AddButtons(in buttonRow, request);
         if (lines.Count > shown)
         {
             _ = buttons.Label(UiText.Format("Lines {0} to {1} of {2}", first + 1, last, lines.Count));
@@ -336,14 +341,21 @@ internal static class FormOverlays
         });
     }
 
+    /// <summary>Tells whether the dialog's primary action can run right now.</summary>
+    /// <param name="request">What the dialog shows.</param>
+    /// <returns><see langword="true"/> when the primary action is enabled.</returns>
+    private static bool CanRunAccept(FormRequest request) =>
+        (request.CanAccept?.Invoke() ?? true) && (request.AcceptCommand?.CanExecute(null) ?? true);
+
     /// <summary>Adds the buttons along the bottom: the one that agrees when there is one, and the one that closes.</summary>
     /// <param name="buttons">The row the buttons go in.</param>
     /// <param name="request">What the dialog shows.</param>
     /// <returns>The row after the buttons.</returns>
     private static ChromeRow AddButtons(in ChromeRow buttons, FormRequest request)
     {
-        var agreed = request.AcceptText is { } accept ? buttons.Button(accept, OverlayAction.Accept, request.CanAccept?.Invoke() ?? true) : buttons;
-        return agreed.Button(request.AcceptText is null ? UiText.Get("Close") : UiText.Get("Cancel"), OverlayAction.Cancel, true);
+        var agreed = request.AcceptText is { } accept ? buttons.Button(request.AcceptIcon, accept, OverlayAction.Accept, CanRunAccept(request)) : buttons;
+        var closeLabel = request.CloseText ?? (request.AcceptText is null ? UiText.Get("Close") : UiText.Get("Cancel"));
+        return agreed.Button(closeLabel, OverlayAction.Cancel, true);
     }
 
     /// <summary>Adds the dialog's drawing pad, which fills its column. It is drawn into the frame itself, so there is no picture to make.</summary>

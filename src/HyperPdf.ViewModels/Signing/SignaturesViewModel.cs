@@ -52,6 +52,10 @@ public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationC
     [Reactive]
     public partial bool IsChecking { get; private set; }
 
+    /// <summary>Gets a short one-line summary of the checked signatures for the signed-document bar, or empty before checking.</summary>
+    [Reactive]
+    public partial string StatusSummary { get; private set; } = string.Empty;
+
     /// <summary>Gets the document's file name, for the window title.</summary>
     public string FileName => _owner.FileName;
 
@@ -60,11 +64,13 @@ public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationC
     {
         SignatureCount = DocumentFeature<ISignatureSource>.Get(_owner.TryGetDocument())?.SignatureCount ?? 0;
         Signatures.Clear();
+        StatusSummary = string.Empty;
     }
 
     /// <inheritdoc/>
     void ILocalisationChildren.Refresh(HashSet<object> visited)
     {
+        StatusSummary = BuildSummary(Signatures);
         LocalisationRefresh.RefreshCore(_owner, visited);
         LocalisationRefresh.RefreshCore(_services, visited);
     }
@@ -116,6 +122,36 @@ public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationC
         return -1;
     }
 
+    /// <summary>Builds a concise one-line status summary for the signed-document bar.</summary>
+    /// <param name="checkedSignatures">The checked signatures.</param>
+    /// <returns>The summary, or empty when none are checked.</returns>
+    private static string BuildSummary(ObservableCollection<DocumentSignature> checkedSignatures)
+    {
+        if (checkedSignatures.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        if (checkedSignatures.Count == 1)
+        {
+            var only = checkedSignatures[0];
+            return only.SignerName.Length > 0 ? $"{only.SignerName}: {only.Summary}" : only.Summary;
+        }
+
+        var valid = 0;
+        for (var i = 0; i < checkedSignatures.Count; i++)
+        {
+            if (checkedSignatures[i] is { Integrity: SignatureIntegrity.Intact, IsTrusted: true })
+            {
+                valid++;
+            }
+        }
+
+        return valid == checkedSignatures.Count
+            ? UiText.Format("All {0} signatures are valid and trusted.", checkedSignatures.Count)
+            : UiText.Format("Checked {0} signatures ({1} valid and trusted).", checkedSignatures.Count, valid);
+    }
+
     /// <summary>
     /// Saves the user's remember choices from the window: certificates they forgot are dropped even when they cancelled,
     /// and the certificate they signed with is remembered only when they ticked the box. Only the file, the name it
@@ -158,17 +194,19 @@ public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationC
     private IObservable<RxVoid> SignWithCertificate()
     {
         // The preview asks the tab for its document each time, so a reload while the window is open does not leave it on a closed one.
+        var folder = _owner.Folder.Length > 0 ? _owner.Folder : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var suggested = Path.Combine(folder, $"{Path.GetFileNameWithoutExtension(_owner.FileName)}-signed.pdf");
         var request = new CertificateSignViewModel(
             [.._services.Settings.RememberedCertificates],
             Math.Max(0, _owner.CurrentPageIndex),
-                r => PdfSigner.Preview(_owner.TryGetDocument(), r),
-            _services.Settings.TimestampServer);
+            r => PdfSigner.Preview(_owner.TryGetDocument(), r),
+            _services.Settings.TimestampServer) { DestinationPath = suggested };
         return CertificateSignInteraction.Handle(request).ToSignal()
             .SwitchMap(accepted => UseCertificate(request, accepted))
             .Finally(request.Dispose);
     }
 
-    /// <summary>Takes the chosen certificate and asks where to save the signed copy.</summary>
+    /// <summary>Takes the chosen certificate and writes the signed copy to the chosen destination.</summary>
     /// <param name="request">The signing window.</param>
     /// <param name="accepted">Whether the window was accepted.</param>
     /// <returns>A signal that ends when the copy is saved or the choice was given up.</returns>
@@ -181,12 +219,19 @@ public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationC
             : Signal.Using(() => certificate, key => ChooseDestination(request, key));
     }
 
-    /// <summary>Asks where to save the signed copy, then signs.</summary>
+    /// <summary>Uses the destination chosen inside the certificate dialog, or asks where to save when none was filled in.</summary>
     /// <param name="request">The signing window.</param>
     /// <param name="certificate">The certificate to sign with.</param>
     /// <returns>A signal that ends when the copy is saved or the choice was given up.</returns>
     private IObservable<RxVoid> ChooseDestination(CertificateSignViewModel request, X509Certificate2 certificate)
     {
+        if (!string.IsNullOrWhiteSpace(request.DestinationPath))
+        {
+            return _owner.TryGetDocument() is { } openDocument
+                ? Sign(request, certificate, openDocument, request.DestinationPath)
+                : Signal.Return(RxVoid.Default);
+        }
+
         var suggested = $"{Path.GetFileNameWithoutExtension(_owner.FileName)}-signed.pdf";
         return _owner.SaveAsInteraction.Handle(suggested).ToSignal()
             .SwitchMap(destination => _owner.TryGetDocument() is { } document && !string.IsNullOrEmpty(destination)
@@ -244,14 +289,30 @@ public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationC
         return expected ? Signal.Return(RxVoid.Default) : Signal.Throw<RxVoid>(error);
     }
 
+    /// <summary>Checks every signature on the pool and updates the in-window status bar without opening a dialog.</summary>
+    /// <returns>A signal that ends when the check completes.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> CheckInline() => VerifyOnPool();
+
+    /// <summary>Opens the full signatures window for the already-checked signatures.</summary>
+    /// <returns>A signal that ends when the window closes.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ShowDetails() => ShowInteraction.Handle(this).ToSignal();
+
     /// <summary>Checks every signature on the pool, then shows the results.</summary>
     /// <returns>A signal that ends when the results window is closed.</returns>
     [ReactiveCommand]
-    private IObservable<RxVoid> Check()
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Check() =>
+        VerifyOnPool().SwitchMap(_ => ShowInteraction.Handle(this).ToSignal());
+
+    /// <summary>Runs signature verification off the UI thread and stores the checked results.</summary>
+    /// <returns>A signal that completes on the main thread when verification finishes.</returns>
+    private IObservable<RxVoid> VerifyOnPool()
     {
-        if (DocumentFeature<ISignatureSource>.Get(_owner.TryGetDocument()) is not
-            {
-            } source)
+        if (DocumentFeature<ISignatureSource>.Get(_owner.TryGetDocument()) is not { } source)
         {
             return Signal.Return(RxVoid.Default);
         }
@@ -262,8 +323,8 @@ public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationC
         return Signal.Start(() => VerifyAll(raw, path), TaskPoolSequencer.Default)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Do(ShowChecked)
-            .Finally(StopChecking)
-            .SwitchMap(_ => ShowInteraction.Handle(this).ToSignal());
+            .Select(static _ => RxVoid.Default)
+            .Finally(StopChecking);
     }
 
     /// <summary>Shows the checked signatures and ends the check.</summary>
@@ -276,6 +337,7 @@ public sealed partial class SignaturesViewModel : ReactiveObject, ILocalisationC
             Signatures.Add(signature);
         }
 
+        StatusSummary = BuildSummary(Signatures);
         IsChecking = false;
     }
 

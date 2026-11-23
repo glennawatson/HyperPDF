@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.92" stroke-linecap="round" stroke-linejoin="round" data-tone="edit">
+  <title>An arrow leading into a box.</title>
+  <path d="M11,5 L20,5 L20,19 L11,19 M3,12 L15,12 M11.5,8.5 L15,12 L11.5,15.5"/>
+</svg>

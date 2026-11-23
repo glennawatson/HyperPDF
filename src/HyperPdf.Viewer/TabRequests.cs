@@ -212,7 +212,12 @@ internal static class TabRequests
         signatures.CertificateSignInteraction.RegisterHandler(context =>
         {
             var browsing = context.Input.BrowseInteraction.RegisterHandler(where => chrome.PickFile(FolderOf(tab), null).Do(where.SetOutput));
-            return chrome.ShowForm(ToolForms.CertificateSign(context.Input)).Do(context.SetOutput).Finally(browsing.Dispose);
+            var saving = context.Input.SaveDestinationInteraction.RegisterHandler(where => chrome.PickFile(FolderOf(tab), Path.GetFileName(where.Input)).Do(where.SetOutput));
+            return chrome.ShowForm(ToolForms.CertificateSign(context.Input)).Do(context.SetOutput).Finally(() =>
+            {
+                browsing.Dispose();
+                saving.Dispose();
+            });
         }),
     ];
 

@@ -71,7 +71,8 @@ internal static class FormLines
     {
         wrapped.Clear();
         var paired = row.Value.Length > 0;
-        ChromeText.Wrap(paired ? row.Value : row.Label, fit.Style, paired ? fit.ControlWidth : fit.Width, fit.Runs, wrapped);
+        var iconRoom = !paired && row.Icon != ChromeIcon.None ? fit.IconRoom : 0;
+        ChromeText.Wrap(paired ? row.Value : row.Label, fit.Style, paired ? fit.ControlWidth : Math.Max(1, fit.Width - iconRoom), fit.Runs, wrapped);
         for (var line = 0; line < wrapped.Count; line++)
         {
             // The name sits beside the first line of its value, and the lines that follow stay in the value's column.
@@ -79,6 +80,7 @@ internal static class FormLines
             {
                 Label = paired && line == 0 ? ChromeText.Fit(row.Label, fit.Style, fit.LabelWidth, fit.Runs) : string.Empty,
                 InColumn = paired,
+                Icon = !paired && line == 0 ? row.Icon : ChromeIcon.None,
             });
         }
     }

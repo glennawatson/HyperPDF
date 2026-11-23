@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using HyperPdf.ViewModels.Sidebar;
 using HyperPdf.ViewModels.Viewing;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome;
 
@@ -161,7 +162,7 @@ internal static class SidebarRows
                     _ = tab.Annotations.ShowItems();
                     foreach (var note in tab.Annotations.VisibleItems)
                     {
-                        rows.Add(new($"{note.Heading}: {note.Summary}", note, ReferenceEquals(note.Annotation, tab.Annotations.Selected), true, -1));
+                        rows.Add(new($"{note.Heading}: {note.Summary}", note, ReferenceEquals(note.Annotation, tab.Annotations.Selected), true, -1) { Icon = ChromeIcon.Note });
                     }
 
                     break;
@@ -171,7 +172,7 @@ internal static class SidebarRows
                 {
                     foreach (var file in tab.Attachments.Items)
                     {
-                        rows.Add(new($"{file.Name} ({AttachmentsViewModel.FormatSize(file.Size)})", file, ReferenceEquals(file, tab.Attachments.Selected), true, -1));
+                        rows.Add(new($"{file.Name} ({AttachmentsViewModel.FormatSize(file.Size)})", file, ReferenceEquals(file, tab.Attachments.Selected), true, -1) { Icon = ChromeIcon.Attachment });
                     }
 
                     break;
@@ -196,7 +197,7 @@ internal static class SidebarRows
                 {
                     foreach (var found in tab.Search.Results)
                     {
-                        rows.Add(new(UiText.Format("Page {0}: {1}", found.PageNumber, found.Context), found, ReferenceEquals(found, tab.Search.SelectedResult), true, -1));
+                        rows.Add(new(UiText.Format("Page {0}: {1}", found.PageNumber, found.Context), found, ReferenceEquals(found, tab.Search.SelectedResult), true, -1) { Icon = ChromeIcon.Search });
                     }
 
                     break;
@@ -207,7 +208,7 @@ internal static class SidebarRows
                     AddParts(rows, tab, [..tab.Parts.Parts], string.Empty);
                     foreach (var thread in tab.Parts.Threads)
                     {
-                        rows.Add(new(thread.SpokenName, thread, ReferenceEquals(thread, tab.Parts.SelectedThread), true, -1));
+                        rows.Add(new(thread.SpokenName, thread, ReferenceEquals(thread, tab.Parts.SelectedThread), true, -1) { Icon = ChromeIcon.Parts });
                     }
 
                     break;
@@ -217,7 +218,7 @@ internal static class SidebarRows
                 {
                     foreach (var media in tab.Media.Items)
                     {
-                        rows.Add(new(UiText.Format("{0}, page {1}", media.Name, media.PageIndex + 1), media, ReferenceEquals(media, tab.Media.Selected), true, -1));
+                        rows.Add(new(UiText.Format("{0}, page {1}", media.Name, media.PageIndex + 1), media, ReferenceEquals(media, tab.Media.Selected), true, -1) { Icon = ChromeIcon.Play });
                     }
 
                     break;
@@ -227,7 +228,7 @@ internal static class SidebarRows
                 {
                     foreach (var tag in tab.Tags.Items)
                     {
-                        rows.Add(new(tag.Row, tag, ReferenceEquals(tag, tab.Tags.SelectedItem), true, -1));
+                        rows.Add(new(tag.Row, tag, ReferenceEquals(tag, tab.Tags.SelectedItem), true, -1) { Icon = ChromeIcon.Tags });
                     }
 
                     break;
@@ -287,7 +288,13 @@ internal static class SidebarRows
         foreach (var layer in layers)
         {
             var state = layer.IsVisible ? UiText.Get("Shown") : UiText.Get("Hidden");
-            rows.Add(new(layer.IsLabel ? $"{indent}{layer.Name}" : $"{indent}{layer.Name}: {state}", layer, layer.IsVisible && !layer.IsLabel, layer.CanToggle, -1));
+            var icon = ChromeIcon.None;
+            if (!layer.IsLabel)
+            {
+                icon = layer.IsVisible ? ChromeIcon.CheckOn : ChromeIcon.CheckOff;
+            }
+
+            rows.Add(new(layer.IsLabel ? $"{indent}{layer.Name}" : $"{indent}{layer.Name}: {state}", layer, layer.IsVisible && !layer.IsLabel, layer.CanToggle, -1) { Icon = icon });
             AddLayers(rows, layer.Children, $"{indent}{Indent}");
         }
     }

@@ -161,7 +161,7 @@ internal static class DocumentForms
             edits.WriteRow(TwoSidedRow, print, static (p, edit) => p.TwoSided = edit.On),
             edits.WriteRow(MarksRow, print, static (p, edit) => p.IncludeAnnotations = edit.On),
             edits.WriteRow(PreviousSheetRow, print, static (p, _) => p.SelectedSheetIndex = Math.Max(0, p.SelectedSheetIndex - 1)),
-            edits.WriteRow(NextSheetRow, print, static (p, _) => p.SelectedSheetIndex = Math.Min(p.Sheets.Count - 1, p.SelectedSheetIndex + 1))));
+            edits.WriteRow(NextSheetRow, print, static (p, _) => p.SelectedSheetIndex = Math.Min(p.Sheets.Count - 1, p.SelectedSheetIndex + 1)))) { AcceptIcon = ChromeIcon.Print };
 
     /// <summary>Finds the sheet the print window shows a picture of.</summary>
     /// <param name="print">The print settings.</param>
@@ -200,7 +200,7 @@ internal static class DocumentForms
 
         form.Heading(licences.DetailTitle);
         form.Text(licences.Details);
-        form.Action(UiText.Get("Copy this licence"), true, CopyRow, null);
+        form.Action(ChromeIcon.Copy, UiText.Get("Copy this licence"), true, CopyRow, null);
         form.Text(licences.LicenceText);
     }
 
@@ -212,8 +212,7 @@ internal static class DocumentForms
     private static void AddNode(FormBuilder form, LicencesViewModel licences, LicenceNode node, string indent)
     {
         var chosen = ReferenceEquals(node, licences.SelectedNode);
-        var mark = chosen ? "● " : string.Empty;
-        form.Action($"{indent}{mark}{node.Title}", true, ComponentRow, node);
+        form.Action(chosen ? ChromeIcon.RadioOn : ChromeIcon.RadioOff, $"{indent}{node.Title}", true, ComponentRow, node);
         foreach (var child in node.Children)
         {
             AddNode(form, licences, child, $"{indent}    ");

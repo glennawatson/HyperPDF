@@ -2,10 +2,13 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Layout;
 using HyperPdf.Presentation.Input;
 using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Services;
+using HyperPdf.Viewer.Chrome.Forms;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 using HyperPdf.Windowing.Windows;
 using ReactiveUI.Primitives;
@@ -27,11 +30,20 @@ internal static class MenuOverlays
     /// <summary>The rows a separator's height is divided by.</summary>
     private const int SeparatorShare = 3;
 
-    /// <summary>The mark before a ticked entry.</summary>
-    private const string Tick = "● ";
+    /// <summary>The fewest rows of room below a toolbar anchor that keeps the menu under its button instead of shifting over it.</summary>
+    private const int MinBelowRows = 4;
 
-    /// <summary>The mark after an entry that opens a submenu.</summary>
-    private const string More = "  ›";
+    /// <summary>The paddings around a menu row's icon and text.</summary>
+    private const int RowPaddings = 3;
+
+    /// <summary>The opaque alpha bits for a colour swatch.</summary>
+    private const uint Opaque = 0xFF000000;
+
+    /// <summary>The RGB bits of a colour swatch.</summary>
+    private const uint ColorMask = 0x00FFFFFF;
+
+    /// <summary>The sides of a margin (top and bottom, or left and right).</summary>
+    private const int MarginSides = 2;
 
     /// <summary>
     /// Opens a menu. A press or a key that leaves the menu open moves within it. One that does not closes it: an entry that was chosen,
@@ -44,7 +56,7 @@ internal static class MenuOverlays
     internal static Overlay Open(ReadOnlySpan<MenuEntry> entries, ScreenPoint anchor, Action<MenuEntry> run)
     {
         var input = new Signal<OverlayInput>();
-        var start = new MenuState([..entries], [], BackIndex - 1, null, false);
+        var start = new MenuState([..entries], [], BackIndex - 1, 0, true, null, false);
         var state = OverlayStates.Track(input, start, Reduce);
         var done = state.Where(static current => current.Done);
         return new(
@@ -65,10 +77,17 @@ internal static class MenuOverlays
     {
         { Kind: OverlayInputKind.Press, Item: { Action: OverlayAction.PickOption } item } => Press(state, item.Index),
         { Kind: OverlayInputKind.Key } => PressKey(state, input.Key),
-        { Kind: OverlayInputKind.Scroll } => MoveCursor(state, Math.Sign(input.Value)),
+        { Kind: OverlayInputKind.Scroll } => ScrollMenu(state, input.Value),
         { Kind: OverlayInputKind.Dismiss } => state with { Done = true },
         _ => state,
     };
+
+    /// <summary>Scrolls the visible window of menu entries with the mouse wheel.</summary>
+    /// <param name="state">The state before.</param>
+    /// <param name="rows">The rows to scroll down, negative to scroll up.</param>
+    /// <returns>The state after.</returns>
+    private static MenuState ScrollMenu(MenuState state, int rows) =>
+        rows == 0 ? state : state with { First = Math.Clamp(state.First + rows, 0, Math.Max(0, state.Shown.Length - 1)), FollowCursor = false };
 
     /// <summary>Takes a press on a row.</summary>
     /// <param name="state">The state before.</param>
@@ -102,7 +121,7 @@ internal static class MenuOverlays
 
         if (entry.Kind == MenuEntryKind.Submenu)
         {
-            return state with { Parents = [.. state.Parents, state.Shown], Shown = entry.Children, Cursor = BackIndex - 1 };
+            return state with { Parents = [.. state.Parents, state.Shown], Shown = entry.Children, Cursor = BackIndex - 1, First = 0, FollowCursor = true };
         }
 
         return entry.Command is null ? state : state with { Chosen = entry, Done = true };
@@ -113,7 +132,7 @@ internal static class MenuOverlays
     /// <returns>The state after.</returns>
     private static MenuState GoBack(MenuState state) => state.Parents.Length == 0
         ? state with { Done = true }
-        : state with { Shown = state.Parents[^1], Parents = state.Parents[..^1], Cursor = BackIndex - 1 };
+        : state with { Shown = state.Parents[^1], Parents = state.Parents[..^1], Cursor = BackIndex - 1, First = 0, FollowCursor = true };
 
     /// <summary>Tells whether the keyboard can stop on an entry.</summary>
     /// <param name="state">What the menu shows.</param>
@@ -146,7 +165,7 @@ internal static class MenuOverlays
             at = first + ((at - first + step + count) % count);
             if (CanStopOn(state, at))
             {
-                return state with { Cursor = at };
+                return state with { Cursor = at, FollowCursor = true };
             }
         }
 
@@ -164,85 +183,153 @@ internal static class MenuOverlays
         var metrics = place.Metrics;
         var size = place.Size;
         var style = ChromeBars.Style(metrics);
-        var width = metrics.PopupWidth;
+        var width = MeasureWidth(state, runs, style, in metrics, size.Width);
         var back = state.Parents.Length > 0 ? metrics.RowHeight : 0;
-        for (var i = 0; i < state.Shown.Length; i++)
-        {
-            var entry = state.Shown[i];
-            var gesture = entry.Gesture is { } keys ? runs.Measure(keys, style) + metrics.Padding : 0;
-            width = Math.Max(width, runs.Measure(Header(entry), style) + gesture + (metrics.Padding * SeparatorShare));
-        }
-
-        // A menu taller than the window shows the rows from the first that lets the keyboard's row be seen, as many as fit.
-        var first = FirstShown(state, metrics, size.Height - back);
+        var keepBelow = anchor.Y > 0 && size.Height - anchor.Y >= metrics.RowHeight * MinBelowRows;
+        var maxHeight = keepBelow
+            ? size.Height - anchor.Y - metrics.Gap
+            : Math.Max(metrics.RowHeight, size.Height - (metrics.Gap * MarginSides));
+        var room = Math.Max(metrics.RowHeight, maxHeight - back);
+        var first = FirstShown(state, in metrics, room);
         var count = 0;
         var height = back;
-        while (first + count < state.Shown.Length && height + RowHeight(state.Shown[first + count], metrics) <= size.Height)
+        while (first + count < state.Shown.Length && height + RowHeight(state.Shown[first + count], in metrics) <= maxHeight)
         {
-            height += RowHeight(state.Shown[first + count], metrics);
+            height += RowHeight(state.Shown[first + count], in metrics);
             count++;
         }
 
         var left = Math.Max(0, Math.Min(anchor.X, size.Width - width));
-        var top = Math.Max(0, Math.Min(anchor.Y, size.Height - height));
+        var top = keepBelow ? anchor.Y : Math.Max(0, Math.Min(anchor.Y, size.Height - height));
         items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(left, top, width, height), true, false));
         var y = top;
         if (state.Parents.Length > 0)
         {
-            items.Add(new(ChromeItemKind.Row, OverlayAction.PickOption, BackIndex, UiText.Get("‹ Back"), new(left, y, width, metrics.RowHeight), true, state.Cursor == BackIndex));
+            items.Add(new(ChromeItemKind.Row, OverlayAction.PickOption, BackIndex, UiText.Get("Back"), new(left, y, width, metrics.RowHeight), true, state.Cursor == BackIndex)
+            {
+                Icon = ChromeIcon.Back,
+            });
             y += metrics.RowHeight;
         }
 
+        var barWidth = count < state.Shown.Length ? metrics.Gap + metrics.Line : 0;
         for (var i = first; i < first + count; i++)
         {
-            var bounds = new LayoutRect(left, y, width, RowHeight(state.Shown[i], metrics));
+            var bounds = new LayoutRect(left, y, width - barWidth, RowHeight(state.Shown[i], in metrics));
             y += (int)bounds.Height;
-            AddEntry(items, state, runs, metrics, i, bounds);
+            AddEntry(items, state, runs, in metrics, i, in bounds);
         }
+
+        FormLayout.AddScrollBar(
+            items,
+            new(left + width - metrics.Gap - metrics.Line, top + back, metrics.Gap, height - back),
+            first,
+            count,
+            state.Shown.Length,
+            place.Theme);
     }
 
-    /// <summary>Finds the first entry a menu shows when it is taller than the room: the first, until the keyboard's entry would fall below the room.</summary>
+    /// <summary>Measures the width the menu needs, clamped to the window width.</summary>
+    /// <param name="state">What the menu shows.</param>
+    /// <param name="runs">The text measurer.</param>
+    /// <param name="style">The text style.</param>
+    /// <param name="metrics">The sizes.</param>
+    /// <param name="windowWidth">The window width.</param>
+    /// <returns>The menu width in device pixels.</returns>
+    private static int MeasureWidth(MenuState state, TextRuns runs, TextStyle style, in ChromeMetrics metrics, int windowWidth)
+    {
+        var width = metrics.PopupWidth;
+        var iconRoom = metrics.IconSize + ChromePainter.IconGap(metrics);
+        for (var i = 0; i < state.Shown.Length; i++)
+        {
+            var entry = state.Shown[i];
+            var rightRoom = RightDecorationWidth(entry, runs, style, in metrics);
+            var needed = runs.Measure(Header(entry), style) + iconRoom + rightRoom + (metrics.Padding * RowPaddings);
+            width = Math.Max(width, needed);
+        }
+
+        return Math.Min(width, Math.Max(1, windowWidth));
+    }
+
+    /// <summary>Gets the width taken on the right side of an entry by its shortcut, submenu arrow or colour swatch.</summary>
+    /// <param name="entry">The entry.</param>
+    /// <param name="runs">The text measurer.</param>
+    /// <param name="style">The text style.</param>
+    /// <param name="metrics">The sizes.</param>
+    /// <returns>The width in device pixels.</returns>
+    private static int RightDecorationWidth(MenuEntry entry, TextRuns runs, TextStyle style, in ChromeMetrics metrics)
+    {
+        if (entry.Gesture is { } keys)
+        {
+            return runs.Measure(keys, style) + metrics.Padding;
+        }
+
+        return entry.Kind == MenuEntryKind.Submenu || entry.Swatch is not null ? metrics.IconSize + metrics.Padding : 0;
+    }
+
+    /// <summary>Finds the first entry a menu shows when it is taller than the room.</summary>
     /// <param name="state">What the menu shows.</param>
     /// <param name="metrics">The sizes.</param>
     /// <param name="room">The height left for the entries.</param>
     /// <returns>The index of the first entry shown.</returns>
     private static int FirstShown(MenuState state, in ChromeMetrics metrics, int room)
     {
-        var first = 0;
-        if (state.Cursor < 0)
+        var maxFirst = MaxFirst(state.Shown, in metrics, room);
+        var first = Math.Clamp(state.First, 0, maxFirst);
+        if (!state.FollowCursor || state.Cursor < 0 || state.Cursor >= state.Shown.Length)
         {
             return first;
         }
 
-        var used = 0;
-        for (var i = 0; i <= state.Cursor && i < state.Shown.Length; i++)
+        if (state.Cursor < first)
         {
-            used += RowHeight(state.Shown[i], metrics);
+            return state.Cursor;
         }
 
-        // Entries are dropped from the top until the one the keyboard is on fits.
+        var used = 0;
+        for (var i = first; i <= state.Cursor; i++)
+        {
+            used += RowHeight(state.Shown[i], in metrics);
+        }
+
         while (used > room && first < state.Cursor)
         {
-            used -= RowHeight(state.Shown[first], metrics);
+            used -= RowHeight(state.Shown[first], in metrics);
             first++;
         }
 
         return first;
     }
 
-    /// <summary>Gets the text of an entry as it is drawn.</summary>
-    /// <param name="entry">The entry.</param>
-    /// <returns>The header with its marks.</returns>
-    private static string Header(MenuEntry entry)
+    /// <summary>Finds the latest starting entry from which the remaining entries fill the available height.</summary>
+    /// <param name="entries">All entries.</param>
+    /// <param name="metrics">The sizes.</param>
+    /// <param name="room">The height left for the entries.</param>
+    /// <returns>The highest useful start index.</returns>
+    private static int MaxFirst(MenuEntry[] entries, in ChromeMetrics metrics, int room)
     {
-        var header = ChromeText.WithoutAccessMark(entry.Header);
-        if (entry.IsChecked)
+        var used = 0;
+        var first = entries.Length;
+        while (first > 0)
         {
-            header = string.Concat(Tick, header);
+            var row = RowHeight(entries[first - 1], in metrics);
+            if (used + row > room)
+            {
+                break;
+            }
+
+            used += row;
+            first--;
         }
 
-        return entry.Kind == MenuEntryKind.Submenu ? string.Concat(header, More) : header;
+        return Math.Min(first, Math.Max(0, entries.Length - 1));
     }
+
+    /// <summary>Gets the clean text of an entry without its access-key mark.</summary>
+    /// <param name="entry">The entry.</param>
+    /// <returns>The header text.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string Header(MenuEntry entry) => ChromeText.WithoutAccessMark(entry.Header);
 
     /// <summary>Tells what an entry is beyond a row: ticked, or one that opens another menu.</summary>
     /// <param name="entry">The entry.</param>
@@ -264,7 +351,7 @@ internal static class MenuOverlays
     private static int RowHeight(MenuEntry entry, in ChromeMetrics metrics) =>
         entry.Kind == MenuEntryKind.Separator ? metrics.RowHeight / SeparatorShare : metrics.RowHeight;
 
-    /// <summary>Adds the row of one entry, and its shortcut on the right when it has one.</summary>
+    /// <summary>Adds the row of one entry, with its icon, colour swatch, submenu mark or shortcut.</summary>
     /// <param name="items">Receives the controls.</param>
     /// <param name="state">What the menu shows.</param>
     /// <param name="runs">The text measurer.</param>
@@ -280,14 +367,51 @@ internal static class MenuOverlays
             return;
         }
 
+        var style = ChromeBars.Style(metrics);
+        var rightRoom = RightDecorationWidth(entry, runs, style, in metrics);
+        var icon = MenuIcons.Of(entry);
+        var iconRoom = icon == ChromeIcon.None ? 0 : metrics.IconSize + ChromePainter.IconGap(metrics);
+        var textRoom = Math.Max(1, (int)bounds.Width - (metrics.Padding * MarginSides) - iconRoom - rightRoom);
         var pressable = entry.IsEnabled && (entry.Command is not null || entry.Kind == MenuEntryKind.Submenu);
-        items.Add(new(ChromeItemKind.Row, pressable ? OverlayAction.PickOption : OverlayAction.None, index, Header(entry), bounds, entry.IsEnabled, index == state.Cursor) { Trait = TraitOf(entry) });
+        var fitted = ChromeText.Fit(Header(entry), style, textRoom, runs);
+        var action = pressable ? OverlayAction.PickOption : OverlayAction.None;
+        items.Add(new(ChromeItemKind.Row, action, index, fitted, bounds, entry.IsEnabled, index == state.Cursor) { Trait = TraitOf(entry), Icon = icon });
+        AddRightDecoration(items, entry, runs, style, in metrics, index, in bounds);
+    }
+
+    /// <summary>Adds the shortcut keys, submenu arrow or colour swatch at the right edge of a menu row.</summary>
+    /// <param name="items">Receives the control.</param>
+    /// <param name="entry">The entry.</param>
+    /// <param name="runs">The text measurer.</param>
+    /// <param name="style">The text style.</param>
+    /// <param name="metrics">The sizes.</param>
+    /// <param name="index">The entry index.</param>
+    /// <param name="bounds">The row bounds.</param>
+    private static void AddRightDecoration(List<ChromeItem> items, MenuEntry entry, TextRuns runs, TextStyle style, in ChromeMetrics metrics, int index, in LayoutRect bounds)
+    {
+        if (entry.Swatch is { } swatch)
+        {
+            var side = metrics.IconSize;
+            var top = bounds.Y + ((bounds.Height - side) / MarginSides);
+            var box = new LayoutRect(bounds.Right - side - metrics.Padding, top, side, side);
+            items.Add(new(ChromeItemKind.Panel, null, index, string.Empty, box, false, false) { Ground = Opaque | (swatch & ColorMask), Framed = true });
+            return;
+        }
+
+        if (entry.Kind == MenuEntryKind.Submenu)
+        {
+            var arrowWidth = metrics.IconSize + (metrics.Padding * MarginSides);
+            var arrowBounds = new LayoutRect(bounds.Right - arrowWidth, bounds.Y, arrowWidth, bounds.Height);
+            items.Add(new(ChromeItemKind.Picture, null, index, string.Empty, arrowBounds, entry.IsEnabled, false) { Icon = ChromeIcon.Forward });
+            return;
+        }
+
         if (entry.Gesture is not { } keys)
         {
             return;
         }
 
-        var keysWidth = runs.Measure(keys, ChromeBars.Style(metrics)) + metrics.Padding + metrics.Padding;
+        var keysWidth = runs.Measure(keys, style) + (metrics.Padding * MarginSides);
         items.Add(new(ChromeItemKind.Label, null, index, keys, new(bounds.Right - keysWidth, bounds.Y, keysWidth, bounds.Height), false, false));
     }
 }

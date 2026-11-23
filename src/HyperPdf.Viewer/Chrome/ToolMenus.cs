@@ -115,16 +115,16 @@ internal static class ToolMenus
         var copies = tab.Copies;
         return
         [
-            Copy(copies.SaveCopy),
-            Copy(copies.Optimize),
-            Copy(copies.Archive),
-            Copy(copies.Pdf20),
-            Copy(copies.Flatten),
-            Copy(copies.ExportPages),
+            Copy(copies.SaveCopy, "Copy"),
+            Copy(copies.Optimize, "Save"),
+            Copy(copies.Archive, "Save"),
+            Copy(copies.Pdf20, "Save"),
+            Copy(copies.Flatten, "Layers"),
+            Copy(copies.ExportPages, "Save"),
             MenuEntry.Separator(),
-            Copy(copies.Protect),
-            Copy(copies.Unprotect),
-            Copy(copies.Redact),
+            Copy(copies.Protect, "Lock"),
+            Copy(copies.Unprotect, "Unlock"),
+            Copy(copies.Redact, "Close"),
         ];
     }
 
@@ -151,8 +151,8 @@ internal static class ToolMenus
             Item("Insert _Pictures as Pages…", pages.InsertImagesCommand),
             Item("_Merge Files…", pages.MergeFilesCommand),
             MenuEntry.Separator(),
-            Named(pages.UndoText, pages.UndoCommand),
-            Named(pages.RedoText, pages.RedoCommand),
+            Named(pages.UndoText, pages.UndoCommand).WithIcon("Undo"),
+            Named(pages.RedoText, pages.RedoCommand).WithIcon("Redo"),
         ];
     }
 
@@ -415,8 +415,8 @@ internal static class ToolMenus
         [
             Item("_Check the Signatures", signatures.CheckCommand),
             Item("_Sign with a Certificate…", signatures.SignWithCertificateCommand),
-            Copy(tab.Copies.ExternalSign),
-            Copy(tab.Copies.Validation),
+            Copy(tab.Copies.ExternalSign, "Certificate"),
+            Copy(tab.Copies.Validation, "Certificate"),
             MenuEntry.Separator(),
             Item("Check the _Accessibility Tags", tab.Tags.CheckCommand),
             Item("_Edit the Selected Tag…", tab.Tags.EditCommand),
@@ -439,11 +439,12 @@ internal static class ToolMenus
     /// <summary>Makes the entry of one kind of copy, which opens its window.</summary>
     /// <typeparam name="T">The view model of the copy.</typeparam>
     /// <param name="action">The copy.</param>
+    /// <param name="icon">The icon name.</param>
     /// <returns>The entry, greyed while the copy cannot be made.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static MenuEntry Copy<T>(TabCopyAction<T> action)
+    private static MenuEntry Copy<T>(TabCopyAction<T> action, string icon)
         where T : class, ICopyWindowRequest =>
-        MenuEntry.Item(action.MenuText, null, action.RunCommand, null, action.CanRun);
+        MenuEntry.Item(action.MenuText, null, action.RunCommand, null, action.CanRun).WithIcon(icon);
 
     /// <summary>Makes the entry of a marking tool, ticked while it is the tool in use.</summary>
     /// <param name="marks">The marking tools of the tab shown.</param>

@@ -74,25 +74,47 @@ public readonly record struct ChromeMetrics(
     /// <summary>The parts the text size is divided into for the size of an icon.</summary>
     private const int TextParts = 7;
 
+    /// <summary>The text size in points at the standard interface size (14 pixels at 96 DPI).</summary>
+    private const double DefaultPoints = 10.5;
+
+    /// <summary>The smallest interface text size in points.</summary>
+    private const double MinPoints = 8.0;
+
+    /// <summary>The largest interface text size in points.</summary>
+    private const double MaxPoints = 24.0;
+
     /// <summary>Gets the side of an icon beside text, in device pixels.</summary>
     public int IconSize => TextSize * IconParts / TextParts;
 
     /// <summary>Makes the sizes for a display scale.</summary>
     /// <param name="scale">The device pixels of one unit.</param>
     /// <returns>The sizes.</returns>
-    public static ChromeMetrics For(double scale) => new(
-        Scaled(TabUnits, scale),
-        Scaled(ToolbarUnits, scale),
-        Scaled(StatusUnits, scale),
-        Scaled(TextUnits, scale),
-        Scaled(PaddingUnits, scale),
-        Scaled(GapUnits, scale),
-        Scaled(RowUnits, scale),
-        Scaled(TabWidthUnits, scale),
-        Scaled(PopupUnits, scale),
-        Scaled(DialogUnits, scale),
-        Scaled(SidebarUnits, scale),
-        Scaled(1, scale));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static ChromeMetrics For(double scale) => For(scale, null);
+
+    /// <summary>Makes the sizes for a display scale and an optional interface text size in points.</summary>
+    /// <param name="scale">The device pixels of one unit.</param>
+    /// <param name="fontSizePoints">The chosen text size in points, or <see langword="null"/> for the default.</param>
+    /// <returns>The sizes.</returns>
+    public static ChromeMetrics For(double scale, double? fontSizePoints)
+    {
+        var fontFactor = fontSizePoints is > 0 ? Math.Clamp(fontSizePoints.Value, MinPoints, MaxPoints) / DefaultPoints : 1.0;
+        var textScale = scale * fontFactor;
+        var widthScale = scale * Math.Max(1.0, fontFactor);
+        return new(
+            Scaled(TabUnits, textScale),
+            Scaled(ToolbarUnits, textScale),
+            Scaled(StatusUnits, textScale),
+            Scaled(TextUnits, textScale),
+            Scaled(PaddingUnits, textScale),
+            Scaled(GapUnits, textScale),
+            Scaled(RowUnits, textScale),
+            Scaled(TabWidthUnits, widthScale),
+            Scaled(PopupUnits, widthScale),
+            Scaled(DialogUnits, widthScale),
+            Scaled(SidebarUnits, widthScale),
+            Scaled(1, scale));
+    }
 
     /// <summary>Scales a size, never to less than one pixel.</summary>
     /// <param name="units">The size at a scale of one.</param>

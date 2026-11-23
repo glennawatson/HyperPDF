@@ -122,9 +122,18 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
     /// <param name="action">What a press means to the dialog.</param>
     /// <param name="enabled">Whether it can be pressed.</param>
     /// <returns>The row with the button in it.</returns>
-    internal ChromeRow Button(string text, OverlayAction action, bool enabled)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow Button(string text, OverlayAction action, bool enabled) =>
+        Button(action == OverlayAction.Accept ? ChromeIcon.Done : ChromeIcon.None, text, action, enabled);
+
+    /// <summary>Adds a boxed dialog button with a chosen icon.</summary>
+    /// <param name="icon">The icon before the words.</param>
+    /// <param name="text">The text.</param>
+    /// <param name="action">What a press means to the dialog.</param>
+    /// <param name="enabled">Whether it can be pressed.</param>
+    /// <returns>The row with the button in it.</returns>
+    internal ChromeRow Button(ChromeIcon icon, string text, OverlayAction action, bool enabled)
     {
-        var icon = action == OverlayAction.Accept ? ChromeIcon.Done : ChromeIcon.None;
         var next = Place(text, icon, false, out var placed);
         Items.Add(new(ChromeItemKind.Button, action, 0, text, placed.Bounds, enabled, false) { Icon = icon, Framed = true });
         return next;

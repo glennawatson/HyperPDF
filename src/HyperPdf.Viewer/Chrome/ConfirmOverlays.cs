@@ -58,24 +58,31 @@ internal static class ConfirmOverlays
         var metrics = place.Metrics;
         var size = place.Size;
         var width = Math.Min(metrics.DialogWidth, size.Width);
-        var inner = width - metrics.Padding - metrics.Padding;
+        var inner = Math.Max(1, width - metrics.Padding - metrics.Padding);
         var lines = new List<string>();
         ChromeText.Wrap(request.Message, ChromeBars.Style(metrics), inner, runs, lines);
-        var height = (metrics.RowHeight * (lines.Count + 1)) + metrics.ToolbarHeight + metrics.Padding + metrics.Padding;
-        var left = (size.Width - width) >> 1;
-        var top = Math.Max(0, (size.Height - height) >> 1);
-        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(left, top, width, height), true, false));
-        var y = top + metrics.Padding;
-        items.Add(new(ChromeItemKind.Heading, null, 0, ChromeText.Fit(request.Title, ChromeBars.Style(metrics), inner, runs), new(left, y, width, metrics.RowHeight), true, false));
+        var panelIndex = items.Count;
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, default, true, false));
+        var y = metrics.Padding;
+        items.Add(new(ChromeItemKind.Heading, null, 0, ChromeText.Fit(request.Title, ChromeBars.Style(metrics), inner, runs), new(0, y, width, metrics.RowHeight), true, false));
         y += metrics.RowHeight;
         for (var i = 0; i < lines.Count; i++)
         {
-            items.Add(new(ChromeItemKind.Label, null, i, lines[i], new(left, y, width, metrics.RowHeight), true, false));
+            items.Add(new(ChromeItemKind.Label, null, i, lines[i], new(0, y, width, metrics.RowHeight), true, false));
             y += metrics.RowHeight;
         }
 
-        var row = new ChromeRow(items, runs, metrics, left + metrics.Padding, y + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap);
+        var row = new ChromeRow(items, runs, metrics, metrics.Padding, y + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap) { Limit = width - metrics.Padding };
         row = row.Button(request.ConfirmText, OverlayAction.Accept, true);
         row = row.Button(UiText.Get("Cancel"), OverlayAction.Cancel, true);
+        var height = y + (row.Lines * metrics.ToolbarHeight) + metrics.Padding;
+        var left = (size.Width - width) >> 1;
+        var top = Math.Max(0, (size.Height - height) >> 1);
+        items[panelIndex] = items[panelIndex] with { Bounds = new(left, top, width, height) };
+        for (var i = panelIndex + 1; i < items.Count; i++)
+        {
+            var bounds = items[i].Bounds;
+            items[i] = items[i] with { Bounds = new(bounds.X + left, bounds.Y + top, bounds.Width, bounds.Height) };
+        }
     }
 }

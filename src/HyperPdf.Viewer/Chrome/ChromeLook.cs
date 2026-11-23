@@ -33,4 +33,7 @@ internal sealed record ChromeLook(TextRuns Runs, ChromeTheme Theme, ChromeMetric
 
     /// <summary>Gets a value indicating whether tool bar buttons show their names beside their icons.</summary>
     internal bool ShowLabels { get; init; } = true;
+
+    /// <summary>Gets the chosen interface text size in points, or <see langword="null"/> for the default.</summary>
+    internal double? FontSizePoints { get; init; }
 }

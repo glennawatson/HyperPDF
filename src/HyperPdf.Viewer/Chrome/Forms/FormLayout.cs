@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Layout;
 using HyperPdf.Viewer.Icons;
 
@@ -61,17 +62,30 @@ internal static class FormLayout
     /// <param name="first">The first line in view.</param>
     /// <param name="shown">The lines in view.</param>
     /// <param name="count">All the lines.</param>
-    internal static void AddScrollBar(List<ChromeItem> items, in LayoutRect track, int first, int shown, int count)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void AddScrollBar(List<ChromeItem> items, in LayoutRect track, int first, int shown, int count) =>
+        AddScrollBar(items, in track, first, shown, count, default);
+
+    /// <summary>Adds a bar down the side of the lines when there are more lines than are in view, in the colours of the window's theme.</summary>
+    /// <param name="items">Receives the bar.</param>
+    /// <param name="track">Where the bar goes.</param>
+    /// <param name="first">The first line in view.</param>
+    /// <param name="shown">The lines in view.</param>
+    /// <param name="count">All the lines.</param>
+    /// <param name="theme">The window's colours.</param>
+    internal static void AddScrollBar(List<ChromeItem> items, in LayoutRect track, int first, int shown, int count, in ChromeTheme theme)
     {
         if (count <= shown || track.Height <= 0)
         {
             return;
         }
 
-        items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, track, false, false) { Ground = TrackColor });
+        var trackColor = theme.Bar != 0 && theme.Bar != theme.Surface ? theme.Bar : TrackColor;
+        var thumbColor = theme.Faded != 0 ? theme.Faded : ThumbColor;
+        items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, track, false, false) { Ground = trackColor });
         var top = track.Y + (track.Height * first / count);
         var height = Math.Max(track.Width, track.Height * shown / count);
-        items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, new(track.X, Math.Min(top, track.Bottom - height), track.Width, height), false, false) { Ground = ThumbColor });
+        items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, new(track.X, Math.Min(top, track.Bottom - height), track.Width, height), false, false) { Ground = thumbColor });
     }
 
     /// <summary>Works out where the control of a line goes.</summary>

@@ -160,11 +160,18 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     [Reactive]
     public partial string Location { get; set; } = string.Empty;
 
+    /// <summary>Gets or sets the file path where the signed copy will be saved.</summary>
+    [Reactive]
+    public partial string DestinationPath { get; set; } = string.Empty;
+
     /// <summary>Gets what went wrong with the certificate, or <see langword="null"/>.</summary>
     public string? Error { get => _localizedError.Value; private set => SetError(LocalizedMessage.Literal(value)); }
 
     /// <summary>Gets the interaction asking for a certificate file.</summary>
     public Interaction<RxVoid, string?> BrowseInteraction { get; } = new();
+
+    /// <summary>Gets the interaction asking where to save the signed copy.</summary>
+    public Interaction<string, string?> SaveDestinationInteraction { get; } = new();
 
     /// <summary>Gets the answer, which closes the window: <see langword="true"/> to sign.</summary>
     public IObservable<bool> Answered { get; }
@@ -337,6 +344,24 @@ public sealed partial class CertificateSignViewModel : ReactiveObject, IDisposab
     {
         SelectedCertificate = null;
         CertificatePath = path;
+        return RxVoid.Default;
+    }
+
+    /// <summary>Asks where to save the signed copy.</summary>
+    /// <returns>A signal that ends once the path is chosen or cancelled.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ChooseDestination() =>
+        SaveDestinationInteraction.Handle(DestinationPath.Length > 0 ? DestinationPath : "signed.pdf").ToSignal()
+            .Where(static path => path is { Length: > 0 })
+            .Select(path => ChosenDestination(path!));
+
+    /// <summary>Uses the chosen destination path for the signed copy.</summary>
+    /// <param name="path">The destination path.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid ChosenDestination(string path)
+    {
+        DestinationPath = path;
         return RxVoid.Default;
     }
 }

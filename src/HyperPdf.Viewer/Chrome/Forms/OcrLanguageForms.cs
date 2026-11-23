@@ -16,7 +16,8 @@ internal static class OcrLanguageForms
     [
         FormSettings.Status<OcrLanguagesViewModel>(static m => m.Note),
         FormSettings.Note<OcrLanguagesViewModel>("Press a language to tick it or untick it. A ticked language that is not on this computer downloads at once."),
-        FormSettings.Picker<OcrLanguagesViewModel, OcrLanguageItemViewModel>(static m => m.Items, Line, static (m, item) => m.Pick(item)),
+        FormSettings.Picker<OcrLanguagesViewModel, OcrLanguageItemViewModel>(static m => m.Items, Line, static (m, item) => m.Pick(item))
+            .WithItemIcon(static item => item is OcrLanguageItemViewModel { IsSelected: true } ? ChromeIcon.CheckOn : ChromeIcon.CheckOff),
         FormSettings.Status<OcrLanguagesViewModel>(static m => m.StatusText).When(static m => m.StatusText.Length > 0),
         FormSettings.Action<OcrLanguagesViewModel>("Stop the download", static m => m.StopDownloadCommand).With(ChromeIcon.Stop).When(static m => m.IsDownloading),
         FormSettings.Action<OcrLanguagesViewModel>("Remove the downloaded languages I have not ticked", static m => m.RemoveUntickedCommand).With(ChromeIcon.Close),

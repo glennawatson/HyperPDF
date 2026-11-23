@@ -43,10 +43,21 @@ internal sealed record FormSetting<T>(
     /// <summary>Gets the icon drawn before the words of an action.</summary>
     internal ChromeIcon Icon { get; init; }
 
+    /// <summary>Gets a value indicating whether a field row's text is secret and shown as dots.</summary>
+    internal bool Masked { get; init; }
+
+    /// <summary>Gets what chooses the icon for each item in a list row, or <see langword="null"/> to use <see cref="Icon"/>.</summary>
+    internal Func<object, ChromeIcon>? ItemIcon { get; init; }
+
     /// <summary>Makes a row with an icon before its words.</summary>
     /// <param name="icon">The icon, whose tint says whether the action adds, changes, removes or shows something.</param>
     /// <returns>The row.</returns>
     internal FormSetting<T> With(ChromeIcon icon) => this with { Icon = icon };
+
+    /// <summary>Makes a list row whose items each pick their own icon.</summary>
+    /// <param name="icon">Chooses the icon for an item.</param>
+    /// <returns>The row.</returns>
+    internal FormSetting<T> WithItemIcon(Func<object, ChromeIcon> icon) => this with { ItemIcon = icon };
 
     /// <summary>Makes a row with another rule for when it is shown.</summary>
     /// <param name="visible">Tells whether the row is shown now.</param>

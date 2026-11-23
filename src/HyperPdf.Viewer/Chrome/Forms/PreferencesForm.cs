@@ -4,7 +4,9 @@
 
 using HyperPdf.ViewModels.Preferences;
 using HyperPdf.ViewModels.Services;
+using ReactiveUI;
 using ReactiveUI.Primitives;
+using ReactiveUI.Primitives.Extensions;
 using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Viewer.Chrome.Forms;
@@ -20,8 +22,9 @@ internal static class PreferencesForm
         PreferenceRow.Choice("Colour scheme", PreferencesViewModel.ColorSchemeOptions, static p => p.ColorScheme, static (p, value) => p.ColorScheme = value),
         PreferenceRow.Choice("Drawing (next start)", PreferencesViewModel.RenderBackendOptions, static p => p.RenderBackend, static (p, value) => p.RenderBackend = value),
         PreferenceRow.Choice("PDF page colour", PreferencesViewModel.PageToneOptions, static p => p.PageTone, static (p, value) => p.PageTone = value),
-        PreferenceRow.Field("Paper, as six hex digits such as 000000", static p => p.CustomPaper, static (p, value) => p.CustomPaper = value),
-        PreferenceRow.Field("Ink, as six hex digits such as FFFF00", static p => p.CustomInk, static (p, value) => p.CustomInk = value),
+        PreferenceRow.Field("Paper, as six hex digits such as 000000", static p => p.CustomPaper, static (p, value) => p.CustomPaper = value).When(static p => p.UsesCustomPageTone),
+        PreferenceRow.Field("Ink, as six hex digits such as FFFF00", static p => p.CustomInk, static (p, value) => p.CustomInk = value).When(static p => p.UsesCustomPageTone),
+        PreferenceRow.Status(static p => p.CustomToneContrast).When(static p => p.UsesCustomPageTone),
         PreferenceRow.Choice("Text size", PreferencesViewModel.FontSizeOptions, static p => p.FontSize, static (p, value) => p.FontSize = value),
         PreferenceRow.Choice("Tool bar", PreferencesViewModel.ToolbarOptions, static p => p.Toolbar, static (p, value) => p.Toolbar = value),
         PreferenceRow.Choice("Motion", PreferencesViewModel.MotionOptions, static p => p.Motion, static (p, value) => p.Motion = value),
@@ -62,8 +65,8 @@ internal static class PreferencesForm
         PreferenceRow.Toggle("Remember the shapes of small letters", static p => p.Sharpness.SmallTextMasks, static (p, on) => p.Sharpness.SmallTextMasks = on),
         PreferenceRow.Heading("Services"),
         PreferenceRow.Choice("Read aloud voice", PreferencesViewModel.SpeechEngineOptions, static p => p.SpeechEngine, static (p, value) => p.SpeechEngine = value),
-        PreferenceRow.Field("Azure speech region", static p => p.AzureRegion, static (p, value) => p.AzureRegion = value),
-        PreferenceRow.Secret("Azure speech key", static p => p.AzureKey, static (p, value) => p.AzureKey = value),
+        PreferenceRow.Field("Azure speech region", static p => p.AzureRegion, static (p, value) => p.AzureRegion = value).When(static p => p.UsesAzure),
+        PreferenceRow.Secret("Azure speech key", static p => p.AzureKey, static (p, value) => p.AzureKey = value).When(static p => p.UsesAzure),
         PreferenceRow.Field("Timestamp server for signing", static p => p.TimestampServer, static (p, value) => p.TimestampServer = value),
     ];
 
@@ -75,7 +78,7 @@ internal static class PreferencesForm
         form => Describe(form, preferences),
         null,
         null,
-        Signal.Never<RxVoid>(),
+        Signal.Merge(preferences.GetChangedObservable().AsSignal(), preferences.Sharpness.GetChangedObservable().AsSignal()),
         null,
         edits => edits.SubscribeSafe(edit => Apply(preferences, edit), ErrorTrace.Write));
 
@@ -88,9 +91,20 @@ internal static class PreferencesForm
         for (var i = 0; i < Rows.Length; i++)
         {
             var row = Rows[i];
-            var label = UiText.Get(row.Label);
+            if (row.Visible is { } visible && !visible(preferences))
+            {
+                continue;
+            }
+
+            var label = row.Label.Length > 0 ? UiText.Get(row.Label) : string.Empty;
             switch (row.Kind)
             {
+                case FormRowKind.Text:
+                    {
+                        form.Text(row.Value(preferences));
+                        break;
+                    }
+
                 case FormRowKind.Choice:
                     {
                         form.Choice(label, row.Options, row.Selected(preferences), i);

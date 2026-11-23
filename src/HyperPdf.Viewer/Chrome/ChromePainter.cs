@@ -191,7 +191,7 @@ internal static class ChromePainter
 
             case ChromeItemKind.Popup:
                 {
-                    DrawBox(pass, bounds, theme.Surface, theme.Border, line);
+                    DrawBox(pass, bounds, theme.Surface, theme.Border, line * MarkLines);
                     break;
                 }
 

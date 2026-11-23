@@ -17,6 +17,9 @@ internal static class MainMenu
     /// <summary>The recent documents listed.</summary>
     private const int RecentLimit = 12;
 
+    /// <summary>The resource key for the Save menu entry.</summary>
+    private const string SaveKey = "_Save";
+
     /// <summary>Builds the menu for the state the window is in.</summary>
     /// <param name="main">The main view model.</param>
     /// <returns>The entries.</returns>
@@ -36,7 +39,9 @@ internal static class MainMenu
         }
 
         entries.Add(MenuEntry.Separator());
-        AddDocumentEntries(entries, main, tab);
+        entries.Add(MenuEntry.Item(UiText.Get(SaveKey), "Ctrl+S", tab.SaveCommand, null, tab.HasUnsavedChanges));
+        entries.Add(MenuEntry.Item(UiText.Get("_Print…"), "Ctrl+P", tab.Printing.PrintCommand, null, tab.IsLoaded));
+        entries.Add(MenuEntry.Submenu(UiText.Get("_Document"), tab.IsLoaded, [..Document(main, tab)]));
         entries.Add(MenuEntry.Separator());
         entries.Add(MenuEntry.Submenu(UiText.Get("_View"), tab.IsLoaded, [..View(main, tab)]));
         entries.Add(MenuEntry.Submenu(UiText.Get("_Go"), tab.IsLoaded, [..Go(tab)]));
@@ -63,7 +68,7 @@ internal static class MainMenu
         MenuEntry.Item(UiText.Get("Close _Other Tabs"), null, main.CloseOtherTabsCommand, tab, main.Tabs.Count > 1),
         MenuEntry.Item(UiText.Get("Close _All Tabs"), null, main.CloseAllTabsCommand, null, true),
         MenuEntry.Separator(),
-        MenuEntry.Item(UiText.Get("_Save"), null, tab.SaveCommand, null, tab.HasUnsavedChanges),
+        MenuEntry.Item(UiText.Get(SaveKey), null, tab.SaveCommand, null, tab.HasUnsavedChanges),
         MenuEntry.Item(UiText.Get("Re_load"), null, tab.ReloadCommand, null, tab.IsLoaded),
     ];
 
@@ -108,7 +113,7 @@ internal static class MainMenu
     /// <param name="tab">The current document.</param>
     private static void AddDocumentEntries(List<MenuEntry> entries, MainViewModel main, DocumentTabViewModel tab)
     {
-        entries.Add(MenuEntry.Item(UiText.Get("_Save"), "Ctrl+S", tab.SaveCommand, null, tab.HasUnsavedChanges));
+        entries.Add(MenuEntry.Item(UiText.Get(SaveKey), "Ctrl+S", tab.SaveCommand, null, tab.HasUnsavedChanges));
         entries.Add(MenuEntry.Item(UiText.Get("Save _As…"), null, tab.SaveAsCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Item(UiText.Get("Re_load"), null, tab.ReloadCommand, null, tab.IsLoaded));
         entries.Add(MenuEntry.Submenu(UiText.Get("Save a Cop_y"), tab.IsLoaded, [..ToolMenus.Copies(tab)]));
@@ -140,7 +145,7 @@ internal static class MainMenu
         for (var i = 0; i < count; i++)
         {
             var recent = main.RecentDocuments[i];
-            entries.Add(MenuEntry.Item(Path.GetFileName(recent.FilePath), null, main.OpenRecentCommand, recent, true));
+            entries.Add(MenuEntry.Item(Path.GetFileName(recent.FilePath), null, main.OpenRecentCommand, recent, true).WithIcon("Document"));
         }
 
         return entries;

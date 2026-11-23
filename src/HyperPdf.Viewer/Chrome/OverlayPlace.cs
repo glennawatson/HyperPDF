@@ -15,4 +15,8 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="Size">The window size in device pixels.</param>
 /// <param name="Area">The part of the window left for the pages, in device pixels. Its top is the bottom of the bars.</param>
 [DebuggerDisplay("OverlayPlace {Size} area {Area}")]
-internal readonly record struct OverlayPlace(TextRuns Runs, ChromeMetrics Metrics, SurfaceSize Size, LayoutRect Area);
+internal readonly record struct OverlayPlace(TextRuns Runs, ChromeMetrics Metrics, SurfaceSize Size, LayoutRect Area)
+{
+    /// <summary>Gets the colours of the window's controls.</summary>
+    internal ChromeTheme Theme { get; init; }
+}

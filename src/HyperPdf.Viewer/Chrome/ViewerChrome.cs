@@ -4,18 +4,12 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using HyperPdf.Core.Layout;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Presentation.Input;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Dialogs;
-using HyperPdf.ViewModels.Markup;
-using HyperPdf.ViewModels.Output;
-using HyperPdf.ViewModels.Preferences;
-using HyperPdf.ViewModels.Reading;
 using HyperPdf.ViewModels.Services;
-using HyperPdf.ViewModels.Sidebar;
 using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer.Chrome.Forms;
 using HyperPdf.Viewer.Icons;
@@ -36,7 +30,7 @@ namespace HyperPdf.Viewer.Chrome;
 /// Everything here runs on the window thread.
 /// </summary>
 [DebuggerDisplay("ViewerChrome: {_bars.Count} controls")]
-public sealed class ViewerChrome : IDisposable
+public sealed partial class ViewerChrome : IDisposable
 {
     /// <summary>The window.</summary>
     private readonly IPlatformWindow _window;
@@ -188,6 +182,11 @@ public sealed class ViewerChrome : IDisposable
         set
         {
             _look = _look with { Theme = value };
+            if (_overlay is not null)
+            {
+                _overlayChanged = true;
+            }
+
             _window.RequestFrame();
         }
     }
@@ -204,6 +203,22 @@ public sealed class ViewerChrome : IDisposable
             }
 
             _look = _look with { ShowLabels = value };
+            InvalidateBars();
+        }
+    }
+
+    /// <summary>Gets or sets the interface text size in points, or <see langword="null"/> for the default.</summary>
+    public double? FontSizePoints
+    {
+        get => _look.FontSizePoints;
+        set
+        {
+            if (Nullable.Equals(_look.FontSizePoints, value))
+            {
+                return;
+            }
+
+            _look = _look with { FontSizePoints = value };
             InvalidateBars();
         }
     }
@@ -261,147 +276,6 @@ public sealed class ViewerChrome : IDisposable
 
     /// <summary>Gets the commands of the controls that act on the window itself, made when first asked for, once the controls exist to run them.</summary>
     private ChromeActions Actions => _actions ??= new(this, _main, _window);
-
-    /// <summary>Opens a menu.</summary>
-    /// <param name="entries">The entries.</param>
-    /// <param name="at">Where the menu's top left corner is wanted, in device pixels.</param>
-    public void ShowMenu(List<MenuEntry> entries, ScreenPoint at)
-    {
-        ArgumentNullException.ThrowIfNull(entries);
-
-        // A menu entry carries its own command, so the entry chosen says which command to run.
-        Show(MenuOverlays.Open(CollectionsMarshal.AsSpan(entries), at, RunEntry));
-    }
-
-    /// <summary>Asks a yes or no question in a dialog. The dialog opens when the answer is subscribed to.</summary>
-    /// <param name="request">What is asked.</param>
-    /// <returns>One value when the dialog closes: <see langword="true"/> when the user agreed.</returns>
-    public IObservable<bool> Confirm(ConfirmRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        return Signal.Defer(() =>
-        {
-            var dialog = ConfirmOverlays.Open(request);
-            Show(dialog.Overlay);
-            return dialog.Answer;
-        });
-    }
-
-    /// <summary>Asks for a file in a dialog. The dialog opens when the answer is subscribed to.</summary>
-    /// <param name="folder">The folder to start in.</param>
-    /// <param name="saveName">The file name to offer when asking where to save, or <see langword="null"/> to ask what to open.</param>
-    /// <returns>One value when the dialog closes: the path chosen, or <see langword="null"/> when it was cancelled.</returns>
-    public IObservable<string?> PickFile(string folder, string? saveName)
-    {
-        ArgumentNullException.ThrowIfNull(folder);
-        return PickPaths(new(folder, saveName, false, false, UiText.Get(saveName is null ? "Open a file" : "Save a copy as"))).Select(static paths => paths.Length > 0 ? paths[0] : null);
-    }
-
-    /// <summary>Asks for a folder in a dialog. The dialog opens when the answer is subscribed to.</summary>
-    /// <param name="folder">The folder to start in.</param>
-    /// <returns>One value when the dialog closes: the folder chosen, or <see langword="null"/> when it was cancelled.</returns>
-    public IObservable<string?> PickFolder(string folder)
-    {
-        ArgumentNullException.ThrowIfNull(folder);
-        return PickPaths(new(folder, null, false, true, UiText.Get("Choose a folder"))).Select(static paths => paths.Length > 0 ? paths[0] : null);
-    }
-
-    /// <summary>Asks for the files to open in a dialog where several can be ticked. The dialog opens when the answer is subscribed to.</summary>
-    /// <param name="folder">The folder to start in.</param>
-    /// <returns>One value when the dialog closes: the paths chosen, or none when it was cancelled.</returns>
-    public IObservable<string[]> PickFiles(string folder)
-    {
-        ArgumentNullException.ThrowIfNull(folder);
-        return PickPaths(new(folder, null, true, false, UiText.Get("Open files")));
-    }
-
-    /// <summary>Asks for one line of text in a dialog. The dialog opens when the answer is subscribed to.</summary>
-    /// <param name="request">What is asked.</param>
-    /// <returns>One value when the dialog closes: the text typed, or <see langword="null"/> when it was cancelled.</returns>
-    public IObservable<string?> Prompt(PromptRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        return Signal.Defer(() =>
-        {
-            var dialog = PromptOverlays.Open(request);
-            Show(dialog.Overlay);
-            return dialog.Answer;
-        });
-    }
-
-    /// <summary>Shows the preferences window when subscribed to.</summary>
-    /// <param name="preferences">The preferences.</param>
-    /// <returns>One value when the window closes.</returns>
-    public IObservable<bool> ShowPreferences(PreferencesViewModel preferences)
-    {
-        ArgumentNullException.ThrowIfNull(preferences);
-        return ShowForm(PreferencesForm.For(preferences));
-    }
-
-    /// <summary>Shows the properties of a document when subscribed to.</summary>
-    /// <param name="properties">The properties.</param>
-    /// <returns>One value when the window closes.</returns>
-    public IObservable<bool> ShowProperties(PropertiesViewModel properties)
-    {
-        ArgumentNullException.ThrowIfNull(properties);
-        return ShowForm(DocumentForms.Properties(properties));
-    }
-
-    /// <summary>Shows the licences of everything the app is built from when subscribed to.</summary>
-    /// <param name="licences">The licences.</param>
-    /// <returns>One value when the window closes.</returns>
-    public IObservable<bool> ShowLicences(LicencesViewModel licences)
-    {
-        ArgumentNullException.ThrowIfNull(licences);
-        return ShowForm(DocumentForms.Licences(licences));
-    }
-
-    /// <summary>Shows the print window when subscribed to.</summary>
-    /// <param name="print">The print settings.</param>
-    /// <returns>One value when the window closes: <see langword="true"/> when the user chose to print.</returns>
-    public IObservable<bool> ShowPrint(PrintPreviewViewModel print)
-    {
-        ArgumentNullException.ThrowIfNull(print);
-        return ShowForm(DocumentForms.Print(print, ShownSheet));
-    }
-
-    /// <summary>Shows the window that plays sound or film when subscribed to. The film stops when the window is put away.</summary>
-    /// <param name="player">The player.</param>
-    /// <returns>One value when the window closes.</returns>
-    public IObservable<bool> ShowMedia(MediaPlayerViewModel player)
-    {
-        ArgumentNullException.ThrowIfNull(player);
-        return ShowForm(ToolForms.MediaPlayer(player, _ => ShownFilm(player))).Finally(() => Signal.Return(RxVoid.Default).InvokeCommand(player.StopCommand).Dispose());
-    }
-
-    /// <summary>Shows the window that makes a hand signature or initials when subscribed to, with a picture of a mark that came from a picture file.</summary>
-    /// <param name="mark">The view model of the mark being made.</param>
-    /// <returns>One value when the window closes: <see langword="true"/> to use the mark.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public IObservable<bool> ShowSignatureMark(SignatureMarkViewModel mark) => MarkPreview.Show(ShowForm, _window.Backend.Surfaces, mark);
-
-    /// <summary>Opens the search bar of the tab shown.</summary>
-    public void ShowFind()
-    {
-        if (_main.SelectedTab is not { } tab)
-        {
-            return;
-        }
-
-        tab.Search.Open();
-        ShowFindBar();
-    }
-
-    /// <summary>Shows the search bar of the tab shown, unless it is already showing.</summary>
-    public void ShowFindBar()
-    {
-        if (_main.SelectedTab is not { } tab || _overlay is { Kind: OverlayKind.Find })
-        {
-            return;
-        }
-
-        Show(FindOverlays.Open(tab.Search));
-    }
 
     /// <summary>Presses a control, as a screen reader or a switch device does through the accessibility tree.</summary>
     /// <param name="inOverlay">Whether the control is in the open menu, dialog or search bar rather than the bars.</param>
@@ -507,62 +381,9 @@ public sealed class ViewerChrome : IDisposable
         _actions?.Dispose();
     }
 
-    /// <summary>Shows a window made of rows when subscribed to.</summary>
-    /// <param name="request">What the window shows.</param>
-    /// <returns>One value when the window closes: <see langword="true"/> when the user agreed.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal IObservable<bool> ShowForm(FormRequest request) => Signal.Defer(() =>
-    {
-        var dialog = FormOverlays.Open(request);
-        Show(dialog.Overlay);
-        return dialog.Answer;
-    });
-
-    /// <summary>Opens a typing box over a form field or a text box on the page, so its text is typed where it lies.</summary>
-    /// <param name="target">What is typed into.</param>
-    /// <param name="canvas">The page canvas, which knows where the page lies in the window.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void ShowTyping(TypingTarget target, ViewerCanvas canvas) => Show(TypingOverlays.Open(target, canvas));
-
-    /// <summary>Shows focus mode in place of the pages.</summary>
-    /// <param name="focus">The focus mode of the tab shown.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void ShowFocus(FocusModeViewModel focus) => Show(FocusOverlays.Open(focus));
-
-    /// <summary>Shows the start view, which stands in for the pages while no document is open.</summary>
-    /// <param name="main">The main view model.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void ShowStart(MainViewModel main) => Show(StartOverlays.Open(main));
-
     /// <summary>Shows the side panel's list from its start again, as when another list is chosen.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void ResetSidebarScroll() => _sidebar = _sidebar with { First = 0, FollowedTab = null, FollowedPage = -1 };
-
-    /// <summary>Takes the start view away when a document opened.</summary>
-    internal void CloseStart()
-    {
-        if (_overlay is { Kind: OverlayKind.Start })
-        {
-            CloseOverlay();
-        }
-    }
-
-    /// <summary>Goes back to the pages when focus mode was turned off.</summary>
-    internal void CloseFocus()
-    {
-        if (_overlay is { Kind: OverlayKind.Focus })
-        {
-            CloseOverlay();
-        }
-    }
-
-    /// <summary>Closes the typing box when the view model ended the typing by itself.</summary>
-    internal void CloseTyping()
-    {
-        if (_overlay is { Kind: OverlayKind.Typing })
-        {
-            CloseOverlay();
-        }
-    }
 
     /// <summary>Marks the bars as changed and asks for a frame, which lays them out again.</summary>
     internal void InvalidateBars()
@@ -591,97 +412,6 @@ public sealed class ViewerChrome : IDisposable
         if (entry.Command is { } command && command.CanExecute(entry.Parameter))
         {
             command.Execute(entry.Parameter);
-        }
-    }
-
-    /// <summary>Asks the head for a desktop picker, with the built-in chooser available for hosts without one.</summary>
-    /// <param name="request">The selection requested.</param>
-    /// <returns>The selected paths.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<string[]> PickPaths(FilePickerRequest request) =>
-        Signal.Defer(() => _window.PickPaths(request)?.ObserveOn(RxSchedulers.MainThreadScheduler)
-            .Catch<string[], IOException>(error =>
-            {
-                ErrorTrace.Write(error);
-                return BuiltInPicker(request);
-            }) ?? BuiltInPicker(request));
-
-    /// <summary>Shows the file chooser inside the viewer.</summary>
-    /// <param name="request">The selection requested.</param>
-    /// <returns>The selected paths.</returns>
-    private IObservable<string[]> BuiltInPicker(FilePickerRequest request)
-    {
-        var dialog = FileOverlays.Open(request.Folder, request.SaveName, request.Multiple, request.Directories);
-        Show(dialog.Overlay);
-        return dialog.Answer;
-    }
-
-    /// <summary>Shows an overlay that needs nothing besides itself, in place of the one that is open.</summary>
-    /// <param name="overlay">The overlay.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void Show(Overlay overlay) => Show(overlay, EmptyDisposable.Instance);
-
-    /// <summary>Shows an overlay in place of the one that is open, and joins it to its input, its changes and its wish to close.</summary>
-    /// <param name="overlay">The overlay.</param>
-    /// <param name="extra">What else lives as long as the overlay is open: what made it, and what follows its answer.</param>
-    private void Show(Overlay overlay, IDisposable extra)
-    {
-        if (_overlay is { } open && ((open.IsModal && overlay.IsModal) || open.StaysUnder) && _overlayLinks is { } links)
-        {
-            // A dialog opened by a dialog, such as the file dialog a tool window asks for, goes over it. So does anything opened over
-            // focus mode or the start view. The first one waits, without input, and comes back when the second one closes.
-            _under.Add(new(open, links));
-        }
-        else
-        {
-            // The overlay that is open answers whoever asked for it before it is let go.
-            var old = _overlay;
-            _overlay = null;
-            old?.Input.OnNext(OverlayInput.Dismiss());
-            Retire(_overlayLinks);
-        }
-
-        _overlay = overlay;
-        _version++;
-
-        // The keyboard starts outside the new overlay's controls, so Enter and Escape answer the overlay as a whole.
-        _focus = ChromeFocus.None;
-
-        // An overlay over a view model follows it: the search bar its matches, the print window its printers and sheets. The overlay
-        // is let go last, after everything joined to it.
-        _overlayLinks = new MultipleDisposable(
-            overlay.Changes.ObserveOn(RxSchedulers.MainThreadScheduler).SubscribeSafe(_ => InvalidateOverlay(), ErrorTrace.Write),
-            overlay.Closed.SubscribeSafe(_ => Close(overlay), ErrorTrace.Write),
-            extra,
-            overlay.Lifetime);
-        BuildOverlay();
-        _window.RequestFrame();
-    }
-
-    /// <summary>
-    /// Closes an overlay that asked to close. One that waits under another, as a dialog does when its answer opened the next
-    /// dialog, is let go where it waits, so it does not come back.
-    /// </summary>
-    /// <param name="overlay">The overlay.</param>
-    private void Close(Overlay overlay)
-    {
-        if (ReferenceEquals(_overlay, overlay))
-        {
-            CloseOverlay();
-            return;
-        }
-
-        for (var i = _under.Count - 1; i >= 0; i--)
-        {
-            if (!ReferenceEquals(_under[i].Overlay, overlay))
-            {
-                continue;
-            }
-
-            var links = _under[i].Links;
-            _under.RemoveAt(i);
-            Retire(links);
-            return;
         }
     }
 
@@ -770,36 +500,6 @@ public sealed class ViewerChrome : IDisposable
         InvalidateOverlay();
     }
 
-    /// <summary>Closes the overlay.</summary>
-    private void CloseOverlay()
-    {
-        Retire(_overlayLinks);
-        _overlayLinks = null;
-        _padHeld = false;
-        _version++;
-        _overlay = null;
-        _overlayItems.Clear();
-        Pointer.SetTargets(_overlayItems, true);
-        if (_focus.InOverlay)
-        {
-            _focus = ChromeFocus.None;
-        }
-
-        if (_under.Count > 0)
-        {
-            // The dialog that waited under this one takes the window and its input back.
-            var waiting = _under[^1];
-            _under.RemoveAt(_under.Count - 1);
-            _overlay = waiting.Overlay;
-            _overlayLinks = waiting.Links;
-            InvalidateOverlay();
-            return;
-        }
-
-        _ = FollowPointer();
-        _window.RequestFrame();
-    }
-
     /// <summary>Draws a ring round the control the keyboard is on, when it is in the list being drawn.</summary>
     /// <param name="pass">The frame.</param>
     /// <param name="items">The controls being drawn.</param>
@@ -836,7 +536,7 @@ public sealed class ViewerChrome : IDisposable
         if (barsChanged)
         {
             _barsChanged = false;
-            _look = WindowFrame.Follow(_look with { Metrics = ChromeMetrics.For(_window.Scale) }, _window, _fullScreen);
+            _look = WindowFrame.Follow(_look with { Metrics = ChromeMetrics.For(_window.Scale, _look.FontSizePoints) }, _window, _fullScreen);
             var laid = ChromeBars.Build(_bars, _main, _look, _sidebar, _window.ClientSize, Actions);
             Pointer.SetTargets(_bars, false);
             _canvasBounds = laid.Canvas;
@@ -868,7 +568,7 @@ public sealed class ViewerChrome : IDisposable
         }
 
         _overlayItems.Clear();
-        overlay.Layout(_overlayItems, new(_runs, _look.Metrics, _window.ClientSize, _canvasBounds));
+        overlay.Layout(_overlayItems, new(_runs, _look.Metrics, _window.ClientSize, _canvasBounds) { Theme = _look.Theme });
         Pointer.SetTargets(_overlayItems, true);
         _ = FollowPointer();
         if (_focus.InOverlay)
@@ -1113,12 +813,18 @@ public sealed class ViewerChrome : IDisposable
         if (_overlay is not { IsModal: true })
         {
             // A scroll carries no place, so it goes where the pointer last was. Before the pointer has moved, that is the pages.
+            if (_overlay is not null && _pointerSeen && IsOverOverlay(_pointer.X, _pointer.Y))
+            {
+                SendToOverlay(OverlayInput.Scroll(-Math.Sign(windowEvent.Y)));
+                return true;
+            }
+
             var overChrome = _pointerSeen && IsOverChrome(_pointer.X, _pointer.Y);
-            if (overChrome && _sidebar.Bounds.Contains(_pointer.X, _pointer.Y) && !IsOverOverlay(_pointer.X, _pointer.Y))
+            if (overChrome && _sidebar.Bounds.Contains(_pointer.X, _pointer.Y))
             {
                 ScrollSidebar(-Math.Sign(windowEvent.Y));
             }
-            else if (overChrome && _pointer.Y < _look.Metrics.TabHeight && !IsOverOverlay(_pointer.X, _pointer.Y))
+            else if (overChrome && _pointer.Y < _look.Metrics.TabHeight)
             {
                 ScrollTabs(-Math.Sign(windowEvent.Y));
             }
@@ -1156,25 +862,6 @@ public sealed class ViewerChrome : IDisposable
 
         _sidebar = _sidebar with { First = first };
         InvalidateBars();
-    }
-
-    /// <summary>Gets the picture of a sheet of the print window, drawn again only when another sheet or size is wanted.</summary>
-    /// <param name="sheet">The sheet.</param>
-    /// <param name="room">The room for it.</param>
-    /// <returns>The picture, or <see langword="null"/> when it cannot be drawn.</returns>
-    private IRenderSurface? ShownSheet(PrintPreviewPage sheet, SurfaceSize room)
-    {
-        _sheetFrame = SheetFrames.Get(_window.Backend.Surfaces, _sheetFrame, sheet, room);
-        return _sheetFrame.Surface;
-    }
-
-    /// <summary>Gets the latest picture of the film the media window plays.</summary>
-    /// <param name="player">The player.</param>
-    /// <returns>The picture, or <see langword="null"/> before the first one.</returns>
-    private IRenderSurface? ShownFilm(MediaPlayerViewModel player)
-    {
-        _mediaFrame = MediaFrames.Get(_window.Backend.Surfaces, _mediaFrame, player);
-        return _mediaFrame.Surface;
     }
 
     /// <summary>Gets what is drawn on the drawing pad of the open dialog.</summary>

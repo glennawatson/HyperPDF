@@ -29,6 +29,9 @@ public sealed record MenuEntry(
     bool IsChecked,
     MenuEntry[] Children)
 {
+    /// <summary>Gets the name of the icon shown before the words, or <see langword="null"/> to pick one from what the entry does.</summary>
+    public string? Icon { get; init; }
+
     /// <summary>Creates a line between groups of items.</summary>
     /// <returns>The entry.</returns>
     public static MenuEntry Separator() => new(MenuEntryKind.Separator, string.Empty, null, null, null, true, null, false, []);
@@ -70,4 +73,9 @@ public sealed record MenuEntry(
     /// <param name="swatch">The colour as 0xRRGGBB.</param>
     /// <returns>The entry.</returns>
     public MenuEntry WithSwatch(uint swatch) => this with { Swatch = swatch };
+
+    /// <summary>Gets a copy of an item that names the icon shown before its words.</summary>
+    /// <param name="icon">The icon name.</param>
+    /// <returns>The entry.</returns>
+    public MenuEntry WithIcon(string icon) => this with { Icon = icon };
 }
