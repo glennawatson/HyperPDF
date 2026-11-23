@@ -41,4 +41,21 @@ public class HyperPdfAnnotationAppendBenchmarks
 
         return last;
     }
+
+    /// <summary>Opens a one page document and appends the annotations in one call.</summary>
+    /// <returns>The index of the first annotation.</returns>
+    [Benchmark]
+    public int AppendAtOnce()
+    {
+        using var document = PdfDocumentReader.Open(_pdf, null);
+        var page = PdfDocumentPages.GetPage(document, 0);
+        var annotations = new PdfDictionary[Annotations];
+        for (var i = 0; i < annotations.Length; i++)
+        {
+            annotations[i] = new(document.Objects);
+            annotations[i].Add(KnownName.F, PdfValue.FromInteger(i));
+        }
+
+        return PdfPageAnnotations.AppendRange(document.Objects, page, annotations);
+    }
 }
