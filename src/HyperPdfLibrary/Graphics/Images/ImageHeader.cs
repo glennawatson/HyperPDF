@@ -53,9 +53,19 @@ internal readonly record struct ImageHeader(
 
     /// <summary>
     /// Gets the halvings the decoder averages into the pixels while converting rows, so the full-size image is never held.
-    /// Set only for opaque images that get no mask or colour key afterwards; zero decodes in full.
+    /// Set only for images that get no colour key and no mask afterwards, apart from the one in <see cref="AlphaPlane"/>;
+    /// zero decodes in full.
     /// </summary>
     internal int BoxLevels { get; init; }
+
+    /// <summary>
+    /// Gets the image's mask as one alpha byte for each pixel of the image, applied to each row before the rows are
+    /// averaged; <see langword="null"/> when the image has no mask or the mask is applied to the decoded image instead.
+    /// </summary>
+    internal byte[]? AlphaPlane { get; init; }
+
+    /// <summary>Gets the matte colour the soft mask in <see cref="AlphaPlane"/> was blended with, or <see langword="null"/>.</summary>
+    internal MatteColor? Matte { get; init; }
 
     /// <summary>Gets the number of components per pixel.</summary>
     internal int Components => IsStencil ? 1 : (ColorSpace?.Components ?? 1);

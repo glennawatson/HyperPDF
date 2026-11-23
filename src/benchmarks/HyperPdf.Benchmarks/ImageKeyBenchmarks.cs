@@ -11,7 +11,7 @@ using HyperPdfLibrary.Rendering;
 namespace HyperPdf.Benchmarks;
 
 /// <summary>Measures compact image keys with caller-owned transfer identities.</summary>
-public sealed class ImageKeyBenchmarks
+public class ImageKeyBenchmarks
 {
     /// <summary>The caller-owned lookup table.</summary>
     private readonly Dictionary<ImageKey, int> _images = [];

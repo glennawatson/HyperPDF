@@ -8,7 +8,7 @@ using HyperPdfLibrary.Filters;
 namespace HyperPdf.Benchmarks;
 
 /// <summary>Measures caller-owned rentals with runtime-derived element size and reference clearing.</summary>
-public sealed class ScratchPoolBenchmarks
+public class ScratchPoolBenchmarks
 {
     /// <summary>The request served by the runtime's small-buffer pool.</summary>
     private const int SmallLength = 1024;

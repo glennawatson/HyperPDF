@@ -5,6 +5,7 @@
 using System.Buffers;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace HyperPdfLibrary.Render.Managed.Raster;
 
@@ -115,11 +116,24 @@ internal sealed class CoverageBuffer : IDisposable
         var last = Math.Min(_last[row], Width);
         var line = _area.AsSpan(row * (Width + Padding), Width + Padding);
         var sum = 0F;
-        for (var x = first; x < last; x++)
+        var x = first;
+        while (x < last)
         {
-            sum += line[x];
+            var cell = line[x];
+            if (cell == 0)
+            {
+                // No edge crosses these cells, so the sum and the coverage stay as they are: the inside of a wide shape is
+                // one fill, and its cells are already clear.
+                var run = ZeroRun(line[x..last]);
+                coverage.Slice(x, run).Fill(ToByte(sum, evenOdd));
+                x += run;
+                continue;
+            }
+
+            sum += cell;
             line[x] = 0;
             coverage[x] = ToByte(sum, evenOdd);
+            x++;
         }
 
         ClearPadding(row);
@@ -133,6 +147,18 @@ internal sealed class CoverageBuffer : IDisposable
 
         coverage[last..Width].Fill(tail);
         return new(first, Width);
+    }
+
+    /// <summary>Counts the cells at the start of a line that no edge added area to.</summary>
+    /// <param name="cells">The cells, the first of which is zero.</param>
+    /// <returns>The number of cells, at least one.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int ZeroRun(ReadOnlySpan<float> cells)
+    {
+        // The bits are compared, which the runtime does many cells at a time. A negative zero has a bit set and ends the run,
+        // so the first cell, which the caller found equal to zero, always counts.
+        var run = MemoryMarshal.Cast<float, uint>(cells).IndexOfAnyExcept(0U);
+        return run < 0 ? cells.Length : Math.Max(run, 1);
     }
 
     /// <summary>Turns a signed area sum into a coverage byte.</summary>

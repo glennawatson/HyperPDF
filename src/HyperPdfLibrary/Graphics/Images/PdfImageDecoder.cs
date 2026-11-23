@@ -245,14 +245,15 @@ public static class PdfImageDecoder
         try
         {
             var codec = image.Decode(ref buffer, cancellationToken);
-            header = WithBoxLevels(header, role, codec, dictionary, levels.Box);
             var softMaskInData = role == ImageRole.Image ? dictionary.GetInt32(KnownName.SMaskInData, 0) : 0;
             var parameters = CodecParameters(dictionary.Get(KnownName.Filter), dictionary.Get(KnownName.DecodeParms));
             var report = new ImageDecodeReport(dictionary.Owner?.Context, image.Id.Number, SelectReduction(role, levels.Codec), scratchPools);
+
+            // The mask is read first, so its alpha can go onto the rows of an image that is averaged while they convert.
+            var mask = ReadMask(role, header, dictionary, colorSpaces, report, colors.Substitutes, cancellationToken);
+            header = WithBoxLevels(header, role, codec, mask, levels.Box);
             var result = DecodeData(header, codec, buffer.WrittenSpan, parameters, softMaskInData, report, cancellationToken);
-            return role == ImageRole.Image && result is { IsStencilMask: false, UnsupportedCodec: PdfImageCodec.None }
-                ? ApplyMasks(result, dictionary, header.ColorSpace, colorSpaces, report, colors.Substitutes, cancellationToken)
-                : result;
+            return WithMask(result, mask, scratchPools);
         }
         catch (Exception e) when (e is InvalidDataException or ArgumentException)
         {
@@ -429,23 +430,44 @@ public static class PdfImageDecoder
     private static bool HasMask(PdfDictionary dictionary) =>
         dictionary.ContainsKey(KnownName.SMask) || dictionary.Get(KnownName.Mask).AsStream() is not null;
 
-    /// <summary>Asks the decoder to average rows while converting them, when the pixels are the image's own opaque colours.</summary>
+    /// <summary>
+    /// Asks the decoder to average rows while converting them, when the pixels are the image's own colours and any mask can
+    /// go onto each row first.
+    /// </summary>
     /// <param name="header">The header.</param>
     /// <param name="role">The image role.</param>
-    /// <param name="codec">The codec still to apply; only raw samples convert row by row at the image's own size.</param>
-    /// <param name="dictionary">The image dictionary.</param>
+    /// <param name="codec">
+    /// The codec still to apply. Raw samples convert row by row at the image's own size, and so do the samples of a JPEG
+    /// the managed decoder reads, which would otherwise fill full-size pixels only for them to be averaged and dropped.
+    /// </param>
+    /// <param name="mask">The image's decoded mask, or <see langword="null"/> when it has none that can be used.</param>
     /// <param name="boxLevels">The halvings requested.</param>
     /// <returns>The header, with <see cref="ImageHeader.BoxLevels"/> set when the image qualifies.</returns>
-    private static ImageHeader WithBoxLevels(in ImageHeader header, ImageRole role, PdfImageCodec codec, PdfDictionary dictionary, int boxLevels) =>
-        boxLevels > 0 && role == ImageRole.Image && codec == PdfImageCodec.None && header is { ColorKey: null, IsStencil: false } && !HasMask(dictionary)
-            ? header with { BoxLevels = boxLevels }
-            : header;
+    private static ImageHeader WithBoxLevels(in ImageHeader header, ImageRole role, PdfImageCodec codec, DecodedImageMask? mask, int boxLevels)
+    {
+        if (boxLevels <= 0 || role != ImageRole.Image || codec is not (PdfImageCodec.None or PdfImageCodec.Jpeg) || header.IsStencil)
+        {
+            return header;
+        }
+
+        if (mask is null)
+        {
+            return header with { BoxLevels = boxLevels };
+        }
+
+        // A mask of another size is resampled over the whole image, so that image is decoded in full and masked afterwards.
+        return IsRowAlpha(mask.Data, header) ? header with { BoxLevels = boxLevels, AlphaPlane = mask.Data.Pixels, Matte = mask.Matte } : header;
+    }
 
     /// <summary>Determines whether the colour decoder averages rows while converting them.</summary>
     /// <param name="header">The header.</param>
     /// <param name="unpacker">The sample unpacker.</param>
-    /// <returns><see langword="true"/> when no colour key needs the full-size pixels.</returns>
-    private static bool ReducesWhileDecoding(in ImageHeader header, in SampleUnpacker unpacker) => header.BoxLevels > 0 && !unpacker.HasColorKey;
+    /// <returns>
+    /// <see langword="true"/> when halvings were asked for and any colour key is worked out as the rows unpack, which it
+    /// always is: a keyed image is never unpacked directly.
+    /// </returns>
+    private static bool ReducesWhileDecoding(in ImageHeader header, in SampleUnpacker unpacker) =>
+        header.BoxLevels > 0 && (!unpacker.HasColorKey || !unpacker.IsDirect);
 
     /// <summary>Adjusts a header for the role the stream is decoded in.</summary>
     /// <param name="header">The header as the dictionary gives it.</param>
@@ -622,37 +644,62 @@ public static class PdfImageDecoder
         }
     }
 
-    /// <summary>Applies the image's /SMask, or else its stencil /Mask stream.</summary>
-    /// <param name="image">The decoded image.</param>
+    /// <summary>Applies the image's mask, unless the image came back averaged with the mask already on its rows.</summary>
+    /// <param name="image">The decoded image, or <see langword="null"/>.</param>
+    /// <param name="mask">The image's mask, or <see langword="null"/>.</param>
+    /// <param name="scratchPools">The bounded cache.</param>
+    /// <returns>The image with its mask applied.</returns>
+    private static PdfImageData? WithMask(PdfImageData? image, DecodedImageMask? mask, ScratchPools scratchPools) =>
+        mask is not null && image is { IsStencilMask: false, UnsupportedCodec: PdfImageCodec.None, IsBoxReduced: false }
+            ? ImageMasks.Apply(image, mask.Data, mask.Matte, scratchPools)
+            : image;
+
+    /// <summary>
+    /// Decodes an image's /SMask, or else its stencil /Mask stream. It is read before the image's own samples, so its alpha
+    /// can go onto the rows of an image that is averaged while they convert.
+    /// </summary>
+    /// <param name="role">The role the stream is decoded in; only an image has a mask.</param>
+    /// <param name="header">The image header, whose colour space converts a soft mask's /Matte.</param>
     /// <param name="dictionary">The image dictionary.</param>
-    /// <param name="space">The image's colour space, used to convert a soft mask's /Matte.</param>
     /// <param name="colorSpaces">The /ColorSpace resource dictionary, or <see langword="null"/>.</param>
     /// <param name="report">The display resolution and scratch cache.</param>
     /// <param name="colors">The output-intent substitutions, or null.</param>
     /// <param name="cancellationToken">Cancels this operation.</param>
-    /// <returns>The image with the mask applied; the input when there is no usable mask.</returns>
-    private static PdfImageData ApplyMasks(
-        PdfImageData image,
+    /// <returns>The mask, or <see langword="null"/> when the image has no usable mask.</returns>
+    private static DecodedImageMask? ReadMask(
+        ImageRole role,
+        in ImageHeader header,
         PdfDictionary dictionary,
-        PdfColorSpace? space,
         PdfDictionary? colorSpaces,
         ImageDecodeReport report,
         OutputIntentColors? colors,
         CancellationToken cancellationToken)
     {
+        if (role != ImageRole.Image || header.IsStencil)
+        {
+            return null;
+        }
+
+        var space = header.ColorSpace;
         var softMask = dictionary.GetStream(KnownName.SMask);
         var mask = softMask is null ? dictionary.Get(KnownName.Mask).AsStream() : null;
         var decoded = softMask is not null
             ? DecodeStream(softMask, ImageRole.SoftMask, colorSpaces, true, report.ReductionLevels, colors, cancellationToken)
             : DecodeMask(mask, colorSpaces, report.ReductionLevels, colors, cancellationToken);
-        if (decoded is null || decoded.Pixels.Length == 0)
-        {
-            return image;
-        }
-
-        var matte = softMask is null ? null : ImageMasks.ReadMatte(softMask.Dictionary, space);
-        return ImageMasks.Apply(image, decoded, matte, report.ScratchPools);
+        return decoded is null || decoded.Pixels.Length == 0
+            ? null
+            : new(decoded, softMask is null ? null : ImageMasks.ReadMatte(softMask.Dictionary, space));
     }
+
+    /// <summary>Determines whether a mask holds one alpha byte for each pixel of the image, so it applies to the image's rows as they are.</summary>
+    /// <param name="mask">The decoded mask.</param>
+    /// <param name="header">The image header.</param>
+    /// <returns><see langword="true"/> for a gray or coverage mask of the image's own size.</returns>
+    private static bool IsRowAlpha(PdfImageData mask, in ImageHeader header) =>
+        (mask.IsGray || mask.IsStencilMask)
+        && mask.Width == header.Width
+        && mask.Height == header.Height
+        && mask.Pixels.Length >= (long)header.Width * header.Height;
 
     /// <summary>Determines whether decoded sample data is implausibly short for the declared size: under a thousandth.</summary>
     /// <param name="header">The image header.</param>

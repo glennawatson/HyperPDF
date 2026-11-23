@@ -37,6 +37,9 @@ internal static class ReducedColorDecoder
         var samples = pool.Rent(width * space.Components);
         var rowBuffer = rows.UsesBuffer ? pool.Rent(header.RowBytes) : null;
         var block = pool.Rent(Math.Min(step, header.Height) * rowBytes);
+
+        // A colour key makes pixels clear from their source samples, so each row gets its own alpha as it is unpacked.
+        var keyAlpha = unpacker.HasColorKey ? pool.Rent(width) : null;
         try
         {
             for (var y = 0; y < outputHeight; y++)
@@ -46,13 +49,16 @@ internal static class ReducedColorDecoder
                 for (var r = 0; r < count; r++)
                 {
                     var row = rows.GetRow(first + r, rowBuffer is null ? [] : rowBuffer.AsSpan(0, header.RowBytes));
+                    var rowAlpha = keyAlpha is null ? [] : keyAlpha.AsSpan(0, width);
                     if (!unpacker.IsDirect)
                     {
-                        unpacker.Unpack(row, samples, [], width);
+                        unpacker.Unpack(row, samples, rowAlpha, width);
                         row = samples;
                     }
 
-                    space.ConvertRow(row, block.AsSpan(r * rowBytes, rowBytes), width);
+                    var converted = block.AsSpan(r * rowBytes, rowBytes);
+                    space.ConvertRow(row, converted, width);
+                    ApplyAlpha(converted, rowAlpha, header, first + r);
                 }
 
                 ImageBoxReduction.ReduceColorBlock(block.AsSpan(0, count * rowBytes), width, count, step, pixels.AsSpan(y * outputRowBytes, outputRowBytes));
@@ -63,12 +69,49 @@ internal static class ReducedColorDecoder
         finally
         {
             pool.Return(samples);
-            if (rowBuffer is not null)
-            {
-                pool.Return(rowBuffer);
-            }
-
             pool.Return(block);
+            ReturnIfRented(pool, rowBuffer);
+            ReturnIfRented(pool, keyAlpha);
         }
+    }
+
+    /// <summary>Gives back a buffer that was only rented when the image needed it.</summary>
+    /// <param name="pool">The pool the buffer came from.</param>
+    /// <param name="buffer">The buffer, or <see langword="null"/> when none was rented.</param>
+    private static void ReturnIfRented(ScratchPool<byte> pool, byte[]? buffer)
+    {
+        if (buffer is not null)
+        {
+            pool.Return(buffer);
+        }
+    }
+
+    /// <summary>
+    /// Applies the alpha of one converted row in the order a full decode does: the colour key first, then the image's mask
+    /// as <see cref="ImageMasks.Apply"/> does to a whole image.
+    /// </summary>
+    /// <param name="row">The opaque BGRA pixels of the row.</param>
+    /// <param name="keyAlpha">The colour key's alpha for the row, or empty when the image has no colour key.</param>
+    /// <param name="header">The image header, which holds the mask's alpha plane and matte colour.</param>
+    /// <param name="y">The row's index in the image.</param>
+    private static void ApplyAlpha(Span<byte> row, ReadOnlySpan<byte> keyAlpha, in ImageHeader header, int y)
+    {
+        if (!keyAlpha.IsEmpty)
+        {
+            ImageAlpha.Multiply(row, keyAlpha);
+        }
+
+        if (header.AlphaPlane is not { } plane)
+        {
+            return;
+        }
+
+        var alpha = plane.AsSpan(y * header.Width, header.Width);
+        if (header.Matte is { } color)
+        {
+            ImageAlpha.RemoveMatte(row, alpha, color);
+        }
+
+        ImageAlpha.Multiply(row, alpha);
     }
 }
