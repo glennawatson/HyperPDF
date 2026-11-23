@@ -44,6 +44,16 @@ internal sealed class ChromeActions : IDisposable
             main.SidebarFollowsPage = !main.SidebarFollowsPage;
             chrome.InvalidateBars();
         });
+        CheckSignatures = ReactiveCommand.Create(() => RunSignature(main, static s => s.CheckInlineCommand));
+        ShowSignatureDetails = ReactiveCommand.Create(() => RunSignature(main, static s => s.ShowDetailsCommand));
+        SignWithCertificate = ReactiveCommand.Create(() => RunSignature(main, static s => s.SignWithCertificateCommand));
+        AddBookmark = ReactiveCommand.Create(() => RunBookmark(main, static b => b.AddCommand));
+        RenameBookmark = ReactiveCommand.Create(() => RunBookmark(main, static b => b.RenameCommand));
+        RemoveBookmark = ReactiveCommand.Create(() => RunBookmark(main, static b => b.RemoveCommand));
+        MoveBookmarkUp = ReactiveCommand.Create(() => RunBookmark(main, static b => b.MoveUpCommand));
+        MoveBookmarkDown = ReactiveCommand.Create(() => RunBookmark(main, static b => b.MoveDownCommand));
+        IndentBookmark = ReactiveCommand.Create(() => RunBookmark(main, static b => b.IndentCommand));
+        OutdentBookmark = ReactiveCommand.Create(() => RunBookmark(main, static b => b.OutdentCommand));
         Minimize = ReactiveCommand.Create(window.Minimize);
         ToggleMaximize = ReactiveCommand.Create(() =>
         {
@@ -103,6 +113,36 @@ internal sealed class ChromeActions : IDisposable
     /// <summary>Gets the command that makes the list of pages follow the page being read, or stops it.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ToggleFollowPage { get; }
 
+    /// <summary>Gets the command that verifies the open document's digital signatures in place on the signed-document bar.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> CheckSignatures { get; }
+
+    /// <summary>Gets the command that opens the full signatures window for the open document.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> ShowSignatureDetails { get; }
+
+    /// <summary>Gets the command that opens the certificate signing window for the open document.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> SignWithCertificate { get; }
+
+    /// <summary>Gets the command that adds a bookmark at the current page.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> AddBookmark { get; }
+
+    /// <summary>Gets the command that renames the chosen bookmark.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> RenameBookmark { get; }
+
+    /// <summary>Gets the command that removes the chosen bookmark.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> RemoveBookmark { get; }
+
+    /// <summary>Gets the command that moves the chosen bookmark earlier.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> MoveBookmarkUp { get; }
+
+    /// <summary>Gets the command that moves the chosen bookmark later.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> MoveBookmarkDown { get; }
+
+    /// <summary>Gets the command that nests the chosen bookmark under the one above it.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> IndentBookmark { get; }
+
+    /// <summary>Gets the command that moves the chosen bookmark out of its parent.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> OutdentBookmark { get; }
+
     /// <summary>
     /// Gets the command of a row of the side panel. Its parameter is what the row stands for: a page, a bookmark, a note, an attached
     /// file or a layer. The command hands it on, so each kind of row is one stream that the tab shown is joined to.
@@ -126,6 +166,16 @@ internal sealed class ChromeActions : IDisposable
         ShowSidebarList.Dispose();
         PickSidebarRow.Dispose();
         ToggleFollowPage.Dispose();
+        CheckSignatures.Dispose();
+        ShowSignatureDetails.Dispose();
+        SignWithCertificate.Dispose();
+        AddBookmark.Dispose();
+        RenameBookmark.Dispose();
+        RemoveBookmark.Dispose();
+        MoveBookmarkUp.Dispose();
+        MoveBookmarkDown.Dispose();
+        IndentBookmark.Dispose();
+        OutdentBookmark.Dispose();
         Minimize.Dispose();
         ToggleMaximize.Dispose();
         CloseWindow.Dispose();
@@ -138,6 +188,28 @@ internal sealed class ChromeActions : IDisposable
         if (command.CanExecute(null))
         {
             command.Execute(null);
+        }
+    }
+
+    /// <summary>Runs one of the digital-signature commands of the open document, creating the signatures part only on use.</summary>
+    /// <param name="main">The main view model.</param>
+    /// <param name="pick">Selects the command on <see cref="HyperPdf.ViewModels.Signing.SignaturesViewModel"/>.</param>
+    private static void RunSignature(MainViewModel main, Func<HyperPdf.ViewModels.Signing.SignaturesViewModel, ICommand> pick)
+    {
+        if (main.SelectedTab is { IsLoaded: true } tab)
+        {
+            Run(pick(tab.Signatures));
+        }
+    }
+
+    /// <summary>Runs one of the bookmark-editing commands of the open document, creating the bookmark editor only on use.</summary>
+    /// <param name="main">The main view model.</param>
+    /// <param name="pick">Selects the command on <see cref="OutlineEditViewModel"/>.</param>
+    private static void RunBookmark(MainViewModel main, Func<OutlineEditViewModel, ICommand> pick)
+    {
+        if (main.SelectedTab is { IsLoaded: true } tab)
+        {
+            Run(pick(tab.OutlineEditing));
         }
     }
 

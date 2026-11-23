@@ -100,6 +100,9 @@ internal static class Ascii85Filter
     {
         cancellationToken.ThrowIfCancellationRequested();
         input = SkipPrefix(input, cancellationToken);
+
+        // Five digits make four bytes, so this holds the whole output unless the text uses the 'z' short form, which grows it.
+        output.Reserve((int)((long)input.Length * GroupBytes / GroupLength) + GroupBytes);
         var value = 0UL;
         var count = 0;
         var clean = true;

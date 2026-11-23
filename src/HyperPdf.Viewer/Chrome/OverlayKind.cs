@@ -24,4 +24,7 @@ internal enum OverlayKind
 
     /// <summary>The start view, which stands in for the pages while no document is open.</summary>
     Start = 5,
+
+    /// <summary>A comment bubble beside a note or marked passage on the page.</summary>
+    NoteBubble = 6,
 }

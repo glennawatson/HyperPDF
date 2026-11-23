@@ -10,15 +10,19 @@ namespace HyperPdfLibrary.Render.Managed.Raster;
 /// <summary>
 /// Keeps the coverage of the glyphs a canvas has drawn, so a glyph that comes again at the same size and the same place inside a
 /// pixel is copied and not flattened and filled again. A page of text draws the same few hundred glyphs thousands of times.
-/// The coverage of every glyph lives in one block of bytes of a fixed size. When the block is full everything is forgotten and
-/// the cache starts again, so it never grows, however many documents are drawn, and it holds on to the outlines of a closed
+/// The coverage of every glyph lives in one block of bytes, which starts small and doubles up to a fixed limit. When the block
+/// is full at that limit everything is forgotten and the cache starts again, so it never passes the limit, however many
+/// documents are drawn, and it holds on to the outlines of a closed
 /// document only until then. Each canvas has its own, and a canvas draws on one thread, so nothing here is shared.
 /// </summary>
 [DebuggerDisplay("GlyphCoverageCache: {_glyphs.Count} glyphs, {_used} bytes")]
 internal sealed class GlyphCoverageCache
 {
-    /// <summary>The bytes of coverage kept, which is a few thousand glyphs of body text.</summary>
+    /// <summary>The most bytes of coverage kept, which is a few thousand glyphs of body text.</summary>
     private const int Capacity = 1 << 21;
+
+    /// <summary>The bytes the block starts with, which holds a page with a little text. It doubles as more glyphs are kept.</summary>
+    private const int FirstCapacity = 1 << 16;
 
     /// <summary>Where the coverage of each glyph is.</summary>
     private readonly Dictionary<GlyphCoverageKey, GlyphCoverage> _glyphs = [];
@@ -49,16 +53,16 @@ internal sealed class GlyphCoverageCache
     internal GlyphCoverage Add(in GlyphCoverageKey key, int left, int top, int width, int height)
     {
         var size = width * height;
-        if (_bytes.Length == 0)
-        {
-            _bytes = new byte[Capacity];
-        }
-
         if (size > Capacity - _used)
         {
             // Starting again is cheaper than choosing what to drop: the glyphs still in use come back as they are drawn.
             _glyphs.Clear();
             _used = 0;
+        }
+
+        if (_used + size > _bytes.Length)
+        {
+            Grow(_used + size);
         }
 
         var coverage = new GlyphCoverage(_used, left, top, width, height);
@@ -80,5 +84,19 @@ internal sealed class GlyphCoverageCache
         _glyphs.Clear();
         _bytes = [];
         _used = 0;
+    }
+
+    /// <summary>Makes the block at least a length, doubling it so a page of text grows it only a few times, and never past its limit.</summary>
+    /// <param name="needed">The bytes the block must hold, which is never more than its limit.</param>
+    private void Grow(int needed)
+    {
+        var length = Math.Max(FirstCapacity, _bytes.Length);
+        while (length < needed)
+        {
+            length += length;
+        }
+
+        // The glyphs kept so far stay where they are, since each is found by its offset into the block.
+        Array.Resize(ref _bytes, Math.Min(length, Capacity));
     }
 }

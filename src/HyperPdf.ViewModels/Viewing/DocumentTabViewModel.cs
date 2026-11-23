@@ -517,6 +517,16 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
     /// <summary>Gets the digital signature state.</summary>
     public SignaturesViewModel Signatures => _signatures ?? Loaded(Made(out _signatures, new(this, _services)), static made => made.Refresh());
 
+    /// <summary>Gets the digital signature state once it has been used, or <see langword="null"/> before. Reading it does not make it.</summary>
+    public SignaturesViewModel? SignaturesIfMade => _signatures;
+
+    /// <summary>Gets the number of digital signatures in the open document.</summary>
+    [Reactive]
+    public partial int SignatureCount { get; private set; }
+
+    /// <summary>Gets the bookmark editing state once it has been used, or <see langword="null"/> before. Reading it does not make it.</summary>
+    public OutlineEditViewModel? OutlineEditingIfMade => _outlineEditing;
+
     /// <summary>Gets the tab's text recognition, created on first use.</summary>
     public TextRecognitionViewModel TextRecognition => TextRecognitionInUse ?? Announced(TextRecognitionInUse = Owned(new TextRecognitionViewModel(this, _services)));
 
@@ -1231,6 +1241,7 @@ public sealed partial class DocumentTabViewModel : ReactiveObject, IDisposable, 
 
         Thumbnails = thumbnails;
         PageCount = sizes.Length;
+        SignatureCount = DocumentFeature<HyperPdf.Core.Signatures.ISignatureSource>.Get(document)?.SignatureCount ?? 0;
         PageEntry = GetPageDisplay(CurrentPageIndex);
     }
 

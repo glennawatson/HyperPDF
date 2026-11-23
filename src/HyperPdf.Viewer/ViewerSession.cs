@@ -100,8 +100,11 @@ public sealed class ViewerSession : IDisposable
         Main = new(services);
 
         // The controls sit over the pages, so they take the events first and pass on what they did not use.
-        Chrome = new(window, Main, ChromeTheme.From(services.CurrentTheme.Scheme), window.Events.Where(static e => e.Kind != WindowEventKind.CloseRequested));
-        Chrome.ShowLabels = services.CurrentTheme.ShowLabels;
+        Chrome = new(window, Main, ChromeTheme.From(services.CurrentTheme.Scheme), window.Events.Where(static e => e.Kind != WindowEventKind.CloseRequested))
+        {
+            ShowLabels = services.CurrentTheme.ShowLabels,
+            FontSizePoints = services.CurrentTheme.FontSizePoints,
+        };
         Canvas = new(window) { Colors = ViewerColors.From(services.CurrentTheme.Scheme), Chrome = Chrome };
         Accessibility = new(window);
         window.Accessibility.Attach(Accessibility);
@@ -476,18 +479,32 @@ public sealed class ViewerSession : IDisposable
     [
         marks.PromptInteraction.RegisterHandler(AskForText),
 
-        // A note on the page opens in a window with its replies. Closing the window puts the note away.
+        // A note on the page opens beside its mark without dimming the page.
         marks.WhenChanged(static m => m.ActiveBubble)
-            .KeepNotNull()
             .ObserveOn(RxSchedulers.MainThreadScheduler)
-            .SwitchMap(_ => Chrome.ShowForm(ToolForms.NoteBubble(marks)).Finally(() => Signal.Return(RxVoid.Default).InvokeCommand(marks.CloseBubbleCommand).Dispose()))
-            .SubscribeSafe(static _ => { }, ErrorTrace.Write),
+            .Select(_ => marks.ActiveBubble)
+            .DistinctUntilChanged()
+            .SubscribeSafe(bubble => ShowNoteBubble(marks, bubble), ErrorTrace.Write),
         marks.WhenChanged(static m => m.TextEdit)
             .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(_ => marks.TextEdit)
             .DistinctUntilChanged()
             .SubscribeSafe(edit => ShowTyping(edit is null ? null : TextBoxTypings.For(forms, marks, edit)), ErrorTrace.Write),
     ];
+
+    /// <summary>Opens the comment bubble beside a note on the page, or closes it when the note session ended.</summary>
+    /// <param name="marks">The annotation tools.</param>
+    /// <param name="bubble">The active bubble session, or <see langword="null"/> when closed.</param>
+    private void ShowNoteBubble(AnnotationsViewModel marks, AnnotationBubbleSession? bubble)
+    {
+        if (bubble is null)
+        {
+            Chrome.CloseNoteBubble();
+            return;
+        }
+
+        Chrome.ShowNoteBubble(marks, Canvas);
+    }
 
     /// <summary>Fills the screen with the page while presenting, and starts the timed turning of pages and the page transitions the document asks for.</summary>
     /// <param name="tab">The tab shown.</param>
@@ -654,6 +671,7 @@ public sealed class ViewerSession : IDisposable
 
         Chrome.Theme = ChromeTheme.From(theme.Scheme);
         Chrome.ShowLabels = theme.ShowLabels;
+        Chrome.FontSizePoints = theme.FontSizePoints;
         _window.RequestFrame();
     }
 

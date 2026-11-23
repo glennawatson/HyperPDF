@@ -5,6 +5,7 @@
 using System.Collections;
 using HyperPdf.ViewModels.Markup;
 using HyperPdf.ViewModels.Sidebar;
+using HyperPdf.ViewModels.Signing;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -73,7 +74,12 @@ public static class WindowControlMixins
         private IObservable<RxVoid> ToolChanges => Signal.Merge(
             tab.WhenChanged(static t => t.Notice).AsSignal(),
             tab.WhenChanged(static t => t.HasPendingReload).AsSignal(),
+            tab.WhenChanged(static t => t.SignatureCount).AsSignal(),
             tab.Notices.GetChangedObservable().AsSignal(),
+            tab.PartChanges<SignaturesViewModel>(static signatures => Signal.Merge(
+                signatures.WhenChanged(static s => s.IsChecking).AsSignal(),
+                signatures.WhenChanged(static s => s.StatusSummary).AsSignal(),
+                ((IList)signatures.Signatures).CollectionChanges.AsSignal())),
             tab.PartChanges<ReadAloudViewModel>(static aloud => Signal.Merge(
                 aloud.WhenChanged(static a => a.IsOpen).AsSignal(),
                 aloud.WhenChanged(static a => a.IsPlaying).AsSignal(),

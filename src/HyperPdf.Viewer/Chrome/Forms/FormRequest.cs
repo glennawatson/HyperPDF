@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Windows.Input;
 using HyperPdf.Core.Layout;
 using HyperPdf.Core.Rendering;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Windowing.Rendering;
 using ReactiveUI.Primitives;
 
@@ -45,4 +47,19 @@ internal sealed record FormRequest(
 
     /// <summary>Gets a stream that wipes the pad each time it signals, or <see langword="null"/> when the pad is never wiped.</summary>
     internal IObservable<RxVoid>? PadCleared { get; init; }
+
+    /// <summary>Gets what reads the words shown where the picture would be while there is no picture, or <see langword="null"/> for none.</summary>
+    internal Func<string?>? PreviewText { get; init; }
+
+    /// <summary>Gets a value indicating whether typing goes to the dialog's first text box as soon as it opens, for a dialog that is opened to be typed into.</summary>
+    internal bool StartsTyping { get; init; }
+
+    /// <summary>Gets the command run when the user presses the primary button or Enter, when the view model validates or performs the work before closing.</summary>
+    internal ICommand? AcceptCommand { get; init; }
+
+    /// <summary>Gets the icon drawn on the primary button along the bottom.</summary>
+    internal ChromeIcon AcceptIcon { get; init; } = ChromeIcon.Done;
+
+    /// <summary>Gets the text of the button that closes or backs out of the dialog, or <see langword="null"/> for the default.</summary>
+    internal string? CloseText { get; init; }
 }

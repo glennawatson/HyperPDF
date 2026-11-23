@@ -180,7 +180,7 @@ public sealed class ViewerToolbarTests
         {
             var chrome = session.Chrome;
             chrome.ShowLabels = false;
-            var view = IndexOf(chrome.Bars, "View ▾");
+            var view = IndexOf(chrome.Bars, "View");
             if (chrome.Bars[view].HidesText || !chrome.PressControl(false, view))
             {
                 return false;
@@ -199,7 +199,7 @@ public sealed class ViewerToolbarTests
         var restored = await WithTab(NarrowWidth, static (session, tab) =>
         {
             var chrome = session.Chrome;
-            if ((int)chrome.CanvasBounds.Bottom != Height || !chrome.PressControl(false, IndexOf(chrome.Bars, "Document ▾")))
+            if ((int)chrome.CanvasBounds.Bottom != Height || !chrome.PressControl(false, IndexOf(chrome.Bars, "Document")))
             {
                 return false;
             }
@@ -225,7 +225,7 @@ public sealed class ViewerToolbarTests
         {
             var chrome = session.Chrome;
             chrome.ShowLabels = false;
-            var tools = IndexOf(chrome.Bars, "Tools ▾");
+            var tools = IndexOf(chrome.Bars, "Tools");
             if (chrome.Bars[tools].HidesText || !chrome.PressControl(false, tools))
             {
                 return false;

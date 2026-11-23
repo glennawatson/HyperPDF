@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome.Forms;
 
@@ -16,4 +17,8 @@ namespace HyperPdf.Viewer.Chrome.Forms;
 /// <param name="Id">The number the form gave the row, which comes back with each change the user makes to it, or -1 for a row that cannot change.</param>
 /// <param name="Target">What the form attached to the row, which comes back with each change, or <see langword="null"/>.</param>
 [DebuggerDisplay("FormRow: {Kind} {Label}")]
-internal sealed record FormRow(FormRowKind Kind, string Label, string Value, IReadOnlyList<string> Options, int Selected, bool Enabled, int Id, object? Target);
+internal sealed record FormRow(FormRowKind Kind, string Label, string Value, IReadOnlyList<string> Options, int Selected, bool Enabled, int Id, object? Target)
+{
+    /// <summary>Gets the icon drawn before the words of something to do, which says by its shape and tint what kind of thing it does.</summary>
+    internal ChromeIcon Icon { get; init; }
+}

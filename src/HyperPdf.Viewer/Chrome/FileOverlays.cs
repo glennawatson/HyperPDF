@@ -4,6 +4,8 @@
 
 using System.Runtime.CompilerServices;
 using HyperPdf.Presentation.Input;
+using HyperPdf.Viewer.Chrome.Forms;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Viewer.Text;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Disposables;
@@ -18,14 +20,20 @@ namespace HyperPdf.Viewer.Chrome;
 /// </summary>
 internal static class FileOverlays
 {
-    /// <summary>The rows of the list shown at once.</summary>
+    /// <summary>The rows of the list shown at once when the window has room.</summary>
     private const int VisibleRows = 10;
 
-    /// <summary>The rows of the dialog besides the list: heading, typing box, folder name and buttons.</summary>
+    /// <summary>The fewest rows of the list shown on a short window.</summary>
+    private const int MinRows = 3;
+
+    /// <summary>The rows of the dialog besides the list: heading, typing box, folder name and parent-folder row.</summary>
     private const int OtherRows = 4;
 
     /// <summary>The presses close together that make a double click.</summary>
     private const int DoubleClick = 2;
+
+    /// <summary>The sides of padding (left and right, or top and bottom).</summary>
+    private const int MarginSides = 2;
 
     /// <summary>The mark after the name of a folder.</summary>
     private const string FolderMark = "/";
@@ -317,38 +325,96 @@ internal static class FileOverlays
         var size = place.Size;
         var style = ChromeBars.Style(metrics);
         var width = Math.Min(metrics.DialogWidth, size.Width);
-        var inner = width - metrics.Padding - metrics.Padding;
-        var height = (metrics.RowHeight * (VisibleRows + OtherRows)) + metrics.ToolbarHeight + metrics.Padding + metrics.Padding;
+        var inner = Math.Max(1, width - (metrics.Padding * MarginSides));
+        var around = (metrics.RowHeight * OtherRows) + metrics.ToolbarHeight + (metrics.Padding * MarginSides);
+        var shown = Math.Clamp((size.Height - around) / Math.Max(1, metrics.RowHeight), MinRows, VisibleRows);
+        var panelIndex = items.Count;
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, default, true, false));
+        var y = metrics.Padding;
+        items.Add(new(ChromeItemKind.Heading, null, 0, TitleOf(state), new(0, y, width, metrics.RowHeight), true, false));
+        y += metrics.RowHeight;
+        var iconRoom = metrics.IconSize + ChromePainter.IconGap(metrics);
+        var typed = ChromeText.FitEnd(state.Entry, style, Math.Max(1, inner - (metrics.Padding * MarginSides) - iconRoom), runs);
+        var fieldIcon = state.Saving ? ChromeIcon.Save : ChromeIcon.Open;
+        items.Add(new(ChromeItemKind.Field, null, 0, typed, new(metrics.Padding, y, inner, metrics.RowHeight), true, true) { Icon = fieldIcon });
+        y += metrics.RowHeight;
+        items.Add(new(ChromeItemKind.Label, null, 0, ChromeText.FitEnd(state.Folder, style, inner, runs), new(0, y, width, metrics.RowHeight), false, false));
+        y += metrics.RowHeight;
+        var hasParent = Directory.GetParent(state.Folder) is not null;
+        items.Add(new(ChromeItemKind.Row, OverlayAction.ParentFolder, 0, UiText.Get("Up one folder"), new(0, y, width, metrics.RowHeight), hasParent, false) { Icon = ChromeIcon.FolderUp });
+        y = AddFileRows(items, state, in place, width, shown, y + metrics.RowHeight);
+        var rowHeight = metrics.ToolbarHeight - (metrics.Gap * MarginSides);
+        var buttons = new ChromeRow(items, runs, metrics, metrics.Padding, y + metrics.Gap, rowHeight) { Limit = width - metrics.Padding };
+        var acceptIcon = state.Saving ? ChromeIcon.Save : ChromeIcon.Done;
+        var canAccept = state.Entry.Length > 0 || state.Chosen.Length > 0 || state.PicksFolder;
+        buttons = buttons.Button(acceptIcon, AcceptText(state), OverlayAction.Accept, canAccept);
+        buttons = buttons.Button(UiText.Get("Cancel"), OverlayAction.Cancel, true);
+        buttons = buttons.Space();
+        buttons = buttons.Button(ChromeIcon.Filter, UiText.Get(state.AllFiles ? "Showing all files" : "Showing PDF files"), OverlayAction.FileKinds, true);
+        var height = y + (buttons.Lines * metrics.ToolbarHeight) + metrics.Padding;
         var left = (size.Width - width) >> 1;
         var top = Math.Max(0, (size.Height - height) >> 1);
-        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(left, top, width, height), true, false));
-        var y = top + metrics.Padding;
-        items.Add(new(ChromeItemKind.Heading, null, 0, TitleOf(state), new(left, y, width, metrics.RowHeight), true, false));
-        y += metrics.RowHeight;
-        var typed = ChromeText.FitEnd(state.Entry, style, inner - metrics.Padding - metrics.Padding, runs);
-        items.Add(new(ChromeItemKind.Field, null, 0, typed, new(left + metrics.Padding, y, inner, metrics.RowHeight), true, true));
-        y += metrics.RowHeight;
-        items.Add(new(ChromeItemKind.Label, null, 0, ChromeText.FitEnd(state.Folder, style, inner, runs), new(left, y, width, metrics.RowHeight), false, false));
-        y += metrics.RowHeight;
-        items.Add(new(ChromeItemKind.Row, OverlayAction.ParentFolder, 0, UiText.Get("↑ Up one folder"), new(left, y, width, metrics.RowHeight), Directory.GetParent(state.Folder) is not null, false));
-        y += metrics.RowHeight;
-        for (var row = 0; row < VisibleRows; row++)
+        items[panelIndex] = items[panelIndex] with { Bounds = new(left, top, width, height) };
+        for (var i = panelIndex + 1; i < items.Count; i++)
         {
-            var index = state.First + row;
+            var bounds = items[i].Bounds;
+            items[i] = items[i] with { Bounds = new(bounds.X + left, bounds.Y + top, bounds.Width, bounds.Height) };
+        }
+    }
+
+    /// <summary>Adds the visible folder and file rows and their scroll bar.</summary>
+    /// <param name="items">Receives the controls.</param>
+    /// <param name="state">What the dialog shows.</param>
+    /// <param name="place">What to lay them out with.</param>
+    /// <param name="width">The dialog width.</param>
+    /// <param name="shown">The rows shown at once.</param>
+    /// <param name="y">The top of the list.</param>
+    /// <returns>The vertical position below the list.</returns>
+    private static int AddFileRows(List<ChromeItem> items, FileState state, in OverlayPlace place, int width, int shown, int y)
+    {
+        var metrics = place.Metrics;
+        var style = ChromeBars.Style(metrics);
+        var inner = Math.Max(1, width - (metrics.Padding * MarginSides));
+        var iconRoom = metrics.IconSize + ChromePainter.IconGap(metrics);
+        var first = Math.Clamp(state.First, 0, Math.Max(0, state.Names.Length - shown));
+        var listTop = y;
+        var barWidth = state.Names.Length > shown ? metrics.Gap + metrics.Line : 0;
+        for (var row = 0; row < shown; row++)
+        {
+            var index = first + row;
             if (index < state.Names.Length)
             {
-                var name = index < state.FolderCount ? string.Concat(state.Names[index], FolderMark) : state.Names[index];
-                var ticked = index >= state.FolderCount && Array.IndexOf(state.Chosen, state.Names[index]) >= 0;
-                items.Add(new(ChromeItemKind.Row, OverlayAction.PickRow, index, ChromeText.Fit(name, style, inner, runs), new(left, y, width, metrics.RowHeight), true, ticked));
+                var isFolder = index < state.FolderCount;
+                var name = isFolder ? string.Concat(state.Names[index], FolderMark) : state.Names[index];
+                var ticked = !isFolder && Array.IndexOf(state.Chosen, state.Names[index]) >= 0;
+                var fit = ChromeText.Fit(name, style, Math.Max(1, inner - iconRoom - barWidth), place.Runs);
+                items.Add(new(ChromeItemKind.Row, OverlayAction.PickRow, index, fit, new(0, y, width - barWidth, metrics.RowHeight), true, ticked) { Icon = RowIcon(state, isFolder, ticked) });
             }
 
             y += metrics.RowHeight;
         }
 
-        var buttons = new ChromeRow(items, runs, metrics, left + metrics.Padding, y + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap);
-        buttons = buttons.Button(AcceptText(state), OverlayAction.Accept, state.Entry.Length > 0 || state.Chosen.Length > 0 || state.PicksFolder);
-        buttons = buttons.Button(UiText.Get("Cancel"), OverlayAction.Cancel, true);
-        buttons = buttons.Space();
-        buttons = buttons.Button(UiText.Get(state.AllFiles ? "Showing all files" : "Showing PDF files"), OverlayAction.FileKinds, true);
+        FormLayout.AddScrollBar(items, new(width - metrics.Padding, listTop, metrics.Gap, metrics.RowHeight * shown), first, shown, state.Names.Length, place.Theme);
+        return y;
+    }
+
+    /// <summary>Picks the icon for a folder or file row in the file picker.</summary>
+    /// <param name="state">The file picker state.</param>
+    /// <param name="isFolder">Whether the row names a folder.</param>
+    /// <param name="ticked">Whether the file is ticked.</param>
+    /// <returns>The icon.</returns>
+    private static ChromeIcon RowIcon(FileState state, bool isFolder, bool ticked)
+    {
+        if (isFolder)
+        {
+            return ChromeIcon.Open;
+        }
+
+        if (!state.Many)
+        {
+            return ChromeIcon.Document;
+        }
+
+        return ticked ? ChromeIcon.CheckOn : ChromeIcon.CheckOff;
     }
 }

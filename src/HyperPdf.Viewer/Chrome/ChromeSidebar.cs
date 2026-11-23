@@ -106,21 +106,113 @@ internal static class ChromeSidebar
 
         // The tabs show icons alone so all nine fit on one line; the name of the list shown stands under them, over a rule.
         var top = (int)area.Y + (row.Lines * tight.ToolbarHeight);
-        var name = ChromeText.Fit(SidebarRows.NameOf(tab.SidebarMode), ChromeBars.Style(look.Metrics) with { Bold = true }, (int)area.Width - look.Metrics.Padding - look.Metrics.Padding, look.Runs);
-        items.Add(new(ChromeItemKind.Heading, null, 0, name, new(area.X, top, area.Width, look.Metrics.RowHeight), true, false));
-
-        // The list of pages can keep the page being read in view; the switch for it is at the right of the heading.
-        if (tab.SidebarMode == SidebarMode.Thumbnails)
-        {
-            var side = look.Metrics.RowHeight;
-            var place = new LayoutRect(area.Right - side - look.Metrics.Gap, top, side, side);
-            var label = UiText.Get("Follow the page being read");
-            items.Add(new(ChromeItemKind.Button, actions.ToggleFollowPage, 0, label, place, true, follows) { Icon = ChromeIcon.Follow, HidesText = true, Trait = ChromeItemTrait.Switch });
-        }
-
+        var headerRight = AddHeaderButton(items, tab, look.Metrics, in area, top, actions, follows);
+        var titleRoom = Math.Max(1, headerRight - (int)area.X - look.Metrics.Padding - look.Metrics.Padding);
+        var name = ChromeText.Fit(SidebarRows.NameOf(tab.SidebarMode), ChromeBars.Style(look.Metrics) with { Bold = true }, titleRoom, look.Runs);
+        items.Add(new(ChromeItemKind.Heading, null, 0, name, new(area.X, top, headerRight - area.X, look.Metrics.RowHeight), true, false));
         top += look.Metrics.RowHeight;
+        top += AddModeActions(items, tab, look, in area, top, actions);
         items.Add(new(ChromeItemKind.Separator, null, 0, string.Empty, new(area.X, top, area.Width, look.Metrics.Line), true, false));
         return top + look.Metrics.Line - (int)area.Y;
+    }
+
+    /// <summary>Adds a single icon action at the right of the side-panel heading when the list shown has one.</summary>
+    /// <param name="items">Receives the button.</param>
+    /// <param name="tab">The document tab.</param>
+    /// <param name="metrics">The sizes.</param>
+    /// <param name="area">The panel bounds.</param>
+    /// <param name="top">The heading top.</param>
+    /// <param name="actions">The window commands.</param>
+    /// <param name="follows">Whether thumbnails follow the page being read.</param>
+    /// <returns>The right edge left for the heading text.</returns>
+    private static int AddHeaderButton(List<ChromeItem> items, DocumentTabViewModel tab, in ChromeMetrics metrics, in LayoutRect area, int top, ChromeActions actions, bool follows)
+    {
+        var side = metrics.RowHeight;
+        var place = new LayoutRect(area.Right - side - metrics.Gap, top, side, side);
+        switch (tab.SidebarMode)
+        {
+            case SidebarMode.Thumbnails:
+                {
+                    items.Add(new(ChromeItemKind.Button, actions.ToggleFollowPage, 0, UiText.Get("Follow the page being read"), place, true, follows)
+                    {
+                        Icon = ChromeIcon.Follow,
+                        HidesText = true,
+                        Trait = ChromeItemTrait.Switch,
+                    });
+                    return (int)place.X;
+                }
+
+            case SidebarMode.Search:
+                {
+                    items.Add(new(ChromeItemKind.Button, actions.ShowFind, 0, UiText.Get("Find…"), place, true, false) { Icon = ChromeIcon.Search, HidesText = true });
+                    return (int)place.X;
+                }
+
+            case SidebarMode.Annotations:
+                {
+                    items.Add(new(ChromeItemKind.Button, tab.Annotations.ShowFilterCommand, 0, UiText.Get("Filter and sort the notes"), place, true, false)
+                    {
+                        Icon = ChromeIcon.Filter,
+                        HidesText = true,
+                    });
+                    return (int)place.X;
+                }
+
+            case SidebarMode.Layers:
+                {
+                    items.Add(new(ChromeItemKind.Button, tab.Layers.ResetCommand, 0, UiText.Get("Reset layers"), place, true, false) { Icon = ChromeIcon.Undo, HidesText = true });
+                    return (int)place.X;
+                }
+
+            default:
+                {
+                    return (int)area.Right;
+                }
+        }
+    }
+
+    /// <summary>Adds the compact in-place action strip for bookmarks or accessibility tags right inside the side panel.</summary>
+    /// <param name="items">Receives the buttons.</param>
+    /// <param name="tab">The document tab.</param>
+    /// <param name="look">The text measurer and sizes.</param>
+    /// <param name="area">The panel bounds.</param>
+    /// <param name="top">The top of the strip.</param>
+    /// <param name="actions">The window commands.</param>
+    /// <returns>The height taken by the strip, or 0 when the current tab has none.</returns>
+    private static int AddModeActions(List<ChromeItem> items, DocumentTabViewModel tab, ChromeLook look, in LayoutRect area, int top, ChromeActions actions)
+    {
+        if (tab.SidebarMode is not (SidebarMode.Outline or SidebarMode.Tags))
+        {
+            return 0;
+        }
+
+        var tight = look.Metrics with { Padding = look.Metrics.Gap + look.Metrics.Gap };
+        var row = new ChromeRow(items, look.Runs, tight, (int)area.X + tight.Gap, top + tight.Gap, tight.RowHeight - tight.Gap) { Limit = (int)area.Right - tight.Gap, ShowLabels = false };
+        if (tab.SidebarMode == SidebarMode.Outline)
+        {
+            var hasBookmark = tab.SelectedOutlineItem is not null;
+            row = row.IconButton(ChromeIcon.Add, UiText.Get("Add bookmark"), actions.AddBookmark, true);
+            row = row.IconButton(ChromeIcon.Text, UiText.Get("Rename bookmark"), actions.RenameBookmark, hasBookmark);
+            row = row.IconButton(ChromeIcon.PageUp, UiText.Get("Move bookmark up"), actions.MoveBookmarkUp, hasBookmark);
+            row = row.IconButton(ChromeIcon.PageDown, UiText.Get("Move bookmark down"), actions.MoveBookmarkDown, hasBookmark);
+            row = row.IconButton(ChromeIcon.Indent, UiText.Get("Move bookmark in"), actions.IndentBookmark, hasBookmark);
+            row = row.IconButton(ChromeIcon.Outdent, UiText.Get("Move bookmark out"), actions.OutdentBookmark, hasBookmark);
+            row = row.IconButton(ChromeIcon.Close, UiText.Get("Remove bookmark"), actions.RemoveBookmark, hasBookmark);
+        }
+        else
+        {
+            var tags = tab.Tags;
+            var hasTag = tags.SelectedItem is not null;
+            row = row.IconButton(ChromeIcon.Tags, UiText.Get("Check accessibility tags"), tags.CheckCommand, true);
+            row = row.IconButton(ChromeIcon.Draw, UiText.Get("Edit selected tag"), tags.EditCommand, hasTag);
+            row = row.IconButton(ChromeIcon.PageUp, UiText.Get("Read tag earlier"), tags.MoveUpCommand, hasTag);
+            row = row.IconButton(ChromeIcon.PageDown, UiText.Get("Read tag later"), tags.MoveDownCommand, hasTag);
+            row = row.IconButton(ChromeIcon.Indent, UiText.Get("Put inside tag above"), tags.NestCommand, hasTag);
+            row = row.IconButton(ChromeIcon.Outdent, UiText.Get("Take out of parent"), tags.UnnestCommand, hasTag);
+            row = row.IconButton(ChromeIcon.Save, UiText.Get("Save tag changes"), tags.ApplyCommand, ((System.Windows.Input.ICommand)tags.ApplyCommand).CanExecute(null));
+        }
+
+        return (row.Lines * tight.RowHeight) + tight.Gap;
     }
 
     /// <summary>Gets the icon of a tab of the side panel.</summary>
@@ -160,8 +252,9 @@ internal static class ChromeSidebar
             }
 
             // Each row ends in a rule, so one entry of the list is told from the next without reading both.
-            var text = ChromeText.Fit(row.Text, ChromeBars.Style(metrics), (int)room.Width - metrics.Padding - metrics.Padding, look.Look.Runs);
-            items.Add(new(ChromeItemKind.Row, pick, index, text, new(room.X, room.Y, room.Width, metrics.RowHeight), row.Enabled, row.Selected) { Parameter = row.Target });
+            var iconRoom = row.Icon == ChromeIcon.None ? 0 : metrics.IconSize + ChromePainter.IconGap(metrics);
+            var text = ChromeText.Fit(row.Text, ChromeBars.Style(metrics), Math.Max(1, (int)room.Width - metrics.Padding - metrics.Padding - iconRoom), look.Look.Runs);
+            items.Add(new(ChromeItemKind.Row, pick, index, text, new(room.X, room.Y, room.Width, metrics.RowHeight), row.Enabled, row.Selected) { Parameter = row.Target, Icon = row.Icon });
             items.Add(new(ChromeItemKind.Separator, null, 0, string.Empty, new(room.X, room.Y + metrics.RowHeight, room.Width, metrics.Line), true, false));
             return metrics.RowHeight + metrics.Line;
         }

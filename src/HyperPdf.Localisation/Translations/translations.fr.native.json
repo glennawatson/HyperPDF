@@ -516,5 +516,22 @@
   "Minimise": "Réduire",
   "Maximise": "Agrandir",
   "Restore": "Restaurer",
-  "Follow the page being read": "Suivre la page en cours de lecture"
+  "Follow the page being read": "Suivre la page en cours de lecture",
+  "All {0} signatures are valid and trusted.": "Les {0} signatures sont valides et approuvées.",
+  "Checked {0} signatures ({1} valid and trusted).": "{0} signatures vérifiées ({1} valides et approuvées).",
+  "Add text": "Ajouter du texte",
+  "Check accessibility tags": "Vérifier les balises d’accessibilité",
+  "_Document": "_Document",
+  "Edit selected tag": "Modifier la balise choisie",
+  "Filter and sort the notes": "Filtrer et trier les notes",
+  "Find…": "Rechercher…",
+  "Move bookmark in": "Rentrer le signet",
+  "Move bookmark out": "Sortir le signet",
+  "Open files": "Ouvrir des fichiers",
+  "Put inside tag above": "Mettre dans la balise du dessus",
+  "Read tag earlier": "Lire la balise plus tôt",
+  "Read tag later": "Lire la balise plus tard",
+  "Reset layers": "Réinitialiser les calques",
+  "Take out of parent": "Sortir de la balise parente",
+  "Up one folder": "Dossier parent"
 }

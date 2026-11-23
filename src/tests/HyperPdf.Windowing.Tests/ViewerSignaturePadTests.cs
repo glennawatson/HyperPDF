@@ -86,7 +86,7 @@ public sealed class ViewerSignaturePadTests
             var chrome = session.Chrome;
             using var mark = new SignatureMarkViewModel(SignatureMarkKind.Signature, null, static _ => null);
             mark.Style = SignatureMarkStyle.Drawn;
-            using var showing = chrome.ShowForm(ToolForms.SignatureMark(mark)).SubscribeSafe(static _ => { }, ErrorTrace.Write);
+            using var showing = chrome.ShowSignatureMark(mark).SubscribeSafe(static _ => { }, ErrorTrace.Write);
             padShown = PumpUntil(session, () => Pad(chrome) is not null);
             var pad = Pad(chrome);
             if (pad is not null)

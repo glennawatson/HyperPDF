@@ -46,6 +46,42 @@ public sealed class OverlayStreamTests
     /// <summary>The titles in the order their dialogs are answered.</summary>
     private static readonly string[] Expected = [Second, First];
 
+    /// <summary>Enter on a yes or no dialog backs out, and Tab then Enter presses the button that agrees.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task EnterBacksOutUnlessTheKeyboardIsOnTheButtonThatAgrees()
+    {
+        var folder = NewFolder();
+        var before = SynchronizationContext.Current;
+        var answers = new List<bool>();
+        try
+        {
+            using var window = new HeadlessWindow(Width, Height);
+            var context = ViewerSession.UseWindowThread(window);
+            using var services = new AppServices(new SettingsStore(Path.Combine(folder, SettingsFile)), new HyperPdfEngine(), new FallbackPlatform(), new ViewerRenderHead(window));
+            using var session = new ViewerSession(window, services, context);
+            using var plain = session.Chrome.Confirm(Ask(First)).SubscribeSafe(answers.Add, static _ => { });
+            _ = PumpUntil(session, () => Showing(session.Chrome, First));
+            Press(window, ViewerKey.Enter);
+            _ = PumpUntil(session, () => answers.Count == 1);
+            using var tabbed = session.Chrome.Confirm(Ask(Second)).SubscribeSafe(answers.Add, static _ => { });
+            _ = PumpUntil(session, () => Showing(session.Chrome, Second));
+            Press(window, ViewerKey.Tab);
+            Settle(session);
+            Press(window, ViewerKey.Enter);
+            _ = PumpUntil(session, () => answers.Count > 1);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(before);
+            Directory.Delete(folder, true);
+        }
+
+        await Assert.That(answers.Count).IsEqualTo(Expected.Length);
+        await Assert.That(answers[0]).IsFalse();
+        await Assert.That(answers[1]).IsTrue();
+    }
+
     /// <summary>The answer of a dialog is given once, even when Escape is pressed again after it closed.</summary>
     /// <returns>A task.</returns>
     [Test]

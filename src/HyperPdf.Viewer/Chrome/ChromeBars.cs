@@ -338,12 +338,12 @@ internal static class ChromeBars
         row = row.Button(ChromeIcon.Open, UiText.Get("Open"), main.OpenCommand, true);
         row = row.Button(ChromeIcon.Save, UiText.Get("Save"), main.SelectedTab?.SaveCommand, main.SelectedTab is { HasUnsavedChanges: true });
         row = row.Button(ChromeIcon.Print, UiText.Get("Print"), tab?.PrintCommand, tab is not null);
-        row = row.MenuButton(ChromeIcon.Document, UiText.Get("Document ▾"), actions.ShowDocument, tab is not null);
+        row = row.MenuButton(ChromeIcon.Document, UiText.Get("Document"), actions.ShowDocument, tab is not null);
         row = row.Divider();
         row = AddTools(row, tab, actions);
         row = row.Divider();
         row = AddNavigation(row, tab, actions);
-        row = row.MenuButton(ChromeIcon.Dual, UiText.Get("View ▾"), actions.ShowView, tab is not null);
+        row = row.MenuButton(ChromeIcon.Dual, UiText.Get("View"), actions.ShowView, tab is not null);
         row = row.Divider();
         row = row.IconButton(ChromeIcon.ZoomOut, UiText.Get("Zoom out"), tab?.ZoomOutCommand, tab is not null);
         row = row.MenuButton(ChromeIcon.PageDown, tab?.ZoomText ?? "100%", actions.ShowZoom, tab is not null, Descriptions.ZoomMenu);
@@ -381,7 +381,7 @@ internal static class ChromeBars
     private static ChromeRow AddTools(ChromeRow row, DocumentTabViewModel? tab, ChromeActions actions)
     {
         var open = tab is not null;
-        row = row.MenuButton(ChromeIcon.Ruler, UiText.Get("Tools ▾"), actions.ShowTools, open);
+        row = row.MenuButton(ChromeIcon.Ruler, UiText.Get("Tools"), actions.ShowTools, open);
         row = row.Toggle(ChromeIcon.Highlight, UiText.Get("Annotate"), tab is { CanAnnotate: true } ? actions.ToggleAnnotate : null, tab is { AnnotationsInUse.IsAnnotating: true });
         row = row.Toggle(ChromeIcon.FillSign, UiText.Get("Fill & Sign"), tab?.ToggleFillAndSignCommand, tab is { FillAndSignIfMade.IsActive: true });
         row = row.Toggle(ChromeIcon.Cursor, UiText.Get("Edit"), tab?.ToggleContentEditingCommand, tab is { ContentEditIfMade.IsEditing: true });

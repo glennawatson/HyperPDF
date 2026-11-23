@@ -55,6 +55,24 @@ internal static class FormSettings
     internal static FormSetting<T> Field<T>(string label, Func<T, string> get, Action<T, string> set) =>
         Row<T>(FormRowKind.Field, _ => UiText.Get(label)) with { Value = get, Apply = (model, edit) => set(model, edit.Text) };
 
+    /// <summary>Makes a setting typed as text whose name the view model gives, already in the language shown.</summary>
+    /// <typeparam name="T">The kind of view model the window shows.</typeparam>
+    /// <param name="label">Reads the name.</param>
+    /// <param name="get">Reads the text.</param>
+    /// <param name="set">Writes the text.</param>
+    /// <returns>The row.</returns>
+    internal static FormSetting<T> Field<T>(Func<T, string> label, Func<T, string> get, Action<T, string> set) =>
+        Row(FormRowKind.Field, label) with { Value = get, Apply = (model, edit) => set(model, edit.Text) };
+
+    /// <summary>Makes a secret setting typed as text, such as a password, shown as dots and never exposed as plain text.</summary>
+    /// <typeparam name="T">The kind of view model the window shows.</typeparam>
+    /// <param name="label">The name in English.</param>
+    /// <param name="get">Reads the secret text.</param>
+    /// <param name="set">Writes the secret text.</param>
+    /// <returns>The row.</returns>
+    internal static FormSetting<T> Secret<T>(string label, Func<T, string> get, Action<T, string> set) =>
+        Field(label, get, set) with { Masked = true };
+
     /// <summary>Makes a setting chosen from a fixed list of names by its place in the list.</summary>
     /// <typeparam name="T">The kind of view model the window shows.</typeparam>
     /// <param name="label">The name in English.</param>
@@ -64,6 +82,16 @@ internal static class FormSettings
     /// <returns>The row.</returns>
     internal static FormSetting<T> Choice<T>(string label, IReadOnlyList<string> options, Func<T, int> get, Action<T, int> set) =>
         Row<T>(FormRowKind.Choice, _ => UiText.Get(label)) with { Options = _ => options, Selected = get, Apply = (model, edit) => set(model, edit.Index) };
+
+    /// <summary>Makes a setting chosen from a few names that are all shown at once, so the choice is one press and never hidden.</summary>
+    /// <typeparam name="T">The kind of view model the window shows.</typeparam>
+    /// <param name="label">The name in English.</param>
+    /// <param name="options">The values, already in the language shown.</param>
+    /// <param name="get">Reads the chosen value.</param>
+    /// <param name="set">Writes the chosen value.</param>
+    /// <returns>The row.</returns>
+    internal static FormSetting<T> Options<T>(string label, IReadOnlyList<string> options, Func<T, int> get, Action<T, int> set) =>
+        Row<T>(FormRowKind.Options, _ => UiText.Get(label)) with { Options = _ => options, Selected = get, Apply = (model, edit) => set(model, edit.Index) };
 
     /// <summary>Makes a setting chosen from a list of the view model's own choices.</summary>
     /// <typeparam name="T">The kind of view model the window shows.</typeparam>
@@ -206,13 +234,14 @@ internal static class FormSettings
     {
         foreach (var item in items)
         {
+            var icon = row.ItemIcon is { } pick ? pick(item) : row.Icon;
             if (row.Kind == FormRowKind.Text)
             {
-                form.Text(row.ItemText(item));
+                form.Text(icon, row.ItemText(item));
             }
             else
             {
-                form.Action(row.ItemText(item), true, id, item);
+                form.Action(icon, row.ItemText(item), true, id, item);
             }
         }
     }
@@ -252,15 +281,27 @@ internal static class FormSettings
                     break;
                 }
 
+            case FormRowKind.Options:
+                {
+                    form.Options(label, row.Options(model), row.Selected(model), id);
+                    break;
+                }
+
             case FormRowKind.Field:
                 {
+                    if (row.Masked)
+                    {
+                        form.Secret(label, row.Value(model), id);
+                        break;
+                    }
+
                     form.Field(label, row.Value(model), id);
                     break;
                 }
 
             default:
                 {
-                    form.Action(label, row.Enabled(model), id, null);
+                    form.Action(row.Icon, label, row.Enabled(model), id);
                     break;
                 }
         }

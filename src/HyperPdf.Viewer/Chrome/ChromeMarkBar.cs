@@ -52,7 +52,7 @@ internal static class ChromeMarkBar
         row = row.Divider();
 
         // The colour and the width buttons step to the next one, which is worked out here so the command is given what to set.
-        row = row.Button(ChromeIcon.None, UiText.Format("Colour: {0}", marks.ColorName), marks.SetColorCommand, new GroupChoice(0, NextColor(marks), false));
+        row = row.Button(ChromeIcon.Shape, UiText.Format("Colour: {0}", marks.ColorName), marks.SetColorCommand, new GroupChoice(0, NextColor(marks), false));
         row = row.Button(ChromeIcon.LineWidth, marks.LineWidthName, marks.SetLineWidthCommand, new GroupChoice(0, NextWidth(marks), false));
         row = row.Divider();
         row = row.Button(ChromeIcon.Undo, UiText.Get("Undo"), marks.UndoCommand, marks.CanUndo);

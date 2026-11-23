@@ -61,6 +61,9 @@ public sealed record ChromeItem(ChromeItemKind Kind, ICommand? Command, int Inde
     /// <summary>Gets the side of the icon in device pixels, or 0 for the size of the window's own icons.</summary>
     public int IconSize { get; init; }
 
+    /// <summary>Gets a value indicating whether a button or a row is drawn in a box when nothing points at it, so it is seen to be something to press.</summary>
+    public bool Framed { get; init; }
+
     /// <summary>Gets a value indicating whether only the icon is drawn. The text is still the name a screen reader says.</summary>
     public bool HidesText { get; init; }
 

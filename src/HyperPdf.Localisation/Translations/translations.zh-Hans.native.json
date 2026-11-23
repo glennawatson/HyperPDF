@@ -516,5 +516,22 @@
   "Minimise": "最小化",
   "Maximise": "最大化",
   "Restore": "还原",
-  "Follow the page being read": "跟随正在阅读的页面"
+  "Follow the page being read": "跟随正在阅读的页面",
+  "All {0} signatures are valid and trusted.": "全部 {0} 个签名均有效且受信任。",
+  "Checked {0} signatures ({1} valid and trusted).": "已检查 {0} 个签名（{1} 个有效且受信任）。",
+  "Add text": "添加文字",
+  "Check accessibility tags": "检查辅助功能标签",
+  "_Document": "文档(_D)",
+  "Edit selected tag": "编辑所选标签",
+  "Filter and sort the notes": "筛选和排序备注",
+  "Find…": "查找…",
+  "Move bookmark in": "书签移入",
+  "Move bookmark out": "书签移出",
+  "Open files": "打开文件",
+  "Put inside tag above": "放入上方的标签",
+  "Read tag earlier": "提前朗读此标签",
+  "Read tag later": "推后朗读此标签",
+  "Reset layers": "重置图层",
+  "Take out of parent": "移出父标签",
+  "Up one folder": "上一级文件夹"
 }

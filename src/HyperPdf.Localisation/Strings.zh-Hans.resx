@@ -369,6 +369,9 @@
   <data name="Add tags worked out from the layout" xml:space="preserve">
     <value>添加根据版面推断出的标签</value>
   </data>
+  <data name="Add text" xml:space="preserve">
+    <value>添加文字</value>
+  </data>
   <data name="Add the Page I Am On to the Selection" xml:space="preserve">
     <value>将当前页添加到所选内容</value>
   </data>
@@ -461,6 +464,9 @@
   </data>
   <data name="All types" xml:space="preserve">
     <value>所有类型</value>
+  </data>
+  <data name="All {0} signatures are valid and trusted." xml:space="preserve">
+    <value>全部 {0} 个签名均有效且受信任。</value>
   </data>
   <data name="Also add a separate record for each signature, so a checker can find the data that belongs to it." xml:space="preserve">
     <value>同时为每个签名添加独立记录，以便验证工具找到对应的数据。</value>
@@ -918,6 +924,9 @@
   <data name="Check accessibility" xml:space="preserve">
     <value>检查辅助功能</value>
   </data>
+  <data name="Check accessibility tags" xml:space="preserve">
+    <value>检查辅助功能标签</value>
+  </data>
   <data name="Check spelling in form fields" xml:space="preserve">
     <value>检查表单字段中的拼写</value>
   </data>
@@ -935,6 +944,9 @@
   </data>
   <data name="Check who signed this document and whether it changed after signing. This may go online." xml:space="preserve">
     <value>检查文档签名者及签名后是否有更改。此操作可能联网。</value>
+  </data>
+  <data name="Checked {0} signatures ({1} valid and trusted)." xml:space="preserve">
+    <value>已检查 {0} 个签名（{1} 个有效且受信任）。</value>
   </data>
   <data name="Checking changes to a signed file" xml:space="preserve">
     <value>检查已签名文件的更改</value>
@@ -1998,6 +2010,9 @@
   <data name="Edit or save copies of the pages selected in the thumbnail list." xml:space="preserve">
     <value>编辑或保存缩略图列表中所选页面的副本。</value>
   </data>
+  <data name="Edit selected tag" xml:space="preserve">
+    <value>编辑所选标签</value>
+  </data>
   <data name="Edit tools" xml:space="preserve">
     <value>编辑工具</value>
   </data>
@@ -2151,6 +2166,9 @@
   <data name="Filter and sort" xml:space="preserve">
     <value>筛选与排序</value>
   </data>
+  <data name="Filter and sort the notes" xml:space="preserve">
+    <value>筛选和排序备注</value>
+  </data>
   <data name="Filter comments" xml:space="preserve">
     <value>筛选批注</value>
   </data>
@@ -2177,6 +2195,9 @@
   </data>
   <data name="Find the words in this document in the chosen language. A language not on this computer downloads first and stays for next time." xml:space="preserve">
     <value>使用所选语言识别文档中的文字。本机尚未安装的语言会先下载，并保留供下次使用。</value>
+  </data>
+  <data name="Find…" xml:space="preserve">
+    <value>查找…</value>
   </data>
   <data name="Finish Text" xml:space="preserve">
     <value>完成文本</value>
@@ -3216,6 +3237,12 @@
   <data name="Move bookmark down" xml:space="preserve">
     <value>下移书签</value>
   </data>
+  <data name="Move bookmark in" xml:space="preserve">
+    <value>书签移入</value>
+  </data>
+  <data name="Move bookmark out" xml:space="preserve">
+    <value>书签移出</value>
+  </data>
   <data name="Move bookmark out of its parent" xml:space="preserve">
     <value>将书签移出父级</value>
   </data>
@@ -3593,6 +3620,9 @@
   </data>
   <data name="Open documents at the last page read" xml:space="preserve">
     <value>打开文档时转到上次阅读的页面</value>
+  </data>
+  <data name="Open files" xml:space="preserve">
+    <value>打开文件</value>
   </data>
   <data name="Open in Player…" xml:space="preserve">
     <value>在播放器中打开…</value>
@@ -4158,6 +4188,9 @@
   <data name="Put every layer back to how the file sets it. The file does not change." xml:space="preserve">
     <value>将所有图层恢复为文件设定的状态。不会更改文件。</value>
   </data>
+  <data name="Put inside tag above" xml:space="preserve">
+    <value>放入上方的标签</value>
+  </data>
   <data name="Put it down" xml:space="preserve">
     <value>放下</value>
   </data>
@@ -4244,6 +4277,12 @@
   </data>
   <data name="Read mode" xml:space="preserve">
     <value>阅读模式</value>
+  </data>
+  <data name="Read tag earlier" xml:space="preserve">
+    <value>提前朗读此标签</value>
+  </data>
+  <data name="Read tag later" xml:space="preserve">
+    <value>推后朗读此标签</value>
   </data>
   <data name="Read the document aloud, starting from this page. Shortcut: Ctrl+Shift+Y" xml:space="preserve">
     <value>从此页开始朗读文档。快捷键：Ctrl+Shift+Y</value>
@@ -4630,6 +4669,9 @@
     <value>回复注释</value>
   </data>
   <data name="Reset Layers" xml:space="preserve">
+    <value>重置图层</value>
+  </data>
+  <data name="Reset layers" xml:space="preserve">
     <value>重置图层</value>
   </data>
   <data name="Restart HyperPDF to apply the interface language." xml:space="preserve">
@@ -5853,6 +5895,9 @@
   <data name="Take it out of its parent" xml:space="preserve">
     <value>将其移出父级</value>
   </data>
+  <data name="Take out of parent" xml:space="preserve">
+    <value>移出父标签</value>
+  </data>
   <data name="Take out what you do not want to share. Your open file stays as it is until you save; Undo is in the Pages menu." xml:space="preserve">
     <value>删除您不想分享的内容。在保存之前，已打开的文件保持不变；撤销在“页面”菜单中。</value>
   </data>
@@ -6828,6 +6873,9 @@
   <data name="Unused content" xml:space="preserve">
     <value>未使用的内容</value>
   </data>
+  <data name="Up one folder" xml:space="preserve">
+    <value>上一级文件夹</value>
+  </data>
   <data name="Updating pages…" xml:space="preserve">
     <value>正在更新页面…</value>
   </data>
@@ -7307,6 +7355,9 @@
   </data>
   <data name="_Delete {0}" xml:space="preserve">
     <value>_删除 {0}</value>
+  </data>
+  <data name="_Document" xml:space="preserve">
+    <value>文档(_D)</value>
   </data>
   <data name="_Double" xml:space="preserve">
     <value>双倍(_D)</value>

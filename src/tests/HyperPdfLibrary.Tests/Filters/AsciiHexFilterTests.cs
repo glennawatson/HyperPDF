@@ -42,6 +42,43 @@ public sealed class AsciiHexFilterTests
         }
     }
 
+    /// <summary>The decoder makes room for the whole output before it starts, and room that passes the output bound is cut to it.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task Decode_LongInput_ReservesItsOutputOnce()
+    {
+        const int Bytes = 100_000;
+        const int Digits = Bytes + Bytes;
+        const int MostRoom = Digits + Digits;
+        const int Bound = 64;
+        var text = new byte[Digits];
+        text.AsSpan().Fill((byte)'A');
+        var output = default(PooledBuffer);
+        var bounded = default(PooledBuffer);
+        int reserved;
+        int written;
+        int boundedRoom;
+        try
+        {
+            AsciiHexFilter.Decode(text, ref output);
+            reserved = output.Array?.Length ?? 0;
+            written = output.Length;
+            bounded.MaximumLength = Bound;
+            bounded.Reserve(Bytes);
+            boundedRoom = bounded.GetSpan(1).Length;
+        }
+        finally
+        {
+            output.Dispose();
+            bounded.Dispose();
+        }
+
+        await Assert.That(written).IsEqualTo(Bytes);
+        await Assert.That(reserved).IsGreaterThanOrEqualTo(Bytes);
+        await Assert.That(reserved).IsLessThan(MostRoom);
+        await Assert.That(boundedRoom).IsEqualTo(Bound);
+    }
+
     /// <summary>Lines stay at 72 digits, and the abbreviated name decodes the text.</summary>
     /// <returns>A task.</returns>
     [Test]

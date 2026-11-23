@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Buffers.Binary;
 using HyperPdfLibrary.Compat;
 using HyperPdfLibrary.Filters;
@@ -86,16 +87,27 @@ internal static class PdfPngWriter
     internal static byte[] Encode(PdfImageData image)
     {
         var (type, channels) = ColorOf(image);
-        var rows = Rows(image, type, channels);
+        var stride = (image.Width * channels) + 1;
+        var length = stride * image.Height;
+
+        // The scan lines are as large as the image and only live until they are compressed, so they are rented.
+        var rows = ArrayPool<byte>.Shared.Rent(length);
         var data = default(PooledBuffer);
         try
         {
-            ZLibCodec.Compress(rows, PdfCompressionLevel.Fastest, ref data);
+            for (var y = 0; y < image.Height; y++)
+            {
+                rows[y * stride] = 0;
+                WriteRow(image, type, y, rows.AsSpan((y * stride) + 1, stride - 1));
+            }
+
+            ZLibCodec.Compress(rows.AsSpan(0, length), PdfCompressionLevel.Fastest, ref data);
             return Assemble(image.Width, image.Height, type, data.WrittenSpan);
         }
         finally
         {
             data.Dispose();
+            ArrayPool<byte>.Shared.Return(rows);
         }
     }
 
@@ -112,21 +124,24 @@ internal static class PdfPngWriter
         };
 
         var stride = samples.RowBytes;
-        var rows = new byte[(stride + 1) * samples.Height];
-        for (var y = 0; y < samples.Height; y++)
-        {
-            samples.Data.AsSpan(y * stride, stride).CopyTo(rows.AsSpan((y * (stride + 1)) + 1));
-        }
-
+        var length = (stride + 1) * samples.Height;
+        var rows = ArrayPool<byte>.Shared.Rent(length);
         var data = default(PooledBuffer);
         try
         {
-            ZLibCodec.Compress(rows, PdfCompressionLevel.Fastest, ref data);
+            for (var y = 0; y < samples.Height; y++)
+            {
+                rows[y * (stride + 1)] = 0;
+                samples.Data.AsSpan(y * stride, stride).CopyTo(rows.AsSpan((y * (stride + 1)) + 1));
+            }
+
+            ZLibCodec.Compress(rows.AsSpan(0, length), PdfCompressionLevel.Fastest, ref data);
             return Assemble(samples.Width, samples.Height, type, data.WrittenSpan);
         }
         finally
         {
             data.Dispose();
+            ArrayPool<byte>.Shared.Return(rows);
         }
     }
 
@@ -141,23 +156,6 @@ internal static class PdfPngWriter
         }
 
         return PngPixels.IsOpaque(image.Pixels) ? new(RgbType, RgbBytes) : new(RgbaType, BgraBytes);
-    }
-
-    /// <summary>Builds the filtered scan lines: a filter byte of 0 and then the row's samples.</summary>
-    /// <param name="image">The image.</param>
-    /// <param name="type">The PNG colour type.</param>
-    /// <param name="channels">The channels per pixel.</param>
-    /// <returns>The scan lines.</returns>
-    private static byte[] Rows(PdfImageData image, byte type, int channels)
-    {
-        var stride = (image.Width * channels) + 1;
-        var rows = new byte[stride * image.Height];
-        for (var y = 0; y < image.Height; y++)
-        {
-            WriteRow(image, type, y, rows.AsSpan((y * stride) + 1, stride - 1));
-        }
-
-        return rows;
     }
 
     /// <summary>Writes one row of samples.</summary>
@@ -246,28 +244,32 @@ internal static class PdfPngWriter
         BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(HeightOffset), height);
         header[DepthOffset] = BitDepth;
         header[TypeOffset] = type;
-        using var file = new MemoryStream(Signature.Length + (ChunkOverhead * ChunkCount) + HeaderLength + compressed.Length);
-        file.Write(Signature);
-        WriteChunk(file, "IHDR"u8, header);
-        WriteChunk(file, "IDAT"u8, compressed);
-        WriteChunk(file, "IEND"u8, []);
-        return file.ToArray();
+
+        // The file's length is known, so it is written straight into the array handed back, with no copy of a stream's buffer.
+        var file = new byte[Signature.Length + (ChunkOverhead * ChunkCount) + HeaderLength + compressed.Length];
+        Signature.CopyTo(file, 0);
+        var at = Signature.Length;
+        at = WriteChunk(file, at, "IHDR"u8, header);
+        at = WriteChunk(file, at, "IDAT"u8, compressed);
+        _ = WriteChunk(file, at, "IEND"u8, []);
+        return file;
     }
 
     /// <summary>Writes one chunk.</summary>
-    /// <param name="output">The file.</param>
+    /// <param name="file">The file.</param>
+    /// <param name="at">Where in the file the chunk starts.</param>
     /// <param name="type">The four type bytes.</param>
     /// <param name="data">The chunk's data.</param>
-    private static void WriteChunk(Stream output, ReadOnlySpan<byte> type, ReadOnlySpan<byte> data)
+    /// <returns>Where the next chunk starts.</returns>
+    private static int WriteChunk(byte[] file, int at, ReadOnlySpan<byte> type, ReadOnlySpan<byte> data)
     {
-        Span<byte> number = stackalloc byte[BgraBytes];
-        BinaryPrimitives.WriteInt32BigEndian(number, data.Length);
-        output.Write(number);
-        output.Write(type);
-        output.Write(data);
+        BinaryPrimitives.WriteInt32BigEndian(file.AsSpan(at), data.Length);
+        type.CopyTo(file.AsSpan(at + BgraBytes));
+        var body = at + BgraBytes + type.Length;
+        data.CopyTo(file.AsSpan(body));
         var crc = Crc(Crc(uint.MaxValue, type), data) ^ uint.MaxValue;
-        BinaryPrimitives.WriteUInt32BigEndian(number, crc);
-        output.Write(number);
+        BinaryPrimitives.WriteUInt32BigEndian(file.AsSpan(body + data.Length), crc);
+        return body + data.Length + BgraBytes;
     }
 
     /// <summary>Continues a CRC-32 over more bytes.</summary>

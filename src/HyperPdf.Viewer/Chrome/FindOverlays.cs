@@ -27,6 +27,12 @@ internal static class FindOverlays
     /// <summary>The share of the dialog's width the typing box takes: one over this.</summary>
     private const int FieldShare = 2;
 
+    /// <summary>The narrowest share of the popup width the typing box shrinks to before buttons drop their labels.</summary>
+    private const int NarrowFieldShare = 2;
+
+    /// <summary>The paddings inside the typing box: one on each side.</summary>
+    private const int FieldPaddings = 2;
+
     /// <summary>Opens the search bar of a tab.</summary>
     /// <param name="search">The search of the tab shown.</param>
     /// <returns>The search bar.</returns>
@@ -72,23 +78,28 @@ internal static class FindOverlays
         var metrics = place.Metrics;
         var size = place.Size;
         var style = ChromeBars.Style(metrics);
-        var fieldWidth = metrics.DialogWidth / FieldShare;
-        var height = metrics.ToolbarHeight;
+        var areaLeft = (int)Math.Max(0, place.Area.X);
+        var areaRight = place.Area.Width > 0 ? (int)place.Area.Right : size.Width;
+        var available = Math.Max(metrics.PopupWidth, areaRight - areaLeft);
+        var wantedField = metrics.DialogWidth / FieldShare;
+        var minField = Math.Max(metrics.PopupWidth / NarrowFieldShare, metrics.IconSize + (metrics.Padding * FieldPaddings));
         var top = Math.Max((int)place.Area.Y, metrics.TabHeight + metrics.ToolbarHeight);
         var panelIndex = items.Count;
         items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, default, true, false));
-        var row = new ChromeRow(items, runs, metrics, 0, top + metrics.Gap, height - metrics.Gap - metrics.Gap);
-        row = row.IconButton(ChromeIcon.PageUp, UiText.Get("Previous match"), search.PreviousCommand, search.Results.Count > 0);
-        row = row.IconButton(ChromeIcon.PageDown, UiText.Get("Next match"), search.NextCommand, search.Results.Count > 0);
-        row = row.Control(Toggle(ChromeIcon.Case, UiText.Get("Match case"), search.ToggleMatchCaseCommand, search.MatchCase));
-        row = row.Control(Toggle(ChromeIcon.WholeWord, UiText.Get("Whole words"), search.ToggleWholeWordCommand, search.WholeWord));
-        row = row.Control(Toggle(ChromeIcon.Accent, UiText.Get("Ignore accents"), search.ToggleIgnoreDiacriticsCommand, search.IgnoreDiacritics));
-        row = row.Label(search.Status.Length > 0 ? search.Status : UiText.Get("Type to find"));
-        row = row.Control(new(ChromeItemKind.Button, OverlayAction.Cancel, 0, UiText.Get("Close"), default, true, false) { Icon = ChromeIcon.Close, HidesText = true });
+        var controlsWidth = AddControls(items, search, in place, top, true, int.MaxValue);
+        if (minField + metrics.Padding + controlsWidth > available)
+        {
+            // When the page area is too narrow for every word, the match toggles keep their icons alone and wrap if still needed.
+            items.RemoveRange(panelIndex + 1, items.Count - panelIndex - 1);
+            var controlLimit = Math.Max(metrics.PopupWidth - minField, available - minField - metrics.Padding - metrics.Gap);
+            controlsWidth = AddControls(items, search, in place, top, false, controlLimit);
+        }
 
-        // The bar sits against the right edge, so the controls laid out from zero are moved across once their width is known.
-        var width = fieldWidth + metrics.Padding + row.Next;
-        var left = Math.Max(0, size.Width - width);
+        var fieldWidth = Math.Clamp(available - metrics.Padding - controlsWidth, minField, wantedField);
+        var lines = CountControlLines(items, panelIndex + 1, top + metrics.Gap, metrics.ToolbarHeight);
+        var height = lines * metrics.ToolbarHeight;
+        var width = Math.Min(available, fieldWidth + metrics.Padding + controlsWidth);
+        var left = Math.Max(areaLeft, areaRight - width);
         items[panelIndex] = items[panelIndex] with { Bounds = new(left, top, width, height) };
         for (var i = panelIndex + 1; i < items.Count; i++)
         {
@@ -96,8 +107,56 @@ internal static class FindOverlays
             items[i] = items[i] with { Bounds = new(bounds.X + left + fieldWidth + metrics.Padding, bounds.Y, bounds.Width, bounds.Height) };
         }
 
-        var shown = ChromeText.Fit(search.Query, style, fieldWidth - metrics.Padding - metrics.Padding - metrics.Gap, runs);
-        items.Add(new(ChromeItemKind.Field, null, 0, shown, new(left + metrics.Gap, top + metrics.Gap, fieldWidth, height - metrics.Gap - metrics.Gap), true, true));
+        var iconRoom = metrics.IconSize + ChromePainter.IconGap(metrics);
+        var textRoom = Math.Max(1, fieldWidth - (metrics.Padding * FieldPaddings) - metrics.Gap - iconRoom);
+        var shown = ChromeText.Fit(search.Query, style, textRoom, runs);
+        var fieldBounds = new Core.Layout.LayoutRect(left + metrics.Gap, top + metrics.Gap, fieldWidth, metrics.ToolbarHeight - metrics.Gap - metrics.Gap);
+        items.Add(new(ChromeItemKind.Field, null, 0, shown, fieldBounds, true, true) { Icon = ChromeIcon.Search });
+    }
+
+    /// <summary>Adds the match buttons, toggles, status text and close button after the typing box.</summary>
+    /// <param name="items">Receives the controls.</param>
+    /// <param name="search">The search state.</param>
+    /// <param name="place">What to lay them out with.</param>
+    /// <param name="top">The top of the bar.</param>
+    /// <param name="showLabels">Whether the match switches show their words beside their icons.</param>
+    /// <param name="limit">The furthest right edge before wrapping.</param>
+    /// <returns>The width the controls take across.</returns>
+    private static int AddControls(List<ChromeItem> items, SearchViewModel search, in OverlayPlace place, int top, bool showLabels, int limit)
+    {
+        var metrics = place.Metrics;
+        var row = new ChromeRow(items, place.Runs, metrics, 0, top + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap) { ShowLabels = showLabels, Limit = limit };
+        row = row.IconButton(ChromeIcon.PageUp, UiText.Get("Previous match"), search.PreviousCommand, search.Results.Count > 0);
+        row = row.IconButton(ChromeIcon.PageDown, UiText.Get("Next match"), search.NextCommand, search.Results.Count > 0);
+        row = row.Control(Toggle(ChromeIcon.Case, UiText.Get("Match case"), search.ToggleMatchCaseCommand, search.MatchCase));
+        row = row.Control(Toggle(ChromeIcon.WholeWord, UiText.Get("Whole words"), search.ToggleWholeWordCommand, search.WholeWord));
+        row = row.Control(Toggle(ChromeIcon.Accent, UiText.Get("Ignore accents"), search.ToggleIgnoreDiacriticsCommand, search.IgnoreDiacritics));
+        row = row.Label(search.Status.Length > 0 ? search.Status : UiText.Get("Type to find"));
+        row = row.Control(new(ChromeItemKind.Button, OverlayAction.Cancel, 0, UiText.Get("Close"), default, true, false) { Icon = ChromeIcon.Close, HidesText = true });
+        var right = 0;
+        for (var i = items.Count - 1; i >= 0 && items[i].Kind != ChromeItemKind.Popup; i--)
+        {
+            right = Math.Max(right, (int)items[i].Bounds.Right);
+        }
+
+        return right + metrics.Gap;
+    }
+
+    /// <summary>Counts the toolbar lines occupied by the controls of the bar.</summary>
+    /// <param name="items">The laid out items.</param>
+    /// <param name="first">The first control index after the popup panel.</param>
+    /// <param name="firstTop">The top of the first line.</param>
+    /// <param name="lineHeight">The height of one toolbar line.</param>
+    /// <returns>The number of lines, at least one.</returns>
+    private static int CountControlLines(List<ChromeItem> items, int first, int firstTop, int lineHeight)
+    {
+        var lowest = firstTop;
+        for (var i = first; i < items.Count; i++)
+        {
+            lowest = Math.Max(lowest, (int)items[i].Bounds.Y);
+        }
+
+        return ((lowest - firstTop) / Math.Max(1, lineHeight)) + 1;
     }
 
     /// <summary>Makes a button that turns one way of matching on or off, and shows whether it is on.</summary>

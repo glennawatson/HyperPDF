@@ -25,6 +25,9 @@ internal static class ChromeToolBars
     /// <summary>The text of the button that puts a notice away, in English.</summary>
     private const string DismissText = "Dismiss";
 
+    /// <summary>The text of the button that signs with a certificate, in English.</summary>
+    private const string SignWithCertificateText = "Sign with certificate…";
+
     /// <summary>The largest percentage, which a share of work done is multiplied by.</summary>
     private const double Percent = 100;
 
@@ -39,7 +42,7 @@ internal static class ChromeToolBars
     internal static int Add(List<ChromeItem> items, DocumentTabViewModel tab, ChromeLook look, int top, int width, ChromeActions actions)
     {
         var bars = new List<ToolBar>();
-        AddNotices(bars, tab);
+        AddNotices(bars, tab, actions);
         AddReadingAids(bars, tab);
         AddPageTools(bars, tab, actions);
         var height = 0;
@@ -51,11 +54,14 @@ internal static class ChromeToolBars
         return height;
     }
 
-    /// <summary>Adds the notices about the document: what it needs, what was repaired, what cannot be shown and a newer copy on disk.</summary>
+    /// <summary>Adds the notices about the document: signatures, what it needs, what was repaired, what cannot be shown and a newer copy on disk.</summary>
     /// <param name="bars">Receives the bars.</param>
     /// <param name="tab">The tab shown.</param>
-    private static void AddNotices(List<ToolBar> bars, DocumentTabViewModel tab)
+    /// <param name="actions">The window commands.</param>
+    private static void AddNotices(List<ToolBar> bars, DocumentTabViewModel tab, ChromeActions actions)
     {
+        AddSignedBar(bars, tab, actions);
+
         // Most documents have no notice, and a layout is built for every change, so the buttons of a notice are made only for one that is shown.
         var notices = tab.Notices;
         if (IsShown(tab.Notice))
@@ -95,6 +101,47 @@ internal static class ChromeToolBars
         {
             bars.Add(new(UiText.Get("This file has changed on disk."), [Item(ChromeIcon.Redo, "Reload", tab.ReloadCommand), Item(ChromeIcon.Done, "Keep this version", tab.DismissReloadCommand)]));
         }
+    }
+
+    /// <summary>Adds the in-place digital-signature bar when the open document carries one or more digital signatures.</summary>
+    /// <param name="bars">Receives the bar.</param>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="actions">The window commands.</param>
+    private static void AddSignedBar(List<ToolBar> bars, DocumentTabViewModel tab, ChromeActions actions)
+    {
+        if (tab.SignatureCount <= 0)
+        {
+            return;
+        }
+
+        var signatures = tab.SignaturesIfMade;
+        if (signatures is { IsChecking: true })
+        {
+            bars.Add(new(UiText.Get("Checking the signatures…"), []));
+            return;
+        }
+
+        if (signatures is { StatusSummary.Length: > 0 } checkedSignatures)
+        {
+            bars.Add(new(
+                checkedSignatures.StatusSummary,
+                [
+                    Item(ChromeIcon.More, "Details…", actions.ShowSignatureDetails),
+                    Item(ChromeIcon.Certificate, "Check again", actions.CheckSignatures),
+                    Item(ChromeIcon.Signature, SignWithCertificateText, actions.SignWithCertificate),
+                ]));
+            return;
+        }
+
+        var text = tab.SignatureCount == 1
+            ? UiText.Get("This document is digitally signed.")
+            : UiText.Format("This document has {0} digital signatures.", tab.SignatureCount);
+        bars.Add(new(
+            text,
+            [
+                Item(ChromeIcon.Certificate, "Check signatures", actions.CheckSignatures),
+                Item(ChromeIcon.Signature, SignWithCertificateText, actions.SignWithCertificate),
+            ]));
     }
 
     /// <summary>Adds the state of the reading aids that are running: read aloud, text recognition and focus mode.</summary>
@@ -202,18 +249,45 @@ internal static class ChromeToolBars
         AddTextFormat(bars, tab);
         if (tab.FillAndSignIfMade is { IsActive: true } sign)
         {
-            bars.Add(new(
-                sign.Hint,
-                [
-                    Item(ChromeIcon.Signature, "Signature", sign.SignatureCommand),
-                    Item(ChromeIcon.Text, "Initials", sign.InitialsCommand),
-                    Item(ChromeIcon.Stamp, "Put it down", sign.PlaceCommand),
-                    Item(ChromeIcon.ZoomIn, "Bigger", sign.BiggerCommand),
-                    Item(ChromeIcon.ZoomOut, "Smaller", sign.SmallerCommand),
-                    Item(ChromeIcon.Close, "Remove", sign.RemoveMarkCommand),
-                    Item(ChromeIcon.Done, "Done", sign.ToggleCommand),
-                ]));
+            AddFillAndSignBar(bars, sign, actions);
         }
+    }
+
+    /// <summary>Adds the Fill and Sign bar, placing remembered marks straight onto the page without an extra dialog.</summary>
+    /// <param name="bars">Receives the bar.</param>
+    /// <param name="sign">The Fill and Sign state.</param>
+    /// <param name="actions">The window commands.</param>
+    private static void AddFillAndSignBar(List<ToolBar> bars, HyperPdf.ViewModels.Markup.FillAndSignViewModel sign, ChromeActions actions)
+    {
+        var items = new List<BarAction>
+        {
+            new(ChromeIcon.Text, MenuEntry.Radio(UiText.Get("Add text"), sign.TypeTextCommand, null, sign.IsTypingText)),
+            Item(ChromeIcon.Signature, "Signature", sign.SignatureCommand),
+        };
+        if (sign.HasSavedSignature)
+        {
+            items.Add(Item(ChromeIcon.Draw, "Change signature…", sign.EditSignatureCommand));
+        }
+
+        items.Add(Item(ChromeIcon.Text, "Initials", sign.InitialsCommand));
+        if (sign.HasSavedInitials)
+        {
+            items.Add(Item(ChromeIcon.Draw, "Change initials…", sign.EditInitialsCommand));
+        }
+
+        items.Add(Item(ChromeIcon.Certificate, SignWithCertificateText, actions.SignWithCertificate));
+        items.Add(Item(ChromeIcon.Done, "Put it down", sign.PlaceCommand));
+        items.Add(Item(ChromeIcon.ZoomIn, "Bigger", sign.BiggerCommand));
+        items.Add(Item(ChromeIcon.ZoomOut, "Smaller", sign.SmallerCommand));
+        if (sign.Placement is not null)
+        {
+            items.Add(Item(ChromeIcon.Stop, "Stop placing", sign.CancelPlacementCommand));
+        }
+
+        items.Add(Item(ChromeIcon.Cursor, "Adjust", sign.AdjustCommand));
+        items.Add(Item(ChromeIcon.Close, "Remove", sign.RemoveMarkCommand));
+        items.Add(Item(ChromeIcon.Done, "Done", sign.ToggleCommand));
+        bars.Add(new(sign.Hint, [.. items]));
     }
 
     /// <summary>Adds the bar of the text being typed on the page: its weight, slant, underline, alignment and size, its properties window and the button that finishes it.</summary>

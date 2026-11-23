@@ -65,6 +65,12 @@ internal static class ChromePainter
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
+            if (item.Framed)
+            {
+                // A control in a dialog is boxed at rest, so it is told apart from the words around it without pointing at it.
+                DrawFrame(pass, item, look);
+            }
+
             DrawBackground(pass, item, look);
             DrawText(pass, item, look);
         }
@@ -118,6 +124,51 @@ internal static class ChromePainter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int IconGap(in ChromeMetrics metrics) => metrics.Gap + (metrics.Gap >> 1);
 
+    /// <summary>
+    /// Gets the room after the words of a button that opens a menu, for the mark that says so. A button whose own icon is
+    /// already that mark, as the zoom button's is, gets no second one.
+    /// </summary>
+    /// <param name="icon">The button's own icon.</param>
+    /// <param name="metrics">The sizes.</param>
+    /// <returns>The room in device pixels, or 0 for a button that needs no mark.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int MenuMarkRoom(ChromeIcon icon, in ChromeMetrics metrics) => icon == ChromeIcon.PageDown ? 0 : metrics.Gap + metrics.TextSize;
+
+    /// <summary>
+    /// Draws the box of a control that is boxed at rest. The button that agrees to a dialog is filled, and has a tick before its
+    /// words, so it is told from the button that backs out by more than colour. The ring of the keyboard's place stays its own.
+    /// </summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="item">The control.</param>
+    /// <param name="look">The colours and sizes.</param>
+    private static void DrawFrame(IFramePass pass, ChromeItem item, ChromeLook look)
+    {
+        var theme = look.Theme;
+        if (!item.Enabled)
+        {
+            DrawBox(pass, item.Bounds, theme.Surface, theme.Faded, look.Metrics.Line);
+            return;
+        }
+
+        // The fill is the opaque colour of a chosen thing; the hover wash is see-through and would grey the words over a border.
+        var agrees = item.Action == OverlayAction.Accept && theme.ButtonHover != 0;
+        DrawBox(pass, item.Bounds, agrees ? theme.ButtonHover : theme.Surface, theme.Border, look.Metrics.Line);
+    }
+
+    /// <summary>
+    /// Draws the box of a text box. One filled in on the page brings its own paper, and gets a heavier outline that stands
+    /// out from the page.
+    /// </summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="item">The text box.</param>
+    /// <param name="look">The colours and sizes.</param>
+    private static void DrawField(IFramePass pass, ChromeItem item, ChromeLook look)
+    {
+        var onPage = item.Ground != 0;
+        var line = onPage ? look.Metrics.Line * MarkLines : look.Metrics.Line;
+        DrawBox(pass, item.Bounds, onPage ? item.Ground : look.Theme.Surface, item.Selected ? look.Theme.Accent : look.Theme.Border, line);
+    }
+
     /// <summary>Draws what lies behind the text of a control.</summary>
     /// <param name="pass">The frame.</param>
     /// <param name="item">The control.</param>
@@ -150,13 +201,13 @@ internal static class ChromePainter
 
             case ChromeItemKind.Popup:
                 {
-                    DrawBox(pass, bounds, theme.Surface, theme.Border, line);
+                    DrawBox(pass, bounds, theme.Surface, theme.Border, line * MarkLines);
                     break;
                 }
 
             case ChromeItemKind.Field:
                 {
-                    DrawBox(pass, bounds, theme.Surface, item.Selected ? theme.Accent : theme.Border, line);
+                    DrawField(pass, item, look);
                     break;
                 }
 
@@ -234,6 +285,12 @@ internal static class ChromePainter
             return;
         }
 
+        if (item.Icon is ChromeIcon.CheckOn or ChromeIcon.RadioOn)
+        {
+            // A ticked box or a filled ring already says the row is chosen, so the row gets no band or bar as well.
+            return;
+        }
+
         if (item.Trait == ChromeItemTrait.Switch)
         {
             pass.FillRect(item.Bounds, look.Theme.Hover);
@@ -262,17 +319,39 @@ internal static class ChromePainter
         TextStyle style = new(item.TextSize > 0 ? item.TextSize : metrics.TextSize, item.Kind == ChromeItemKind.Heading, TextColorOf(item, look)) { Serif = item.Serif };
         var run = look.Runs.Get(item.HidesText ? string.Empty : item.Text, style);
         var bounds = item.Bounds;
-        var left = DrawIcon(pass, item, look, run.Width);
+        var menuMark = item is { Kind: ChromeItemKind.Button, Trait: ChromeItemTrait.OpensMore, HidesText: false } ? MenuMarkRoom(item.Icon, metrics) : 0;
+        var left = DrawIcon(pass, item, look, run.Width + menuMark);
         var top = bounds.Y + Math.Floor((bounds.Height - run.Height) / MarkLines);
         if (run.Surface is { } surface)
         {
             pass.DrawSurface(surface, new(left, top, run.Width, run.Height), false);
         }
 
-        if (item is { Kind: ChromeItemKind.Field, Selected: true })
+        if (menuMark > 0)
+        {
+            DrawMenuMark(pass, look, new(left + run.Width + metrics.Gap, bounds.Y + Math.Floor((bounds.Height - metrics.TextSize) / MarkLines), metrics.TextSize, metrics.TextSize), style.Color);
+        }
+
+        if (item is { Kind: ChromeItemKind.Field, Selected: true, HidesText: false })
         {
             // The caret sits after the text, where the next typed character goes.
-            pass.FillRect(new(left + run.Width, bounds.Y + metrics.Gap, metrics.Line * MarkLines, bounds.Height - metrics.Gap - metrics.Gap), look.Theme.Text);
+            pass.FillRect(new(left + run.Width, bounds.Y + metrics.Gap, metrics.Line * MarkLines, bounds.Height - metrics.Gap - metrics.Gap), style.Color);
+        }
+    }
+
+    /// <summary>
+    /// Draws the mark that says a button opens a menu. It is an icon: a triangle in the words is in no font that ships with
+    /// the viewer, so drawing one sent the window to read the system's font files as it opened.
+    /// </summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="look">The icons.</param>
+    /// <param name="place">Where the mark goes.</param>
+    /// <param name="color">The colour of the button's words.</param>
+    private static void DrawMenuMark(IFramePass pass, ChromeLook look, in LayoutRect place, uint color)
+    {
+        if (look.Icons?.Get(ChromeIcon.Choose, (int)place.Width, color) is { } mark)
+        {
+            pass.DrawSurface(mark, place, false);
         }
     }
 

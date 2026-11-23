@@ -516,5 +516,22 @@
   "Minimise": "Minimizar",
   "Maximise": "Maximizar",
   "Restore": "Restaurar",
-  "Follow the page being read": "Seguir la página que se está leyendo"
+  "Follow the page being read": "Seguir la página que se está leyendo",
+  "All {0} signatures are valid and trusted.": "Las {0} firmas son válidas y de confianza.",
+  "Checked {0} signatures ({1} valid and trusted).": "Se comprobaron {0} firmas ({1} válidas y de confianza).",
+  "Add text": "Añadir texto",
+  "Check accessibility tags": "Comprobar las etiquetas de accesibilidad",
+  "_Document": "_Documento",
+  "Edit selected tag": "Editar la etiqueta elegida",
+  "Filter and sort the notes": "Filtrar y ordenar las notas",
+  "Find…": "Buscar…",
+  "Move bookmark in": "Meter el marcador",
+  "Move bookmark out": "Sacar el marcador",
+  "Open files": "Abrir archivos",
+  "Put inside tag above": "Poner dentro de la etiqueta de arriba",
+  "Read tag earlier": "Leer la etiqueta antes",
+  "Read tag later": "Leer la etiqueta después",
+  "Reset layers": "Restablecer las capas",
+  "Take out of parent": "Sacar de la etiqueta superior",
+  "Up one folder": "Subir una carpeta"
 }

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome;
 
@@ -13,4 +14,8 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="Enabled">Whether it can be pressed.</param>
 /// <param name="Page">The page whose picture the row shows, or -1 for a row of text.</param>
 [DebuggerDisplay("SidebarRow: {Text}")]
-internal sealed record SidebarRow(string Text, object Target, bool Selected, bool Enabled, int Page);
+internal sealed record SidebarRow(string Text, object Target, bool Selected, bool Enabled, int Page)
+{
+    /// <summary>Gets the icon drawn before the row's text.</summary>
+    internal ChromeIcon Icon { get; init; }
+}

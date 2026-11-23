@@ -516,5 +516,22 @@
   "Minimise": "Minimise",
   "Maximise": "Maximise",
   "Restore": "Restore",
-  "Follow the page being read": "Follow the page being read"
+  "Follow the page being read": "Follow the page being read",
+  "All {0} signatures are valid and trusted.": "All {0} signatures are valid and trusted.",
+  "Checked {0} signatures ({1} valid and trusted).": "Checked {0} signatures ({1} valid and trusted).",
+  "Add text": "Add text",
+  "Check accessibility tags": "Check accessibility tags",
+  "_Document": "_Document",
+  "Edit selected tag": "Edit selected tag",
+  "Filter and sort the notes": "Filter and sort the notes",
+  "Find…": "Find…",
+  "Move bookmark in": "Move bookmark in",
+  "Move bookmark out": "Move bookmark out",
+  "Open files": "Open files",
+  "Put inside tag above": "Put inside tag above",
+  "Read tag earlier": "Read tag earlier",
+  "Read tag later": "Read tag later",
+  "Reset layers": "Reset layers",
+  "Take out of parent": "Take out of parent",
+  "Up one folder": "Up one folder"
 }

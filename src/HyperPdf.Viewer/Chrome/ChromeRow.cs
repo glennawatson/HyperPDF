@@ -43,6 +43,9 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
     /// <summary>Gets a value indicating whether a button with an icon shows its text beside it.</summary>
     internal bool ShowLabels { get; init; } = true;
 
+    /// <summary>Gets the room kept after the words of the next control, for a mark drawn there.</summary>
+    internal int Trailing { get; init; }
+
     /// <summary>Gets the help for icons in this group of controls.</summary>
     internal Func<ChromeIcon, string?>? Describe { get; init; }
 
@@ -64,10 +67,12 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
     /// <returns>The row with the menu button in it.</returns>
     internal ChromeRow MenuButton(ChromeIcon icon, string text, ICommand command, bool enabled, string? help)
     {
-        var named = this with { ShowLabels = true };
+        // The button is wider by the mark drawn after its words, which says it opens a menu. The room is part of its width
+        // when the row decides whether it still fits on the line.
+        var named = this with { ShowLabels = true, Trailing = ChromePainter.MenuMarkRoom(icon, Metrics) };
         var next = named.Place(text, icon, false, out var placed);
         Items.Add(new(ChromeItemKind.Button, command, 0, text, placed.Bounds, enabled, false) { Icon = icon, Help = help, Trait = ChromeItemTrait.OpensMore });
-        return next with { ShowLabels = ShowLabels };
+        return next with { ShowLabels = ShowLabels, Trailing = 0 };
     }
 
     /// <summary>Adds a button that runs a command.</summary>
@@ -114,15 +119,28 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
         return next;
     }
 
-    /// <summary>Adds a button of a dialog, whose press is an input to that dialog.</summary>
+    /// <summary>
+    /// Adds a button of a dialog, whose press is an input to that dialog. It sits in a box, so it is seen to be a button, and the
+    /// one that agrees has a tick before its words.
+    /// </summary>
     /// <param name="text">The text.</param>
     /// <param name="action">What a press means to the dialog.</param>
     /// <param name="enabled">Whether it can be pressed.</param>
     /// <returns>The row with the button in it.</returns>
-    internal ChromeRow Button(string text, OverlayAction action, bool enabled)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal ChromeRow Button(string text, OverlayAction action, bool enabled) =>
+        Button(action == OverlayAction.Accept ? ChromeIcon.Done : ChromeIcon.None, text, action, enabled);
+
+    /// <summary>Adds a boxed dialog button with a chosen icon.</summary>
+    /// <param name="icon">The icon before the words.</param>
+    /// <param name="text">The text.</param>
+    /// <param name="action">What a press means to the dialog.</param>
+    /// <param name="enabled">Whether it can be pressed.</param>
+    /// <returns>The row with the button in it.</returns>
+    internal ChromeRow Button(ChromeIcon icon, string text, OverlayAction action, bool enabled)
     {
-        var next = Place(text, ChromeIcon.None, false, out var placed);
-        Items.Add(new(ChromeItemKind.Button, action, 0, text, placed.Bounds, enabled, false));
+        var next = Place(text, icon, false, out var placed);
+        Items.Add(new(ChromeItemKind.Button, action, 0, text, placed.Bounds, enabled, false) { Icon = icon, Framed = true });
         return next;
     }
 
@@ -225,7 +243,7 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
     private ChromeRow Place(string text, ChromeIcon icon, bool iconAlone, out PlacedControl placed)
     {
         var hidesText = icon != ChromeIcon.None && (iconAlone || !ShowLabels);
-        var width = WidthOf(text, icon, hidesText);
+        var width = WidthOf(text, icon, hidesText) + (hidesText ? 0 : Trailing);
         var wraps = Next + width > Limit && Next > Start;
 
         // A line is as tall as a bar: the control's height and the gap above and below it.

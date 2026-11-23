@@ -7,11 +7,13 @@ using HyperPdf.ViewModels.Dialogs;
 
 namespace HyperPdf.Viewer.Chrome;
 
-/// <summary>What a menu shows: the entries on screen, the menus above them, and the entry the keyboard is on.</summary>
+/// <summary>What a menu shows: the entries on screen, the menus above them, the scroll offset and the entry the keyboard is on.</summary>
 /// <param name="Shown">The entries shown.</param>
 /// <param name="Parents">The menus above the one shown, the nearest last.</param>
 /// <param name="Cursor">The entry the keyboard is on, or less than <see cref="MenuOverlays.BackIndex"/> for none.</param>
+/// <param name="First">The first entry scrolled into view.</param>
+/// <param name="FollowCursor">Whether the scroll offset follows the keyboard cursor rather than the mouse wheel.</param>
 /// <param name="Chosen">The entry that was chosen, or <see langword="null"/> while none was.</param>
 /// <param name="Done">Whether the menu was closed, by a choice, by going back from the top menu, or by being sent away.</param>
-[DebuggerDisplay("MenuState: {Shown.Count} entries, cursor {Cursor}, done {Done}")]
-internal sealed record MenuState(MenuEntry[] Shown, MenuEntry[][] Parents, int Cursor, MenuEntry? Chosen, bool Done);
+[DebuggerDisplay("MenuState: {Shown.Length} entries, cursor {Cursor}, done {Done}")]
+internal sealed record MenuState(MenuEntry[] Shown, MenuEntry[][] Parents, int Cursor, int First, bool FollowCursor, MenuEntry? Chosen, bool Done);

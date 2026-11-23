@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using HyperPdf.ViewModels.Preferences;
 
 namespace HyperPdf.Viewer.Chrome.Forms;
@@ -26,42 +27,63 @@ internal sealed record PreferenceRow(
     /// <summary>Gets a value indicating whether a field row's text is secret and shown as dots.</summary>
     internal bool Masked { get; init; }
 
-    /// <summary>Makes the name of a group of settings.</summary>
-    /// <param name="label">The name in English.</param>
+    /// <summary>Gets a rule telling whether the row is shown right now, or <see langword="null"/> when it always is.</summary>
+    internal Func<PreferencesViewModel, bool>? Visible { get; init; }
+
+    /// <summary>Makes a section heading.</summary>
+    /// <param name="label">The heading in English.</param>
     /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PreferenceRow Heading(string label) =>
         new(FormRowKind.Heading, label, [], static _ => 0, static _ => string.Empty, static (_, _) => { });
 
-    /// <summary>Makes a setting with a list of values.</summary>
+    /// <summary>Makes a setting chosen from a list.</summary>
     /// <param name="label">The name in English.</param>
-    /// <param name="options">The values.</param>
-    /// <param name="get">Reads the chosen value.</param>
-    /// <param name="set">Writes the chosen value.</param>
+    /// <param name="options">The choices.</param>
+    /// <param name="get">Reads the chosen index.</param>
+    /// <param name="set">Writes the chosen index.</param>
     /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PreferenceRow Choice(string label, IReadOnlyList<string> options, Func<PreferencesViewModel, int> get, Action<PreferencesViewModel, int> set) =>
         new(FormRowKind.Choice, label, options, get, static _ => string.Empty, (preferences, edit) => set(preferences, edit.Index));
 
-    /// <summary>Makes a setting that is on or off.</summary>
+    /// <summary>Makes a setting that is either on or off.</summary>
     /// <param name="label">The name in English.</param>
     /// <param name="get">Reads whether it is on.</param>
-    /// <param name="set">Turns it on or off.</param>
+    /// <param name="set">Writes whether it is on.</param>
     /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PreferenceRow Toggle(string label, Func<PreferencesViewModel, bool> get, Action<PreferencesViewModel, bool> set) =>
         new(FormRowKind.Toggle, label, [], preferences => get(preferences) ? 1 : 0, static _ => string.Empty, (preferences, edit) => set(preferences, edit.On));
-
-    /// <summary>Makes a setting typed as text that is secret, which the dialog shows as dots.</summary>
-    /// <param name="label">The name in English.</param>
-    /// <param name="get">Reads the text.</param>
-    /// <param name="set">Writes the text.</param>
-    /// <returns>The row.</returns>
-    internal static PreferenceRow Secret(string label, Func<PreferencesViewModel, string> get, Action<PreferencesViewModel, string> set) =>
-        Field(label, get, set) with { Masked = true };
 
     /// <summary>Makes a setting typed as text.</summary>
     /// <param name="label">The name in English.</param>
     /// <param name="get">Reads the text.</param>
     /// <param name="set">Writes the text.</param>
     /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PreferenceRow Field(string label, Func<PreferencesViewModel, string> get, Action<PreferencesViewModel, string> set) =>
         new(FormRowKind.Field, label, [], static _ => 0, get, (preferences, edit) => set(preferences, edit.Text));
+
+    /// <summary>Makes a secret setting typed as text and shown as dots.</summary>
+    /// <param name="label">The name in English.</param>
+    /// <param name="get">Reads the secret.</param>
+    /// <param name="set">Writes the secret.</param>
+    /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PreferenceRow Secret(string label, Func<PreferencesViewModel, string> get, Action<PreferencesViewModel, string> set) =>
+        new(FormRowKind.Field, label, [], static _ => 0, get, (preferences, edit) => set(preferences, edit.Text)) { Masked = true };
+
+    /// <summary>Makes a dynamic status note read from the preferences.</summary>
+    /// <param name="text">Reads the text.</param>
+    /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PreferenceRow Status(Func<PreferencesViewModel, string> text) =>
+        new(FormRowKind.Text, string.Empty, [], static _ => 0, text, static (_, _) => { });
+
+    /// <summary>Makes a copy of the row that is shown only when a condition holds.</summary>
+    /// <param name="visible">Tells whether the row is shown.</param>
+    /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal PreferenceRow When(Func<PreferencesViewModel, bool> visible) => this with { Visible = visible };
 }
