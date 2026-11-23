@@ -32,6 +32,8 @@ internal sealed class ChromeActions : IDisposable
         ShowDocument = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowDocument, MainMenu.Document));
         ShowView = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowView, MainMenu.ReadingView));
         ShowZoom = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowZoom, static (_, tab) => ToolMenus.Zoom(tab)));
+        ShowVoices = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowVoices, static (_, tab) => ToolMenus.Voices(tab.ReadAloud)));
+        ShowSpeeds = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowSpeeds, static (_, tab) => ToolMenus.Speeds(tab.ReadAloud)));
         ShowMoreMarks = ReactiveCommand.Create(() => ShowMarksMenu(main, chrome, ShowMoreMarks));
         ShowFind = ReactiveCommand.Create(chrome.ShowFind);
         GoToPage = ReactiveCommand.Create(() => AskForPage(main, chrome));
@@ -91,6 +93,12 @@ internal sealed class ChromeActions : IDisposable
 
     /// <summary>Gets the command that opens the zoom choices.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowZoom { get; }
+
+    /// <summary>Gets the command that opens the list of every voice that can read aloud.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> ShowVoices { get; }
+
+    /// <summary>Gets the command that opens the list of reading speeds.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> ShowSpeeds { get; }
 
     /// <summary>Gets the command that opens the menu of the extra marking tools under its button.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowMoreMarks { get; }
@@ -158,6 +166,8 @@ internal sealed class ChromeActions : IDisposable
         ShowDocument.Dispose();
         ShowView.Dispose();
         ShowZoom.Dispose();
+        ShowVoices.Dispose();
+        ShowSpeeds.Dispose();
         ShowMoreMarks.Dispose();
         ShowFind.Dispose();
         GoToPage.Dispose();

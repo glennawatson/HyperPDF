@@ -102,12 +102,7 @@ internal static class PreferenceRows
         PreferenceRow.Toggle("Remember the shapes of small letters", static p => p.Sharpness.SmallTextMasks, static (p, on) => p.Sharpness.SmallTextMasks = on)
             .About("Draws small letters from shapes kept from the last time each was drawn."),
         PreferenceRow.Heading("Services"),
-        PreferenceRow.Choice("Read aloud voice", PreferencesViewModel.SpeechEngineOptions, static p => p.SpeechEngine, static (p, value) => p.SpeechEngine = value)
-            .About("The voice that reads pages aloud. The first two run on this computer."),
-        PreferenceRow.Field("Azure speech region", static p => p.AzureRegion, static (p, value) => p.AzureRegion = value).When(static p => p.UsesAzure)
-            .About("The region of your Azure Speech resource, such as australiaeast."),
-        PreferenceRow.Secret("Azure speech key", static p => p.AzureKey, static (p, value) => p.AzureKey = value).When(static p => p.UsesAzure)
-            .About("The key of your Azure Speech resource."),
+        PreferenceRow.Note("The voice for reading aloud, its speed and its Azure key are in Read Aloud Settings, on the Read Aloud bar and in the Reading Aids menu."),
         PreferenceRow.Field("Timestamp server for signing", static p => p.TimestampServer, static (p, value) => p.TimestampServer = value)
             .About("The address of a server that adds a trusted time to signatures you make with a certificate. Empty adds none."),
     ];

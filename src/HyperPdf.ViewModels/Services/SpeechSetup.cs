@@ -32,6 +32,12 @@ public sealed record SpeechSetup(
     public static string DefaultVoiceDirectory { get; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "hyperpdf", "voices");
 
+    /// <summary>
+    /// Gets every voice a person can pick, whichever engine speaks it: the two engines that run on this computer first, then
+    /// Azure. One list means a voice is picked without first picking its engine somewhere else.
+    /// </summary>
+    public static SpeechVoiceChoice[] AllVoices { get; } = ListAllVoices();
+
     /// <summary>Gets the downloads and file facts owned by this setup.</summary>
     private SpeechModelDownloader Downloads { get; init; } = new();
 
@@ -83,4 +89,28 @@ public sealed record SpeechSetup(
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => Downloads.Dispose();
+
+    /// <summary>Lists the voices of every engine, each with the engine that speaks it.</summary>
+    /// <returns>The voices.</returns>
+    private static SpeechVoiceChoice[] ListAllVoices()
+    {
+        var all = new List<SpeechVoiceChoice>();
+        AddVoices(all, SpeechEngineChoice.OnDevice, "MeloTTS", MeloModel.Voices);
+        AddVoices(all, SpeechEngineChoice.Kokoro, "Kokoro", KokoroModel.Voices);
+        AddVoices(all, SpeechEngineChoice.Azure, "Azure", AzureSpeechEngine.AzureVoices);
+        return [.. all];
+    }
+
+    /// <summary>Adds the voices of one engine.</summary>
+    /// <param name="all">Receives the voices.</param>
+    /// <param name="engine">The engine.</param>
+    /// <param name="name">The engine's name.</param>
+    /// <param name="voices">The engine's voices.</param>
+    private static void AddVoices(List<SpeechVoiceChoice> all, SpeechEngineChoice engine, string name, SpeechVoice[] voices)
+    {
+        foreach (var voice in voices)
+        {
+            all.Add(new(engine, name, voice));
+        }
+    }
 }

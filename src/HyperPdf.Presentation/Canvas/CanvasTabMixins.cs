@@ -73,6 +73,7 @@ public static class CanvasTabMixins
             tab.PartChanges<SearchViewModel>(static search => search.WhenChanged(static s => s.HighlightVersion).Skip(1).AsSignal()),
             tab.PartChanges<ReadAloudViewModel>(static reading => Signal.Merge(
                 reading.WhenChanged(static r => r.SpokenBounds).Skip(1).AsSignal(),
+                reading.WhenChanged(static r => r.DimRest).Skip(1).AsSignal(),
                 reading.WhenChanged(static r => r.MarksVersion).Skip(1).AsSignal())),
             tab.PartChanges<FocusModeViewModel>(static focus => focus.WhenChanged(static f => f.FocusBand).Skip(1).AsSignal()),
             tab.PartChanges<PageContentEditViewModel>(static edit => edit.WhenChanged(static e => e.MarksVersion).Skip(1).AsSignal()),

@@ -183,6 +183,9 @@
   <data name="A reading structure was guessed from the page layout. Check it with a screen reader before you rely on it." xml:space="preserve">
     <value>已根据页面布局推测阅读结构。使用前请通过屏幕阅读器检查。</value>
   </data>
+  <data name="A ready-made set of the sharpness choices below. Custom means the choices below match no set." xml:space="preserve">
+    <value>下方清晰度选项的一组预设。“自定义”表示下方选项与任何预设都不相符。</value>
+  </data>
   <data name="A script in this form was skipped. {0}" xml:space="preserve">
     <value>已跳过此表单中的一个脚本。{0}</value>
   </data>
@@ -495,6 +498,9 @@
   <data name="Always" xml:space="preserve">
     <value>始终</value>
   </data>
+  <data name="An Azure voice sends the words it reads to your Azure Speech resource. It needs that resource's region and key." xml:space="preserve">
+    <value>Azure 语音会把朗读的文字发送到你的 Azure Speech 资源。需要该资源的区域和密钥。</value>
+  </data>
   <data name="And {0} more." xml:space="preserve">
     <value>另有 {0} 项。</value>
   </data>
@@ -621,6 +627,9 @@
   <data name="Azure region" xml:space="preserve">
     <value>Azure 区域</value>
   </data>
+  <data name="Azure speech key" xml:space="preserve">
+    <value>Azure Speech 密钥</value>
+  </data>
   <data name="Azure speech region" xml:space="preserve">
     <value>Azure 语音区域</value>
   </data>
@@ -672,6 +681,12 @@
   <data name="Blend the pixels of pictures when they are made bigger or smaller. Turn this off to show the nearest source pixel, with hard edges." xml:space="preserve">
     <value>缩放图片时混合像素。关闭后显示最近的源像素，边缘清晰生硬。</value>
   </data>
+  <data name="Blends the edges of lines and shapes into the page." xml:space="preserve">
+    <value>使线条和形状的边缘与页面融合。</value>
+  </data>
+  <data name="Blends the pixels of a picture that is shown larger or smaller than it is, so it does not look blocky." xml:space="preserve">
+    <value>对放大或缩小显示的图片进行像素平滑，避免出现马赛克。</value>
+  </data>
   <data name="Blinking" xml:space="preserve">
     <value>闪烁</value>
   </data>
@@ -701,6 +716,9 @@
   </data>
   <data name="Bring back the tool bars and sidebar. Shortcut: Esc or Ctrl+H" xml:space="preserve">
     <value>恢复工具栏和侧边栏。快捷键：Esc 或 Ctrl+H</value>
+  </data>
+  <data name="Bring my settings back from before that" xml:space="preserve">
+    <value>恢复我之前的设置</value>
   </data>
   <data name="Bring the Picked Object Forward One Step" xml:space="preserve">
     <value>将所选对象上移一层</value>
@@ -911,6 +929,9 @@
   </data>
   <data name="Changes apply straight away and are kept for next time." xml:space="preserve">
     <value>更改立即生效，并保留供下次使用。</value>
+  </data>
+  <data name="Changes apply straight away and are kept for next time. Rest the pointer on a setting to read what it does." xml:space="preserve">
+    <value>更改会立即生效并保留到下次。将指针停在某项设置上即可查看其作用。</value>
   </data>
   <data name="Changing a portfolio of files" xml:space="preserve">
     <value>修改文件包</value>
@@ -1217,6 +1238,9 @@
   </data>
   <data name="Choose the voice that reads aloud." xml:space="preserve">
     <value>选择朗读语音。</value>
+  </data>
+  <data name="Choose the voice, how fast it reads and what is marked on the page. Each change is used at once." xml:space="preserve">
+    <value>选择语音、朗读速度以及页面上标记的内容。每项更改都会立即生效。</value>
   </data>
   <data name="Choose the zoom for new documents. Fit page shows the whole page. Fit width fills the width." xml:space="preserve">
     <value>选择新文档的缩放比例。适合页面显示整页，适合宽度填满视图宽度。</value>
@@ -1713,6 +1737,9 @@
   <data name="Darkest" xml:space="preserve">
     <value>最深</value>
   </data>
+  <data name="Default: {0}." xml:space="preserve">
+    <value>默认值：{0}。</value>
+  </data>
   <data name="Delete" xml:space="preserve">
     <value>删除</value>
   </data>
@@ -1763,6 +1790,12 @@
   </data>
   <data name="Dim text away from what is read aloud" xml:space="preserve">
     <value>淡化当前朗读内容之外的文本</value>
+  </data>
+  <data name="Dim the page away from what is read" xml:space="preserve">
+    <value>将朗读内容以外的页面调暗</value>
+  </data>
+  <data name="Dim the rest of the page" xml:space="preserve">
+    <value>调暗页面其余部分</value>
   </data>
   <data name="Dim the text away from the part being read aloud." xml:space="preserve">
     <value>调暗正在朗读部分以外的文本。</value>
@@ -1962,6 +1995,9 @@
   <data name="Draws form fields, comments and other marks into the page so they can no longer be changed." xml:space="preserve">
     <value>将表单字段、批注和其他标记绘制到页面中，使其无法再修改。</value>
   </data>
+  <data name="Draws small letters from shapes kept from the last time each was drawn." xml:space="preserve">
+    <value>用上次绘制时保留的形状来绘制小字。</value>
+  </data>
   <data name="Draws the signer, reason, location and date on the page, so people can see the signature." xml:space="preserve">
     <value>在页面上显示签名者、原因、位置和日期，以便查看签名。</value>
   </data>
@@ -2051,6 +2087,9 @@
   </data>
   <data name="Enter your Azure Speech key and region in Preferences, or choose the voice on this computer." xml:space="preserve">
     <value>在首选项中输入 Azure Speech 密钥和区域，或选择此计算机上的语音。</value>
+  </data>
+  <data name="Enter your Azure Speech key and region in the Read Aloud settings, or choose a voice that runs on this computer." xml:space="preserve">
+    <value>请在“朗读设置”中输入 Azure Speech 密钥和区域，或选择在本机运行的语音。</value>
   </data>
   <data name="Every page already has text, so there was nothing to recognise." xml:space="preserve">
     <value>每页均已有文本，无需识别。</value>
@@ -2403,6 +2442,9 @@
   <data name="Get the document ready" xml:space="preserve">
     <value>准备文档</value>
   </data>
+  <data name="Get this voice" xml:space="preserve">
+    <value>获取此语音</value>
+  </data>
   <data name="Getting the pages ready…" xml:space="preserve">
     <value>正在准备页面…</value>
   </data>
@@ -2532,17 +2574,29 @@
   <data name="Highlights and text marks" xml:space="preserve">
     <value>高亮和文本标记</value>
   </data>
+  <data name="How large a document is when it first opens." xml:space="preserve">
+    <value>文档首次打开时的显示大小。</value>
+  </data>
   <data name="How list items are labelled" xml:space="preserve">
     <value>列表项的标注方式</value>
   </data>
   <data name="How many rows or columns this table cell stretches across. Leave it at 1 for a normal cell." xml:space="preserve">
     <value>此单元格跨越的行数或列数。普通单元格保留为 1。</value>
   </data>
+  <data name="How much darker small text is drawn." xml:space="preserve">
+    <value>小号文字加深显示的程度。</value>
+  </data>
   <data name="How sharp a picture is, in dots to the inch. Higher is sharper and the file is larger. Drawings ignore it." xml:space="preserve">
     <value>图像清晰度，以每英寸点数 (DPI) 表示。数值越高越清晰，文件也越大。绘图不受此设置影响。</value>
   </data>
   <data name="How solid" xml:space="preserve">
     <value>不透明度</value>
+  </data>
+  <data name="How strongly the fields of a form are marked. Off shows no mark." xml:space="preserve">
+    <value>表单域标记的明显程度。“关”表示不标记。</value>
+  </data>
+  <data name="How the edges of letters are drawn. Smooth blends them into the page. Sharp makes each pixel fully dark or fully clear." xml:space="preserve">
+    <value>字母边缘的绘制方式。“平滑”使其与页面融合。“锐利”使每个像素要么全黑要么全透明。</value>
   </data>
   <data name="How the number is written" xml:space="preserve">
     <value>编号的写法</value>
@@ -2862,6 +2916,15 @@
   <data name="Let screen readers read the text" xml:space="preserve">
     <value>允许屏幕阅读器读取文本</value>
   </data>
+  <data name="Lets a document choose its page layout and reading direction, such as two pages side by side." xml:space="preserve">
+    <value>让文档自行决定页面布局和阅读方向，例如双页并排。</value>
+  </data>
+  <data name="Lets a document choose the page it opens at." xml:space="preserve">
+    <value>让文档自行决定打开时显示的页面。</value>
+  </data>
+  <data name="Lets a document choose the side panel it opens with, such as its bookmarks." xml:space="preserve">
+    <value>让文档自行决定打开时显示的侧边栏，例如书签。</value>
+  </data>
   <data name="Letter" xml:space="preserve">
     <value>Letter 纸张</value>
   </data>
@@ -3135,6 +3198,9 @@
   <data name="Mark _Text to Redact" xml:space="preserve">
     <value>标记密文处理文本(_T)</value>
   </data>
+  <data name="Mark each word as it is read" xml:space="preserve">
+    <value>朗读时标记每个词</value>
+  </data>
   <data name="Mark each word as it is read aloud." xml:space="preserve">
     <value>朗读时标记当前词语。</value>
   </data>
@@ -3329,6 +3395,12 @@
   </data>
   <data name="Moved." xml:space="preserve">
     <value>已移动。</value>
+  </data>
+  <data name="Moves the strokes of small letters onto whole pixels, so they look firmer." xml:space="preserve">
+    <value>把小字的笔画对齐到整像素，使其看起来更扎实。</value>
+  </data>
+  <data name="Moves thin lines onto whole pixels, so they are even and crisp." xml:space="preserve">
+    <value>把细线对齐到整像素，使其均匀清晰。</value>
   </data>
   <data name="Moves while a step is running." xml:space="preserve">
     <value>步骤运行时显示动态进度。</value>
@@ -3549,6 +3621,9 @@
   <data name="Offer this certificate next time. Only where the file is and the name in it are kept, never the password." xml:space="preserve">
     <value>下次提供此证书。仅保留文件位置及其中的名称，绝不保留密码。</value>
   </data>
+  <data name="Offers fonts for typing that show on screen but cannot be saved in a PDF." xml:space="preserve">
+    <value>提供可在屏幕上显示但无法保存到 PDF 的输入字体。</value>
+  </data>
   <data name="Older programs open it too. This is the only choice that can stop screen readers, so leave that permission on unless you are sure." xml:space="preserve">
     <value>旧程序也能打开。这是唯一可以阻止屏幕阅读器的选项，除非确定无需此功能，请保留阅读权限。</value>
   </data>
@@ -3686,6 +3761,12 @@
   </data>
   <data name="Opening…" xml:space="preserve">
     <value>正在打开…</value>
+  </data>
+  <data name="Opens a document at the page you were on when you last closed it." xml:space="preserve">
+    <value>在上次关闭时所在的页面打开文档。</value>
+  </data>
+  <data name="Opens documents with a text cursor on the page, which the keyboard moves." xml:space="preserve">
+    <value>打开文档时在页面上显示可用键盘移动的文本光标。</value>
   </data>
   <data name="Open…" xml:space="preserve">
     <value>打开…</value>
@@ -4188,6 +4269,9 @@
   <data name="Put every layer back to how the file sets it. The file does not change." xml:space="preserve">
     <value>将所有图层恢复为文件设定的状态。不会更改文件。</value>
   </data>
+  <data name="Put every setting back to its default" xml:space="preserve">
+    <value>将所有设置恢复为默认值</value>
+  </data>
   <data name="Put inside tag above" xml:space="preserve">
     <value>放入上方的标签</value>
   </data>
@@ -4224,6 +4308,9 @@
   <data name="Put the {0} tag inside the {1} tag above it. It is now one level deeper." xml:space="preserve">
     <value>将 {0} 标签移入上方的 {1} 标签。现在加深了一级。</value>
   </data>
+  <data name="Put this back to its default: {0}" xml:space="preserve">
+    <value>恢复为默认值：{0}</value>
+  </data>
   <data name="Put this tag inside the tag above" xml:space="preserve">
     <value>将此标签移入上方标签</value>
   </data>
@@ -4254,6 +4341,9 @@
   <data name="Read Aloud" xml:space="preserve">
     <value>朗读</value>
   </data>
+  <data name="Read Aloud _Settings…" xml:space="preserve">
+    <value>朗读设置(_S)…</value>
+  </data>
   <data name="Read Aloud voice" xml:space="preserve">
     <value>朗读语音</value>
   </data>
@@ -4271,6 +4361,9 @@
   </data>
   <data name="Read aloud" xml:space="preserve">
     <value>朗读</value>
+  </data>
+  <data name="Read aloud settings" xml:space="preserve">
+    <value>朗读设置</value>
   </data>
   <data name="Read aloud voice" xml:space="preserve">
     <value>朗读语音</value>
@@ -4667,6 +4760,9 @@
   </data>
   <data name="Reply to the note" xml:space="preserve">
     <value>回复注释</value>
+  </data>
+  <data name="Reset" xml:space="preserve">
+    <value>重置</value>
   </data>
   <data name="Reset Layers" xml:space="preserve">
     <value>重置图层</value>
@@ -5217,6 +5313,9 @@
   <data name="Set the scale as a percentage of the page's true size, from 10 to 400." xml:space="preserve">
     <value>将缩放比例设为页面实际大小的百分比，范围为 10 至 400。</value>
   </data>
+  <data name="Settings" xml:space="preserve">
+    <value>设置</value>
+  </data>
   <data name="Shape" xml:space="preserve">
     <value>形状</value>
   </data>
@@ -5415,14 +5514,23 @@
   <data name="Shown from {0} zoom" xml:space="preserve">
     <value>缩放达到 {0} 时显示</value>
   </data>
+  <data name="Shows every bookmark in the window's own text colour, whatever colour the document gives it." xml:space="preserve">
+    <value>所有书签都用窗口自身的文字颜色显示，不采用文档指定的颜色。</value>
+  </data>
   <data name="Shows how much of the copy is written." xml:space="preserve">
     <value>显示副本的写入进度。</value>
   </data>
   <data name="Shows the current zoom. Choose to fit the width, fit the whole page or pick a set size." xml:space="preserve">
     <value>显示当前缩放比例。可选择适合宽度、适合整页或固定比例。</value>
   </data>
+  <data name="Shows the title written inside a document on its tab, when the document asks for that." xml:space="preserve">
+    <value>当文档要求时，在标签页上显示文档内写入的标题。</value>
+  </data>
   <data name="Shrink oversized pages" xml:space="preserve">
     <value>缩小过大的页面</value>
+  </data>
+  <data name="Shrinks a big picture by averaging the pixels each screen pixel covers." xml:space="preserve">
+    <value>缩小大图时，对每个屏幕像素所覆盖的像素取平均。</value>
   </data>
   <data name="Side note" xml:space="preserve">
     <value>旁注</value>
@@ -5696,6 +5804,9 @@
   </data>
   <data name="Starting text recognition…" xml:space="preserve">
     <value>正在启动文本识别…</value>
+  </data>
+  <data name="Starts the print window with the choices a document asks for." xml:space="preserve">
+    <value>按文档要求的选项打开打印窗口。</value>
   </data>
   <data name="Status" xml:space="preserve">
     <value>状态</value>
@@ -6051,6 +6162,9 @@
   <data name="The PDF 2.0 standard no longer lets a file block screen readers, so this choice has no effect on the strong formats and they can still read the file." xml:space="preserve">
     <value>PDF 2.0 标准不再允许文件阻止屏幕阅读器，因此此选项对强加密格式无效，屏幕阅读器仍可读取文件。</value>
   </data>
+  <data name="The address of a server that adds a trusted time to signatures you make with a certificate. Empty adds none." xml:space="preserve">
+    <value>为用证书所做的签名添加可信时间的服务器地址。留空则不添加。</value>
+  </data>
   <data name="The app changes straight away. You can change this later in Preferences." xml:space="preserve">
     <value>应用会立即切换语言。您以后可以在“偏好设置”中更改。</value>
   </data>
@@ -6074,6 +6188,12 @@
   </data>
   <data name="The colour of the text and lines, as six hex digits such as FFFF00 for yellow." xml:space="preserve">
     <value>文本和线条的颜色，使用六位十六进制数表示，例如黄色为 FFFF00。</value>
+  </data>
+  <data name="The colour that marks the fields of a form you can fill in." xml:space="preserve">
+    <value>用于标记可填写表单域的颜色。</value>
+  </data>
+  <data name="The colours of the window. Calm is soft and low in glare. High contrast gives the strongest difference between words and background." xml:space="preserve">
+    <value>窗口的颜色。“平静”柔和且少眩光。“高对比度”让文字与背景的差别最大。</value>
   </data>
   <data name="The copy could not be flattened, so no file was saved. Here is why:" xml:space="preserve">
     <value>无法创建扁平化副本，未保存文件。原因如下：</value>
@@ -6180,6 +6300,9 @@
   <data name="The full licence text of the chosen component. You can select and copy parts of it." xml:space="preserve">
     <value>所选组件的完整许可证文本。可选择并复制其中的内容。</value>
   </data>
+  <data name="The ink colour of the custom page colours." xml:space="preserve">
+    <value>自定义页面颜色中的墨水颜色。</value>
+  </data>
   <data name="The language arrived damaged and was thrown away. Press the button to try again." xml:space="preserve">
     <value>下载的语言已损坏并丢弃。按按钮重试。</value>
   </data>
@@ -6188,6 +6311,9 @@
   </data>
   <data name="The language could not be saved: {0}" xml:space="preserve">
     <value>无法保存语言：{0}</value>
+  </data>
+  <data name="The language of the menus and windows. A change takes effect the next time HyperPDF starts." xml:space="preserve">
+    <value>菜单和窗口的语言。更改在下次启动 HyperPDF 时生效。</value>
   </data>
   <data name="The language of the text, such as en-AU. It is used only when the document does not say." xml:space="preserve">
     <value>文本的语言，例如 en-AU。仅在文档未指定语言时使用。</value>
@@ -6215,6 +6341,9 @@
   </data>
   <data name="The mark could not be placed on this page." xml:space="preserve">
     <value>无法在此页面上放置标记。</value>
+  </data>
+  <data name="The name written on notes you add. Empty uses this computer's user name." xml:space="preserve">
+    <value>写在你添加的备注上的名字。留空则使用本机的用户名。</value>
   </data>
   <data name="The natural voice runs on this computer and needs a one-time download of about {0}. " xml:space="preserve">
     <value>自然语音在此计算机上运行，需要一次性下载约 {0}。 </value>
@@ -6248,6 +6377,12 @@
   </data>
   <data name="The pages will look the same in years to come. Allows see-through effects and layers. Best for most files." xml:space="preserve">
     <value>多年后页面外观仍保持一致。支持透明效果和图层。适合大多数文件。</value>
+  </data>
+  <data name="The paper and ink colours that pages are shown in. It does not change the file or how it prints." xml:space="preserve">
+    <value>页面显示所用的纸张和墨水颜色。不会更改文件，也不影响打印。</value>
+  </data>
+  <data name="The paper colour of the custom page colours." xml:space="preserve">
+    <value>自定义页面颜色中的纸张颜色。</value>
   </data>
   <data name="The password is not right, or the file is not a certificate." xml:space="preserve">
     <value>密码不正确，或文件并非证书。</value>
@@ -6300,6 +6435,9 @@
   <data name="The simplest picture format, which many tools read. There is no transparency." xml:space="preserve">
     <value>最简单的图像格式，许多工具都能读取。不支持透明度。</value>
   </data>
+  <data name="The size of the words in menus, bars and windows. It does not change the page." xml:space="preserve">
+    <value>菜单、工具栏和窗口中文字的大小。不会改变页面。</value>
+  </data>
   <data name="The smallest file. Pictures are scaled to about 150 dots per inch and compressed harder, so fine detail in photos and scans may soften." xml:space="preserve">
     <value>最小文件。图片缩放至约 150 dpi 并加强压缩，因此照片和扫描图中的细节可能变模糊。</value>
   </data>
@@ -6320,6 +6458,9 @@
   </data>
   <data name="The text. Enter starts a new line." xml:space="preserve">
     <value>文本内容。按 Enter 换行。</value>
+  </data>
+  <data name="The thinnest a line is drawn, so very thin lines do not vanish." xml:space="preserve">
+    <value>线条的最小绘制粗细，以免极细的线消失。</value>
   </data>
   <data name="The timestamp from {0} does not match.{1}" xml:space="preserve">
     <value>来自 {0} 的时间戳不匹配。{1}</value>
@@ -6347,6 +6488,9 @@
   </data>
   <data name="The voice could not be saved: {0}" xml:space="preserve">
     <value>无法保存语音：{0}</value>
+  </data>
+  <data name="The voice for reading aloud, its speed and its Azure key are in Read Aloud Settings, on the Read Aloud bar and in the Reading Aids menu." xml:space="preserve">
+    <value>朗读的语音、速度和 Azure 密钥在“朗读设置”中，可从朗读栏和“阅读辅助”菜单打开。</value>
   </data>
   <data name="The voice runs on this computer, so nothing you read is sent anywhere. It is downloaded once, the first time you use Read Aloud." xml:space="preserve">
     <value>语音在此计算机上运行，您阅读的内容不会发送到任何地方。首次使用朗读功能时，只需下载一次。</value>
@@ -6837,6 +6981,9 @@
   <data name="Underlined" xml:space="preserve">
     <value>带下划线</value>
   </data>
+  <data name="Underlines misspelled words as you type in forms and notes." xml:space="preserve">
+    <value>在表单和备注中输入时为拼写错误的词加下划线。</value>
+  </data>
   <data name="Undo" xml:space="preserve">
     <value>撤销</value>
   </data>
@@ -7014,6 +7161,12 @@
   <data name="What became part of the page, what was left alone and why, or why the copy could not be made." xml:space="preserve">
     <value>哪些内容已变成页面的一部分、哪些保持不变及原因，或无法创建副本的原因。</value>
   </data>
+  <data name="What draws the window. Automatic uses the graphics card, or the processor when that cannot be used. Change it only if pages draw wrongly. It takes effect at the next start." xml:space="preserve">
+    <value>由什么来绘制窗口。“自动”使用显卡，显卡不可用时使用处理器。仅在页面显示不正确时才更改。下次启动时生效。</value>
+  </data>
+  <data name="What happens when another program saves over a file that is open here." xml:space="preserve">
+    <value>其他程序覆盖保存此处已打开的文件时如何处理。</value>
+  </data>
   <data name="What it is, for those who cannot see it" xml:space="preserve">
     <value>它是什么，供看不见的人使用</value>
   </data>
@@ -7134,14 +7287,29 @@
   <data name="Where the signed copy is saved and everything you should know about how it was made." xml:space="preserve">
     <value>签名副本的保存位置，以及有关其创建方式的所有须知。</value>
   </data>
+  <data name="Whether the text cursor blinks or stays steady." xml:space="preserve">
+    <value>文本光标是闪烁还是保持不动。</value>
+  </data>
   <data name="Whether this tag is its own block (Block), runs inside a line (Inline), or sits before, at the start or at the end of its text." xml:space="preserve">
     <value>此标签是独立块（Block）、行内内容（Inline），还是位于其文本之前、开头或末尾。</value>
+  </data>
+  <data name="Whether tool bar buttons show their names beside their icons." xml:space="preserve">
+    <value>工具栏按钮是否在图标旁显示名称。</value>
+  </data>
+  <data name="Whether zooming glides or jumps straight to the new size. Reduced jumps." xml:space="preserve">
+    <value>缩放是平滑过渡还是直接跳到新大小。“减弱”为直接跳转。</value>
   </data>
   <data name="Which cells this table header labels: the cells in its row, in its column, or both. Screen readers use it to say which header goes with a cell." xml:space="preserve">
     <value>此表头对应的单元格范围：所在行、所在列或两者。屏幕阅读器据此说明单元格对应的表头。</value>
   </data>
   <data name="Which look to keep" xml:space="preserve">
     <value>保留哪种外观</value>
+  </data>
+  <data name="While presenting, moves to the next page by itself after the time a page asks for." xml:space="preserve">
+    <value>演示时按页面要求的时间自动翻到下一页。</value>
+  </data>
+  <data name="While presenting, plays the page change effects a document asks for." xml:space="preserve">
+    <value>演示时播放文档要求的翻页效果。</value>
   </data>
   <data name="White" xml:space="preserve">
     <value>白色</value>
@@ -7841,6 +8009,9 @@
   </data>
   <data name="{0:0} × {1:0} mm" xml:space="preserve">
     <value>{0:0} × {1:0} 毫米</value>
+  </data>
+  <data name="{0} (default)" xml:space="preserve">
+    <value>{0}（默认）</value>
   </data>
   <data name="{0} (not saved)" xml:space="preserve">
     <value>{0}（未保存）</value>

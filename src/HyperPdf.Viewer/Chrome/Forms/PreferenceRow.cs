@@ -83,6 +83,13 @@ internal sealed record PreferenceRow(
     internal static PreferenceRow Secret(string label, Func<PreferencesViewModel, string> get, Action<PreferencesViewModel, string> set) =>
         new(FormRowKind.Field, label, [], static _ => 0, get, (preferences, edit) => set(preferences, edit.Text)) { Masked = true };
 
+    /// <summary>Makes a line of words that is always the same, such as where to find settings kept in another window.</summary>
+    /// <param name="text">The words in English, which are looked up in the language shown.</param>
+    /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static PreferenceRow Note(string text) =>
+        new(FormRowKind.Text, string.Empty, [], static _ => 0, _ => UiText.Get(text), static (_, _) => { });
+
     /// <summary>Makes a dynamic status note read from the preferences.</summary>
     /// <param name="text">Reads the text.</param>
     /// <returns>The row.</returns>

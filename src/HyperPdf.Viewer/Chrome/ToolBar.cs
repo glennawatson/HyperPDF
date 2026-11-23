@@ -10,4 +10,11 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="Text">What the tool or notice says.</param>
 /// <param name="Actions">What can be done, each with the command it runs and the icon that shows it.</param>
 [DebuggerDisplay("ToolBar: {Text}")]
-internal sealed record ToolBar(string Text, BarAction[] Actions);
+internal sealed record ToolBar(string Text, BarAction[] Actions)
+{
+    /// <summary>
+    /// Gets a value indicating whether the words have a line to themselves, above the buttons. A bar whose words change
+    /// while it is used, as the state of reading aloud does, sets it, so its buttons stay where they are.
+    /// </summary>
+    internal bool TextOnOwnLine { get; init; }
+}
