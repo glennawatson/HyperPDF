@@ -306,6 +306,34 @@ internal static class ToolForms
         FormSettings.Text<DocumentTabViewModel>(static m => m.CertificateError),
     ];
 
+    /// <summary>
+    /// The rows of the window of the reading aloud settings, which apply as they are changed: the voice, which brings its
+    /// engine with it, what that voice still needs, how fast it reads and what is marked on the page.
+    /// </summary>
+    private static readonly FormSetting<ReadAloudViewModel>[] ReadAloudRows =
+    [
+        FormSettings.Note<ReadAloudViewModel>("Choose the voice, how fast it reads and what is marked on the page. Each change is used at once."),
+        FormSettings.Pick<ReadAloudViewModel, string>(
+            "Voice",
+            static m => m.VoiceNames,
+            static name => name,
+            static m => m.VoiceName,
+            static (m, name) => m.VoiceIndex = Math.Max(0, Array.IndexOf(m.VoiceNames, name))),
+        FormSettings.Status<ReadAloudViewModel>(static m => m.StatusText).When(static m => m.NeedsVoice),
+        FormSettings.Action<ReadAloudViewModel>("Get this voice", static m => m.DownloadVoiceCommand).With(ChromeIcon.Add).When(static m => m.CanDownloadVoice),
+        FormSettings.Note<ReadAloudViewModel>("An Azure voice sends the words it reads to your Azure Speech resource. It needs that resource's region and key.").When(static m => m.UsesAzure),
+        FormSettings.Field<ReadAloudViewModel>("Azure speech region", static m => m.AzureRegion, static (m, text) => m.AzureRegion = text).When(static m => m.UsesAzure),
+        FormSettings.Secret<ReadAloudViewModel>("Azure speech key", static m => m.AzureKey, static (m, text) => m.AzureKey = text).When(static m => m.UsesAzure),
+        FormSettings.Pick<ReadAloudViewModel, string>(
+            "Speed",
+            static m => m.SpeedNames,
+            static name => name,
+            static m => m.SpeedName,
+            static (m, name) => m.SpeedIndex = Math.Max(0, Array.IndexOf(m.SpeedNames, name))),
+        FormSettings.Toggle<ReadAloudViewModel>("Dim the page away from what is read", static m => m.DimRest, static (m, on) => m.DimRest = on),
+        FormSettings.Toggle<ReadAloudViewModel>("Mark each word as it is read", static m => m.MarkWords, static (m, on) => m.MarkWords = on),
+    ];
+
     /// <summary>The rows of the window of Focus Mode's text settings, which apply as they are changed: the text, how it is spread, its colours, and what is marked while it is read aloud.</summary>
     private static readonly FormSetting<FocusModeViewModel>[] FocusRows =
     [
@@ -367,6 +395,12 @@ internal static class ToolForms
         AcceptCommand = tab.SubmitCertificateCommand,
         Answered = tab.WhenChanged(static t => t.NeedsCertificate).Where(static needed => !needed).Select(static _ => true),
     };
+
+    /// <summary>Makes the window of the reading aloud settings. The settings apply as they are changed.</summary>
+    /// <param name="aloud">Reading aloud.</param>
+    /// <returns>What the window shows.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormRequest ReadAloudSettings(ReadAloudViewModel aloud) => FormSettings.Window(UiText.Get("Read aloud settings"), aloud, ReadAloudRows);
 
     /// <summary>Makes the window of Focus Mode's text settings. It closes when it is closed; the settings apply as they are changed.</summary>
     /// <param name="focus">Focus Mode's view model.</param>

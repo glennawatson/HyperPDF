@@ -19,6 +19,9 @@ internal sealed class FormBuilder
     /// <summary>Marks the target of a field row whose text is secret, so the dialog shows it as dots.</summary>
     internal static readonly object MaskedField = new();
 
+    /// <summary>The mark an edit carries when it asks for a setting to be put back to the value it starts with.</summary>
+    internal static readonly object ResetRequest = new();
+
     /// <summary>The number of a row that cannot change.</summary>
     private const int NoId = -1;
 
@@ -98,6 +101,28 @@ internal sealed class FormBuilder
     /// <param name="id">The row's number.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Secret(string label, string value, int id) => Rows.Add(new(FormRowKind.Field, label, value, [], 0, true, id, MaskedField));
+
+    /// <summary>Makes the closed box of the list just added show these words, and not the chosen value as the open list words it.</summary>
+    /// <param name="text">The words the closed box shows.</param>
+    internal void Showing(string text)
+    {
+        if (Rows.Count > 0)
+        {
+            Rows[^1] = Rows[^1] with { Value = text };
+        }
+    }
+
+    /// <summary>Says more about the row just added: what it does, and whether and how it is put back to the value it starts with.</summary>
+    /// <param name="help">What the setting does, or <see langword="null"/>.</param>
+    /// <param name="canReset">Whether the setting has a value it starts with.</param>
+    /// <param name="resetHelp">What putting it back does, or <see langword="null"/> while it already has that value.</param>
+    internal void Explain(string? help, bool canReset, string? resetHelp)
+    {
+        if (Rows.Count > 0)
+        {
+            Rows[^1] = Rows[^1] with { Help = help, CanReset = canReset, ResetHelp = resetHelp };
+        }
+    }
 
     /// <summary>Adds something to do.</summary>
     /// <param name="label">What it does.</param>

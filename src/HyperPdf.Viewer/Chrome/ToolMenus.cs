@@ -213,7 +213,7 @@ internal static class ToolMenus
             Item("Read to the _End", aloud.ReadToEndCommand),
             Item("Sentence _Before", aloud.PreviousCommand),
             Item("_Next Sentence", aloud.NextCommand),
-            Item("Get a Better _Voice…", aloud.DownloadVoiceCommand),
+            Item("Read Aloud _Settings…", aloud.ShowSettingsCommand),
             MenuEntry.Separator(),
             MenuEntry.Radio(UiText.Get("_Focus Mode"), focus.ToggleCommand, null, focus.IsOn),
             Item("Larger Focus Text", focus.LargerCommand),
@@ -254,6 +254,45 @@ internal static class ToolMenus
         foreach (var level in ZoomLevels)
         {
             entries.Add(MenuEntry.Item(UiText.Format("Zoom to {0}%", level), null, tab.SetZoomCommand, level, true));
+        }
+
+        return entries;
+    }
+
+    /// <summary>Lists every voice that can read aloud, whichever engine speaks it, marking the one chosen. A rule sets each engine's voices apart.</summary>
+    /// <param name="aloud">Reading aloud.</param>
+    /// <returns>The voices.</returns>
+    internal static List<MenuEntry> Voices(HyperPdf.ViewModels.Reading.ReadAloudViewModel aloud)
+    {
+        var entries = new List<MenuEntry>(aloud.VoiceNames.Length + 1);
+        var engine = string.Empty;
+        for (var i = 0; i < aloud.VoiceNames.Length; i++)
+        {
+            // A voice is named with its engine first, so the words before the colon tell where one engine's voices end.
+            var name = aloud.VoiceNames[i];
+            var colon = name.IndexOf(':', StringComparison.Ordinal);
+            var of = colon > 0 ? name[..colon] : string.Empty;
+            if (i > 0 && !string.Equals(of, engine, StringComparison.Ordinal))
+            {
+                entries.Add(MenuEntry.Separator());
+            }
+
+            engine = of;
+            entries.Add(MenuEntry.Radio(name, aloud.ChooseVoiceCommand, name, i == aloud.VoiceIndex));
+        }
+
+        return entries;
+    }
+
+    /// <summary>Lists the reading speeds, marking the one chosen.</summary>
+    /// <param name="aloud">Reading aloud.</param>
+    /// <returns>The speeds.</returns>
+    internal static List<MenuEntry> Speeds(HyperPdf.ViewModels.Reading.ReadAloudViewModel aloud)
+    {
+        var entries = new List<MenuEntry>(aloud.SpeedNames.Length);
+        for (var i = 0; i < aloud.SpeedNames.Length; i++)
+        {
+            entries.Add(MenuEntry.Radio(aloud.SpeedNames[i], aloud.ChooseSpeedCommand, aloud.SpeedNames[i], i == aloud.SpeedIndex));
         }
 
         return entries;

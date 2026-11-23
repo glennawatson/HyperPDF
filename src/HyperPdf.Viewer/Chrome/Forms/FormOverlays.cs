@@ -90,6 +90,7 @@ internal static class FormOverlays
                 input.WherePad().SubscribeSafe(pointer => Draw(ui, changes, strokes, in pointer), ErrorTrace.Write),
                 presses.Where(static item => item.Action == OverlayAction.PickOption).SubscribeSafe(item => ChooseValue(request, builder, edits, changes, item.Index), ErrorTrace.Write),
                 presses.Where(static item => item.Action == OverlayAction.PickRow).SubscribeSafe(item => PressRow(request, builder, edits, changes, item.Index), ErrorTrace.Write),
+                presses.Where(static item => item.Action == OverlayAction.ResetRow).SubscribeSafe(item => ResetRow(request, builder, edits, item.Index), ErrorTrace.Write),
                 keys.Where(static key => key.Key == ViewerKey.Back).SubscribeSafe(_ => EditFocused(request, builder, ui, edits, ChromeText.WithoutLast), ErrorTrace.Write),
                 Signal.Merge(keys.Select(static key => LinesOf(key.Key)), input.SelectScrollRows()).Where(static lines => lines != 0)
                     .SubscribeSafe(lines => changes.OnNext(current => current with { First = Math.Max(0, current.First + lines) }), ErrorTrace.Write),
@@ -120,6 +121,40 @@ internal static class FormOverlays
     {
         builder.Rows.Clear();
         request.Describe(builder);
+    }
+
+    /// <summary>
+    /// Gets the room every line keeps at its end for the button that puts a setting back: a square as tall as a line, when
+    /// any row of the dialog has a value it starts with, and none otherwise.
+    /// </summary>
+    /// <param name="builder">The rows.</param>
+    /// <param name="metrics">The sizes.</param>
+    /// <returns>The room in device pixels.</returns>
+    private static int ResetRoom(FormBuilder builder, in ChromeMetrics metrics)
+    {
+        foreach (var row in builder.Rows)
+        {
+            if (row.CanReset)
+            {
+                return metrics.RowHeight + metrics.Gap;
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>Asks the view model to put the setting of a row back to the value it starts with.</summary>
+    /// <param name="request">What the dialog shows.</param>
+    /// <param name="builder">The rows.</param>
+    /// <param name="edits">Takes the change to the view model.</param>
+    /// <param name="index">The row.</param>
+    private static void ResetRow(FormRequest request, FormBuilder builder, Signal<FormEdit> edits, int index)
+    {
+        Describe(request, builder);
+        if ((uint)index < (uint)builder.Rows.Count && builder.Rows[index] is { CanReset: true, Id: >= 0 } row)
+        {
+            edits.OnNext(new(row.Id, 0, string.Empty, FormBuilder.ResetRequest));
+        }
     }
 
     /// <summary>Writes a new value of a row to the view model.</summary>
@@ -277,12 +312,13 @@ internal static class FormOverlays
 
         // The names of the settings share one column and their controls another, so every dialog reads as the same form.
         var labelWidth = (int)(rowsWidth * LabelShare);
+        var resetRoom = ResetRoom(builder, in metrics);
         var fit = new FormFit(
             runs,
             ChromeBars.Style(metrics),
-            inner - metrics.Padding - metrics.Padding,
+            inner - metrics.Padding - metrics.Padding - resetRoom,
             labelWidth - metrics.Padding - metrics.Padding,
-            rowsWidth - labelWidth - (metrics.Padding * ControlPaddings),
+            rowsWidth - labelWidth - (metrics.Padding * ControlPaddings) - resetRoom,
             metrics.RowHeight);
         var lines = FormLines.Flatten(builder, ui.Value with { Focus = focused }, in fit);
         var first = Math.Clamp(ui.Value.First, 0, Math.Max(0, lines.Count - VisibleLines));
@@ -303,16 +339,15 @@ internal static class FormOverlays
         Report(request, ui, changes, AddPicture(items, request, new(left + rowsWidth, y, pictureWidth - metrics.Padding, metrics.RowHeight * shown)) with { Tall = shown }, first);
 
         var last = Math.Min(lines.Count, first + shown);
-        FormLayout.AddLines(items, lines.GetRange(first, last - first), new(left, y, rowsWidth, metrics.RowHeight), new(labelWidth, metrics.Padding, metrics.Gap, runs, fit.Style));
+        var lineLook = new FormLineLook(labelWidth, metrics.Padding, metrics.Gap, runs, fit.Style) { ResetRoom = resetRoom, ResetName = UiText.Get("Reset") };
+        FormLayout.AddLines(items, lines.GetRange(first, last - first), new(left, y, rowsWidth, metrics.RowHeight), in lineLook);
         FormLayout.AddScrollBar(items, new(left + rowsWidth - metrics.Padding, y, metrics.Gap, metrics.RowHeight * shown), first, shown, lines.Count, place.Theme);
 
         var buttonsTop = top + height - metrics.ToolbarHeight - metrics.Padding + metrics.Gap;
         var buttonRow = new ChromeRow(items, runs, metrics, left + metrics.Padding, buttonsTop, metrics.ToolbarHeight - metrics.Gap - metrics.Gap) { Limit = left + rowsWidth - metrics.Padding };
-        var buttons = AddButtons(in buttonRow, request);
-        if (lines.Count > shown)
-        {
-            _ = buttons.Label(UiText.Format("Lines {0} to {1} of {2}", first + 1, last, lines.Count));
-        }
+
+        // The bar down the side already says how far through the rows the view is, so no count of lines is written out.
+        _ = AddButtons(in buttonRow, request);
     }
 
     /// <summary>Tells the state what this layout worked out: the first line, the picture and the pad, and the drawing a pad starts with.</summary>

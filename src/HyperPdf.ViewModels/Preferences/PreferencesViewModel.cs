@@ -58,6 +58,9 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
     /// <summary>Subscriptions writing each choice to the settings.</summary>
     private readonly MultipleDisposable _subscriptions = [];
 
+    /// <summary>The choices of a new install, made the first time they are asked for.</summary>
+    private PreferencesViewModel? _defaults;
+
     /// <summary>Initializes a new instance of the <see cref="PreferencesViewModel"/> class.</summary>
     /// <param name="services">The application services.</param>
     public PreferencesViewModel(AppServices services)
@@ -68,8 +71,23 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
         _subscriptions.Add(OcrLanguages);
         Sharpness = new(services);
         _subscriptions.Add(Sharpness);
-        Load();
+        Load(services.Settings);
         Follow();
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PreferencesViewModel"/> class that shows settings without following them:
+    /// it reads each choice once and writes nothing back. It is how the choices of a new install are read.
+    /// </summary>
+    /// <param name="live">The preferences whose services and recognition languages it shares.</param>
+    /// <param name="shown">The settings to show.</param>
+    private PreferencesViewModel(PreferencesViewModel live, AppSettings shown)
+    {
+        _services = live._services;
+        OcrLanguages = live.OcrLanguages;
+        Sharpness = SharpnessViewModel.Showing(_services, shown.Sharpness);
+        _subscriptions.Add(Sharpness);
+        Load(shown);
     }
 
     /// <summary>Gets the interface languages, named in their own language.</summary>
@@ -124,6 +142,12 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
 
     /// <summary>Gets the text and image sharpness choices.</summary>
     public SharpnessViewModel Sharpness { get; }
+
+    /// <summary>
+    /// Gets the same choices as a new install has them, so a window can say what each setting starts as and put one back.
+    /// Changing it changes nothing: it is only read.
+    /// </summary>
+    public PreferencesViewModel Defaults => _defaults ??= new(this, new());
 
     /// <summary>Gets or sets the Read Aloud engine index.</summary>
     [Reactive(nameof(UsesAzure))]
@@ -272,6 +296,19 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string GetInterfaceLanguageCode(int index) => InterfaceLanguageCodes[Math.Clamp(index, 0, InterfaceLanguageCodes.Length - 1)];
 
+    /// <summary>
+    /// Tells whether this computer can use one of the <see cref="RenderBackendOptions"/>. Direct3D is only on Windows, and
+    /// Vulkan is on Windows and Linux. macOS draws with Metal, which is its automatic choice.
+    /// </summary>
+    /// <param name="index">The index of the choice.</param>
+    /// <returns><see langword="true"/> when the choice can be used here.</returns>
+    public static bool IsRenderBackendOffered(int index) => (RenderBackendSetting)index switch
+    {
+        RenderBackendSetting.Direct3D11 or RenderBackendSetting.Direct3D12 => OperatingSystem.IsWindows(),
+        RenderBackendSetting.Vulkan => OperatingSystem.IsWindows() || OperatingSystem.IsLinux(),
+        _ => true,
+    };
+
     /// <summary>Gets the language selector index of a persisted culture code.</summary>
     /// <param name="code">The culture code, or an empty string for the desktop language.</param>
     /// <returns>The index, or 0 (follow the desktop) when the code is not offered.</returns>
@@ -279,8 +316,11 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
     public static int GetInterfaceLanguageIndex(string code) => Math.Max(0, Array.IndexOf(InterfaceLanguageCodes, code));
 
     /// <inheritdoc/>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose() => _subscriptions.Dispose();
+    public void Dispose()
+    {
+        _defaults?.Dispose();
+        _subscriptions.Dispose();
+    }
 
     /// <inheritdoc/>
     void ILocalisationChildren.Refresh(HashSet<object> visited)
@@ -350,10 +390,10 @@ public sealed partial class PreferencesViewModel : ReactiveObject, IDisposable, 
         return best;
     }
 
-    /// <summary>Loads each choice from the settings.</summary>
-    private void Load()
+    /// <summary>Loads each choice from settings.</summary>
+    /// <param name="settings">The settings to show.</param>
+    private void Load(AppSettings settings)
     {
-        var settings = _services.Settings;
         InterfaceLanguage = Math.Max(0, Array.IndexOf(InterfaceLanguageCodes, settings.InterfaceLanguage));
         SpeechEngine = Math.Max(0, Array.IndexOf(SpeechEngineChoices, settings.SpeechEngine));
         AzureKey = settings.AzureSpeechKey;

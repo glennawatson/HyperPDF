@@ -183,6 +183,9 @@
   <data name="A reading structure was guessed from the page layout. Check it with a screen reader before you rely on it." xml:space="preserve">
     <value>Se dedujo una estructura de lectura a partir de la disposición de la página. Compruébela con un lector de pantalla antes de utilizarla.</value>
   </data>
+  <data name="A ready-made set of the sharpness choices below. Custom means the choices below match no set." xml:space="preserve">
+    <value>Un conjunto ya preparado de los ajustes de nitidez de abajo. Personalizado significa que no coinciden con ningún conjunto.</value>
+  </data>
   <data name="A script in this form was skipped. {0}" xml:space="preserve">
     <value>Se omitió un script de este formulario. {0}</value>
   </data>
@@ -495,6 +498,9 @@
   <data name="Always" xml:space="preserve">
     <value>Siempre</value>
   </data>
+  <data name="An Azure voice sends the words it reads to your Azure Speech resource. It needs that resource's region and key." xml:space="preserve">
+    <value>Una voz de Azure envía las palabras que lee a su recurso de Azure Speech. Necesita la región y la clave de ese recurso.</value>
+  </data>
   <data name="And {0} more." xml:space="preserve">
     <value>Y {0} más.</value>
   </data>
@@ -621,6 +627,9 @@
   <data name="Azure region" xml:space="preserve">
     <value>Región de Azure</value>
   </data>
+  <data name="Azure speech key" xml:space="preserve">
+    <value>Clave de Azure Speech</value>
+  </data>
   <data name="Azure speech region" xml:space="preserve">
     <value>Región de voz de Azure</value>
   </data>
@@ -672,6 +681,12 @@
   <data name="Blend the pixels of pictures when they are made bigger or smaller. Turn this off to show the nearest source pixel, with hard edges." xml:space="preserve">
     <value>Interpolar los píxeles de las imágenes al ampliarlas o reducirlas. Desactive esta opción para mostrar el píxel de origen más cercano, con bordes definidos.</value>
   </data>
+  <data name="Blends the edges of lines and shapes into the page." xml:space="preserve">
+    <value>Funde los bordes de líneas y formas con la página.</value>
+  </data>
+  <data name="Blends the pixels of a picture that is shown larger or smaller than it is, so it does not look blocky." xml:space="preserve">
+    <value>Funde los píxeles de una imagen mostrada más grande o más pequeña de lo que es, para que no se vea en bloques.</value>
+  </data>
   <data name="Blinking" xml:space="preserve">
     <value>Intermitente</value>
   </data>
@@ -701,6 +716,9 @@
   </data>
   <data name="Bring back the tool bars and sidebar. Shortcut: Esc or Ctrl+H" xml:space="preserve">
     <value>Restaurar las barras de herramientas y la barra lateral. Atajo: Esc o Ctrl+H</value>
+  </data>
+  <data name="Bring my settings back from before that" xml:space="preserve">
+    <value>Recuperar mis ajustes de antes</value>
   </data>
   <data name="Bring the Picked Object Forward One Step" xml:space="preserve">
     <value>Traer el objeto elegido un nivel adelante</value>
@@ -911,6 +929,9 @@
   </data>
   <data name="Changes apply straight away and are kept for next time." xml:space="preserve">
     <value>Los cambios se aplican de inmediato y se conservan para la próxima vez.</value>
+  </data>
+  <data name="Changes apply straight away and are kept for next time. Rest the pointer on a setting to read what it does." xml:space="preserve">
+    <value>Los cambios se aplican al momento y se conservan. Deje el puntero sobre un ajuste para leer qué hace.</value>
   </data>
   <data name="Changing a portfolio of files" xml:space="preserve">
     <value>Modificación de una cartera de archivos</value>
@@ -1217,6 +1238,9 @@
   </data>
   <data name="Choose the voice that reads aloud." xml:space="preserve">
     <value>Elija la voz para la lectura en voz alta.</value>
+  </data>
+  <data name="Choose the voice, how fast it reads and what is marked on the page. Each change is used at once." xml:space="preserve">
+    <value>Elija la voz, la velocidad de lectura y qué se marca en la página. Cada cambio se aplica al momento.</value>
   </data>
   <data name="Choose the zoom for new documents. Fit page shows the whole page. Fit width fills the width." xml:space="preserve">
     <value>Elija el nivel de zoom para los documentos nuevos. Ajustar página muestra la página completa. Ajustar ancho ocupa todo el ancho.</value>
@@ -1713,6 +1737,9 @@
   <data name="Darkest" xml:space="preserve">
     <value>El más oscuro</value>
   </data>
+  <data name="Default: {0}." xml:space="preserve">
+    <value>Predeterminado: {0}.</value>
+  </data>
   <data name="Delete" xml:space="preserve">
     <value>Eliminar</value>
   </data>
@@ -1763,6 +1790,12 @@
   </data>
   <data name="Dim text away from what is read aloud" xml:space="preserve">
     <value>Atenuar el texto que no se está leyendo en voz alta</value>
+  </data>
+  <data name="Dim the page away from what is read" xml:space="preserve">
+    <value>Atenuar la página fuera de lo que se lee</value>
+  </data>
+  <data name="Dim the rest of the page" xml:space="preserve">
+    <value>Atenuar el resto de la página</value>
   </data>
   <data name="Dim the text away from the part being read aloud." xml:space="preserve">
     <value>Atenuar el texto ajeno a la parte que se está leyendo en voz alta.</value>
@@ -1962,6 +1995,9 @@
   <data name="Draws form fields, comments and other marks into the page so they can no longer be changed." xml:space="preserve">
     <value>Integra los campos de formulario, comentarios y otras marcas en la página para que ya no puedan modificarse.</value>
   </data>
+  <data name="Draws small letters from shapes kept from the last time each was drawn." xml:space="preserve">
+    <value>Dibuja las letras pequeñas a partir de formas guardadas de la última vez que se dibujaron.</value>
+  </data>
   <data name="Draws the signer, reason, location and date on the page, so people can see the signature." xml:space="preserve">
     <value>Muestra el firmante, el motivo, la ubicación y la fecha en la página para que la firma sea visible.</value>
   </data>
@@ -2051,6 +2087,9 @@
   </data>
   <data name="Enter your Azure Speech key and region in Preferences, or choose the voice on this computer." xml:space="preserve">
     <value>Introduzca su clave y región de Azure Speech en Preferencias, o seleccione la voz de este equipo.</value>
+  </data>
+  <data name="Enter your Azure Speech key and region in the Read Aloud settings, or choose a voice that runs on this computer." xml:space="preserve">
+    <value>Escriba su clave y región de Azure Speech en los ajustes de lectura en voz alta, o elija una voz que funcione en este equipo.</value>
   </data>
   <data name="Every page already has text, so there was nothing to recognise." xml:space="preserve">
     <value>Todas las páginas ya tienen texto, por lo que no había nada que reconocer.</value>
@@ -2403,6 +2442,9 @@
   <data name="Get the document ready" xml:space="preserve">
     <value>Preparar el documento</value>
   </data>
+  <data name="Get this voice" xml:space="preserve">
+    <value>Obtener esta voz</value>
+  </data>
   <data name="Getting the pages ready…" xml:space="preserve">
     <value>Preparando las páginas…</value>
   </data>
@@ -2532,17 +2574,29 @@
   <data name="Highlights and text marks" xml:space="preserve">
     <value>Resaltados y marcas de texto</value>
   </data>
+  <data name="How large a document is when it first opens." xml:space="preserve">
+    <value>El tamaño con que se muestra un documento al abrirlo.</value>
+  </data>
   <data name="How list items are labelled" xml:space="preserve">
     <value>Cómo se etiquetan los elementos de la lista</value>
   </data>
   <data name="How many rows or columns this table cell stretches across. Leave it at 1 for a normal cell." xml:space="preserve">
     <value>Número de filas o columnas que abarca esta celda de tabla. Déjelo en 1 para una celda normal.</value>
   </data>
+  <data name="How much darker small text is drawn." xml:space="preserve">
+    <value>Cuánto más oscuro se dibuja el texto pequeño.</value>
+  </data>
   <data name="How sharp a picture is, in dots to the inch. Higher is sharper and the file is larger. Drawings ignore it." xml:space="preserve">
     <value>Nitidez de una imagen, en puntos por pulgada. Un valor mayor ofrece más nitidez y un archivo más grande. No se aplica a dibujos.</value>
   </data>
   <data name="How solid" xml:space="preserve">
     <value>Opacidad</value>
+  </data>
+  <data name="How strongly the fields of a form are marked. Off shows no mark." xml:space="preserve">
+    <value>La intensidad con que se señalan los campos de formulario. Desactivado no muestra ninguna señal.</value>
+  </data>
+  <data name="How the edges of letters are drawn. Smooth blends them into the page. Sharp makes each pixel fully dark or fully clear." xml:space="preserve">
+    <value>Cómo se dibujan los bordes de las letras. Suave los funde con la página. Nítido hace cada píxel totalmente oscuro o totalmente claro.</value>
   </data>
   <data name="How the number is written" xml:space="preserve">
     <value>Cómo se escribe el número</value>
@@ -2862,6 +2916,15 @@
   <data name="Let screen readers read the text" xml:space="preserve">
     <value>Permitir a los lectores de pantalla leer el texto</value>
   </data>
+  <data name="Lets a document choose its page layout and reading direction, such as two pages side by side." xml:space="preserve">
+    <value>Deja que un documento elija su disposición de página y sentido de lectura, como dos páginas una junto a otra.</value>
+  </data>
+  <data name="Lets a document choose the page it opens at." xml:space="preserve">
+    <value>Deja que un documento elija la página en la que se abre.</value>
+  </data>
+  <data name="Lets a document choose the side panel it opens with, such as its bookmarks." xml:space="preserve">
+    <value>Deja que un documento elija el panel lateral con el que se abre, como sus marcadores.</value>
+  </data>
   <data name="Letter" xml:space="preserve">
     <value>Carta</value>
   </data>
@@ -3135,6 +3198,9 @@
   <data name="Mark _Text to Redact" xml:space="preserve">
     <value>Marcar _texto para censurar</value>
   </data>
+  <data name="Mark each word as it is read" xml:space="preserve">
+    <value>Marcar cada palabra al leerla</value>
+  </data>
   <data name="Mark each word as it is read aloud." xml:space="preserve">
     <value>Resalte cada palabra mientras se lee en voz alta.</value>
   </data>
@@ -3329,6 +3395,12 @@
   </data>
   <data name="Moved." xml:space="preserve">
     <value>Movido.</value>
+  </data>
+  <data name="Moves the strokes of small letters onto whole pixels, so they look firmer." xml:space="preserve">
+    <value>Coloca los trazos de las letras pequeñas sobre píxeles enteros, para que se vean más firmes.</value>
+  </data>
+  <data name="Moves thin lines onto whole pixels, so they are even and crisp." xml:space="preserve">
+    <value>Coloca las líneas finas sobre píxeles enteros, para que sean uniformes y nítidas.</value>
   </data>
   <data name="Moves while a step is running." xml:space="preserve">
     <value>Se mueve mientras se ejecuta un paso.</value>
@@ -3549,6 +3621,9 @@
   <data name="Offer this certificate next time. Only where the file is and the name in it are kept, never the password." xml:space="preserve">
     <value>Ofrecer este certificado la próxima vez. Solo se guardan la ubicación del archivo y el nombre que contiene, nunca la contraseña.</value>
   </data>
+  <data name="Offers fonts for typing that show on screen but cannot be saved in a PDF." xml:space="preserve">
+    <value>Ofrece fuentes para escribir que se ven en pantalla pero no pueden guardarse en un PDF.</value>
+  </data>
   <data name="Older programs open it too. This is the only choice that can stop screen readers, so leave that permission on unless you are sure." xml:space="preserve">
     <value>También lo abren programas antiguos. Esta es la única opción que puede bloquear los lectores de pantalla; mantenga ese permiso activado salvo que esté seguro.</value>
   </data>
@@ -3686,6 +3761,12 @@
   </data>
   <data name="Opening…" xml:space="preserve">
     <value>Abriendo…</value>
+  </data>
+  <data name="Opens a document at the page you were on when you last closed it." xml:space="preserve">
+    <value>Abre un documento en la página en la que estaba cuando lo cerró por última vez.</value>
+  </data>
+  <data name="Opens documents with a text cursor on the page, which the keyboard moves." xml:space="preserve">
+    <value>Abre los documentos con un cursor de texto en la página, que se mueve con el teclado.</value>
   </data>
   <data name="Open…" xml:space="preserve">
     <value>Abrir…</value>
@@ -4188,6 +4269,9 @@
   <data name="Put every layer back to how the file sets it. The file does not change." xml:space="preserve">
     <value>Restablecer cada capa según lo definido en el archivo. El archivo no cambia.</value>
   </data>
+  <data name="Put every setting back to its default" xml:space="preserve">
+    <value>Restablecer todos los ajustes predeterminados</value>
+  </data>
   <data name="Put inside tag above" xml:space="preserve">
     <value>Poner dentro de la etiqueta de arriba</value>
   </data>
@@ -4224,6 +4308,9 @@
   <data name="Put the {0} tag inside the {1} tag above it. It is now one level deeper." xml:space="preserve">
     <value>Se ha colocado la etiqueta {0} dentro de la etiqueta {1} situada encima. Ahora está un nivel más abajo.</value>
   </data>
+  <data name="Put this back to its default: {0}" xml:space="preserve">
+    <value>Restablecer el valor predeterminado: {0}</value>
+  </data>
   <data name="Put this tag inside the tag above" xml:space="preserve">
     <value>Colocar esta etiqueta dentro de la anterior</value>
   </data>
@@ -4254,6 +4341,9 @@
   <data name="Read Aloud" xml:space="preserve">
     <value>Leer en voz alta</value>
   </data>
+  <data name="Read Aloud _Settings…" xml:space="preserve">
+    <value>_Ajustes de lectura en voz alta…</value>
+  </data>
   <data name="Read Aloud voice" xml:space="preserve">
     <value>Voz de lectura en voz alta</value>
   </data>
@@ -4271,6 +4361,9 @@
   </data>
   <data name="Read aloud" xml:space="preserve">
     <value>Leer en voz alta</value>
+  </data>
+  <data name="Read aloud settings" xml:space="preserve">
+    <value>Ajustes de lectura en voz alta</value>
   </data>
   <data name="Read aloud voice" xml:space="preserve">
     <value>Voz de lectura en voz alta</value>
@@ -4667,6 +4760,9 @@
   </data>
   <data name="Reply to the note" xml:space="preserve">
     <value>Responder a la nota</value>
+  </data>
+  <data name="Reset" xml:space="preserve">
+    <value>Restablecer</value>
   </data>
   <data name="Reset Layers" xml:space="preserve">
     <value>Restablecer capas</value>
@@ -5217,6 +5313,9 @@
   <data name="Set the scale as a percentage of the page's true size, from 10 to 400." xml:space="preserve">
     <value>Establezca la escala como porcentaje del tamaño real de la página, de 10 a 400.</value>
   </data>
+  <data name="Settings" xml:space="preserve">
+    <value>Ajustes</value>
+  </data>
   <data name="Shape" xml:space="preserve">
     <value>Forma</value>
   </data>
@@ -5415,14 +5514,23 @@
   <data name="Shown from {0} zoom" xml:space="preserve">
     <value>Se muestra a partir de un zoom de {0}</value>
   </data>
+  <data name="Shows every bookmark in the window's own text colour, whatever colour the document gives it." xml:space="preserve">
+    <value>Muestra todos los marcadores con el color de texto de la ventana, sea cual sea el que les dé el documento.</value>
+  </data>
   <data name="Shows how much of the copy is written." xml:space="preserve">
     <value>Muestra cuánto de la copia se ha escrito.</value>
   </data>
   <data name="Shows the current zoom. Choose to fit the width, fit the whole page or pick a set size." xml:space="preserve">
     <value>Muestra el zoom actual. Permite ajustar al ancho, ajustar la página completa o elegir un tamaño fijo.</value>
   </data>
+  <data name="Shows the title written inside a document on its tab, when the document asks for that." xml:space="preserve">
+    <value>Muestra en la pestaña el título escrito dentro del documento, cuando el documento lo pide.</value>
+  </data>
   <data name="Shrink oversized pages" xml:space="preserve">
     <value>Reducir páginas demasiado grandes</value>
+  </data>
+  <data name="Shrinks a big picture by averaging the pixels each screen pixel covers." xml:space="preserve">
+    <value>Reduce una imagen grande promediando los píxeles que cubre cada píxel de pantalla.</value>
   </data>
   <data name="Side note" xml:space="preserve">
     <value>Nota al margen</value>
@@ -5696,6 +5804,9 @@
   </data>
   <data name="Starting text recognition…" xml:space="preserve">
     <value>Iniciando reconocimiento de texto…</value>
+  </data>
+  <data name="Starts the print window with the choices a document asks for." xml:space="preserve">
+    <value>Abre la ventana de impresión con las opciones que pide el documento.</value>
   </data>
   <data name="Status" xml:space="preserve">
     <value>Estado</value>
@@ -6051,6 +6162,9 @@
   <data name="The PDF 2.0 standard no longer lets a file block screen readers, so this choice has no effect on the strong formats and they can still read the file." xml:space="preserve">
     <value>La norma PDF 2.0 ya no permite que un archivo bloquee los lectores de pantalla, por lo que esta opción no tiene efecto en los formatos fuertes y estos lectores pueden seguir leyendo el archivo.</value>
   </data>
+  <data name="The address of a server that adds a trusted time to signatures you make with a certificate. Empty adds none." xml:space="preserve">
+    <value>La dirección de un servidor que añade una hora de confianza a las firmas hechas con certificado. Vacío no añade ninguna.</value>
+  </data>
   <data name="The app changes straight away. You can change this later in Preferences." xml:space="preserve">
     <value>La aplicación cambia al instante. Puedes cambiarlo más tarde en Preferencias.</value>
   </data>
@@ -6074,6 +6188,12 @@
   </data>
   <data name="The colour of the text and lines, as six hex digits such as FFFF00 for yellow." xml:space="preserve">
     <value>El color del texto y de las líneas, expresado en seis dígitos hexadecimales, como FFFF00 para el amarillo.</value>
+  </data>
+  <data name="The colour that marks the fields of a form you can fill in." xml:space="preserve">
+    <value>El color que señala los campos de formulario que puede rellenar.</value>
+  </data>
+  <data name="The colours of the window. Calm is soft and low in glare. High contrast gives the strongest difference between words and background." xml:space="preserve">
+    <value>Los colores de la ventana. Calma es suave y deslumbra poco. Alto contraste da la mayor diferencia entre el texto y el fondo.</value>
   </data>
   <data name="The copy could not be flattened, so no file was saved. Here is why:" xml:space="preserve">
     <value>No se pudo acoplar la copia, por lo que no se guardó ningún archivo. Este es el motivo:</value>
@@ -6180,6 +6300,9 @@
   <data name="The full licence text of the chosen component. You can select and copy parts of it." xml:space="preserve">
     <value>El texto completo de la licencia del componente elegido. Puede seleccionar y copiar partes del texto.</value>
   </data>
+  <data name="The ink colour of the custom page colours." xml:space="preserve">
+    <value>El color de la tinta de los colores de página personalizados.</value>
+  </data>
   <data name="The language arrived damaged and was thrown away. Press the button to try again." xml:space="preserve">
     <value>El idioma se ha recibido dañado y se ha descartado. Pulse el botón para volver a intentarlo.</value>
   </data>
@@ -6188,6 +6311,9 @@
   </data>
   <data name="The language could not be saved: {0}" xml:space="preserve">
     <value>No se ha podido guardar el idioma: {0}</value>
+  </data>
+  <data name="The language of the menus and windows. A change takes effect the next time HyperPDF starts." xml:space="preserve">
+    <value>El idioma de los menús y las ventanas. El cambio se aplica la próxima vez que se inicie HyperPDF.</value>
   </data>
   <data name="The language of the text, such as en-AU. It is used only when the document does not say." xml:space="preserve">
     <value>El idioma del texto, por ejemplo, en-AU. Solo se utiliza cuando el documento no lo indica.</value>
@@ -6215,6 +6341,9 @@
   </data>
   <data name="The mark could not be placed on this page." xml:space="preserve">
     <value>No se pudo colocar la marca en esta página.</value>
+  </data>
+  <data name="The name written on notes you add. Empty uses this computer's user name." xml:space="preserve">
+    <value>El nombre que se escribe en las notas que añade. Vacío usa el nombre de usuario de este equipo.</value>
   </data>
   <data name="The natural voice runs on this computer and needs a one-time download of about {0}. " xml:space="preserve">
     <value>La voz natural se ejecuta en este equipo y requiere una descarga única de unos {0}. </value>
@@ -6248,6 +6377,12 @@
   </data>
   <data name="The pages will look the same in years to come. Allows see-through effects and layers. Best for most files." xml:space="preserve">
     <value>Las páginas conservarán su aspecto durante años. Permite transparencias y capas. La mejor opción para la mayoría de los archivos.</value>
+  </data>
+  <data name="The paper and ink colours that pages are shown in. It does not change the file or how it prints." xml:space="preserve">
+    <value>Los colores de papel y tinta con que se muestran las páginas. No cambia el archivo ni cómo se imprime.</value>
+  </data>
+  <data name="The paper colour of the custom page colours." xml:space="preserve">
+    <value>El color del papel de los colores de página personalizados.</value>
   </data>
   <data name="The password is not right, or the file is not a certificate." xml:space="preserve">
     <value>La contraseña es incorrecta o el archivo no es un certificado.</value>
@@ -6300,6 +6435,9 @@
   <data name="The simplest picture format, which many tools read. There is no transparency." xml:space="preserve">
     <value>El formato de imagen más sencillo, compatible con muchas herramientas. No admite transparencia.</value>
   </data>
+  <data name="The size of the words in menus, bars and windows. It does not change the page." xml:space="preserve">
+    <value>El tamaño del texto de menús, barras y ventanas. No cambia la página.</value>
+  </data>
   <data name="The smallest file. Pictures are scaled to about 150 dots per inch and compressed harder, so fine detail in photos and scans may soften." xml:space="preserve">
     <value>El archivo más pequeño. Las imágenes se reducen a unos 150 puntos por pulgada y se comprimen más, por lo que los detalles finos de fotos y escaneos pueden perder nitidez.</value>
   </data>
@@ -6320,6 +6458,9 @@
   </data>
   <data name="The text. Enter starts a new line." xml:space="preserve">
     <value>El texto. Intro inicia una línea nueva.</value>
+  </data>
+  <data name="The thinnest a line is drawn, so very thin lines do not vanish." xml:space="preserve">
+    <value>El grosor mínimo de una línea, para que las líneas muy finas no desaparezcan.</value>
   </data>
   <data name="The timestamp from {0} does not match.{1}" xml:space="preserve">
     <value>El sello de tiempo de {0} no coincide.{1}</value>
@@ -6347,6 +6488,9 @@
   </data>
   <data name="The voice could not be saved: {0}" xml:space="preserve">
     <value>No se pudo guardar la voz: {0}</value>
+  </data>
+  <data name="The voice for reading aloud, its speed and its Azure key are in Read Aloud Settings, on the Read Aloud bar and in the Reading Aids menu." xml:space="preserve">
+    <value>La voz de lectura en voz alta, su velocidad y su clave de Azure están en los ajustes de lectura en voz alta, en la barra de lectura y en el menú Ayudas de lectura.</value>
   </data>
   <data name="The voice runs on this computer, so nothing you read is sent anywhere. It is downloaded once, the first time you use Read Aloud." xml:space="preserve">
     <value>La voz se ejecuta en este equipo, por lo que nada de lo que lea se envía a ningún sitio. Se descarga una sola vez, la primera vez que utiliza Leer en voz alta.</value>
@@ -6837,6 +6981,9 @@
   <data name="Underlined" xml:space="preserve">
     <value>Subrayado</value>
   </data>
+  <data name="Underlines misspelled words as you type in forms and notes." xml:space="preserve">
+    <value>Subraya las palabras mal escritas mientras escribe en formularios y notas.</value>
+  </data>
   <data name="Undo" xml:space="preserve">
     <value>Deshacer</value>
   </data>
@@ -7014,6 +7161,12 @@
   <data name="What became part of the page, what was left alone and why, or why the copy could not be made." xml:space="preserve">
     <value>Qué se ha integrado en la página, qué se ha mantenido y por qué, o por qué no se ha podido crear la copia.</value>
   </data>
+  <data name="What draws the window. Automatic uses the graphics card, or the processor when that cannot be used. Change it only if pages draw wrongly. It takes effect at the next start." xml:space="preserve">
+    <value>Qué dibuja la ventana. Automático usa la tarjeta gráfica, o el procesador si no se puede usar. Cámbielo solo si las páginas se dibujan mal. Se aplica en el próximo inicio.</value>
+  </data>
+  <data name="What happens when another program saves over a file that is open here." xml:space="preserve">
+    <value>Qué ocurre cuando otro programa guarda encima de un archivo abierto aquí.</value>
+  </data>
   <data name="What it is, for those who cannot see it" xml:space="preserve">
     <value>Qué es, para quienes no pueden verlo</value>
   </data>
@@ -7134,14 +7287,29 @@
   <data name="Where the signed copy is saved and everything you should know about how it was made." xml:space="preserve">
     <value>Dónde se guarda la copia firmada y todo lo que debe saber sobre cómo se creó.</value>
   </data>
+  <data name="Whether the text cursor blinks or stays steady." xml:space="preserve">
+    <value>Si el cursor de texto parpadea o permanece fijo.</value>
+  </data>
   <data name="Whether this tag is its own block (Block), runs inside a line (Inline), or sits before, at the start or at the end of its text." xml:space="preserve">
     <value>Si esta etiqueta es un bloque independiente (Block), va dentro de una línea (Inline) o se sitúa antes, al principio o al final de su texto.</value>
+  </data>
+  <data name="Whether tool bar buttons show their names beside their icons." xml:space="preserve">
+    <value>Si los botones de la barra de herramientas muestran su nombre junto al icono.</value>
+  </data>
+  <data name="Whether zooming glides or jumps straight to the new size. Reduced jumps." xml:space="preserve">
+    <value>Si el zoom se desliza o salta directamente al nuevo tamaño. Reducido salta.</value>
   </data>
   <data name="Which cells this table header labels: the cells in its row, in its column, or both. Screen readers use it to say which header goes with a cell." xml:space="preserve">
     <value>Las celdas a las que se aplica este encabezado de tabla: las de su fila, las de su columna o ambas. Los lectores de pantalla lo utilizan para indicar qué encabezado corresponde a cada celda.</value>
   </data>
   <data name="Which look to keep" xml:space="preserve">
     <value>Qué aspecto mantener</value>
+  </data>
+  <data name="While presenting, moves to the next page by itself after the time a page asks for." xml:space="preserve">
+    <value>Al presentar, pasa solo a la página siguiente tras el tiempo que pide la página.</value>
+  </data>
+  <data name="While presenting, plays the page change effects a document asks for." xml:space="preserve">
+    <value>Al presentar, reproduce los efectos de cambio de página que pide el documento.</value>
   </data>
   <data name="White" xml:space="preserve">
     <value>Blanco</value>
@@ -7841,6 +8009,9 @@
   </data>
   <data name="{0:0} × {1:0} mm" xml:space="preserve">
     <value>{0:0} × {1:0} mm</value>
+  </data>
+  <data name="{0} (default)" xml:space="preserve">
+    <value>{0} (predeterminado)</value>
   </data>
   <data name="{0} (not saved)" xml:space="preserve">
     <value>{0} (sin guardar)</value>

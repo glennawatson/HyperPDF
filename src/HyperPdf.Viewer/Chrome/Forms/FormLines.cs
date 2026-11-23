@@ -47,7 +47,14 @@ internal static class FormLines
 
                 default:
                     {
+                        var at = lines.Count;
                         AddSetting(lines, row, i, ui, in fit);
+                        if (at < lines.Count && (row.Help is not null || row.ResetHelp is not null))
+                        {
+                            // The line with the setting's own control carries what it does and the button that puts it back.
+                            lines[at] = lines[at] with { Help = row.Help, ResetHelp = row.ResetHelp };
+                        }
+
                         break;
                     }
             }
@@ -149,7 +156,9 @@ internal static class FormLines
     /// <param name="fit">The text measurer and the widths.</param>
     private static void AddChoice(List<FormLine> lines, FormRow row, int index, bool open, in FormFit fit)
     {
-        var chosen = (uint)row.Selected < (uint)row.Options.Count ? row.Options[row.Selected] : string.Empty;
+        // A row can say what its closed box shows, when that differs from how the chosen value reads in the open list.
+        var listed = (uint)row.Selected < (uint)row.Options.Count ? row.Options[row.Selected] : string.Empty;
+        var chosen = row.Value.Length > 0 ? row.Value : listed;
         lines.Add(new(ChromeItemKind.Row, OverlayAction.PickRow, index, ChromeText.Fit(chosen, fit.Style, fit.ControlWidth - fit.IconRoom, fit.Runs), row.Enabled, false)
         {
             Trait = open ? ChromeItemTrait.Expanded : ChromeItemTrait.Collapsed,

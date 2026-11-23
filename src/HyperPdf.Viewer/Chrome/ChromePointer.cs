@@ -95,7 +95,8 @@ internal sealed class ChromePointer(IPlatformWindow window)
         targets.Clear();
         foreach (var item in items)
         {
-            if (item.Kind == ChromeItemKind.Button || (item.Enabled && item.IsPressable))
+            // Words that say what a setting does are a target too, so their help shows though a press does nothing.
+            if (item.Kind == ChromeItemKind.Button || (item.Enabled && item.IsPressable) || item.ShowsHelp)
             {
                 targets.Add(item);
             }
@@ -199,7 +200,8 @@ internal sealed class ChromePointer(IPlatformWindow window)
     /// <param name="look">The current window appearance.</param>
     internal void DrawHover(IFramePass pass, ChromeLook look)
     {
-        if (Hover is not { Enabled: true } item)
+        // Only something that can be pressed is outlined. Words with help show their help and are otherwise left alone.
+        if (Hover is not { Enabled: true } item || !(item.Kind == ChromeItemKind.Button || item.IsPressable))
         {
             return;
         }

@@ -46,6 +46,9 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     /// <summary>The speeds offered.</summary>
     private static readonly double[] SpeedValues = [0.8, 0.9, 1, 1.1, 1.25, 1.5];
 
+    /// <summary>The voices offered, in the order of <see cref="VoiceNames"/>: every voice of every engine.</summary>
+    private static readonly SpeechVoiceChoice[] Offered = SpeechSetup.AllVoices;
+
     /// <summary>The owning tab.</summary>
     private readonly DocumentTabViewModel _owner;
 
@@ -75,9 +78,6 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
 
     /// <summary>Whether the voices or speed are being set up, rather than chosen.</summary>
     private bool _listing;
-
-    /// <summary>The voices listed in <see cref="VoiceNames"/>.</summary>
-    private SpeechVoice[]? _listedVoices;
 
     /// <summary>The page reading should start from, or -1 for the current page.</summary>
     private int _startPage = -1;
@@ -113,8 +113,9 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         _owner = owner;
         _services = services;
         SpeedNames = BuildSpeedNames();
-        RefreshVoices();
+        VoiceNames = BuildVoiceNames();
         _listing = true;
+        VoiceIndex = ChosenVoice();
         SpeedIndex = NearestSpeed(services.Settings.SpeechSpeed);
         _listing = false;
 
@@ -181,9 +182,94 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     [ObservableAsProperty]
     public partial string PlayPauseText { get; }
 
-    /// <summary>Gets the voices' names and descriptions, for example "Heart, American English, warm".</summary>
-    [Reactive]
-    public partial string[] VoiceNames { get; private set; } = [];
+    /// <summary>Gets the question that shows the window of the reading aloud settings, which the window answers when it is closed.</summary>
+    public Interaction<ReadAloudViewModel, RxVoid> ShowSettingsInteraction { get; } = new();
+
+    /// <summary>Gets the names of every voice of every engine, for example "Kokoro: Heart, American English, warm".</summary>
+    public string[] VoiceNames { get; }
+
+    /// <summary>Gets the full name of the voice chosen, as the list of voices words it.</summary>
+    public string VoiceName => (uint)VoiceIndex < (uint)VoiceNames.Length ? VoiceNames[VoiceIndex] : string.Empty;
+
+    /// <summary>Gets the short name of the voice chosen, such as "Kokoro: Heart", for the button that opens the list of voices.</summary>
+    public string VoiceShortName => (uint)VoiceIndex < (uint)Offered.Length ? $"{Offered[VoiceIndex].EngineName}: {Offered[VoiceIndex].Voice.Name}" : string.Empty;
+
+    /// <summary>Gets the name of the speed chosen, for the button that opens the list of speeds.</summary>
+    public string SpeedName => (uint)SpeedIndex < (uint)SpeedNames.Length ? SpeedNames[SpeedIndex] : string.Empty;
+
+    /// <summary>Gets a value indicating whether the voice chosen is spoken by Azure, which needs a key and a region.</summary>
+    public bool UsesAzure => _services.Settings.SpeechEngine == SpeechEngineChoice.Azure;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the page is dimmed away from the sentence being read. It is the same setting
+    /// Focus Mode offers, kept here too so it can be turned on without opening Focus Mode.
+    /// </summary>
+    public bool DimRest
+    {
+        get => _services.Settings.FocusBand;
+        set
+        {
+            if (_services.Settings.FocusBand == value)
+            {
+                return;
+            }
+
+            _services.Settings.FocusBand = value;
+            _services.SaveSettings();
+            this.RaisePropertyChanged();
+
+            // Focus Mode shows the same switch, so it is told when it has been made.
+            if (_owner.FocusModeIfMade is { } focus)
+            {
+                focus.FocusBand = value;
+            }
+        }
+    }
+
+    /// <summary>Gets or sets a value indicating whether each word is marked as it is read, as well as its sentence.</summary>
+    public bool MarkWords
+    {
+        get => _services.Settings.ReadAloudHighlight == ReadAloudHighlight.SentenceAndWord;
+        set
+        {
+            if (MarkWords == value)
+            {
+                return;
+            }
+
+            _services.Settings.ReadAloudHighlight = value ? ReadAloudHighlight.SentenceAndWord : ReadAloudHighlight.Sentence;
+            _services.SaveSettings();
+            this.RaisePropertyChanged();
+            if (_owner.FocusModeIfMade is { } focus)
+            {
+                focus.WordHighlight = value;
+            }
+        }
+    }
+
+    /// <summary>Gets or sets the key of the person's Azure Speech resource.</summary>
+    public string AzureKey
+    {
+        get => _services.Settings.AzureSpeechKey;
+        set
+        {
+            _services.Settings.AzureSpeechKey = value.Trim();
+            _services.SaveSettings();
+            this.RaisePropertyChanged();
+        }
+    }
+
+    /// <summary>Gets or sets the region of the person's Azure Speech resource, such as australiaeast.</summary>
+    public string AzureRegion
+    {
+        get => _services.Settings.AzureSpeechRegion;
+        set
+        {
+            _services.Settings.AzureSpeechRegion = value.Trim().ToLowerInvariant();
+            _services.SaveSettings();
+            this.RaisePropertyChanged();
+        }
+    }
 
     /// <summary>Gets or sets the chosen voice's index in <see cref="VoiceNames"/>.</summary>
     [Reactive]
@@ -219,6 +305,9 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     /// <summary>Gets the rectangles of the sentence being read, in page space.</summary>
     [Reactive]
     public partial PageRect[] SpokenBounds { get; private set; } = [];
+
+    /// <summary>Gets a value indicating whether an Azure voice is chosen and its key or region has not been typed yet.</summary>
+    private bool LacksAzureKey => UsesAzure && (_services.Settings.AzureSpeechKey.Length == 0 || _services.Settings.AzureSpeechRegion.Length == 0);
 
     /// <summary>Gets the speed chosen.</summary>
     private float Speed => (float)SpeedValues[Math.Clamp(SpeedIndex, 0, SpeedValues.Length - 1)];
@@ -382,6 +471,19 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
         return found;
     }
 
+    /// <summary>Names every voice offered, with the engine that speaks it first.</summary>
+    /// <returns>The names, in the order of <see cref="Offered"/>.</returns>
+    private static string[] BuildVoiceNames()
+    {
+        var names = new string[Offered.Length];
+        for (var i = 0; i < Offered.Length; i++)
+        {
+            names[i] = $"{Offered[i].EngineName}: {Offered[i].Voice.Name}, {Offered[i].Voice.Description}";
+        }
+
+        return names;
+    }
+
     /// <summary>Names the speeds offered.</summary>
     /// <returns>For example "Normal speed" and "1.25× speed".</returns>
     private static string[] BuildSpeedNames()
@@ -501,6 +603,29 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Previous() => Step(-1);
 
+    /// <summary>Chooses a voice by its name in <see cref="VoiceNames"/>, as a list of voices does.</summary>
+    /// <param name="name">The voice's name.</param>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ChooseVoice(string name) => VoiceIndex = Math.Max(0, Array.IndexOf(VoiceNames, name));
+
+    /// <summary>Chooses a speed by its name in <see cref="SpeedNames"/>, as a list of speeds does.</summary>
+    /// <param name="name">The speed's name.</param>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ChooseSpeed(string name) => SpeedIndex = Math.Max(0, Array.IndexOf(SpeedNames, name));
+
+    /// <summary>Turns the dimming of the page away from the sentence being read on or off.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ToggleDimRest() => DimRest = !DimRest;
+
+    /// <summary>Shows the reading aloud settings: the voice, the speed, what is marked on the page and the Azure key. They apply as they are changed.</summary>
+    /// <returns>A signal that ends when the window is closed.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> ShowSettings() => ShowSettingsInteraction.Handle(this).ToSignal();
+
     /// <summary>Opens or closes Read Aloud.</summary>
     /// <returns>Whether the bar is now open.</returns>
     [ReactiveCommand]
@@ -562,6 +687,13 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     /// <summary>Starts the reading loop from the current place.</summary>
     private void Play()
     {
+        if (LacksAzureKey)
+        {
+            // An Azure voice cannot start without its key, so the place the key is typed is opened and not only named.
+            AskForAzureKey();
+            return;
+        }
+
         Restart();
         var work = new CancellationTokenSource();
         _stopWork = work.Cancel;
@@ -597,49 +729,112 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool IsCurrentWork(CancellationTokenSource work) => ReferenceEquals(_stopWork?.Target, work);
 
-    /// <summary>Remembers the chosen voice and speed, and restarts the current sentence with them.</summary>
+    /// <summary>
+    /// Remembers the chosen voice and speed, and carries on with them. The voice brings its engine with it. An Azure voice
+    /// with no key yet opens the settings, where the key is typed, and reading starts once there is one.
+    /// </summary>
     private void UseChosenVoiceAndSpeed()
     {
         var settings = _services.Settings;
         settings.SpeechSpeed = SpeedValues[Math.Clamp(SpeedIndex, 0, SpeedValues.Length - 1)];
-        var voices = _services.GetSpeechEngine().Voices;
-        if (VoiceIndex >= 0 && VoiceIndex < voices.Length)
+        if ((uint)VoiceIndex < (uint)Offered.Length)
         {
-            settings.SpeechVoice = voices[VoiceIndex].Id;
+            settings.SpeechEngine = Offered[VoiceIndex].Engine;
+            settings.SpeechVoice = Offered[VoiceIndex].Voice.Id;
         }
 
         _services.SaveSettings();
-        if (IsPlaying)
+        this.RaisePropertyChanged(nameof(VoiceName));
+        this.RaisePropertyChanged(nameof(SpeedName));
+        this.RaisePropertyChanged(nameof(UsesAzure));
+        if (LacksAzureKey)
+        {
+            AskForAzureKey();
+            return;
+        }
+
+        // A voice picked while the bar waits for a voice is tried at once, as one picked while reading is.
+        if (IsOpen && (IsPlaying || NeedsVoice))
         {
             Play();
         }
     }
 
-    /// <summary>Lists the voices of the chosen engine and selects the remembered one, when the engine changed.</summary>
+    /// <summary>
+    /// Stops, says what the Azure voice needs and opens the settings where its key and region are typed. Reading starts when
+    /// that window closes with both typed.
+    /// </summary>
+    private void AskForAzureKey()
+    {
+        CancelWork();
+        SetPlaying(false);
+        SetStatusText(LocalizedMessage.Get(UiText, "Enter your Azure Speech key and region in the Read Aloud settings, or choose a voice that runs on this computer."));
+        _subscriptions.Add(ShowSettingsInteraction.Handle(this).ToSignal().SubscribeSafe(_ => PlayIfReady(), ErrorTrace.Write));
+    }
+
+    /// <summary>Starts reading when the bar is open and the Azure voice chosen now has its key, as after the settings window closes.</summary>
+    private void PlayIfReady()
+    {
+        if (IsOpen && !LacksAzureKey)
+        {
+            Play();
+        }
+    }
+
+    /// <summary>Finds the voice the settings remember: that voice of that engine, or the engine's first voice when the voice is not one it has.</summary>
+    /// <returns>The index in <see cref="Offered"/>.</returns>
+    private int ChosenVoice()
+    {
+        var settings = _services.Settings;
+        var first = -1;
+        for (var i = 0; i < Offered.Length; i++)
+        {
+            if (Offered[i].Engine != settings.SpeechEngine)
+            {
+                continue;
+            }
+
+            if (Offered[i].Voice.Id == settings.SpeechVoice)
+            {
+                return i;
+            }
+
+            first = first < 0 ? i : first;
+        }
+
+        return Math.Max(0, first);
+    }
+
+    /// <summary>Shows the voice the settings remember as the one chosen, when something else changed it, without that counting as a choice.</summary>
     private void RefreshVoices()
     {
-        var voices = _services.GetSpeechEngine().Voices;
-        if (ReferenceEquals(voices, _listedVoices))
+        var chosen = ChosenVoice();
+        if (chosen == VoiceIndex)
         {
             return;
         }
 
-        _listedVoices = voices;
-        var names = new string[voices.Length];
-        var selected = 0;
-        for (var i = 0; i < voices.Length; i++)
+        _listing = true;
+        VoiceIndex = chosen;
+        _listing = false;
+        this.RaisePropertyChanged(nameof(VoiceName));
+    }
+
+    /// <summary>Gets the voice an engine speaks with: the one remembered when the engine has it, otherwise the engine's first.</summary>
+    /// <param name="engine">The engine.</param>
+    /// <returns>The voice's identifier.</returns>
+    private string VoiceOf(ISpeechEngine engine)
+    {
+        var wanted = _services.Settings.SpeechVoice;
+        foreach (var voice in engine.Voices)
         {
-            names[i] = $"{voices[i].Name}, {voices[i].Description}";
-            if (voices[i].Id == _services.Settings.SpeechVoice)
+            if (voice.Id == wanted)
             {
-                selected = i;
+                return wanted;
             }
         }
 
-        _listing = true;
-        VoiceNames = names;
-        VoiceIndex = selected;
-        _listing = false;
+        return engine.Voices[0].Id;
     }
 
     /// <summary>Checks that the voice and sound output are ready, explaining what is needed when they are not.</summary>
@@ -660,7 +855,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
                             "The natural voice runs on this computer and needs a one-time download of about {0}. ",
                             Megabytes(_services.Speech.MissingBytesFor(_services.Settings))),
                         LocalizedMessage.Get(UiText, "What you read is never sent anywhere."))
-                    : LocalizedMessage.Get(UiText, "Enter your Azure Speech key and region in Preferences, or choose the voice on this computer."));
+                    : LocalizedMessage.Get(UiText, "Enter your Azure Speech key and region in the Read Aloud settings, or choose a voice that runs on this computer."));
             return false;
         }
 
@@ -750,7 +945,7 @@ public sealed partial class ReadAloudViewModel : ReactiveObject, IDisposable, IL
     /// <returns>A cold signal that gives one value at the end of the document.</returns>
     private IObservable<RxVoid> ReadSentences(IDocument document, ISpeechEngine engine, CancellationToken token)
     {
-        var voice = engine.Voices[Math.Clamp(VoiceIndex, 0, engine.Voices.Length - 1)].Id;
+        var voice = VoiceOf(engine);
         var speed = Speed;
         return Signal.Using(
             static () => new SpeechPrefetch(),

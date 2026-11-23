@@ -29,7 +29,8 @@ internal sealed class ButtonTooltip
     /// <param name="item">The new target.</param>
     internal void Enter(ChromeItem? item)
     {
-        if (item is not { Kind: ChromeItemKind.Button, Text.Length: > 0 })
+        // A button says its name. Anything else speaks only when it was given something to say, as a setting of a dialog is.
+        if (item is not ({ Kind: ChromeItemKind.Button, Text.Length: > 0 } or { ShowsHelp: true, Help.Length: > 0 }))
         {
             Dismiss();
         }

@@ -137,6 +137,8 @@ internal static class TabRequests
         PageManagementViewModel pages => FollowPages(chrome, tab, pages),
         AnnotationsViewModel marks => FollowMarks(chrome, tab, marks),
         TextRecognitionViewModel text => text.ManageLanguagesInteraction.RegisterHandler(context => chrome.ShowForm(OcrLanguageForms.For(context.Input)).Do(context.SetOutput)),
+        ReadAloudViewModel aloud => aloud.ShowSettingsInteraction.RegisterHandler(
+            context => chrome.ShowForm(ToolForms.ReadAloudSettings(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
         FocusModeViewModel focus => focus.ShowSettingsInteraction.RegisterHandler(
             context => chrome.ShowForm(ToolForms.FocusSettings(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
         PageDecorationViewModel decorations => decorations.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.PageDecoration(context.Input)).Do(context.SetOutput)),

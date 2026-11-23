@@ -33,13 +33,24 @@ public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable, IL
     /// <summary>Initializes a new instance of the <see cref="SharpnessViewModel"/> class.</summary>
     /// <param name="services">The application services.</param>
     public SharpnessViewModel(AppServices services)
+        : this(services, null)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="SharpnessViewModel"/> class that follows the settings, or only shows choices it is given.</summary>
+    /// <param name="services">The application services.</param>
+    /// <param name="shown">The choices to show without writing anything back, or <see langword="null"/> to follow the settings.</param>
+    private SharpnessViewModel(AppServices services, RenderSharpness? shown)
     {
         ArgumentNullException.ThrowIfNull(services);
         _services = services;
-        Load();
+        Load(shown ?? services.Settings.Sharpness);
         _presetDescriptionHelper = this.WhenChanged(static x => x.Preset).Select(DescribePreset).ToProperty(this, static x => x.PresetDescription);
         _subscriptions.Add(_presetDescriptionHelper);
-        Follow();
+        if (shown is null)
+        {
+            Follow();
+        }
     }
 
     /// <summary>Gets the named sets in enum order.</summary>
@@ -124,10 +135,17 @@ public sealed partial class SharpnessViewModel : ReactiveObject, IDisposable, IL
         _ => string.Empty,
     };
 
-    /// <summary>Loads each choice from the settings.</summary>
-    private void Load()
+    /// <summary>Makes a view model that shows choices without following the settings, such as the choices of a new install.</summary>
+    /// <param name="services">The application services.</param>
+    /// <param name="shown">The choices to show.</param>
+    /// <returns>The view model.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SharpnessViewModel Showing(AppServices services, RenderSharpness shown) => new(services, shown);
+
+    /// <summary>Loads each choice.</summary>
+    /// <param name="sharpness">The choices to show.</param>
+    private void Load(RenderSharpness sharpness)
     {
-        var sharpness = _services.Settings.Sharpness;
         _syncing = true;
         try
         {

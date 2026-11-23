@@ -72,4 +72,10 @@ public sealed record ChromeItem(ChromeItemKind Kind, ICommand? Command, int Inde
 
     /// <summary>Gets the localised explanation used by the tooltip and accessibility tree.</summary>
     internal string? Help { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the explanation is shown when the pointer rests on the control, though it is not a
+    /// button. A setting of a dialog sets it. Other controls keep their explanation for a screen reader alone.
+    /// </summary>
+    internal bool ShowsHelp { get; init; }
 }

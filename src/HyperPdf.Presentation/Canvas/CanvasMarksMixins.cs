@@ -174,7 +174,8 @@ public static class CanvasMarksMixins
     /// <param name="transform">How the page maps onto the canvas.</param>
     private static void DrawFocusBand(IMarksPainter painter, DocumentTabViewModel tab, int page, in PageTransform transform)
     {
-        if (tab.ReadAloudIfMade is not { } reader || tab.FocusModeIfMade is not { FocusBand: true } || !painter.CanDraw(true) || reader.SpokenPage < 0 || reader.SpokenBounds.Length == 0)
+        // The dimming is a setting of reading aloud. It once needed Focus Mode to have been opened first, which hid it from anyone who had not.
+        if (tab.ReadAloudIfMade is not { DimRest: true } reader || !painter.CanDraw(true) || reader.SpokenPage < 0 || reader.SpokenBounds.Length == 0)
         {
             return;
         }

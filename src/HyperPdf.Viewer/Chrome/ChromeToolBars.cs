@@ -43,7 +43,7 @@ internal static class ChromeToolBars
     {
         var bars = new List<ToolBar>();
         AddNotices(bars, tab, actions);
-        AddReadingAids(bars, tab);
+        AddReadingAids(bars, tab, actions);
         AddPageTools(bars, tab, actions);
         var height = 0;
         foreach (var bar in bars)
@@ -147,23 +147,14 @@ internal static class ChromeToolBars
     /// <summary>Adds the state of the reading aids that are running: read aloud, text recognition and focus mode.</summary>
     /// <param name="bars">Receives the bars.</param>
     /// <param name="tab">The tab shown.</param>
-    private static void AddReadingAids(List<ToolBar> bars, DocumentTabViewModel tab)
+    /// <param name="actions">The commands of the window's own controls, which open the lists of voices and speeds.</param>
+    private static void AddReadingAids(List<ToolBar> bars, DocumentTabViewModel tab, ChromeActions actions)
     {
         // Read Aloud and Focus Mode have no bar until they have been used, and reading them here would make them for every tab shown.
         if (tab.ReadAloudIfMade is { IsOpen: true } aloud)
         {
             var status = aloud.IsDownloading ? Share(UiText.Get("Getting the voice"), aloud.DownloadProgress) : aloud.StatusText;
-            bars.Add(new(
-                Label(UiText.Get("Read aloud"), status),
-                [
-                    Item(ChromeIcon.Play, aloud.PlayPauseText, aloud.PlayPauseCommand),
-                    Item(ChromeIcon.PreviousSentence, "Sentence before", aloud.PreviousCommand),
-                    Item(ChromeIcon.NextSentence, "Next sentence", aloud.NextCommand),
-                    Item(ChromeIcon.Speaker, "Read this page", aloud.ReadThisPageCommand),
-                    Item(ChromeIcon.PageDown, "Read to the end", aloud.ReadToEndCommand),
-                    Item(ChromeIcon.Add, "Get a better voice", aloud.DownloadVoiceCommand),
-                    Item(ChromeIcon.Close, "Close", aloud.CloseCommand),
-                ]));
+            bars.Add(new(Label(UiText.Get("Read aloud"), status), ReadAloudActions(aloud, actions)) { TextOnOwnLine = true });
         }
 
         // Text recognition has nothing to show until it has been used, and reading it here would make it for every tab shown.
@@ -191,6 +182,29 @@ internal static class ChromeToolBars
                 ]));
         }
     }
+
+    /// <summary>
+    /// Lists what the Read Aloud bar offers. The first button shows what a press does now: the pause mark while reading and
+    /// the play mark while stopped. The voice and the speed are each a button that opens its list, and the button that gets
+    /// a voice is there only while the voice chosen still has to be downloaded.
+    /// </summary>
+    /// <param name="aloud">Reading aloud.</param>
+    /// <param name="actions">The commands that open the lists of voices and speeds.</param>
+    /// <returns>The actions, left to right.</returns>
+    private static BarAction[] ReadAloudActions(HyperPdf.ViewModels.Reading.ReadAloudViewModel aloud, ChromeActions actions) =>
+    [
+        Item(aloud.IsPlaying ? ChromeIcon.Pause : ChromeIcon.Play, aloud.PlayPauseText, aloud.PlayPauseCommand),
+        Item(ChromeIcon.PreviousSentence, "Sentence before", aloud.PreviousCommand),
+        Item(ChromeIcon.NextSentence, "Next sentence", aloud.NextCommand),
+        Item(ChromeIcon.Speaker, "Read this page", aloud.ReadThisPageCommand),
+        Item(ChromeIcon.PageDown, "Read to the end", aloud.ReadToEndCommand),
+        new(ChromeIcon.Speaker, MenuEntry.Item(Label(UiText.Get("Voice"), aloud.VoiceShortName), null, actions.ShowVoices, null, true)),
+        new(ChromeIcon.Forward, MenuEntry.Item(aloud.SpeedName, null, actions.ShowSpeeds, null, true)),
+        new(ChromeIcon.Focus, MenuEntry.Radio(UiText.Get("Dim the rest of the page"), aloud.ToggleDimRestCommand, null, aloud.DimRest)),
+        new(ChromeIcon.Add, MenuEntry.Item(UiText.Get("Get this voice"), null, aloud.DownloadVoiceCommand, null, aloud.CanDownloadVoice && !aloud.IsDownloading)),
+        Item(ChromeIcon.More, "Settings", aloud.ShowSettingsCommand),
+        Item(ChromeIcon.Close, "Close", aloud.CloseCommand),
+    ];
 
     /// <summary>Adds the bar that says which ink of a colour separated page is shown and offers the others.</summary>
     /// <param name="bars">The bars so far.</param>
@@ -371,8 +385,10 @@ internal static class ChromeToolBars
         items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, default, true, false));
         var tight = metrics with { Padding = metrics.Gap + metrics.Gap };
         var row = new ChromeRow(items, look.Runs, tight, tight.Gap, top + tight.Gap, tight.ToolbarHeight - tight.Gap - tight.Gap) { Limit = width - tight.Gap };
-        row = row.Label(ChromeText.Fit(bar.Text, ChromeBars.Style(metrics), Math.Max(metrics.PopupWidth, width >> 1), look.Runs));
-        row = row.Space();
+        row = row.Label(ChromeText.Fit(bar.Text, ChromeBars.Style(metrics), bar.TextOnOwnLine ? width - tight.Gap - tight.Gap : Math.Max(metrics.PopupWidth, width >> 1), look.Runs));
+
+        // Past the end of the line, the first button starts a new one, whatever the length of the words.
+        row = bar.TextOnOwnLine ? row with { Next = row.Limit } : row.Space();
         foreach (var action in bar.Actions)
         {
             // A button that cannot do anything now is left out, so the bar only offers what works.
