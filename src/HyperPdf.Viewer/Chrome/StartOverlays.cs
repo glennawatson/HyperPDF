@@ -74,9 +74,11 @@ internal static class StartOverlays
         // The heading and the button that clears the list share a line, with a rule under them that sets the list apart.
         var style = ChromeBars.Style(metrics);
         var clear = UiText.Get("Clear list");
-        var clearWidth = Math.Min(width >> 1, place.Runs.Measure(clear, style) + metrics.Padding + metrics.Padding);
+        var clearWidth = Math.Min(width >> 1, place.Runs.Measure(clear, style) + metrics.IconSize + (metrics.Padding * RemovePaddings));
         items.Add(new(ChromeItemKind.Heading, null, 0, UiText.Get("Opened lately"), new(left, y, width - clearWidth, metrics.RowHeight), true, false));
-        items.Add(new(ChromeItemKind.Button, actions.Clear, 0, clear, new(left + width - clearWidth, y, clearWidth, metrics.RowHeight), true, false));
+
+        // It has the same mark as the button that removes one file, so the two read as the same kind of thing.
+        items.Add(new(ChromeItemKind.Button, actions.Clear, 0, clear, new(left + width - clearWidth, y, clearWidth, metrics.RowHeight), true, false) { Icon = ChromeIcon.Close });
         y += metrics.RowHeight;
         items.Add(new(ChromeItemKind.Separator, null, 0, string.Empty, new(left, y, width, metrics.Line), true, false));
         y += metrics.Line;

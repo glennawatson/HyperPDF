@@ -303,9 +303,7 @@ internal static class FormOverlays
         FormLayout.AddScrollBar(items, new(left + rowsWidth - metrics.Padding, y, metrics.Gap, metrics.RowHeight * shown), first, shown, lines.Count);
 
         var buttonsTop = top + height - metrics.ToolbarHeight - metrics.Padding + metrics.Gap;
-        var firstButton = items.Count;
         var buttons = AddButtons(new(items, runs, metrics, left + metrics.Padding, buttonsTop, metrics.ToolbarHeight - metrics.Gap - metrics.Gap), request);
-        FormLayout.Frame(items, firstButton);
         if (lines.Count > shown)
         {
             _ = buttons.Label(UiText.Format("Lines {0} to {1} of {2}", first + 1, last, lines.Count));

@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome.Forms;
 
@@ -100,4 +101,13 @@ internal sealed class FormBuilder
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal void Action(string label, bool enabled, int id, object? target) =>
         Rows.Add(new(FormRowKind.Action, label, string.Empty, [], 0, enabled, id, target));
+
+    /// <summary>Adds something to do, with an icon before its words.</summary>
+    /// <param name="icon">The icon.</param>
+    /// <param name="label">What it does.</param>
+    /// <param name="enabled">Whether it can be done now.</param>
+    /// <param name="id">The row's number.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal void Action(ChromeIcon icon, string label, bool enabled, int id) =>
+        Rows.Add(new(FormRowKind.Action, label, string.Empty, [], 0, enabled, id, null) { Icon = icon });
 }

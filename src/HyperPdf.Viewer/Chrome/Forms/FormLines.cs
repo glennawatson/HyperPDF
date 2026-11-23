@@ -131,6 +131,7 @@ internal static class FormLines
                     lines.Add(new(ChromeItemKind.Button, OverlayAction.PickRow, index, ChromeText.Fit(row.Label, fit.Style, fit.Width - fit.IconRoom, fit.Runs), row.Enabled, false)
                     {
                         Trait = ui.Open == index ? ChromeItemTrait.Expanded : ChromeItemTrait.Collapsed,
+                        Icon = row.Icon,
                         Framed = true,
                     });
                     break;

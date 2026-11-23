@@ -285,7 +285,7 @@ internal static class FormSettings
 
             default:
                 {
-                    form.Action(label, row.Enabled(model), id, null);
+                    form.Action(row.Icon, label, row.Enabled(model), id);
                     break;
                 }
         }

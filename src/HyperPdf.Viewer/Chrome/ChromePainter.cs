@@ -68,7 +68,7 @@ internal static class ChromePainter
             if (item.Framed)
             {
                 // A control in a dialog is boxed at rest, so it is told apart from the words around it without pointing at it.
-                DrawBox(pass, item.Bounds, look.Theme.Surface, item.Enabled ? look.Theme.Border : look.Theme.Faded, look.Metrics.Line);
+                DrawFrame(pass, item, look);
             }
 
             DrawBackground(pass, item, look);
@@ -123,6 +123,27 @@ internal static class ChromePainter
     /// <returns>The space in device pixels.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int IconGap(in ChromeMetrics metrics) => metrics.Gap + (metrics.Gap >> 1);
+
+    /// <summary>
+    /// Draws the box of a control that is boxed at rest. The button that agrees to a dialog is filled, and has a tick before its
+    /// words, so it is told from the button that backs out by more than colour. The ring of the keyboard's place stays its own.
+    /// </summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="item">The control.</param>
+    /// <param name="look">The colours and sizes.</param>
+    private static void DrawFrame(IFramePass pass, ChromeItem item, ChromeLook look)
+    {
+        var theme = look.Theme;
+        if (!item.Enabled)
+        {
+            DrawBox(pass, item.Bounds, theme.Surface, theme.Faded, look.Metrics.Line);
+            return;
+        }
+
+        // The fill is the opaque colour of a chosen thing; the hover wash is see-through and would grey the words over a border.
+        var agrees = item.Action == OverlayAction.Accept && theme.ButtonHover != 0;
+        DrawBox(pass, item.Bounds, agrees ? theme.ButtonHover : theme.Surface, theme.Border, look.Metrics.Line);
+    }
 
     /// <summary>
     /// Draws the box of a text box. One filled in on the page brings its own paper, and gets a heavier outline that stands

@@ -114,15 +114,19 @@ internal readonly record struct ChromeRow(List<ChromeItem> Items, TextRuns Runs,
         return next;
     }
 
-    /// <summary>Adds a button of a dialog, whose press is an input to that dialog.</summary>
+    /// <summary>
+    /// Adds a button of a dialog, whose press is an input to that dialog. It sits in a box, so it is seen to be a button, and the
+    /// one that agrees has a tick before its words.
+    /// </summary>
     /// <param name="text">The text.</param>
     /// <param name="action">What a press means to the dialog.</param>
     /// <param name="enabled">Whether it can be pressed.</param>
     /// <returns>The row with the button in it.</returns>
     internal ChromeRow Button(string text, OverlayAction action, bool enabled)
     {
-        var next = Place(text, ChromeIcon.None, false, out var placed);
-        Items.Add(new(ChromeItemKind.Button, action, 0, text, placed.Bounds, enabled, false));
+        var icon = action == OverlayAction.Accept ? ChromeIcon.Done : ChromeIcon.None;
+        var next = Place(text, icon, false, out var placed);
+        Items.Add(new(ChromeItemKind.Button, action, 0, text, placed.Bounds, enabled, false) { Icon = icon, Framed = true });
         return next;
     }
 

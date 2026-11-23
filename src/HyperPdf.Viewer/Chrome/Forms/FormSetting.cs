@@ -4,6 +4,7 @@
 
 using System.Diagnostics;
 using System.Windows.Input;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome.Forms;
 
@@ -38,6 +39,14 @@ internal sealed record FormSetting<T>(
 
     /// <summary>Gets what reads the text of one item of a list.</summary>
     internal Func<object, string> ItemText { get; init; } = static item => item.ToString() ?? string.Empty;
+
+    /// <summary>Gets the icon drawn before the words of an action.</summary>
+    internal ChromeIcon Icon { get; init; }
+
+    /// <summary>Makes a row with an icon before its words.</summary>
+    /// <param name="icon">The icon, whose tint says whether the action adds, changes, removes or shows something.</param>
+    /// <returns>The row.</returns>
+    internal FormSetting<T> With(ChromeIcon icon) => this with { Icon = icon };
 
     /// <summary>Makes a row with another rule for when it is shown.</summary>
     /// <param name="visible">Tells whether the row is shown now.</param>

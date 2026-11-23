@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Layout;
+using HyperPdf.Viewer.Icons;
 
 namespace HyperPdf.Viewer.Chrome.Forms;
 
@@ -73,20 +74,6 @@ internal static class FormLayout
         items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, new(track.X, Math.Min(top, track.Bottom - height), track.Width, height), false, false) { Ground = ThumbColor });
     }
 
-    /// <summary>Puts every button added since a place in the list into a box, so the buttons along the bottom are seen to be buttons.</summary>
-    /// <param name="items">The controls.</param>
-    /// <param name="first">The place of the first control to look at.</param>
-    internal static void Frame(List<ChromeItem> items, int first)
-    {
-        for (var i = first; i < items.Count; i++)
-        {
-            if (items[i].Kind == ChromeItemKind.Button)
-            {
-                items[i] = items[i] with { Framed = true };
-            }
-        }
-    }
-
     /// <summary>Works out where the control of a line goes.</summary>
     /// <param name="line">The line.</param>
     /// <param name="place">The whole line.</param>
@@ -107,7 +94,10 @@ internal static class FormLayout
         }
 
         var inner = place.Width - look.Padding - look.Padding;
-        var width = Math.Min(inner, look.Runs.Measure(line.Text, look.Style) + (look.Padding * ButtonPaddings));
+
+        // An icon is as tall as its line at most, so a line's height is room enough for it beside the words.
+        var iconRoom = line.Icon == ChromeIcon.None ? 0 : place.Height;
+        var width = Math.Min(inner, look.Runs.Measure(line.Text, look.Style) + iconRoom + (look.Padding * ButtonPaddings));
         return new(place.X + look.Padding, place.Y + (look.Gap >> 1), width, place.Height - look.Gap);
     }
 }

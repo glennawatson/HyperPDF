@@ -16,6 +16,7 @@ using HyperPdf.ViewModels.Reading;
 using HyperPdf.ViewModels.Sidebar;
 using HyperPdf.ViewModels.Signing;
 using HyperPdf.ViewModels.Viewing;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Windowing.Rendering;
 using ReactiveUI;
 using ReactiveUI.Binding;
@@ -39,8 +40,8 @@ internal static class ToolForms
     [
         FormSettings.Text<SignaturesViewModel>(static m => m.IsChecking ? UiText.Get("Checking the signatures…") : UiText.Format("Signatures in this document: {0}", m.SignatureCount)),
         FormSettings.List<SignaturesViewModel, DocumentSignature>(static m => [..m.Signatures], Describe, null),
-        FormSettings.Action<SignaturesViewModel>("Check the signatures again", static m => m.CheckCommand),
-        FormSettings.Action<SignaturesViewModel>("Sign with a certificate…", static m => m.SignWithCertificateCommand),
+        FormSettings.Action<SignaturesViewModel>("Check the signatures again", static m => m.CheckCommand).With(ChromeIcon.Certificate),
+        FormSettings.Action<SignaturesViewModel>("Sign with a certificate…", static m => m.SignWithCertificateCommand).With(ChromeIcon.Certificate),
     ];
 
     /// <summary>The rows of the window that signs with a certificate.</summary>
@@ -58,38 +59,38 @@ internal static class ToolForms
             static c => c.Subject,
             static m => m.SelectedCertificate,
             static (m, c) => m.SelectedCertificate = c).When(static m => m.HasRemembered),
-        FormSettings.Action<CertificateSignViewModel>("Forget this certificate", static m => m.ForgetCommand).When(static m => m.HasRemembered),
+        FormSettings.Action<CertificateSignViewModel>("Forget this certificate", static m => m.ForgetCommand).With(ChromeIcon.Close).When(static m => m.HasRemembered),
         FormSettings.Field<CertificateSignViewModel>("Certificate file", static m => m.CertificatePath, static (m, text) => m.CertificatePath = text),
-        FormSettings.Action<CertificateSignViewModel>("Choose the certificate file…", static m => m.BrowseCommand),
+        FormSettings.Action<CertificateSignViewModel>("Choose the certificate file…", static m => m.BrowseCommand).With(ChromeIcon.Open),
         FormSettings.Field<CertificateSignViewModel>("Password of the certificate", static m => Passwords.Mask(m.Password), static (m, text) => m.Password = Passwords.Typed(m.Password, text)),
         FormSettings.Toggle<CertificateSignViewModel>("Remember this certificate, without its password", static m => m.Remember, static (m, on) => m.Remember = on),
         FormSettings.Field<CertificateSignViewModel>("Reason for signing", static m => m.Reason, static (m, text) => m.Reason = text),
         FormSettings.Field<CertificateSignViewModel>("Where it is signed", static m => m.Location, static (m, text) => m.Location = text),
         FormSettings.Text<CertificateSignViewModel>(static m => m.PreviewText),
         FormSettings.Text<CertificateSignViewModel>(static m => m.Error),
-        FormSettings.Action<CertificateSignViewModel>("Sign", static m => m.SignCommand),
+        FormSettings.Action<CertificateSignViewModel>("Sign", static m => m.SignCommand).With(ChromeIcon.Signature),
     ];
 
     /// <summary>The rows of the window that signs with a key held somewhere else.</summary>
     private static readonly FormSetting<ExternalSignViewModel>[] ExternalRows =
     [
         FormSettings.Note<ExternalSignViewModel>("Signs with a key this app never sees. Save what must be signed, sign it with your own tool, then bring the result back."),
-        FormSettings.Action<ExternalSignViewModel>("Choose the signer's certificate…", static m => m.BrowseCommand),
+        FormSettings.Action<ExternalSignViewModel>("Choose the signer's certificate…", static m => m.BrowseCommand).With(ChromeIcon.Open),
         FormSettings.Text<ExternalSignViewModel>(static m => m.SignerText),
         FormSettings.Pick<ExternalSignViewModel, SigningKeyChoice>("Kind of key", static m => m.KeyChoices, static c => c.Name, static m => m.SelectedKey, static (m, c) => m.SelectedKey = c),
         FormSettings.Field<ExternalSignViewModel>("Reason for signing", static m => m.Reason, static (m, text) => m.Reason = text),
         FormSettings.Field<ExternalSignViewModel>("Where it is signed", static m => m.Location, static (m, text) => m.Location = text),
-        FormSettings.Action<ExternalSignViewModel>("Get the document ready", static m => m.PrepareCommand),
+        FormSettings.Action<ExternalSignViewModel>("Get the document ready", static m => m.PrepareCommand).With(ChromeIcon.Done),
         FormSettings.Text<ExternalSignViewModel>(static m => m.PendingText),
-        FormSettings.Action<ExternalSignViewModel>("Save what must be signed…", static m => m.SaveToSignCommand).When(static m => m.HasPending),
+        FormSettings.Action<ExternalSignViewModel>("Save what must be signed…", static m => m.SaveToSignCommand).With(ChromeIcon.Save).When(static m => m.HasPending),
         FormSettings.Pick<ExternalSignViewModel, ExternalResultChoice>(
             "What your tool gave back",
             static m => m.ResultChoices,
             static c => c.Name,
             static m => m.SelectedResult,
             static (m, c) => m.SelectedResult = c).When(static m => m.HasPending),
-        FormSettings.Action<ExternalSignViewModel>("Bring the result back and save the signed copy…", static m => m.FinishCommand).When(static m => m.HasPending),
-        FormSettings.Action<ExternalSignViewModel>("Stop", static m => m.CancelCommand).When(static m => m.IsRunning),
+        FormSettings.Action<ExternalSignViewModel>("Bring the result back and save the signed copy…", static m => m.FinishCommand).With(ChromeIcon.Save).When(static m => m.HasPending),
+        FormSettings.Action<ExternalSignViewModel>("Stop", static m => m.CancelCommand).With(ChromeIcon.Stop).When(static m => m.IsRunning),
         FormSettings.Text<ExternalSignViewModel>(static m => m.StatusText),
         FormSettings.Text<ExternalSignViewModel>(static m => m.Error),
         FormSettings.Text<ExternalSignViewModel>(static m => m.ResultText),
@@ -101,8 +102,8 @@ internal static class ToolForms
         FormSettings.Options<SignatureMarkViewModel>("How to make it", [..UiText.CreateChoices(MarkStyles)], static m => (int)m.Style, static (m, value) => m.Style = (SignatureMarkStyle)value),
         FormSettings.Field<SignatureMarkViewModel>(static m => m.TextLabel, static m => m.Text, static (m, text) => m.Text = text).When(static m => m.Style == SignatureMarkStyle.Typed),
         FormSettings.Note<SignatureMarkViewModel>("Draw in the box on the right with the mouse, a pen or a finger.").When(static m => m.Style == SignatureMarkStyle.Drawn),
-        FormSettings.Action<SignatureMarkViewModel>("Start the drawing again", static m => m.ClearDrawingCommand).When(static m => m.Style == SignatureMarkStyle.Drawn),
-        FormSettings.Action<SignatureMarkViewModel>("Choose a picture of it…", static m => m.ChooseImageCommand).When(static m => m.Style == SignatureMarkStyle.Image),
+        FormSettings.Action<SignatureMarkViewModel>("Start the drawing again", static m => m.ClearDrawingCommand).With(ChromeIcon.Close).When(static m => m.Style == SignatureMarkStyle.Drawn),
+        FormSettings.Action<SignatureMarkViewModel>("Choose a picture of it…", static m => m.ChooseImageCommand).With(ChromeIcon.Open).When(static m => m.Style == SignatureMarkStyle.Image),
         FormSettings.Text<SignatureMarkViewModel>(static m => m.SourceImage?.Name).When(static m => m.Style == SignatureMarkStyle.Image),
         FormSettings.Toggle<SignatureMarkViewModel>(
             "Take the paper out of the picture",
@@ -110,7 +111,7 @@ internal static class ToolForms
             static (m, on) => m.RemovePaper = on).When(static m => m.Style == SignatureMarkStyle.Image && m.SourceImage is not null),
         FormSettings.Text<SignatureMarkViewModel>(static m => m.ImageError).When(static m => m.Style == SignatureMarkStyle.Image),
         FormSettings.Toggle<SignatureMarkViewModel>("Keep it for next time", static m => m.Remember, static (m, on) => m.Remember = on),
-        FormSettings.Action<SignatureMarkViewModel>("Forget the one that was kept", static m => m.ForgetCommand).When(static m => m.HasSaved),
+        FormSettings.Action<SignatureMarkViewModel>("Forget the one that was kept", static m => m.ForgetCommand).With(ChromeIcon.Close).When(static m => m.HasSaved),
     ];
 
     /// <summary>The rows of the window that sets how typed text looks.</summary>
@@ -128,7 +129,7 @@ internal static class ToolForms
         FormSettings.Field<TextPropertiesViewModel>("Space between letters", static m => Number(m.CharacterSpacing), static (m, text) => m.CharacterSpacing = Number(text, m.CharacterSpacing)),
         FormSettings.Field<TextPropertiesViewModel>("Width the lines wrap at, 0 for none", static m => Number(m.WrapWidth), static (m, text) => m.WrapWidth = Number(text, m.WrapWidth)),
         FormSettings.Field<TextPropertiesViewModel>("Comb boxes, 0 for none", static m => Number(m.CombCells), static (m, text) => m.CombCells = Number(text, m.CombCells)),
-        FormSettings.Action<TextPropertiesViewModel>("Use these", static m => m.AcceptCommand),
+        FormSettings.Action<TextPropertiesViewModel>("Use these", static m => m.AcceptCommand).With(ChromeIcon.Done),
     ];
 
     /// <summary>The rows of the window that adds a watermark, a header, a footer, page numbers, Bates numbers, a background or a crop. Each kind shows the rows it needs.</summary>
@@ -179,7 +180,7 @@ internal static class ToolForms
         FormSettings.Choice<PageDecorationViewModel>("Pages", PageDecorationViewModel.ScopeNames, static m => m.ScopeIndex, static (m, value) => m.ScopeIndex = value),
         FormSettings.Field<PageDecorationViewModel>("Page numbers, such as 1-3, 7", static m => m.RangeText, static (m, text) => m.RangeText = text)
             .When(static m => m.AsksForPages),
-        FormSettings.Action<PageDecorationViewModel>("Add it", static m => m.AcceptCommand),
+        FormSettings.Action<PageDecorationViewModel>("Add it", static m => m.AcceptCommand).With(ChromeIcon.Add),
     ];
 
     /// <summary>The rows of the window that lists the pages whose words differ from another document.</summary>
@@ -197,7 +198,7 @@ internal static class ToolForms
         FormSettings.Toggle<SanitizeViewModel>("Remove scripts", static m => m.Scripts, static (m, on) => m.Scripts = on),
         FormSettings.Toggle<SanitizeViewModel>("Remove attached files", static m => m.Attachments, static (m, on) => m.Attachments = on),
         FormSettings.Toggle<SanitizeViewModel>("Remove comments and marks, but keep links and form fields", static m => m.Comments, static (m, on) => m.Comments = on),
-        FormSettings.Action<SanitizeViewModel>("Remove them", static m => m.AcceptCommand),
+        FormSettings.Action<SanitizeViewModel>("Remove them", static m => m.AcceptCommand).With(ChromeIcon.Close),
     ];
 
     /// <summary>The rows of the window that numbers a run of pages in a different way.</summary>
@@ -208,8 +209,8 @@ internal static class ToolForms
         FormSettings.Choice<PageLabelsViewModel>("How the number is written", PageLabelsViewModel.StyleNames, static m => m.StyleIndex, static (m, value) => m.StyleIndex = value),
         FormSettings.Field<PageLabelsViewModel>("Words before the number, such as A-", static m => m.Prefix, static (m, text) => m.Prefix = text),
         FormSettings.Field<PageLabelsViewModel>("Number of the first page", static m => m.FirstNumber, static (m, text) => m.FirstNumber = text),
-        FormSettings.Action<PageLabelsViewModel>("Number these pages", static m => m.AcceptCommand),
-        FormSettings.Action<PageLabelsViewModel>("Number every page 1, 2, 3 again", static m => m.ResetCommand),
+        FormSettings.Action<PageLabelsViewModel>("Number these pages", static m => m.AcceptCommand).With(ChromeIcon.Done),
+        FormSettings.Action<PageLabelsViewModel>("Number every page 1, 2, 3 again", static m => m.ResetCommand).With(ChromeIcon.Undo),
     ];
 
     /// <summary>The rows of the window that changes the chosen tag of the document: what it is, what it says, where it sits and what is done with it.</summary>
@@ -229,21 +230,21 @@ internal static class ToolForms
             .When(static m => m.IsHeaderCell),
         FormSettings.Field<TagsViewModel>("Rows the cell spans", static m => m.RowSpanText, static (m, text) => m.RowSpanText = text).When(static m => m.IsCell),
         FormSettings.Field<TagsViewModel>("Columns the cell spans", static m => m.ColumnSpanText, static (m, text) => m.ColumnSpanText = text).When(static m => m.IsCell),
-        FormSettings.Action<TagsViewModel>("Save the changes to this tag", static m => m.ApplyCommand),
-        FormSettings.Action<TagsViewModel>("Read this tag earlier", static m => m.MoveUpCommand),
-        FormSettings.Action<TagsViewModel>("Read this tag later", static m => m.MoveDownCommand),
+        FormSettings.Action<TagsViewModel>("Save the changes to this tag", static m => m.ApplyCommand).With(ChromeIcon.Done),
+        FormSettings.Action<TagsViewModel>("Read this tag earlier", static m => m.MoveUpCommand).With(ChromeIcon.PageUp),
+        FormSettings.Action<TagsViewModel>("Read this tag later", static m => m.MoveDownCommand).With(ChromeIcon.PageDown),
         FormSettings.Action<TagsViewModel>("Put it inside the tag above", static m => m.NestCommand),
         FormSettings.Action<TagsViewModel>("Take it out of its parent", static m => m.UnnestCommand),
         TagChoice("Move it into", static m => m.MoveTargets, MoveTargetOf, static (m, target) => m.MoveTargetIndex = IndexOf(m.MoveTargets, target)),
         FormSettings.Action<TagsViewModel>("Move it there", static m => m.MoveIntoCommand),
-        FormSettings.Action<TagsViewModel>("Remove it", static m => m.RemoveCommand),
-        FormSettings.Action<TagsViewModel>("Undo the last change to the document", static m => m.UndoCommand),
+        FormSettings.Action<TagsViewModel>("Remove it", static m => m.RemoveCommand).With(ChromeIcon.Close),
+        FormSettings.Action<TagsViewModel>("Undo the last change to the document", static m => m.UndoCommand).With(ChromeIcon.Undo),
         FormSettings.Heading<TagsViewModel>("Custom tag types"),
         TagChoice("Custom type", static m => m.RoleMappings, RoleMappingOf, static (m, mapping) => m.RoleMappingIndex = IndexOf(m.RoleMappings, mapping)),
-        FormSettings.Action<TagsViewModel>("Remove the custom type", static m => m.RemoveRoleMappingCommand),
+        FormSettings.Action<TagsViewModel>("Remove the custom type", static m => m.RemoveRoleMappingCommand).With(ChromeIcon.Close),
         FormSettings.Field<TagsViewModel>("New custom type name", static m => m.NewRoleType, static (m, text) => m.NewRoleType = text),
         TagChoice("It stands for", static m => m.StandardTypes, static m => m.NewRoleTarget, static (m, target) => m.NewRoleTarget = target),
-        FormSettings.Action<TagsViewModel>("Add the custom type", static m => m.AddRoleMappingCommand),
+        FormSettings.Action<TagsViewModel>("Add the custom type", static m => m.AddRoleMappingCommand).With(ChromeIcon.Add),
         FormSettings.Heading<TagsViewModel>("What the check found"),
         FormSettings.Text<TagsViewModel>(static m => m.ProblemSummary),
         FormSettings.Picker<TagsViewModel, TagProblemItem>(static m => m.Problems, static problem => problem.Text, static (m, problem) => m.SelectedProblem = problem),
@@ -256,26 +257,26 @@ internal static class ToolForms
         FormSettings.Text<MediaPlayerViewModel>(static m => m.Caption),
         FormSettings.Text<MediaPlayerViewModel>(static m => m.Clock),
         FormSettings.Text<MediaPlayerViewModel>(static m => m.Status),
-        FormSettings.Action<MediaPlayerViewModel>("Play", static m => m.PlayCommand),
-        FormSettings.Action<MediaPlayerViewModel>("Pause", static m => m.PauseCommand),
-        FormSettings.Action<MediaPlayerViewModel>("Stop", static m => m.StopCommand),
-        FormSettings.Action<MediaPlayerViewModel>("Back ten seconds", static m => m.SkipBackCommand),
-        FormSettings.Action<MediaPlayerViewModel>("Forward ten seconds", static m => m.SkipForwardCommand),
+        FormSettings.Action<MediaPlayerViewModel>("Play", static m => m.PlayCommand).With(ChromeIcon.Play),
+        FormSettings.Action<MediaPlayerViewModel>("Pause", static m => m.PauseCommand).With(ChromeIcon.Pause),
+        FormSettings.Action<MediaPlayerViewModel>("Stop", static m => m.StopCommand).With(ChromeIcon.Stop),
+        FormSettings.Action<MediaPlayerViewModel>("Back ten seconds", static m => m.SkipBackCommand).With(ChromeIcon.Back),
+        FormSettings.Action<MediaPlayerViewModel>("Forward ten seconds", static m => m.SkipForwardCommand).With(ChromeIcon.Forward),
     ];
 
     /// <summary>The rows of the window that searches a folder of documents.</summary>
     private static readonly FormSetting<FolderSearchViewModel>[] FolderRows =
     [
         FormSettings.Field<FolderSearchViewModel>("Folder", static m => m.Folder, static (m, text) => m.Folder = text),
-        FormSettings.Action<FolderSearchViewModel>("Choose the folder…", static m => m.ChooseFolderCommand),
+        FormSettings.Action<FolderSearchViewModel>("Choose the folder…", static m => m.ChooseFolderCommand).With(ChromeIcon.Open),
         FormSettings.Field<FolderSearchViewModel>("Words to find", static m => m.Query, static (m, text) => m.Query = text),
         FormSettings.Toggle<FolderSearchViewModel>("Match capital letters", static m => m.MatchCase, static (m, on) => m.MatchCase = on),
         FormSettings.Toggle<FolderSearchViewModel>("Whole words only", static m => m.WholeWord, static (m, on) => m.WholeWord = on),
         FormSettings.Toggle<FolderSearchViewModel>("Treat accented letters as plain", static m => m.IgnoreDiacritics, static (m, on) => m.IgnoreDiacritics = on),
         FormSettings.Toggle<FolderSearchViewModel>("Treat look-alike characters as the same", static m => m.FoldCompatibility, static (m, on) => m.FoldCompatibility = on),
         FormSettings.Toggle<FolderSearchViewModel>("Look in folders inside it too", static m => m.IncludeSubfolders, static (m, on) => m.IncludeSubfolders = on),
-        FormSettings.Action<FolderSearchViewModel>("Search", static m => m.SearchCommand),
-        FormSettings.Action<FolderSearchViewModel>("Stop", static m => m.StopCommand).When(static m => m.IsSearching),
+        FormSettings.Action<FolderSearchViewModel>("Search", static m => m.SearchCommand).With(ChromeIcon.Search),
+        FormSettings.Action<FolderSearchViewModel>("Stop", static m => m.StopCommand).With(ChromeIcon.Stop).When(static m => m.IsSearching),
         FormSettings.Text<FolderSearchViewModel>(static m => m.Status),
         FormSettings.List<FolderSearchViewModel, FolderSearchResultViewModel>(static m => [..m.Results], static r => r.SpokenText, static m => m.OpenCommand),
     ];
@@ -285,24 +286,24 @@ internal static class ToolForms
     [
         FormSettings.Note<DocumentTabViewModel>("This document is locked for the holders of a certificate. Choose your certificate file and type its password."),
         FormSettings.Field<DocumentTabViewModel>("Certificate file", static m => m.CertificatePathEntry, static (m, text) => m.CertificatePathEntry = text),
-        FormSettings.Action<DocumentTabViewModel>("Choose the certificate file…", static m => m.BrowseCertificateCommand),
+        FormSettings.Action<DocumentTabViewModel>("Choose the certificate file…", static m => m.BrowseCertificateCommand).With(ChromeIcon.Open),
         FormSettings.Field<DocumentTabViewModel>(
             "Password of the certificate",
             static m => Passwords.Mask(m.CertificatePasswordEntry),
             static (m, text) => m.CertificatePasswordEntry = Passwords.Typed(m.CertificatePasswordEntry, text)),
         FormSettings.Text<DocumentTabViewModel>(static m => m.CertificateError),
-        FormSettings.Action<DocumentTabViewModel>("Open the document", static m => m.SubmitCertificateCommand),
+        FormSettings.Action<DocumentTabViewModel>("Open the document", static m => m.SubmitCertificateCommand).With(ChromeIcon.Done),
     ];
 
     /// <summary>The rows of the window of a note on the page: its words, the replies to it and what can be done with it.</summary>
     private static readonly FormSetting<AnnotationsViewModel>[] BubbleRows =
     [
         FormSettings.Field<AnnotationsViewModel>("The note", static m => m.BubbleNoteText, static (m, text) => m.BubbleNoteText = text),
-        FormSettings.Action<AnnotationsViewModel>("Keep the note", static m => m.SaveBubbleCommand),
-        FormSettings.Action<AnnotationsViewModel>("Reply to the note", static m => m.StartBubbleReplyCommand).When(static m => m.CanReplyInBubble),
+        FormSettings.Action<AnnotationsViewModel>("Keep the note", static m => m.SaveBubbleCommand).With(ChromeIcon.Done),
+        FormSettings.Action<AnnotationsViewModel>("Reply to the note", static m => m.StartBubbleReplyCommand).With(ChromeIcon.Note).When(static m => m.CanReplyInBubble),
         FormSettings.Field<AnnotationsViewModel>("Your reply", static m => m.BubbleReplyText, static (m, text) => m.BubbleReplyText = text).When(static m => m.IsReplyingInBubble),
-        FormSettings.Action<AnnotationsViewModel>("Send the reply", static m => m.SendBubbleReplyCommand).When(static m => m.IsReplyingInBubble),
-        FormSettings.Action<AnnotationsViewModel>("Remove the note", static m => m.DeleteBubbleAnnotationCommand).When(static m => m.IsExistingBubble),
+        FormSettings.Action<AnnotationsViewModel>("Send the reply", static m => m.SendBubbleReplyCommand).With(ChromeIcon.Done).When(static m => m.IsReplyingInBubble),
+        FormSettings.Action<AnnotationsViewModel>("Remove the note", static m => m.DeleteBubbleAnnotationCommand).With(ChromeIcon.Close).When(static m => m.IsExistingBubble),
     ];
 
     /// <summary>The rows of the window of Focus Mode's text settings, which apply as they are changed: the text, how it is spread, its colours, and what is marked while it is read aloud.</summary>
@@ -331,7 +332,7 @@ internal static class ToolForms
         FormSettings.Choice<AnnotationsViewModel>("Colour", AnnotationsViewModel.ColorFilterOptions, static m => m.FilterColor, static (m, value) => m.FilterColor = value),
         FormSettings.Pick<AnnotationsViewModel, string>("Author", static m => m.AuthorOptions, static name => name, static m => m.FilterAuthor, static (m, name) => m.FilterAuthor = name),
         FormSettings.Choice<AnnotationsViewModel>("Sort by", AnnotationsViewModel.SortOptions, static m => m.SortOrder, static (m, value) => m.SortOrder = value),
-        FormSettings.Action<AnnotationsViewModel>("Show all the notes", static m => m.ClearFilterCommand),
+        FormSettings.Action<AnnotationsViewModel>("Show all the notes", static m => m.ClearFilterCommand).With(ChromeIcon.Filter),
     ];
 
     /// <summary>The rows of the window that finds a tab among many: every open document, to go to with one press.</summary>

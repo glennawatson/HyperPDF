@@ -9,6 +9,7 @@ using HyperPdf.Core.Rendering;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Output;
 using HyperPdf.ViewModels.Preferences;
+using HyperPdf.Viewer.Icons;
 using HyperPdf.Windowing.Rendering;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -288,7 +289,7 @@ internal static class DocumentForms
 
         var at = print.Sheets.IndexOf(sheet);
         form.Text(UiText.Format("Sheet shown: {0}", sheet.Caption));
-        form.Action(UiText.Get("Show the sheet before"), at > 0, PreviousSheetRow, null);
-        form.Action(UiText.Get("Show the next sheet"), at < print.Sheets.Count - 1, NextSheetRow, null);
+        form.Action(ChromeIcon.Back, UiText.Get("Show the sheet before"), at > 0, PreviousSheetRow);
+        form.Action(ChromeIcon.Forward, UiText.Get("Show the next sheet"), at < print.Sheets.Count - 1, NextSheetRow);
     }
 }
