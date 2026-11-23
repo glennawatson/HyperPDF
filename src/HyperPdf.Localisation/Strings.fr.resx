@@ -303,6 +303,9 @@
   <data name="Add _to Pages" xml:space="preserve">
     <value>Ajouter _aux pages</value>
   </data>
+  <data name="Add a Boo_kmark Here…" xml:space="preserve">
+    <value>Ajouter un _signet ici…</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>Ajouter une _case à cocher de formulaire</value>
   </data>
@@ -4395,6 +4398,9 @@
   <data name="Re_load" xml:space="preserve">
     <value>Re_charger</value>
   </data>
+  <data name="Re_move This Tag" xml:space="preserve">
+    <value>_Supprimer cette balise</value>
+  </data>
   <data name="Re_move the Bookmark" xml:space="preserve">
     <value>_Supprimer le signet</value>
   </data>
@@ -5441,6 +5447,9 @@
   </data>
   <data name="Show Every _Layer as the Document Sets It" xml:space="preserve">
     <value>Afficher chaque _calque comme le définit le document</value>
+  </data>
+  <data name="Show _Only This Layer" xml:space="preserve">
+    <value>Afficher _seulement ce calque</value>
   </data>
   <data name="Show a document's own title when it asks" xml:space="preserve">
     <value>Afficher le titre du document lorsqu’il le demande</value>
@@ -7632,6 +7641,9 @@
   <data name="_Copy licence text" xml:space="preserve">
     <value>_Copier le texte de la licence</value>
   </data>
+  <data name="_Copy the Link Address" xml:space="preserve">
+    <value>_Copier l’adresse du lien</value>
+  </data>
   <data name="_Crop the Pages…" xml:space="preserve">
     <value>_Rogner les pages…</value>
   </data>
@@ -7670,6 +7682,9 @@
   </data>
   <data name="_Edit Text" xml:space="preserve">
     <value>_Modifier le texte</value>
+  </data>
+  <data name="_Edit This Tag…" xml:space="preserve">
+    <value>_Modifier cette balise…</value>
   </data>
   <data name="_Edit the Page's Own Content" xml:space="preserve">
     <value>_Modifier le contenu propre de la page</value>
@@ -7713,6 +7728,12 @@
   <data name="_Go" xml:space="preserve">
     <value>_Aller</value>
   </data>
+  <data name="_Go to This Bookmark" xml:space="preserve">
+    <value>_Aller à ce signet</value>
+  </data>
+  <data name="_Go to This Comment" xml:space="preserve">
+    <value>_Aller à ce commentaire</value>
+  </data>
   <data name="_Go to a Document…" xml:space="preserve">
     <value>_Aller à un document…</value>
   </data>
@@ -7724,6 +7745,9 @@
   </data>
   <data name="_Hand Tool" xml:space="preserve">
     <value>_Outil main</value>
+  </data>
+  <data name="_Hide This Layer" xml:space="preserve">
+    <value>_Masquer ce calque</value>
   </data>
   <data name="_Highlight" xml:space="preserve">
     <value>_Surligner</value>
@@ -7782,6 +7806,15 @@
   <data name="_One Page Wide" xml:space="preserve">
     <value>_Une page de large</value>
   </data>
+  <data name="_Open in Another App" xml:space="preserve">
+    <value>_Ouvrir dans une autre application</value>
+  </data>
+  <data name="_Open the Attached File" xml:space="preserve">
+    <value>_Ouvrir le fichier joint</value>
+  </data>
+  <data name="_Open the Link" xml:space="preserve">
+    <value>_Ouvrir le lien</value>
+  </data>
   <data name="_Open…" xml:space="preserve">
     <value>_Ouvrir…</value>
   </data>
@@ -7799,6 +7832,9 @@
   </data>
   <data name="_Picture…" xml:space="preserve">
     <value>_Image…</value>
+  </data>
+  <data name="_Play Here" xml:space="preserve">
+    <value>_Lire ici</value>
   </data>
   <data name="_Play or Pause" xml:space="preserve">
     <value>_Lecture ou pause</value>
@@ -7881,6 +7917,9 @@
   <data name="_Save Unprotected Copy…" xml:space="preserve">
     <value>_Enregistrer une copie non protégée…</value>
   </data>
+  <data name="_Save a Copy…" xml:space="preserve">
+    <value>_Enregistrer une copie…</value>
+  </data>
   <data name="_Scroll Slowly by Itself" xml:space="preserve">
     <value>Défiler _lentement tout seul</value>
   </data>
@@ -7892,6 +7931,9 @@
   </data>
   <data name="_Select Text" xml:space="preserve">
     <value>_Sélectionner du texte</value>
+  </data>
+  <data name="_Show This Layer" xml:space="preserve">
+    <value>_Afficher ce calque</value>
   </data>
   <data name="_Side Panel" xml:space="preserve">
     <value>_Panneau latéral</value>

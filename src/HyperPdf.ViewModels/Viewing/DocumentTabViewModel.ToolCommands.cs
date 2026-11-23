@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using HyperPdf.Core.Documents;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
 using ReactiveUI.Primitives.Signals;
@@ -31,11 +32,17 @@ public sealed partial class DocumentTabViewModel
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ToggleContentEditing() => Signal.Return(RxVoid.Default).InvokeCommand(ContentEdit.ToggleEditingCommand).Dispose();
 
+    /// <summary>Goes where a link or a bookmark points.</summary>
+    /// <param name="target">The place.</param>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void FollowLink(LinkTarget target) => Navigate(target);
+
     /// <summary>Starts or stops organising the pages. Starting shows the pages in the side panel, where they are chosen.</summary>
     [ReactiveCommand]
     private void ToggleOrganisePages()
     {
-        Signal.Return(RxVoid.Default).InvokeCommand(Pages.ToggleOrganisingCommand).Dispose();
+        Pages.ToggleOrganising();
         if (!Pages.IsOrganising)
         {
             return;

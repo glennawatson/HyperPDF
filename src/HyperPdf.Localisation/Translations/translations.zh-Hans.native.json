@@ -637,5 +637,19 @@
   "Could not add a blank page.": "无法添加空白页。",
   "Could not replace pages.": "无法替换页面。",
   "Could not reverse the pages.": "无法反转页面。",
-  "Could not save the pages as separate files.": "无法将页面保存为单独文件。"
+  "Could not save the pages as separate files.": "无法将页面保存为单独文件。",
+  "_Go to This Bookmark": "转到此书签(_G)",
+  "_Go to This Comment": "转到此批注(_G)",
+  "_Open the Attached File": "打开附件(_O)",
+  "_Save a Copy…": "保存副本(_S)…",
+  "_Play Here": "在此播放(_P)",
+  "_Open in Another App": "在其他应用中打开(_O)",
+  "_Hide This Layer": "隐藏此图层(_H)",
+  "_Show This Layer": "显示此图层(_S)",
+  "Show _Only This Layer": "仅显示此图层(_O)",
+  "_Edit This Tag…": "编辑此标签(_E)…",
+  "Re_move This Tag": "移除此标签(_M)",
+  "Add a Boo_kmark Here…": "在此添加书签(_K)…",
+  "_Open the Link": "打开链接(_O)",
+  "_Copy the Link Address": "复制链接地址(_C)"
 }

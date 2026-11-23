@@ -4,6 +4,7 @@
 
 using System.Windows.Input;
 using HyperPdf.Core.Annotations;
+using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdf.Core.Geometry;
 
@@ -89,6 +90,9 @@ public static class ContextMenus
         ArgumentNullException.ThrowIfNull(tab);
         var annotations = tab.Annotations;
         var editable = annotations.CanAnnotate;
+        var bookmarks = tab.OutlineEditing;
+        var pages = tab.PageTools;
+        var marking = tab.AnnotationsInUse is { Tool: not AnnotationTool.Select };
         return
         [
 
@@ -96,9 +100,44 @@ public static class ContextMenus
             MenuEntry.Separator(),
             MenuEntry.Item(UiText.Get("Add _Note Here"), null, annotations.BeginNoteBubbleHereCommand, location, editable),
             MenuEntry.Item(UiText.Get("_Type Text Here"), null, annotations.TypeTextHereCommand, location, editable),
+            MenuEntry.Item(UiText.Get("_Annotate…"), null, annotations.StartCommand, null, editable),
+            MenuEntry.Item(UiText.Get("Add a Boo_kmark Here…"), null, bookmarks.AddCommand, null, ((ICommand)bookmarks.AddCommand).CanExecute(null)),
             MenuEntry.Separator(),
-            MenuEntry.Item(UiText.Get("_Annotate…"), null, annotations.StartCommand, null, editable)
+            MenuEntry.Radio(UiText.Get("_Select Text"), pages.SetPageToolCommand, PageTool.SelectText, !marking && pages.PageTool == PageTool.SelectText),
+            MenuEntry.Radio(UiText.Get("_Hand"), pages.SetPageToolCommand, PageTool.Hand, !marking && pages.PageTool == PageTool.Hand),
+            MenuEntry.Radio(UiText.Get("_Zoom to Area"), pages.SetPageToolCommand, PageTool.ZoomArea, !marking && pages.PageTool == PageTool.ZoomArea),
+            MenuEntry.Separator(),
+            MenuEntry.Item(UiText.Get("_Back"), null, tab.GoBackCommand, null, tab.CanGoBack),
+            MenuEntry.Item(UiText.Get("For_ward"), null, tab.GoForwardCommand, null, tab.CanGoForward),
+            MenuEntry.Separator(),
+            MenuEntry.Item(UiText.Get("Rotate _Left"), null, tab.RotateLeftCommand, null, true),
+            MenuEntry.Item(UiText.Get("Rotate _Right"), null, tab.RotateRightCommand, null, true),
+            MenuEntry.Separator(),
+            MenuEntry.Item(UiText.Get("F_ind…"), "Ctrl+F", tab.FindCommand, null, true),
+            MenuEntry.Item(UiText.Get("_Print…"), "Ctrl+P", tab.Printing.PrintCommand, null, tab.IsLoaded)
         ];
+    }
+
+    /// <summary>Builds the menu for a link on the page: following it and copying its address, then what the page itself offers.</summary>
+    /// <param name="tab">The document tab.</param>
+    /// <param name="link">The link under the pointer.</param>
+    /// <param name="location">The page point under the pointer.</param>
+    /// <param name="copy">The command that copies text.</param>
+    /// <returns>The entries.</returns>
+    public static List<MenuEntry> ForLink(DocumentTabViewModel tab, PageLink link, PageLocation location, ICommand copy)
+    {
+        ArgumentNullException.ThrowIfNull(tab);
+        ArgumentNullException.ThrowIfNull(copy);
+        var items = ForPage(tab, location);
+        var address = link.Target.Uri;
+        items.InsertRange(
+            0,
+            [
+                MenuEntry.Item(UiText.Get("_Open the Link"), null, tab.FollowLinkCommand, link.Target, true),
+                MenuEntry.Item(UiText.Get("_Copy the Link Address"), null, copy, address, !string.IsNullOrEmpty(address)),
+                MenuEntry.Separator()
+            ]);
+        return items;
     }
 
     /// <summary>Builds the menu of a choice field's options, with the current one ticked.</summary>

@@ -303,6 +303,9 @@
   <data name="Add _to Pages" xml:space="preserve">
     <value>添加到页面(_T)</value>
   </data>
+  <data name="Add a Boo_kmark Here…" xml:space="preserve">
+    <value>在此添加书签(_K)…</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>添加表单复选框(_B)</value>
   </data>
@@ -4395,6 +4398,9 @@
   <data name="Re_load" xml:space="preserve">
     <value>重新加载(_L)</value>
   </data>
+  <data name="Re_move This Tag" xml:space="preserve">
+    <value>移除此标签(_M)</value>
+  </data>
   <data name="Re_move the Bookmark" xml:space="preserve">
     <value>删除书签(_M)</value>
   </data>
@@ -5441,6 +5447,9 @@
   </data>
   <data name="Show Every _Layer as the Document Sets It" xml:space="preserve">
     <value>按文档设置显示每个图层(_L)</value>
+  </data>
+  <data name="Show _Only This Layer" xml:space="preserve">
+    <value>仅显示此图层(_O)</value>
   </data>
   <data name="Show a document's own title when it asks" xml:space="preserve">
     <value>根据文档要求显示其自身标题</value>
@@ -7632,6 +7641,9 @@
   <data name="_Copy licence text" xml:space="preserve">
     <value>复制许可证文本(_C)</value>
   </data>
+  <data name="_Copy the Link Address" xml:space="preserve">
+    <value>复制链接地址(_C)</value>
+  </data>
   <data name="_Crop the Pages…" xml:space="preserve">
     <value>裁剪页面(_C)…</value>
   </data>
@@ -7670,6 +7682,9 @@
   </data>
   <data name="_Edit Text" xml:space="preserve">
     <value>_编辑文本</value>
+  </data>
+  <data name="_Edit This Tag…" xml:space="preserve">
+    <value>编辑此标签(_E)…</value>
   </data>
   <data name="_Edit the Page's Own Content" xml:space="preserve">
     <value>编辑页面自身内容(_E)</value>
@@ -7713,6 +7728,12 @@
   <data name="_Go" xml:space="preserve">
     <value>转到(_G)</value>
   </data>
+  <data name="_Go to This Bookmark" xml:space="preserve">
+    <value>转到此书签(_G)</value>
+  </data>
+  <data name="_Go to This Comment" xml:space="preserve">
+    <value>转到此批注(_G)</value>
+  </data>
   <data name="_Go to a Document…" xml:space="preserve">
     <value>转到文档(_G)…</value>
   </data>
@@ -7724,6 +7745,9 @@
   </data>
   <data name="_Hand Tool" xml:space="preserve">
     <value>抓手工具(_H)</value>
+  </data>
+  <data name="_Hide This Layer" xml:space="preserve">
+    <value>隐藏此图层(_H)</value>
   </data>
   <data name="_Highlight" xml:space="preserve">
     <value>高亮(_H)</value>
@@ -7782,6 +7806,15 @@
   <data name="_One Page Wide" xml:space="preserve">
     <value>单页宽度(_O)</value>
   </data>
+  <data name="_Open in Another App" xml:space="preserve">
+    <value>在其他应用中打开(_O)</value>
+  </data>
+  <data name="_Open the Attached File" xml:space="preserve">
+    <value>打开附件(_O)</value>
+  </data>
+  <data name="_Open the Link" xml:space="preserve">
+    <value>打开链接(_O)</value>
+  </data>
   <data name="_Open…" xml:space="preserve">
     <value>打开(_O)…</value>
   </data>
@@ -7799,6 +7832,9 @@
   </data>
   <data name="_Picture…" xml:space="preserve">
     <value>图片(_P)…</value>
+  </data>
+  <data name="_Play Here" xml:space="preserve">
+    <value>在此播放(_P)</value>
   </data>
   <data name="_Play or Pause" xml:space="preserve">
     <value>播放或暂停(_P)</value>
@@ -7881,6 +7917,9 @@
   <data name="_Save Unprotected Copy…" xml:space="preserve">
     <value>保存无保护副本(_S)…</value>
   </data>
+  <data name="_Save a Copy…" xml:space="preserve">
+    <value>保存副本(_S)…</value>
+  </data>
   <data name="_Scroll Slowly by Itself" xml:space="preserve">
     <value>自动慢速滚动(_S)</value>
   </data>
@@ -7892,6 +7931,9 @@
   </data>
   <data name="_Select Text" xml:space="preserve">
     <value>选择文字(_S)</value>
+  </data>
+  <data name="_Show This Layer" xml:space="preserve">
+    <value>显示此图层(_S)</value>
   </data>
   <data name="_Side Panel" xml:space="preserve">
     <value>侧栏(_S)</value>

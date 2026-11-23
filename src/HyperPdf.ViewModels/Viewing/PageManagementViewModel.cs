@@ -194,6 +194,16 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <summary>Gets the interaction asking where to save the selected pages.</summary>
     public Interaction<string, string?> ExtractInteraction { get; } = new();
 
+    /// <summary>Starts or stops organising the pages. Starting with no page chosen chooses the page being read, so the tools have something to change.</summary>
+    public void ToggleOrganising()
+    {
+        IsOrganising = !IsOrganising;
+        if (IsOrganising && SelectedPages.Length == 0 && _owner.PageCount > 0)
+        {
+            SelectPages([Math.Clamp(_owner.CurrentPageIndex, 0, _owner.PageCount - 1)]);
+        }
+    }
+
     /// <summary>Sets the selected pages, dropping invalid indexes and sorting duplicates into document order.</summary>
     /// <param name="pages">Zero-based page indexes.</param>
     public void SelectPages(IEnumerable<int> pages)
@@ -534,17 +544,6 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
             .SwitchMap(destination => ExtractTo(manager, destination)),
         UiText.Get("Could not extract pages."),
         false);
-
-    /// <summary>Starts or stops organising the pages. Starting with no page chosen chooses the page being read, so the tools have something to change.</summary>
-    [ReactiveCommand]
-    private void ToggleOrganising()
-    {
-        IsOrganising = !IsOrganising;
-        if (IsOrganising && SelectedPages.Length == 0 && _owner.PageCount > 0)
-        {
-            SelectPages([Math.Clamp(_owner.CurrentPageIndex, 0, _owner.PageCount - 1)]);
-        }
-    }
 
     /// <summary>Adds a page with nothing on it after the last chosen page, or after the page being read. It is as big as the page it follows.</summary>
     /// <returns>A signal that ends once the page is added or the edit failed.</returns>

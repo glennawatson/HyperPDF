@@ -637,5 +637,19 @@
   "Could not add a blank page.": "Não foi possível adicionar uma página em branco.",
   "Could not replace pages.": "Não foi possível substituir as páginas.",
   "Could not reverse the pages.": "Não foi possível inverter as páginas.",
-  "Could not save the pages as separate files.": "Não foi possível guardar as páginas como ficheiros separados."
+  "Could not save the pages as separate files.": "Não foi possível guardar as páginas como ficheiros separados.",
+  "_Go to This Bookmark": "_Ir para este marcador",
+  "_Go to This Comment": "_Ir para este comentário",
+  "_Open the Attached File": "_Abrir o ficheiro anexo",
+  "_Save a Copy…": "_Guardar uma cópia…",
+  "_Play Here": "_Reproduzir aqui",
+  "_Open in Another App": "_Abrir noutra aplicação",
+  "_Hide This Layer": "_Ocultar esta camada",
+  "_Show This Layer": "_Mostrar esta camada",
+  "Show _Only This Layer": "Mostrar _apenas esta camada",
+  "_Edit This Tag…": "_Editar esta etiqueta…",
+  "Re_move This Tag": "_Remover esta etiqueta",
+  "Add a Boo_kmark Here…": "Adicionar um _marcador aqui…",
+  "_Open the Link": "_Abrir a ligação",
+  "_Copy the Link Address": "_Copiar o endereço da ligação"
 }

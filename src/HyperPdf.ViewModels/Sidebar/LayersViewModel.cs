@@ -325,6 +325,32 @@ public sealed partial class LayersViewModel : ReactiveObject, IDisposable, ILoca
         }
     }
 
+    /// <summary>Shows a hidden layer or hides a shown one.</summary>
+    /// <param name="layer">The layer.</param>
+    [ReactiveCommand]
+    private void ToggleLayer(LayerItemViewModel layer)
+    {
+        // A layer from another document's list is left alone.
+        if (layer.CanToggle && _byId.ContainsKey(layer.Id))
+        {
+            layer.IsVisible = !layer.IsVisible;
+        }
+    }
+
+    /// <summary>Shows one layer and hides every other layer that can be hidden.</summary>
+    /// <param name="layer">The layer to keep.</param>
+    [ReactiveCommand]
+    private void ShowOnly(LayerItemViewModel layer)
+    {
+        foreach (var item in _byId.Values)
+        {
+            if (item.CanToggle)
+            {
+                item.IsVisible = ReferenceEquals(item, layer);
+            }
+        }
+    }
+
     /// <summary>Returns every layer to the states the file sets and redraws the pages.</summary>
     [ReactiveCommand]
     private void Reset()

@@ -303,6 +303,9 @@
   <data name="Add _to Pages" xml:space="preserve">
     <value>Adicionar _às páginas</value>
   </data>
+  <data name="Add a Boo_kmark Here…" xml:space="preserve">
+    <value>Adicionar um _marcador aqui…</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>Adicionar uma _caixa de seleção de formulário</value>
   </data>
@@ -4395,6 +4398,9 @@
   <data name="Re_load" xml:space="preserve">
     <value>Re_carregar</value>
   </data>
+  <data name="Re_move This Tag" xml:space="preserve">
+    <value>_Remover esta etiqueta</value>
+  </data>
   <data name="Re_move the Bookmark" xml:space="preserve">
     <value>_Remover o marcador</value>
   </data>
@@ -5441,6 +5447,9 @@
   </data>
   <data name="Show Every _Layer as the Document Sets It" xml:space="preserve">
     <value>Mostrar cada _camada como o documento a define</value>
+  </data>
+  <data name="Show _Only This Layer" xml:space="preserve">
+    <value>Mostrar _apenas esta camada</value>
   </data>
   <data name="Show a document's own title when it asks" xml:space="preserve">
     <value>Mostrar o título próprio do documento quando solicitado</value>
@@ -7632,6 +7641,9 @@
   <data name="_Copy licence text" xml:space="preserve">
     <value>_Copiar texto da licença</value>
   </data>
+  <data name="_Copy the Link Address" xml:space="preserve">
+    <value>_Copiar o endereço da ligação</value>
+  </data>
   <data name="_Crop the Pages…" xml:space="preserve">
     <value>_Recortar as páginas…</value>
   </data>
@@ -7670,6 +7682,9 @@
   </data>
   <data name="_Edit Text" xml:space="preserve">
     <value>_Editar texto</value>
+  </data>
+  <data name="_Edit This Tag…" xml:space="preserve">
+    <value>_Editar esta etiqueta…</value>
   </data>
   <data name="_Edit the Page's Own Content" xml:space="preserve">
     <value>_Editar o conteúdo próprio da página</value>
@@ -7713,6 +7728,12 @@
   <data name="_Go" xml:space="preserve">
     <value>_Ir</value>
   </data>
+  <data name="_Go to This Bookmark" xml:space="preserve">
+    <value>_Ir para este marcador</value>
+  </data>
+  <data name="_Go to This Comment" xml:space="preserve">
+    <value>_Ir para este comentário</value>
+  </data>
   <data name="_Go to a Document…" xml:space="preserve">
     <value>_Ir para um documento…</value>
   </data>
@@ -7724,6 +7745,9 @@
   </data>
   <data name="_Hand Tool" xml:space="preserve">
     <value>_Ferramenta mão</value>
+  </data>
+  <data name="_Hide This Layer" xml:space="preserve">
+    <value>_Ocultar esta camada</value>
   </data>
   <data name="_Highlight" xml:space="preserve">
     <value>_Realçar</value>
@@ -7782,6 +7806,15 @@
   <data name="_One Page Wide" xml:space="preserve">
     <value>_Uma página de largura</value>
   </data>
+  <data name="_Open in Another App" xml:space="preserve">
+    <value>_Abrir noutra aplicação</value>
+  </data>
+  <data name="_Open the Attached File" xml:space="preserve">
+    <value>_Abrir o ficheiro anexo</value>
+  </data>
+  <data name="_Open the Link" xml:space="preserve">
+    <value>_Abrir a ligação</value>
+  </data>
   <data name="_Open…" xml:space="preserve">
     <value>_Abrir…</value>
   </data>
@@ -7799,6 +7832,9 @@
   </data>
   <data name="_Picture…" xml:space="preserve">
     <value>_Imagem…</value>
+  </data>
+  <data name="_Play Here" xml:space="preserve">
+    <value>_Reproduzir aqui</value>
   </data>
   <data name="_Play or Pause" xml:space="preserve">
     <value>_Reproduzir ou pausar</value>
@@ -7881,6 +7917,9 @@
   <data name="_Save Unprotected Copy…" xml:space="preserve">
     <value>_Guardar cópia sem proteção…</value>
   </data>
+  <data name="_Save a Copy…" xml:space="preserve">
+    <value>_Guardar uma cópia…</value>
+  </data>
   <data name="_Scroll Slowly by Itself" xml:space="preserve">
     <value>Rolar _devagar automaticamente</value>
   </data>
@@ -7892,6 +7931,9 @@
   </data>
   <data name="_Select Text" xml:space="preserve">
     <value>_Selecionar texto</value>
+  </data>
+  <data name="_Show This Layer" xml:space="preserve">
+    <value>_Mostrar esta camada</value>
   </data>
   <data name="_Side Panel" xml:space="preserve">
     <value>_Painel lateral</value>

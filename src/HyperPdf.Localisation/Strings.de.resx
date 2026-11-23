@@ -303,6 +303,9 @@
   <data name="Add _to Pages" xml:space="preserve">
     <value>Zu Seiten _hinzufügen</value>
   </data>
+  <data name="Add a Boo_kmark Here…" xml:space="preserve">
+    <value>_Lesezeichen hier hinzufügen…</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>Formular-_Kontrollkästchen hinzufügen</value>
   </data>
@@ -4395,6 +4398,9 @@
   <data name="Re_load" xml:space="preserve">
     <value>Neu _laden</value>
   </data>
+  <data name="Re_move This Tag" xml:space="preserve">
+    <value>Dieses Tag _entfernen</value>
+  </data>
   <data name="Re_move the Bookmark" xml:space="preserve">
     <value>Lesezeichen _entfernen</value>
   </data>
@@ -5441,6 +5447,9 @@
   </data>
   <data name="Show Every _Layer as the Document Sets It" xml:space="preserve">
     <value>Jede _Ebene wie im Dokument festgelegt anzeigen</value>
+  </data>
+  <data name="Show _Only This Layer" xml:space="preserve">
+    <value>_Nur diese Ebene einblenden</value>
   </data>
   <data name="Show a document's own title when it asks" xml:space="preserve">
     <value>Dokumenteigenen Titel auf Anforderung anzeigen</value>
@@ -7632,6 +7641,9 @@
   <data name="_Copy licence text" xml:space="preserve">
     <value>_Lizenztext kopieren</value>
   </data>
+  <data name="_Copy the Link Address" xml:space="preserve">
+    <value>Linkadresse _kopieren</value>
+  </data>
   <data name="_Crop the Pages…" xml:space="preserve">
     <value>Seiten _zuschneiden…</value>
   </data>
@@ -7670,6 +7682,9 @@
   </data>
   <data name="_Edit Text" xml:space="preserve">
     <value>Text _bearbeiten</value>
+  </data>
+  <data name="_Edit This Tag…" xml:space="preserve">
+    <value>Dieses Tag _bearbeiten…</value>
   </data>
   <data name="_Edit the Page's Own Content" xml:space="preserve">
     <value>Eigenen Inhalt der Seite _bearbeiten</value>
@@ -7713,6 +7728,12 @@
   <data name="_Go" xml:space="preserve">
     <value>_Gehe zu</value>
   </data>
+  <data name="_Go to This Bookmark" xml:space="preserve">
+    <value>_Zu diesem Lesezeichen gehen</value>
+  </data>
+  <data name="_Go to This Comment" xml:space="preserve">
+    <value>_Zu diesem Kommentar gehen</value>
+  </data>
   <data name="_Go to a Document…" xml:space="preserve">
     <value>Zu einem _Dokument gehen…</value>
   </data>
@@ -7724,6 +7745,9 @@
   </data>
   <data name="_Hand Tool" xml:space="preserve">
     <value>_Handwerkzeug</value>
+  </data>
+  <data name="_Hide This Layer" xml:space="preserve">
+    <value>Diese Ebene _ausblenden</value>
   </data>
   <data name="_Highlight" xml:space="preserve">
     <value>_Hervorheben</value>
@@ -7782,6 +7806,15 @@
   <data name="_One Page Wide" xml:space="preserve">
     <value>_Eine Seite breit</value>
   </data>
+  <data name="_Open in Another App" xml:space="preserve">
+    <value>In anderer App _öffnen</value>
+  </data>
+  <data name="_Open the Attached File" xml:space="preserve">
+    <value>Angehängte Datei _öffnen</value>
+  </data>
+  <data name="_Open the Link" xml:space="preserve">
+    <value>Link _öffnen</value>
+  </data>
   <data name="_Open…" xml:space="preserve">
     <value>_Öffnen…</value>
   </data>
@@ -7799,6 +7832,9 @@
   </data>
   <data name="_Picture…" xml:space="preserve">
     <value>_Bild…</value>
+  </data>
+  <data name="_Play Here" xml:space="preserve">
+    <value>Hier _abspielen</value>
   </data>
   <data name="_Play or Pause" xml:space="preserve">
     <value>_Wiedergabe oder Pause</value>
@@ -7881,6 +7917,9 @@
   <data name="_Save Unprotected Copy…" xml:space="preserve">
     <value>_Ungeschützte Kopie speichern…</value>
   </data>
+  <data name="_Save a Copy…" xml:space="preserve">
+    <value>Kopie _speichern…</value>
+  </data>
   <data name="_Scroll Slowly by Itself" xml:space="preserve">
     <value>Von selbst _langsam scrollen</value>
   </data>
@@ -7892,6 +7931,9 @@
   </data>
   <data name="_Select Text" xml:space="preserve">
     <value>_Text auswählen</value>
+  </data>
+  <data name="_Show This Layer" xml:space="preserve">
+    <value>Diese Ebene _einblenden</value>
   </data>
   <data name="_Side Panel" xml:space="preserve">
     <value>_Seitenleiste</value>

@@ -303,6 +303,9 @@
   <data name="Add _to Pages" xml:space="preserve">
     <value>إضافة _إلى الصفحات</value>
   </data>
+  <data name="Add a Boo_kmark Here…" xml:space="preserve">
+    <value>إضافة إشارة مرجعية هنا…</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>إضافة _خانة اختيار نموذج</value>
   </data>
@@ -4395,6 +4398,9 @@
   <data name="Re_load" xml:space="preserve">
     <value>إ_عادة التحميل</value>
   </data>
+  <data name="Re_move This Tag" xml:space="preserve">
+    <value>إزالة هذه العلامة</value>
+  </data>
   <data name="Re_move the Bookmark" xml:space="preserve">
     <value>_إزالة الإشارة المرجعية</value>
   </data>
@@ -5441,6 +5447,9 @@
   </data>
   <data name="Show Every _Layer as the Document Sets It" xml:space="preserve">
     <value>إظهار كل _طبقة كما يحددها المستند</value>
+  </data>
+  <data name="Show _Only This Layer" xml:space="preserve">
+    <value>إظهار هذه الطبقة فقط</value>
   </data>
   <data name="Show a document's own title when it asks" xml:space="preserve">
     <value>إظهار عنوان المستند عند طلبه</value>
@@ -7632,6 +7641,9 @@
   <data name="_Copy licence text" xml:space="preserve">
     <value>_نسخ نص الترخيص</value>
   </data>
+  <data name="_Copy the Link Address" xml:space="preserve">
+    <value>نسخ عنوان الرابط</value>
+  </data>
   <data name="_Crop the Pages…" xml:space="preserve">
     <value>_اقتصاص الصفحات…</value>
   </data>
@@ -7670,6 +7682,9 @@
   </data>
   <data name="_Edit Text" xml:space="preserve">
     <value>_تحرير النص</value>
+  </data>
+  <data name="_Edit This Tag…" xml:space="preserve">
+    <value>تحرير هذه العلامة…</value>
   </data>
   <data name="_Edit the Page's Own Content" xml:space="preserve">
     <value>_تحرير محتوى الصفحة نفسه</value>
@@ -7713,6 +7728,12 @@
   <data name="_Go" xml:space="preserve">
     <value>_انتقال</value>
   </data>
+  <data name="_Go to This Bookmark" xml:space="preserve">
+    <value>الانتقال إلى هذه الإشارة المرجعية</value>
+  </data>
+  <data name="_Go to This Comment" xml:space="preserve">
+    <value>الانتقال إلى هذا التعليق</value>
+  </data>
   <data name="_Go to a Document…" xml:space="preserve">
     <value>_الانتقال إلى مستند…</value>
   </data>
@@ -7724,6 +7745,9 @@
   </data>
   <data name="_Hand Tool" xml:space="preserve">
     <value>أداة ال_يد</value>
+  </data>
+  <data name="_Hide This Layer" xml:space="preserve">
+    <value>إخفاء هذه الطبقة</value>
   </data>
   <data name="_Highlight" xml:space="preserve">
     <value>_تمييز</value>
@@ -7782,6 +7806,15 @@
   <data name="_One Page Wide" xml:space="preserve">
     <value>_صفحة واحدة بالعرض</value>
   </data>
+  <data name="_Open in Another App" xml:space="preserve">
+    <value>فتح في تطبيق آخر</value>
+  </data>
+  <data name="_Open the Attached File" xml:space="preserve">
+    <value>فتح الملف المرفق</value>
+  </data>
+  <data name="_Open the Link" xml:space="preserve">
+    <value>فتح الرابط</value>
+  </data>
   <data name="_Open…" xml:space="preserve">
     <value>_فتح…</value>
   </data>
@@ -7799,6 +7832,9 @@
   </data>
   <data name="_Picture…" xml:space="preserve">
     <value>_صورة…</value>
+  </data>
+  <data name="_Play Here" xml:space="preserve">
+    <value>تشغيل هنا</value>
   </data>
   <data name="_Play or Pause" xml:space="preserve">
     <value>_تشغيل أو إيقاف مؤقت</value>
@@ -7881,6 +7917,9 @@
   <data name="_Save Unprotected Copy…" xml:space="preserve">
     <value>حفظ نسخة _غير محمية…</value>
   </data>
+  <data name="_Save a Copy…" xml:space="preserve">
+    <value>حفظ نسخة…</value>
+  </data>
   <data name="_Scroll Slowly by Itself" xml:space="preserve">
     <value>_تمرير بطيء تلقائي</value>
   </data>
@@ -7892,6 +7931,9 @@
   </data>
   <data name="_Select Text" xml:space="preserve">
     <value>_تحديد النص</value>
+  </data>
+  <data name="_Show This Layer" xml:space="preserve">
+    <value>إظهار هذه الطبقة</value>
   </data>
   <data name="_Side Panel" xml:space="preserve">
     <value>_اللوحة الجانبية</value>

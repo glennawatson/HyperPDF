@@ -15,7 +15,7 @@ public sealed class ContextMenusTests
     private const int Pages = 2;
 
     /// <summary>The entries in the page menu.</summary>
-    private const int PageEntries = 6;
+    private const int PageEntries = 19;
 
     /// <summary>The entries in the selection menu.</summary>
     private const int SelectionEntries = 7;

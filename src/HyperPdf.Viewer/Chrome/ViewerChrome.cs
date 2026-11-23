@@ -10,7 +10,6 @@ using HyperPdf.Presentation.Input;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Services;
-using HyperPdf.ViewModels.Sidebar;
 using HyperPdf.ViewModels.Viewing;
 using HyperPdf.Viewer.Chrome.Forms;
 using HyperPdf.Viewer.Icons;
@@ -725,26 +724,20 @@ public sealed partial class ViewerChrome : IDisposable
         return true;
     }
 
-    /// <summary>Handles a right press on a page in the side panel, which opens the menu of what can be done to the chosen pages.</summary>
+    /// <summary>Handles a right press on a row of the side panel, which opens the menu of what can be done to that row.</summary>
     /// <param name="buttons">The buttons held.</param>
     /// <param name="item">The control pressed.</param>
     /// <param name="x">The x in device pixels.</param>
     /// <param name="y">The y in device pixels.</param>
-    /// <returns><see langword="true"/> when the press was one on a page.</returns>
-    private bool PressPageWithRightButton(ViewerButtons buttons, ChromeItem item, int x, int y)
+    /// <returns><see langword="true"/> when the press opened a row's menu.</returns>
+    private bool PressRowWithRightButton(ViewerButtons buttons, ChromeItem item, int x, int y)
     {
-        if ((buttons & ViewerButtons.Right) == 0 || item.Parameter is not ThumbnailItemViewModel page || _main.SelectedTab is not { } shown)
+        if ((buttons & ViewerButtons.Right) == 0 || _main.SelectedTab is not { } shown || SidebarContextMenus.ForRow(shown, item.Parameter) is not { } menu)
         {
             return false;
         }
 
-        // A right press on a page that is not one of the chosen pages chooses it alone, so the menu acts on the page it was opened on.
-        if (Array.BinarySearch(shown.Pages.SelectedPages, page.PageIndex) < 0)
-        {
-            shown.Pages.SelectPages([page.PageIndex]);
-        }
-
-        ShowMenu(PageContextMenus.ForPage(shown, page), new(x, y));
+        ShowMenu(menu, new(x, y));
         return true;
     }
 
@@ -820,7 +813,7 @@ public sealed partial class ViewerChrome : IDisposable
             return;
         }
 
-        if (PressPageWithRightButton(buttons, item, x, y))
+        if (PressRowWithRightButton(buttons, item, x, y))
         {
             return;
         }

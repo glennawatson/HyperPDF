@@ -637,5 +637,19 @@
   "Could not add a blank page.": "تعذّرت إضافة صفحة فارغة.",
   "Could not replace pages.": "تعذّر استبدال الصفحات.",
   "Could not reverse the pages.": "تعذّر عكس الصفحات.",
-  "Could not save the pages as separate files.": "تعذّر حفظ الصفحات كملفات منفصلة."
+  "Could not save the pages as separate files.": "تعذّر حفظ الصفحات كملفات منفصلة.",
+  "_Go to This Bookmark": "الانتقال إلى هذه الإشارة المرجعية",
+  "_Go to This Comment": "الانتقال إلى هذا التعليق",
+  "_Open the Attached File": "فتح الملف المرفق",
+  "_Save a Copy…": "حفظ نسخة…",
+  "_Play Here": "تشغيل هنا",
+  "_Open in Another App": "فتح في تطبيق آخر",
+  "_Hide This Layer": "إخفاء هذه الطبقة",
+  "_Show This Layer": "إظهار هذه الطبقة",
+  "Show _Only This Layer": "إظهار هذه الطبقة فقط",
+  "_Edit This Tag…": "تحرير هذه العلامة…",
+  "Re_move This Tag": "إزالة هذه العلامة",
+  "Add a Boo_kmark Here…": "إضافة إشارة مرجعية هنا…",
+  "_Open the Link": "فتح الرابط",
+  "_Copy the Link Address": "نسخ عنوان الرابط"
 }

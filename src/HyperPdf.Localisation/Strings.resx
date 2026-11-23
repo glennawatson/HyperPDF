@@ -303,6 +303,9 @@
   <data name="Add _to Pages" xml:space="preserve">
     <value>Add _to Pages</value>
   </data>
+  <data name="Add a Boo_kmark Here…" xml:space="preserve">
+    <value>Add a Boo_kmark Here…</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>Add a Form Check _Box</value>
   </data>
@@ -4395,6 +4398,9 @@
   <data name="Re_load" xml:space="preserve">
     <value>Re_load</value>
   </data>
+  <data name="Re_move This Tag" xml:space="preserve">
+    <value>Re_move This Tag</value>
+  </data>
   <data name="Re_move the Bookmark" xml:space="preserve">
     <value>Re_move the Bookmark</value>
   </data>
@@ -5441,6 +5447,9 @@
   </data>
   <data name="Show Every _Layer as the Document Sets It" xml:space="preserve">
     <value>Show Every _Layer as the Document Sets It</value>
+  </data>
+  <data name="Show _Only This Layer" xml:space="preserve">
+    <value>Show _Only This Layer</value>
   </data>
   <data name="Show a document's own title when it asks" xml:space="preserve">
     <value>Show a document's own title when it asks</value>
@@ -7632,6 +7641,9 @@
   <data name="_Copy licence text" xml:space="preserve">
     <value>_Copy licence text</value>
   </data>
+  <data name="_Copy the Link Address" xml:space="preserve">
+    <value>_Copy the Link Address</value>
+  </data>
   <data name="_Crop the Pages…" xml:space="preserve">
     <value>_Crop the Pages…</value>
   </data>
@@ -7670,6 +7682,9 @@
   </data>
   <data name="_Edit Text" xml:space="preserve">
     <value>_Edit Text</value>
+  </data>
+  <data name="_Edit This Tag…" xml:space="preserve">
+    <value>_Edit This Tag…</value>
   </data>
   <data name="_Edit the Page's Own Content" xml:space="preserve">
     <value>_Edit the Page's Own Content</value>
@@ -7713,6 +7728,12 @@
   <data name="_Go" xml:space="preserve">
     <value>_Go</value>
   </data>
+  <data name="_Go to This Bookmark" xml:space="preserve">
+    <value>_Go to This Bookmark</value>
+  </data>
+  <data name="_Go to This Comment" xml:space="preserve">
+    <value>_Go to This Comment</value>
+  </data>
   <data name="_Go to a Document…" xml:space="preserve">
     <value>_Go to a Document…</value>
   </data>
@@ -7724,6 +7745,9 @@
   </data>
   <data name="_Hand Tool" xml:space="preserve">
     <value>_Hand Tool</value>
+  </data>
+  <data name="_Hide This Layer" xml:space="preserve">
+    <value>_Hide This Layer</value>
   </data>
   <data name="_Highlight" xml:space="preserve">
     <value>_Highlight</value>
@@ -7782,6 +7806,15 @@
   <data name="_One Page Wide" xml:space="preserve">
     <value>_One Page Wide</value>
   </data>
+  <data name="_Open in Another App" xml:space="preserve">
+    <value>_Open in Another App</value>
+  </data>
+  <data name="_Open the Attached File" xml:space="preserve">
+    <value>_Open the Attached File</value>
+  </data>
+  <data name="_Open the Link" xml:space="preserve">
+    <value>_Open the Link</value>
+  </data>
   <data name="_Open…" xml:space="preserve">
     <value>_Open…</value>
   </data>
@@ -7799,6 +7832,9 @@
   </data>
   <data name="_Picture…" xml:space="preserve">
     <value>_Picture…</value>
+  </data>
+  <data name="_Play Here" xml:space="preserve">
+    <value>_Play Here</value>
   </data>
   <data name="_Play or Pause" xml:space="preserve">
     <value>_Play or Pause</value>
@@ -7881,6 +7917,9 @@
   <data name="_Save Unprotected Copy…" xml:space="preserve">
     <value>_Save Unprotected Copy…</value>
   </data>
+  <data name="_Save a Copy…" xml:space="preserve">
+    <value>_Save a Copy…</value>
+  </data>
   <data name="_Scroll Slowly by Itself" xml:space="preserve">
     <value>_Scroll Slowly by Itself</value>
   </data>
@@ -7892,6 +7931,9 @@
   </data>
   <data name="_Select Text" xml:space="preserve">
     <value>_Select Text</value>
+  </data>
+  <data name="_Show This Layer" xml:space="preserve">
+    <value>_Show This Layer</value>
   </data>
   <data name="_Side Panel" xml:space="preserve">
     <value>_Side Panel</value>

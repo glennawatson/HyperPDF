@@ -637,5 +637,19 @@
   "Could not add a blank page.": "Could not add a blank page.",
   "Could not replace pages.": "Could not replace pages.",
   "Could not reverse the pages.": "Could not reverse the pages.",
-  "Could not save the pages as separate files.": "Could not save the pages as separate files."
+  "Could not save the pages as separate files.": "Could not save the pages as separate files.",
+  "_Go to This Bookmark": "_Go to This Bookmark",
+  "_Go to This Comment": "_Go to This Comment",
+  "_Open the Attached File": "_Open the Attached File",
+  "_Save a Copy…": "_Save a Copy…",
+  "_Play Here": "_Play Here",
+  "_Open in Another App": "_Open in Another App",
+  "_Hide This Layer": "_Hide This Layer",
+  "_Show This Layer": "_Show This Layer",
+  "Show _Only This Layer": "Show _Only This Layer",
+  "_Edit This Tag…": "_Edit This Tag…",
+  "Re_move This Tag": "Re_move This Tag",
+  "Add a Boo_kmark Here…": "Add a Boo_kmark Here…",
+  "_Open the Link": "_Open the Link",
+  "_Copy the Link Address": "_Copy the Link Address"
 }

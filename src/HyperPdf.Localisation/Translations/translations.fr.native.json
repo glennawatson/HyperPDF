@@ -637,5 +637,19 @@
   "Could not add a blank page.": "Impossible d’ajouter une page blanche.",
   "Could not replace pages.": "Impossible de remplacer les pages.",
   "Could not reverse the pages.": "Impossible d’inverser les pages.",
-  "Could not save the pages as separate files.": "Impossible d’enregistrer les pages en fichiers séparés."
+  "Could not save the pages as separate files.": "Impossible d’enregistrer les pages en fichiers séparés.",
+  "_Go to This Bookmark": "_Aller à ce signet",
+  "_Go to This Comment": "_Aller à ce commentaire",
+  "_Open the Attached File": "_Ouvrir le fichier joint",
+  "_Save a Copy…": "_Enregistrer une copie…",
+  "_Play Here": "_Lire ici",
+  "_Open in Another App": "_Ouvrir dans une autre application",
+  "_Hide This Layer": "_Masquer ce calque",
+  "_Show This Layer": "_Afficher ce calque",
+  "Show _Only This Layer": "Afficher _seulement ce calque",
+  "_Edit This Tag…": "_Modifier cette balise…",
+  "Re_move This Tag": "_Supprimer cette balise",
+  "Add a Boo_kmark Here…": "Ajouter un _signet ici…",
+  "_Open the Link": "_Ouvrir le lien",
+  "_Copy the Link Address": "_Copier l’adresse du lien"
 }

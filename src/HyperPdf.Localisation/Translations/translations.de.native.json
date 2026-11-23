@@ -637,5 +637,19 @@
   "Could not add a blank page.": "Die leere Seite konnte nicht hinzugefügt werden.",
   "Could not replace pages.": "Die Seiten konnten nicht ersetzt werden.",
   "Could not reverse the pages.": "Die Seiten konnten nicht umgekehrt werden.",
-  "Could not save the pages as separate files.": "Die Seiten konnten nicht als einzelne Dateien gespeichert werden."
+  "Could not save the pages as separate files.": "Die Seiten konnten nicht als einzelne Dateien gespeichert werden.",
+  "_Go to This Bookmark": "_Zu diesem Lesezeichen gehen",
+  "_Go to This Comment": "_Zu diesem Kommentar gehen",
+  "_Open the Attached File": "Angehängte Datei _öffnen",
+  "_Save a Copy…": "Kopie _speichern…",
+  "_Play Here": "Hier _abspielen",
+  "_Open in Another App": "In anderer App _öffnen",
+  "_Hide This Layer": "Diese Ebene _ausblenden",
+  "_Show This Layer": "Diese Ebene _einblenden",
+  "Show _Only This Layer": "_Nur diese Ebene einblenden",
+  "_Edit This Tag…": "Dieses Tag _bearbeiten…",
+  "Re_move This Tag": "Dieses Tag _entfernen",
+  "Add a Boo_kmark Here…": "_Lesezeichen hier hinzufügen…",
+  "_Open the Link": "Link _öffnen",
+  "_Copy the Link Address": "Linkadresse _kopieren"
 }
