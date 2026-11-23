@@ -21,6 +21,9 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
     /// <summary>The degrees of a half turn. A page turned by anything else than a multiple of it lies on its side.</summary>
     private const int HalfTurn = 180;
 
+    /// <summary>The pages of a pair when pages are shuffled in: one of the document's and one of the file's.</summary>
+    private const int PairSize = 2;
+
     /// <summary>The document whose caches and saved state follow each edit.</summary>
     private readonly HyperPdfDocument _owner;
 
@@ -107,6 +110,18 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
         return Signal.FromAsync(async token =>
         {
             await InsertCoreAsync(index, files, report, token).ConfigureAwait(false);
+            return RxVoid.Default;
+        });
+    }
+
+    /// <inheritdoc/>
+    public IObservable<RxVoid> Interleave(string file, PageEditReport report)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        ArgumentNullException.ThrowIfNull(report);
+        return Signal.FromAsync(async token =>
+        {
+            await InterleaveCoreAsync(file, report, token).ConfigureAwait(false);
             return RxVoid.Default;
         });
     }
@@ -229,6 +244,37 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
                     break;
                 }
         }
+    }
+
+    /// <summary>Makes the order that puts each added page after the document's page with the same number.</summary>
+    /// <param name="own">The document's pages, which come first in the old order.</param>
+    /// <param name="added">The added pages, which follow them in the old order.</param>
+    /// <returns>For each new place, the old index of the page that goes there.</returns>
+    private static int[] InterleavedOrder(int own, int added)
+    {
+        var order = new int[own + added];
+        var pairs = Math.Min(own, added);
+        for (var index = 0; index < pairs; index++)
+        {
+            order[index * PairSize] = index;
+            order[(index * PairSize) + 1] = own + index;
+        }
+
+        // The pages of the longer one that have no partner keep their order at the end.
+        var place = pairs * PairSize;
+        for (var index = pairs; index < own; index++)
+        {
+            order[place] = index;
+            place++;
+        }
+
+        for (var index = pairs; index < added; index++)
+        {
+            order[place] = own + index;
+            place++;
+        }
+
+        return order;
     }
 
     /// <summary>Adds a page with nothing on it, as big as another page looks: its visible box, turned as the page is turned.</summary>
@@ -444,6 +490,57 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
                 source.Document.Dispose();
             }
         }
+    }
+
+    /// <summary>Adds a file's pages at the end and shuffles them in among the document's pages, as one undo step.</summary>
+    /// <param name="file">The PDF whose pages go in between.</param>
+    /// <param name="report">Receives what the copy could not keep.</param>
+    /// <param name="cancellationToken">Cancels opening and importing the file.</param>
+    /// <returns>A task completing after the document has changed.</returns>
+    private async ValueTask InterleaveCoreAsync(string file, PageEditReport report, CancellationToken cancellationToken)
+    {
+        var changes = new PdfPageEditReport();
+        var revision = Snapshot(cancellationToken);
+        var pending = new List<ImportDocument>(1);
+        try
+        {
+            await PrepareImportAsync(file, pending, cancellationToken).ConfigureAwait(false);
+            await PrefetchAsync(_document, ReadOnlyMemory<int>.Empty, cancellationToken).ConfigureAwait(false);
+            lock (_gate)
+            {
+                ValidateRevision(revision, cancellationToken);
+                using var access = HyperPdfNavigation.EnterPageWrite(_owner);
+                InterleavePrepared(pending, changes, cancellationToken);
+            }
+
+            HyperPdfSeparations.CopyReport(changes, report);
+        }
+        finally
+        {
+            foreach (var source in pending)
+            {
+                source.Document.Dispose();
+            }
+        }
+    }
+
+    /// <summary>Inserts a prepared file's pages at the end and shuffles them in, inside one transaction.</summary>
+    /// <param name="pending">The one prepared file, whose ownership moves to the document on commit.</param>
+    /// <param name="report">Receives what the copy could not keep.</param>
+    /// <param name="cancellationToken">Cancels before committing.</param>
+    private void InterleavePrepared(List<ImportDocument> pending, PdfPageEditReport report, CancellationToken cancellationToken)
+    {
+        var own = _document.PageCount;
+        var added = pending[0].Pages.Length;
+        _ = _imports.EnsureCapacity(checked(_imports.Count + 1));
+        using var transaction = HyperPdfEditTransactions.Begin(_document, "Interleave pages");
+        PdfDocumentPageOperations.InsertPages(_document, own, pending[0].Document, pending[0].Pages, report, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        PdfDocumentPageOperations.ReorderPages(_document, InterleavedOrder(own, added));
+        transaction.Commit();
+        _imports.Add(pending[0].Document);
+        pending.Clear();
+        Changed();
     }
 
     /// <summary>Makes a page of each picture and inserts them as one undo step.</summary>

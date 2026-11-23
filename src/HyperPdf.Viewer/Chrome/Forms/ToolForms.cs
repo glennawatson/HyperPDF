@@ -121,6 +121,23 @@ internal static class ToolForms
         FormSettings.Action<SignatureMarkViewModel>("Forget the one that was kept", static m => m.ForgetCommand).With(ChromeIcon.Close).When(static m => m.HasSaved),
     ];
 
+    /// <summary>The rows of the window that finds words in the pages' text and puts others in their place.</summary>
+    private static readonly FormSetting<FindReplaceViewModel>[] FindReplaceRows =
+    [
+        FormSettings.Field<FindReplaceViewModel>("Find", static m => m.Find, static (m, text) => m.Find = text),
+        FormSettings.Field<FindReplaceViewModel>("Replace with", static m => m.Replacement, static (m, text) => m.Replacement = text),
+        FormSettings.Toggle<FindReplaceViewModel>("Match case", static m => m.MatchCase, static (m, on) => m.MatchCase = on),
+    ];
+
+    /// <summary>The rows of the window that changes the document's details.</summary>
+    private static readonly FormSetting<DocumentInfoViewModel>[] DocumentInfoRows =
+    [
+        FormSettings.Field<DocumentInfoViewModel>("Title", static m => m.Title, static (m, text) => m.Title = text),
+        FormSettings.Field<DocumentInfoViewModel>("Author", static m => m.Author, static (m, text) => m.Author = text),
+        FormSettings.Field<DocumentInfoViewModel>("Subject", static m => m.Subject, static (m, text) => m.Subject = text),
+        FormSettings.Field<DocumentInfoViewModel>("Keywords", static m => m.Keywords, static (m, text) => m.Keywords = text),
+    ];
+
     /// <summary>The rows of the window that sets how typed text looks.</summary>
     private static readonly FormSetting<TextPropertiesViewModel>[] TextRows =
     [
@@ -516,6 +533,30 @@ internal static class ToolForms
     {
         AcceptText = UiText.Get("Number these pages"),
         AcceptIcon = ChromeIcon.Done,
+        AcceptCommand = model.AcceptCommand,
+        Answered = model.Answered,
+    };
+
+    /// <summary>Makes the window that changes the document's title, author, subject and keywords. The view model answers when the details are kept.</summary>
+    /// <param name="model">The view model.</param>
+    /// <returns>What the window shows.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormRequest DocumentInfo(DocumentInfoViewModel model) => FormSettings.Window(UiText.Get("Document details"), model, DocumentInfoRows) with
+    {
+        AcceptText = UiText.Get("Keep these details"),
+        AcceptIcon = ChromeIcon.Done,
+        AcceptCommand = model.AcceptCommand,
+        Answered = model.Answered,
+    };
+
+    /// <summary>Makes the window that finds words in the pages' own text and puts others in their place. The view model answers when told to go ahead.</summary>
+    /// <param name="model">The view model.</param>
+    /// <returns>What the window shows.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static FormRequest FindReplace(FindReplaceViewModel model) => FormSettings.Window(UiText.Get("Find and replace"), model, FindReplaceRows) with
+    {
+        AcceptText = UiText.Get("Replace all"),
+        AcceptIcon = ChromeIcon.Replace,
         AcceptCommand = model.AcceptCommand,
         Answered = model.Answered,
     };

@@ -40,7 +40,9 @@ public static class ContextMenus
                 [..ColorItems(mark, lines, static (selected, color) => new MarkSelectionRequest(AnnotationKind.Highlight, color, selected))]),
             MenuEntry.Item(UiText.Get("_Underline"), null, mark, new MarkSelectionRequest(AnnotationKind.Underline, annotations.Color, lines), editable),
             MenuEntry.Item(UiText.Get("_Strike Out"), null, mark, new MarkSelectionRequest(AnnotationKind.StrikeOut, AnnotationColors.Clay, lines), editable),
-            MenuEntry.Item(UiText.Get("S_quiggly Underline"), null, mark, new MarkSelectionRequest(AnnotationKind.Squiggly, AnnotationColors.Clay, lines), editable)
+            MenuEntry.Item(UiText.Get("S_quiggly Underline"), null, mark, new MarkSelectionRequest(AnnotationKind.Squiggly, AnnotationColors.Clay, lines), editable),
+            MenuEntry.Separator(),
+            MenuEntry.Item(UiText.Get("_Link the Selected Text…"), null, annotations.LinkSelectionCommand, lines, editable).WithIcon("Follow")
         ];
     }
 

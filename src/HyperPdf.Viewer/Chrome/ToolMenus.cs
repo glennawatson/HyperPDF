@@ -28,6 +28,9 @@ internal static class ToolMenus
     /// <summary>The name of the icon of an entry that adds pages.</summary>
     private const string AddIcon = "Add";
 
+    /// <summary>The pages Swap works on: two.</summary>
+    private const int PairOfPages = 2;
+
     /// <summary>How close two spacings are for them to be the same choice.</summary>
     private const float SpacingTolerance = 0.001F;
 
@@ -148,6 +151,7 @@ internal static class ToolMenus
             Item("Move the Page La_ter", pages.MoveLaterCommand),
             Item("_Duplicate the Page", pages.DuplicateCommand),
             Item("Re_verse the Order of the Pages", pages.ReverseCommand).WithIcon("Reverse"),
+            MenuEntry.Item(UiText.Get("S_wap the Two Selected Pages"), null, pages.ReverseCommand, null, pages.SelectedPages.Length == PairOfPages).WithIcon("Reverse"),
             Item("Delete the Page", pages.DeleteCommand),
             MenuEntry.Separator(),
             MenuEntry.Radio(UiText.Get("_Organise Pages"), tab.ToggleOrganisePagesCommand, null, pages.IsOrganising),
@@ -163,6 +167,8 @@ internal static class ToolMenus
             Item("_Insert Pages from Files…", pages.InsertFilesCommand),
             Item("Insert _Pictures as Pages…", pages.InsertImagesCommand),
             Item("_Merge Files…", pages.MergeFilesCommand),
+            Item("S_huffle In the Pages of a File…", pages.InterleaveCommand).WithIcon(AddIcon),
+            Item("Save the Parts Between _Bookmarks as Files…", pages.SplitAtBookmarksCommand).WithIcon("Split"),
             MenuEntry.Separator(),
             Named(pages.UndoText, pages.UndoCommand).WithIcon("Undo"),
             Named(pages.RedoText, pages.RedoCommand).WithIcon("Redo"),
@@ -181,6 +187,7 @@ internal static class ToolMenus
             Item("_Pages from Files…", pages.InsertFilesCommand).WithIcon(AddIcon),
             Item("Pictures as P_ages…", pages.InsertImagesCommand).WithIcon(AddIcon),
             Item("_Files Joined on at the End…", pages.MergeFilesCommand).WithIcon(AddIcon),
+            Item("Pages of a File _Shuffled In…", pages.InterleaveCommand).WithIcon(AddIcon),
         ];
     }
 
@@ -407,6 +414,9 @@ internal static class ToolMenus
             Item("Add a Form _Text Field", design.AddTextFieldCommand),
             Item("Add a Form Check _Box", design.AddCheckBoxCommand),
             Item("Add a Form Drop-_Down List", design.AddDropDownCommand),
+            Item("Add a Form _List Box", design.AddListBoxCommand),
+            Item("Add a Pair of _Radio Buttons", design.AddRadioButtonsCommand),
+            Item("Add a Box to _Sign", design.AddSignatureFieldCommand),
             Item("Add a Form _Button", design.AddButtonCommand),
             MenuEntry.Separator(),
             Item("Make the Picked Field Required or Not", design.ToggleRequiredCommand),

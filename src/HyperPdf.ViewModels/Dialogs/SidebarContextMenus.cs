@@ -119,6 +119,9 @@ public static class SidebarContextMenus
         [
             Item("_Open the Attached File", attachments.OpenSelectedCommand, "Open"),
             Item(SaveCopy, attachments.SaveCommand, "Save"),
+            MenuEntry.Separator(),
+            Item("_Attach Another File…", attachments.AttachFilesCommand, "Add"),
+            Item("_Take It Out of the Document…", attachments.RemoveSelectedCommand, Removes),
         ];
     }
 

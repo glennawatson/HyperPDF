@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using HyperPdf.Core.Documents;
 using HyperPdf.Core.Forms;
 using HyperPdfLibrary;
 using HyperPdfLibrary.Editing;
@@ -20,6 +21,9 @@ internal sealed class HyperPdfFormDataImporter(HyperPdfDocument owner) : IFormDa
 {
     /// <summary>The label the edit has in the undo history.</summary>
     internal const string UndoLabel = "Import form data";
+
+    /// <inheritdoc/>
+    public IDocument Document => owner;
 
     /// <summary>Gets the start of every FDF file (ISO 32000-2 §12.7.8.2.1); anything else is read as XFDF.</summary>
     private static ReadOnlySpan<byte> FdfHeader => "%FDF"u8;

@@ -20,6 +20,9 @@ public static class PageContextMenus
     /// <summary>The name of the icon of an entry that adds pages.</summary>
     private const string Adds = "Add";
 
+    /// <summary>The pages Swap works on: two.</summary>
+    private const int PairOfPages = 2;
+
     /// <summary>Lists what can be done to the chosen pages, for the page under the pointer.</summary>
     /// <param name="tab">The tab the page is in.</param>
     /// <param name="page">The page under the pointer.</param>
@@ -47,6 +50,7 @@ public static class PageContextMenus
             Item("Move E_arlier", pages.MoveEarlierCommand, "PageUp"),
             Item("Move La_ter", pages.MoveLaterCommand, "PageDown"),
             Item("Re_verse the Order", pages.ReverseCommand, "Reverse"),
+            MenuEntry.Item(UiText.Get("S_wap the Two Selected Pages"), null, pages.ReverseCommand, null, pages.SelectedPages.Length == PairOfPages).WithIcon("Reverse"),
             Item("Re_place with Pages from Files…", pages.ReplaceCommand, "Replace"),
             MenuEntry.Separator(),
             Item("E_xtract to a New File…", pages.ExtractCommand, "Save"),

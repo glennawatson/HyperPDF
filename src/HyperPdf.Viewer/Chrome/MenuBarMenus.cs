@@ -4,6 +4,8 @@
 
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using HyperPdf.Core.Forms;
+using HyperPdf.Core.Text;
 using HyperPdf.ViewModels;
 using HyperPdf.ViewModels.Dialogs;
 using HyperPdf.ViewModels.Markup;
@@ -58,6 +60,7 @@ internal static class MenuBarMenus
         {
             AddUndo(entries, main);
             entries.Add(MenuEntry.Item(UiText.Get("F_ind…"), "Ctrl+F", tab.FindCommand, null, true));
+            entries.Add(MenuEntry.Item(UiText.Get("Find and _Replace in the Pages…"), null, tab.FindAndReplaceCommand, null, true).WithIcon("Replace"));
             entries.Add(MenuEntry.Separator());
             entries.Add(MenuEntry.Radio(UiText.Get("_Edit the Page's Own Content"), tab.ContentEdit.ToggleEditingCommand, null, tab.ContentEditIfMade is { IsEditing: true }));
             entries.Add(MenuEntry.Radio(UiText.Get("_Organise Pages"), tab.ToggleOrganisePagesCommand, null, tab.PagesInUse is { IsOrganising: true }));
@@ -103,7 +106,9 @@ internal static class MenuBarMenus
         MenuEntry.Separator(),
         MenuEntry.Item(UiText.Get("_Compare with Another Document…"), null, tab.Pages.Compare.CompareCommand, null, true),
         MenuEntry.Item(UiText.Get("Remove _Hidden Information…"), null, tab.Pages.Sanitize.ShowCommand, null, true),
+        Item("Attach a _File…", tab.Attachments.AttachFilesCommand).WithIcon("Attachment"),
         MenuEntry.Item(UiText.Get("Document Propert_ies…"), "Alt+Enter", main.PropertiesCommand, null, true),
+        MenuEntry.Item(UiText.Get("Change the Document _Details…"), null, tab.EditDocumentInfoCommand, null, true).WithIcon("Text"),
     ];
 
     /// <summary>Lists the marking tools, the notes list and the marks' undo and redo.</summary>
@@ -144,6 +149,10 @@ internal static class MenuBarMenus
         var entries = ToolMenus.Signing(tab);
         entries.Add(MenuEntry.Separator());
         entries.AddRange(ToolMenus.FormFields(tab));
+        entries.Add(MenuEntry.Separator());
+        entries.Add(MenuEntry.Item(UiText.Get("_Load Answers from a File…"), null, tab.ImportFormDataCommand, null, true).WithIcon("Open"));
+        entries.Add(MenuEntry.Item(UiText.Get("Save the Answers as _FDF…"), null, tab.ExportFormDataCommand, FormDataFormat.Fdf, true).WithIcon("Save"));
+        entries.Add(MenuEntry.Item(UiText.Get("Save the Answers as _XFDF…"), null, tab.ExportFormDataCommand, FormDataFormat.Xfdf, true).WithIcon("Save"));
         return entries;
     }
 
@@ -215,6 +224,7 @@ internal static class MenuBarMenus
         entries.Add(MenuEntry.Item(UiText.Get("_Save"), "Ctrl+S", tab.SaveCommand, null, tab.HasUnsavedChanges));
         entries.Add(MenuEntry.Item(UiText.Get("Save _As…"), null, tab.SaveAsCommand, null, loaded));
         entries.Add(MenuEntry.Submenu(UiText.Get("Save a Cop_y"), loaded, loaded ? [.. ToolMenus.Copies(tab)] : []));
+        entries.Add(MenuEntry.Submenu(UiText.Get("E_xport the Text"), loaded, [.. TextExports(tab)]));
         entries.Add(MenuEntry.Item(UiText.Get("Re_load"), null, tab.ReloadCommand, null, loaded));
         entries.Add(MenuEntry.Separator());
         entries.Add(MenuEntry.Item(UiText.Get("_Print…"), "Ctrl+P", tab.Printing.PrintCommand, null, loaded));
@@ -225,6 +235,16 @@ internal static class MenuBarMenus
         entries.Add(MenuEntry.Item(UiText.Get("Close _Other Tabs"), null, main.CloseOtherTabsCommand, tab, main.Tabs.Count > 1));
         entries.Add(MenuEntry.Item(UiText.Get("Close _All Tabs"), null, main.CloseAllTabsCommand, null, true));
     }
+
+    /// <summary>Lists the kinds of file the document's text can be saved as.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>The entries.</returns>
+    private static List<MenuEntry> TextExports(DocumentTabViewModel tab) =>
+    [
+        MenuEntry.Item(UiText.Get("As _Plain Text…"), null, tab.ExportTextCommand, DocumentTextFormat.PlainText, true).WithIcon("Text"),
+        MenuEntry.Item(UiText.Get("As _Markdown…"), null, tab.ExportTextCommand, DocumentTextFormat.Markdown, true).WithIcon("Text"),
+        MenuEntry.Item(UiText.Get("As _HTML…"), null, tab.ExportTextCommand, DocumentTextFormat.Html, true).WithIcon("Text"),
+    ];
 
     /// <summary>Adds undo and redo, which act on what Ctrl+Z and Ctrl+Shift+Z act on now.</summary>
     /// <param name="entries">The menu being built.</param>

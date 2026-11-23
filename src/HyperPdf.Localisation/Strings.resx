@@ -306,6 +306,9 @@
   <data name="Add a Boo_kmark Here…" xml:space="preserve">
     <value>Add a Boo_kmark Here…</value>
   </data>
+  <data name="Add a Box to _Sign" xml:space="preserve">
+    <value>Add a Box to _Sign</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>Add a Form Check _Box</value>
   </data>
@@ -315,8 +318,14 @@
   <data name="Add a Form _Button" xml:space="preserve">
     <value>Add a Form _Button</value>
   </data>
+  <data name="Add a Form _List Box" xml:space="preserve">
+    <value>Add a Form _List Box</value>
+  </data>
   <data name="Add a Form _Text Field" xml:space="preserve">
     <value>Add a Form _Text Field</value>
+  </data>
+  <data name="Add a Pair of _Radio Buttons" xml:space="preserve">
+    <value>Add a Pair of _Radio Buttons</value>
   </data>
   <data name="Add a _Blank Page" xml:space="preserve">
     <value>Add a _Blank Page</value>
@@ -603,6 +612,15 @@
   <data name="As PDF/A-3u, and the file must have a reading structure (tags) for screen readers." xml:space="preserve">
     <value>As PDF/A-3u, and the file must have a reading structure (tags) for screen readers.</value>
   </data>
+  <data name="As _HTML…" xml:space="preserve">
+    <value>As _HTML…</value>
+  </data>
+  <data name="As _Markdown…" xml:space="preserve">
+    <value>As _Markdown…</value>
+  </data>
+  <data name="As _Plain Text…" xml:space="preserve">
+    <value>As _Plain Text…</value>
+  </data>
   <data name="As above, and the outlines of links are drawn on the page too." xml:space="preserve">
     <value>As above, and the outlines of links are drawn on the page too.</value>
   </data>
@@ -618,8 +636,20 @@
   <data name="Asking the timestamp server for a trusted time." xml:space="preserve">
     <value>Asking the timestamp server for a trusted time.</value>
   </data>
+  <data name="Attach a _File…" xml:space="preserve">
+    <value>Attach a _File…</value>
+  </data>
+  <data name="Attach a file" xml:space="preserve">
+    <value>Attach a file</value>
+  </data>
+  <data name="Attached 1 file." xml:space="preserve">
+    <value>Attached 1 file.</value>
+  </data>
   <data name="Attached files can be listed and saved, not changed." xml:space="preserve">
     <value>Attached files can be listed and saved, not changed.</value>
+  </data>
+  <data name="Attached {0} files." xml:space="preserve">
+    <value>Attached {0} files.</value>
   </data>
   <data name="Attachments" xml:space="preserve">
     <value>Attachments</value>
@@ -864,6 +894,9 @@
   <data name="Change how wide the column of text is." xml:space="preserve">
     <value>Change how wide the column of text is.</value>
   </data>
+  <data name="Change the Document _Details…" xml:space="preserve">
+    <value>Change the Document _Details…</value>
+  </data>
   <data name="Change the Picked Paragraph…" xml:space="preserve">
     <value>Change the Picked Paragraph…</value>
   </data>
@@ -911,6 +944,9 @@
   </data>
   <data name="Changed the dashes." xml:space="preserve">
     <value>Changed the dashes.</value>
+  </data>
+  <data name="Changed the document's details. Save to keep them." xml:space="preserve">
+    <value>Changed the document's details. Save to keep them.</value>
   </data>
   <data name="Changed the fill colour." xml:space="preserve">
     <value>Changed the fill colour.</value>
@@ -1575,6 +1611,9 @@
   <data name="Could not add pictures as pages." xml:space="preserve">
     <value>Could not add pictures as pages.</value>
   </data>
+  <data name="Could not attach the file: {0}" xml:space="preserve">
+    <value>Could not attach the file: {0}</value>
+  </data>
   <data name="Could not change the page numbers." xml:space="preserve">
     <value>Could not change the page numbers.</value>
   </data>
@@ -1668,11 +1707,17 @@
   <data name="Could not save the copy: {0}" xml:space="preserve">
     <value>Could not save the copy: {0}</value>
   </data>
+  <data name="Could not save the file: {0}" xml:space="preserve">
+    <value>Could not save the file: {0}</value>
+  </data>
   <data name="Could not save the image: {0}" xml:space="preserve">
     <value>Could not save the image: {0}</value>
   </data>
   <data name="Could not save the pages as separate files." xml:space="preserve">
     <value>Could not save the pages as separate files.</value>
+  </data>
+  <data name="Could not save the parts as separate files." xml:space="preserve">
+    <value>Could not save the parts as separate files.</value>
   </data>
   <data name="Could not save the picture." xml:space="preserve">
     <value>Could not save the picture.</value>
@@ -1688,6 +1733,9 @@
   </data>
   <data name="Could not save: {0}" xml:space="preserve">
     <value>Could not save: {0}</value>
+  </data>
+  <data name="Could not shuffle the pages in." xml:space="preserve">
+    <value>Could not shuffle the pages in.</value>
   </data>
   <data name="Could not sign: {0}" xml:space="preserve">
     <value>Could not sign: {0}</value>
@@ -1853,6 +1901,9 @@
   </data>
   <data name="Document Propert_ies…" xml:space="preserve">
     <value>Document Propert_ies…</value>
+  </data>
+  <data name="Document details" xml:space="preserve">
+    <value>Document details</value>
   </data>
   <data name="Document digest, if your signing service wants a hash: {0}" xml:space="preserve">
     <value>Document digest, if your signing service wants a hash: {0}</value>
@@ -2061,6 +2112,9 @@
   <data name="E_xport Pages as Pictures or Drawings…" xml:space="preserve">
     <value>E_xport Pages as Pictures or Drawings…</value>
   </data>
+  <data name="E_xport the Text" xml:space="preserve">
+    <value>E_xport the Text</value>
+  </data>
   <data name="E_xtract Pages…" xml:space="preserve">
     <value>E_xtract Pages…</value>
   </data>
@@ -2253,6 +2307,9 @@
   <data name="Filter and Sort" xml:space="preserve">
     <value>Filter and Sort</value>
   </data>
+  <data name="Filter and _Sort the Notes…" xml:space="preserve">
+    <value>Filter and _Sort the Notes…</value>
+  </data>
   <data name="Filter and sort" xml:space="preserve">
     <value>Filter and sort</value>
   </data>
@@ -2273,6 +2330,12 @@
   </data>
   <data name="Find an open tab by part of its name, title or folder. Shortcut: Ctrl+Shift+A" xml:space="preserve">
     <value>Find an open tab by part of its name, title or folder. Shortcut: Ctrl+Shift+A</value>
+  </data>
+  <data name="Find and _Replace in the Pages…" xml:space="preserve">
+    <value>Find and _Replace in the Pages…</value>
+  </data>
+  <data name="Find and replace" xml:space="preserve">
+    <value>Find and replace</value>
   </data>
   <data name="Find in document" xml:space="preserve">
     <value>Find in document</value>
@@ -2837,6 +2900,9 @@
   </data>
   <data name="Keep the text you are typing. Shortcut: Ctrl+Enter." xml:space="preserve">
     <value>Keep the text you are typing. Shortcut: Ctrl+Enter.</value>
+  </data>
+  <data name="Keep these details" xml:space="preserve">
+    <value>Keep these details</value>
   </data>
   <data name="Keep this language and start using the app." xml:space="preserve">
     <value>Keep this language and start using the app.</value>
@@ -4014,6 +4080,9 @@
   <data name="Pages in order" xml:space="preserve">
     <value>Pages in order</value>
   </data>
+  <data name="Pages of a File _Shuffled In…" xml:space="preserve">
+    <value>Pages of a File _Shuffled In…</value>
+  </data>
   <data name="Pages per sheet" xml:space="preserve">
     <value>Pages per sheet</value>
   </data>
@@ -4833,8 +4902,17 @@
   <data name="Repeated content" xml:space="preserve">
     <value>Repeated content</value>
   </data>
+  <data name="Replace all" xml:space="preserve">
+    <value>Replace all</value>
+  </data>
+  <data name="Replace with" xml:space="preserve">
+    <value>Replace with</value>
+  </data>
   <data name="Replaced the picture." xml:space="preserve">
     <value>Replaced the picture.</value>
+  </data>
+  <data name="Replaced the words {0} times on {1} pages." xml:space="preserve">
+    <value>Replaced the words {0} times on {1} pages.</value>
   </data>
   <data name="Replacement text" xml:space="preserve">
     <value>Replacement text</value>
@@ -4932,6 +5010,9 @@
   <data name="SVG drawing" xml:space="preserve">
     <value>SVG drawing</value>
   </data>
+  <data name="S_huffle In the Pages of a File…" xml:space="preserve">
+    <value>S_huffle In the Pages of a File…</value>
+  </data>
   <data name="S_plit the View" xml:space="preserve">
     <value>S_plit the View</value>
   </data>
@@ -4940,6 +5021,9 @@
   </data>
   <data name="S_top" xml:space="preserve">
     <value>S_top</value>
+  </data>
+  <data name="S_wap the Two Selected Pages" xml:space="preserve">
+    <value>S_wap the Two Selected Pages</value>
   </data>
   <data name="Safety" xml:space="preserve">
     <value>Safety</value>
@@ -5130,8 +5214,17 @@
   <data name="Save tag changes" xml:space="preserve">
     <value>Save tag changes</value>
   </data>
+  <data name="Save the Answers as _FDF…" xml:space="preserve">
+    <value>Save the Answers as _FDF…</value>
+  </data>
+  <data name="Save the Answers as _XFDF…" xml:space="preserve">
+    <value>Save the Answers as _XFDF…</value>
+  </data>
   <data name="Save the Bytes to Sign" xml:space="preserve">
     <value>Save the Bytes to Sign</value>
+  </data>
+  <data name="Save the Parts Between _Bookmarks as Files…" xml:space="preserve">
+    <value>Save the Parts Between _Bookmarks as Files…</value>
   </data>
   <data name="Save the Picked Picture as a File…" xml:space="preserve">
     <value>Save the Picked Picture as a File…</value>
@@ -5202,8 +5295,17 @@
   <data name="Saved the changes to {0}. Undo takes them back." xml:space="preserve">
     <value>Saved the changes to {0}. Undo takes them back.</value>
   </data>
+  <data name="Saved the document as {0} parts in {1}, each starting at a bookmark." xml:space="preserve">
+    <value>Saved the document as {0} parts in {1}, each starting at a bookmark.</value>
+  </data>
+  <data name="Saved the form's answers to {0}." xml:space="preserve">
+    <value>Saved the form's answers to {0}.</value>
+  </data>
   <data name="Saved the picture." xml:space="preserve">
     <value>Saved the picture.</value>
+  </data>
+  <data name="Saved the text to {0}." xml:space="preserve">
+    <value>Saved the text to {0}.</value>
   </data>
   <data name="Saved {0} files, numbered by page, next to {1}." xml:space="preserve">
     <value>Saved {0} files, numbered by page, next to {1}.</value>
@@ -6108,6 +6210,9 @@
   <data name="Tags tell a screen reader how this document reads. Choose a tag to change it." xml:space="preserve">
     <value>Tags tell a screen reader how this document reads. Choose a tag to change it.</value>
   </data>
+  <data name="Take It Out" xml:space="preserve">
+    <value>Take It Out</value>
+  </data>
   <data name="Take This Page out of the Selection" xml:space="preserve">
     <value>Take This Page out of the Selection</value>
   </data>
@@ -6149,6 +6254,9 @@
   </data>
   <data name="Take this much off the top, in points" xml:space="preserve">
     <value>Take this much off the top, in points</value>
+  </data>
+  <data name="Take {0} out of the document?" xml:space="preserve">
+    <value>Take {0} out of the document?</value>
   </data>
   <data name="Text" xml:space="preserve">
     <value>Text</value>
@@ -6291,6 +6399,9 @@
   <data name="The app changes straight away. You can change this later in Preferences." xml:space="preserve">
     <value>The app changes straight away. You can change this later in Preferences.</value>
   </data>
+  <data name="The attached files could not be changed." xml:space="preserve">
+    <value>The attached files could not be changed.</value>
+  </data>
   <data name="The bookmarks could not be changed." xml:space="preserve">
     <value>The bookmarks could not be changed.</value>
   </data>
@@ -6357,6 +6468,9 @@
   <data name="The document was closed or reloaded while this window was open. Close this window and open it again from the menu." xml:space="preserve">
     <value>The document was closed or reloaded while this window was open. Close this window and open it again from the menu.</value>
   </data>
+  <data name="The document's details could not be changed." xml:space="preserve">
+    <value>The document's details could not be changed.</value>
+  </data>
   <data name="The document's pages. Page Up and Page Down move a page at a time. F7 turns on a text cursor for the arrow keys. The value is the current page's text." xml:space="preserve">
     <value>The document's pages. Page Up and Page Down move a page at a time. F7 turns on a text cursor for the arrow keys. The value is the current page's text.</value>
   </data>
@@ -6383,6 +6497,9 @@
   </data>
   <data name="The file holds no certificate." xml:space="preserve">
     <value>The file holds no certificate.</value>
+  </data>
+  <data name="The file is no longer kept inside this PDF once you save. Save a copy of it first if you need it." xml:space="preserve">
+    <value>The file is no longer kept inside this PDF once you save. Save a copy of it first if you need it.</value>
   </data>
   <data name="The file listed &quot;{0}&quot; as something it needs. The edits left nothing in the file that uses it, so the requirement was removed." xml:space="preserve">
     <value>The file listed "{0}" as something it needs. The edits left nothing in the file that uses it, so the requirement was removed.</value>
@@ -6666,6 +6783,9 @@
   <data name="This document could not be opened" xml:space="preserve">
     <value>This document could not be opened</value>
   </data>
+  <data name="This document has no bookmarks to split it at." xml:space="preserve">
+    <value>This document has no bookmarks to split it at.</value>
+  </data>
   <data name="This document has no outline." xml:space="preserve">
     <value>This document has no outline.</value>
   </data>
@@ -6789,6 +6909,21 @@
   <data name="This document uses sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
     <value>This document uses sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader.</value>
   </data>
+  <data name="This document's details cannot be changed." xml:space="preserve">
+    <value>This document's details cannot be changed.</value>
+  </data>
+  <data name="This document's form answers cannot be loaded." xml:space="preserve">
+    <value>This document's form answers cannot be loaded.</value>
+  </data>
+  <data name="This document's form answers cannot be saved." xml:space="preserve">
+    <value>This document's form answers cannot be saved.</value>
+  </data>
+  <data name="This document's text cannot be changed." xml:space="preserve">
+    <value>This document's text cannot be changed.</value>
+  </data>
+  <data name="This document's text cannot be saved." xml:space="preserve">
+    <value>This document's text cannot be saved.</value>
+  </data>
   <data name="This file contains an encrypted document named {0}. Open it from Attachments." xml:space="preserve">
     <value>This file contains an encrypted document named {0}. Open it from Attachments.</value>
   </data>
@@ -6858,6 +6993,9 @@
   <data name="Those pages or that first number are not right. Pages are counted from 1, and the first number must be 1 or more." xml:space="preserve">
     <value>Those pages or that first number are not right. Pages are counted from 1, and the first number must be 1 or more.</value>
   </data>
+  <data name="Those words are not in the pages' text, so nothing was replaced." xml:space="preserve">
+    <value>Those words are not in the pages' text, so nothing was replaced.</value>
+  </data>
   <data name="Thumbnails" xml:space="preserve">
     <value>Thumbnails</value>
   </data>
@@ -6899,6 +7037,9 @@
   </data>
   <data name="To page, or leave empty for the end of the document" xml:space="preserve">
     <value>To page, or leave empty for the end of the document</value>
+  </data>
+  <data name="Took {0} out of the document." xml:space="preserve">
+    <value>Took {0} out of the document.</value>
   </data>
   <data name="Tool bar" xml:space="preserve">
     <value>Tool bar</value>
@@ -7593,6 +7734,9 @@
   <data name="_Arrow" xml:space="preserve">
     <value>_Arrow</value>
   </data>
+  <data name="_Attach Another File…" xml:space="preserve">
+    <value>_Attach Another File…</value>
+  </data>
   <data name="_Auto-scroll" xml:space="preserve">
     <value>_Auto-scroll</value>
   </data>
@@ -7791,6 +7935,12 @@
   <data name="_Line" xml:space="preserve">
     <value>_Line</value>
   </data>
+  <data name="_Link the Selected Text…" xml:space="preserve">
+    <value>_Link the Selected Text…</value>
+  </data>
+  <data name="_Load Answers from a File…" xml:space="preserve">
+    <value>_Load Answers from a File…</value>
+  </data>
   <data name="_Measure" xml:space="preserve">
     <value>_Measure</value>
   </data>
@@ -7985,6 +8135,9 @@
   </data>
   <data name="_Tabs" xml:space="preserve">
     <value>_Tabs</value>
+  </data>
+  <data name="_Take It Out of the Document…" xml:space="preserve">
+    <value>_Take It Out of the Document…</value>
   </data>
   <data name="_Thin" xml:space="preserve">
     <value>_Thin</value>

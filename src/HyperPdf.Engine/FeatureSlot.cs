@@ -141,4 +141,16 @@ internal enum FeatureSlot
 
     /// <summary>Letting go of what is kept only to draw pages faster, while the document is not shown.</summary>
     IdleRenderMemory = 43,
+
+    /// <summary>Changing the document's title, author, subject and keywords.</summary>
+    DocumentInfoEditor = 44,
+
+    /// <summary>Writing the form's answers to an FDF or XFDF file.</summary>
+    FormDataExporter = 45,
+
+    /// <summary>Writing every page's text to a file.</summary>
+    DocumentTextExporter = 46,
+
+    /// <summary>Reading a form's answers from an FDF or XFDF file.</summary>
+    FormDataImporter = 47,
 }

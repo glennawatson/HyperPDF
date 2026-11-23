@@ -40,6 +40,17 @@ public interface IPageManager
     /// <returns>A cold signal giving one value after the document has changed; unsubscribing cancels opening and importing the files.</returns>
     IObservable<RxVoid> Insert(int index, string[] files, PageEditReport report) => Insert(index, files);
 
+    /// <summary>
+    /// Shuffles the pages of a file in among the document's pages as one undo step: the document's first page, the file's first
+    /// page, the document's second page, and on. The pages left over when one runs out go at the end. Two files of single-sided
+    /// scans, one of the fronts and one of the backs, become one file in reading order.
+    /// </summary>
+    /// <param name="file">The PDF whose pages go in between.</param>
+    /// <param name="report">Receives what the copy could not keep.</param>
+    /// <returns>A cold signal giving one value after the document has changed; unsubscribing cancels the work.</returns>
+    IObservable<RxVoid> Interleave(string file, PageEditReport report) =>
+        Signal.Throw<RxVoid>(new NotSupportedException("This document cannot have pages shuffled in."));
+
     /// <summary>Makes a page of each picture, in order, and inserts them as one undo step.</summary>
     /// <param name="index">The first inserted page's zero-based index, from zero to the current page count.</param>
     /// <param name="images">The pictures, one page each.</param>
