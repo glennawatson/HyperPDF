@@ -30,4 +30,7 @@ public enum OverlayAction
 
     /// <summary>Switch a file dialog between PDF files and all files.</summary>
     FileKinds = 6,
+
+    /// <summary>Put the setting of a row back to the value it starts with.</summary>
+    ResetRow = 7,
 }

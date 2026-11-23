@@ -30,6 +30,15 @@ internal sealed record PreferenceRow(
     /// <summary>Gets a rule telling whether the row is shown right now, or <see langword="null"/> when it always is.</summary>
     internal Func<PreferencesViewModel, bool>? Visible { get; init; }
 
+    /// <summary>Gets what the setting does, in English, which is looked up in the language shown. Empty for a row that needs no more said.</summary>
+    internal string Help { get; init; } = string.Empty;
+
+    /// <summary>Gets a rule telling whether this computer can use a value of a list, or <see langword="null"/> when it can use them all.</summary>
+    internal Func<int, bool>? Offered { get; init; }
+
+    /// <summary>Gets a value indicating whether the setting has a value a new install starts with, which it can be put back to.</summary>
+    internal bool Resets { get; init; }
+
     /// <summary>Makes a section heading.</summary>
     /// <param name="label">The heading in English.</param>
     /// <returns>The row.</returns>
@@ -45,7 +54,7 @@ internal sealed record PreferenceRow(
     /// <returns>The row.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PreferenceRow Choice(string label, IReadOnlyList<string> options, Func<PreferencesViewModel, int> get, Action<PreferencesViewModel, int> set) =>
-        new(FormRowKind.Choice, label, options, get, static _ => string.Empty, (preferences, edit) => set(preferences, edit.Index));
+        new(FormRowKind.Choice, label, options, get, static _ => string.Empty, (preferences, edit) => set(preferences, edit.Index)) { Resets = true };
 
     /// <summary>Makes a setting that is either on or off.</summary>
     /// <param name="label">The name in English.</param>
@@ -54,7 +63,7 @@ internal sealed record PreferenceRow(
     /// <returns>The row.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static PreferenceRow Toggle(string label, Func<PreferencesViewModel, bool> get, Action<PreferencesViewModel, bool> set) =>
-        new(FormRowKind.Toggle, label, [], preferences => get(preferences) ? 1 : 0, static _ => string.Empty, (preferences, edit) => set(preferences, edit.On));
+        new(FormRowKind.Toggle, label, [], preferences => get(preferences) ? 1 : 0, static _ => string.Empty, (preferences, edit) => set(preferences, edit.On)) { Resets = true };
 
     /// <summary>Makes a setting typed as text.</summary>
     /// <param name="label">The name in English.</param>
@@ -86,4 +95,21 @@ internal sealed record PreferenceRow(
     /// <returns>The row.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal PreferenceRow When(Func<PreferencesViewModel, bool> visible) => this with { Visible = visible };
+
+    /// <summary>Makes the row say what its setting does.</summary>
+    /// <param name="help">What the setting does, in English.</param>
+    /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal PreferenceRow About(string help) => this with { Help = help };
+
+    /// <summary>Makes the row offer only the values of its list this computer can use. The value in use is always offered.</summary>
+    /// <param name="offered">Tells whether a value can be used here.</param>
+    /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal PreferenceRow Offering(Func<int, bool> offered) => this with { Offered = offered };
+
+    /// <summary>Makes a typed row one that can be put back to the text a new install starts with.</summary>
+    /// <returns>The row.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal PreferenceRow WithDefault() => this with { Resets = true };
 }

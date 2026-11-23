@@ -31,4 +31,10 @@ internal sealed record FormLine(ChromeItemKind Kind, OverlayAction Action, int I
 
     /// <summary>Gets a value indicating whether the control is drawn in a box, so it is seen to be something to press.</summary>
     internal bool Framed { get; init; }
+
+    /// <summary>Gets what the setting on the line does, or <see langword="null"/>.</summary>
+    internal string? Help { get; init; }
+
+    /// <summary>Gets what the button that puts the setting back does, or <see langword="null"/> for a line with no such button.</summary>
+    internal string? ResetHelp { get; init; }
 }

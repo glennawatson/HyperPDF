@@ -12,4 +12,14 @@ namespace HyperPdf.Viewer.Chrome.Forms;
 /// <param name="Gap">The small space kept between two controls.</param>
 /// <param name="Runs">The text measurer.</param>
 /// <param name="Style">How the text looks.</param>
-internal readonly record struct FormLineLook(int LabelWidth, int Padding, int Gap, TextRuns Runs, TextStyle Style);
+internal readonly record struct FormLineLook(int LabelWidth, int Padding, int Gap, TextRuns Runs, TextStyle Style)
+{
+    /// <summary>
+    /// Gets the room kept at the end of every line for the button that puts a setting back, or 0 for a dialog with no such
+    /// button. Every line keeps the room, so a control does not move when the button of its line comes and goes.
+    /// </summary>
+    internal int ResetRoom { get; init; }
+
+    /// <summary>Gets the name of the button that puts a setting back, which a screen reader says.</summary>
+    internal string ResetName { get; init; } = string.Empty;
+}

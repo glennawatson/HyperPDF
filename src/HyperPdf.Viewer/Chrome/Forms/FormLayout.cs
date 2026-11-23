@@ -43,7 +43,8 @@ internal static class FormLayout
 
             if (line.Label.Length > 0)
             {
-                items.Add(new(ChromeItemKind.Label, null, line.Index, line.Label, place with { Width = look.LabelWidth }, line.Enabled, false));
+                // The name carries what the setting does too, so the pointer can rest on either the name or the control.
+                items.Add(new(ChromeItemKind.Label, null, line.Index, line.Label, place with { Width = look.LabelWidth }, line.Enabled, false) { Help = line.Help, ShowsHelp = line.Help is not null });
             }
 
             items.Add(new(line.Kind, line.Action, line.Index, line.Text, BoundsOf(line, in place, in look), line.Enabled, line.Selected)
@@ -51,8 +52,13 @@ internal static class FormLayout
                 Trait = line.Trait,
                 Icon = line.Icon,
                 Framed = line.Framed,
-                Help = line.Label.Length > 0 ? $"{line.Label}: {line.Text}" : null,
+                Help = line.Help ?? (line.Label.Length > 0 ? $"{line.Label}: {line.Text}" : null),
+                ShowsHelp = line.Help is not null,
             });
+            if (look.ResetRoom > 0 && line.ResetHelp is { } reset)
+            {
+                AddReset(items, line.Index, reset, in place, in look);
+            }
         }
     }
 
@@ -88,6 +94,22 @@ internal static class FormLayout
         items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, new(track.X, Math.Min(top, track.Bottom - height), track.Width, height), false, false) { Ground = thumbColor });
     }
 
+    /// <summary>
+    /// Adds the button at the end of a line that puts its setting back to the value it starts with. It is there only while
+    /// the setting differs from that value, so the buttons in view are also the list of what has been changed.
+    /// </summary>
+    /// <param name="items">Receives the button.</param>
+    /// <param name="index">The row the line belongs to.</param>
+    /// <param name="help">What the button does, with the value it puts back.</param>
+    /// <param name="place">The whole line.</param>
+    /// <param name="look">The spaces and the room kept for the button.</param>
+    private static void AddReset(List<ChromeItem> items, int index, string help, in LayoutRect place, in FormLineLook look)
+    {
+        var inset = look.Gap >> 1;
+        var bounds = new LayoutRect(place.Right - look.Padding - look.Padding - look.ResetRoom + look.Gap, place.Y + inset, look.ResetRoom - look.Gap, place.Height - inset - inset);
+        items.Add(new(ChromeItemKind.Button, OverlayAction.ResetRow, index, look.ResetName, bounds, true, false) { Icon = ChromeIcon.Undo, HidesText = true, Framed = true, Help = help });
+    }
+
     /// <summary>Works out where the control of a line goes.</summary>
     /// <param name="line">The line.</param>
     /// <param name="place">The whole line.</param>
@@ -99,12 +121,13 @@ internal static class FormLayout
         {
             // A box is set in from the line above and below it, so two boxes one under the other do not touch.
             var inset = line.Kind == ChromeItemKind.Label ? 0 : look.Gap >> 1;
-            return new(place.X + look.LabelWidth, place.Y + inset, place.Width - look.LabelWidth - look.Padding - look.Padding, place.Height - inset - inset);
+            return new(place.X + look.LabelWidth, place.Y + inset, place.Width - look.LabelWidth - look.Padding - look.Padding - look.ResetRoom, place.Height - inset - inset);
         }
 
         if (line.Kind != ChromeItemKind.Button)
         {
-            return place;
+            // A switch stops before the room kept for the button that puts a setting back, so the two are never pressed for each other.
+            return look.ResetRoom > 0 && line.Trait == ChromeItemTrait.Switch ? place with { Width = place.Width - look.Padding - look.Padding - look.ResetRoom } : place;
         }
 
         var inner = place.Width - look.Padding - look.Padding;

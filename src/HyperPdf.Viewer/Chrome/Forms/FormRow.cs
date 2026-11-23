@@ -21,4 +21,13 @@ internal sealed record FormRow(FormRowKind Kind, string Label, string Value, IRe
 {
     /// <summary>Gets the icon drawn before the words of something to do, which says by its shape and tint what kind of thing it does.</summary>
     internal ChromeIcon Icon { get; init; }
+
+    /// <summary>Gets what the setting does, shown when the pointer rests on it, or <see langword="null"/> for a row that says nothing more.</summary>
+    internal string? Help { get; init; }
+
+    /// <summary>Gets a value indicating whether the setting has a value it starts with, which it can be put back to.</summary>
+    internal bool CanReset { get; init; }
+
+    /// <summary>Gets what putting the setting back does, or <see langword="null"/> while it already has the value it starts with.</summary>
+    internal string? ResetHelp { get; init; }
 }
