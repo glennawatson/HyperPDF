@@ -711,5 +711,9 @@
   "This document's text cannot be changed.": "Der Text dieses Dokuments kann nicht geändert werden.",
   "This document's text cannot be saved.": "Der Text dieses Dokuments kann nicht gespeichert werden.",
   "Those words are not in the pages' text, so nothing was replaced.": "Diese Wörter stehen nicht im Text der Seiten, daher wurde nichts ersetzt.",
-  "Took {0} out of the document.": "{0} wurde aus dem Dokument genommen."
+  "Took {0} out of the document.": "{0} wurde aus dem Dokument genommen.",
+  "Hide HyperPDF": "HyperPDF ausblenden",
+  "Hide Others": "Andere ausblenden",
+  "Show All": "Alle einblenden",
+  "Quit HyperPDF": "HyperPDF beenden"
 }

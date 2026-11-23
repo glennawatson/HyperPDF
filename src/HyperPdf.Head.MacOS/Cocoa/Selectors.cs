@@ -216,4 +216,70 @@ internal static class Selectors
 
     /// <summary>Gets <c>addObject:</c>.</summary>
     internal static nint AddObject { get; } = NativeMethods.Selector("addObject:");
+
+    /// <summary>Gets <c>init</c>.</summary>
+    internal static nint Init { get; } = NativeMethods.Selector("init");
+
+    /// <summary>Gets <c>initWithTitle:</c>, which makes a menu.</summary>
+    internal static nint InitWithTitle { get; } = NativeMethods.Selector("initWithTitle:");
+
+    /// <summary>Gets <c>initWithTitle:action:keyEquivalent:</c>, which makes a menu item.</summary>
+    internal static nint InitMenuItem { get; } = NativeMethods.Selector("initWithTitle:action:keyEquivalent:");
+
+    /// <summary>Gets <c>separatorItem</c>.</summary>
+    internal static nint SeparatorItem { get; } = NativeMethods.Selector("separatorItem");
+
+    /// <summary>Gets <c>addItem:</c>.</summary>
+    internal static nint AddItem { get; } = NativeMethods.Selector("addItem:");
+
+    /// <summary>Gets <c>removeAllItems</c>.</summary>
+    internal static nint RemoveAllItems { get; } = NativeMethods.Selector("removeAllItems");
+
+    /// <summary>Gets <c>setSubmenu:</c>.</summary>
+    internal static nint SetSubmenu { get; } = NativeMethods.Selector("setSubmenu:");
+
+    /// <summary>Gets <c>setDelegate:</c>.</summary>
+    internal static nint SetDelegate { get; } = NativeMethods.Selector("setDelegate:");
+
+    /// <summary>Gets <c>setAutoenablesItems:</c>.</summary>
+    internal static nint SetAutoenablesItems { get; } = NativeMethods.Selector("setAutoenablesItems:");
+
+    /// <summary>Gets <c>setTarget:</c>.</summary>
+    internal static nint SetTarget { get; } = NativeMethods.Selector("setTarget:");
+
+    /// <summary>Gets <c>setTag:</c>.</summary>
+    internal static nint SetTag { get; } = NativeMethods.Selector("setTag:");
+
+    /// <summary>Gets <c>tag</c>.</summary>
+    internal static nint Tag { get; } = NativeMethods.Selector("tag");
+
+    /// <summary>Gets <c>setEnabled:</c>.</summary>
+    internal static nint SetEnabled { get; } = NativeMethods.Selector("setEnabled:");
+
+    /// <summary>Gets <c>setState:</c>.</summary>
+    internal static nint SetState { get; } = NativeMethods.Selector("setState:");
+
+    /// <summary>Gets <c>setKeyEquivalentModifierMask:</c>.</summary>
+    internal static nint SetKeyEquivalentModifierMask { get; } = NativeMethods.Selector("setKeyEquivalentModifierMask:");
+
+    /// <summary>Gets <c>setMainMenu:</c>.</summary>
+    internal static nint SetMainMenu { get; } = NativeMethods.Selector("setMainMenu:");
+
+    /// <summary>Gets <c>menuNeedsUpdate:</c>, which a menu's delegate answers just before the menu opens.</summary>
+    internal static nint MenuNeedsUpdate { get; } = NativeMethods.Selector("menuNeedsUpdate:");
+
+    /// <summary>Gets the action of the viewer's own menu items.</summary>
+    internal static nint ItemChosen { get; } = NativeMethods.Selector("hyperPdfItemChosen:");
+
+    /// <summary>Gets the action of Quit in the application menu.</summary>
+    internal static nint QuitChosen { get; } = NativeMethods.Selector("hyperPdfQuit:");
+
+    /// <summary>Gets <c>hide:</c>.</summary>
+    internal static nint Hide { get; } = NativeMethods.Selector("hide:");
+
+    /// <summary>Gets <c>hideOtherApplications:</c>.</summary>
+    internal static nint HideOthers { get; } = NativeMethods.Selector("hideOtherApplications:");
+
+    /// <summary>Gets <c>unhideAllApplications:</c>.</summary>
+    internal static nint UnhideAll { get; } = NativeMethods.Selector("unhideAllApplications:");
 }

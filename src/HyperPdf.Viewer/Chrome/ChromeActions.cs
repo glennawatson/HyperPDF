@@ -80,7 +80,13 @@ internal sealed class ChromeActions : IDisposable
             chrome.InvalidateBars();
         });
         CloseWindow = ReactiveCommand.Create(window.AskToClose);
+
+        // Where the operating system draws the menu bar, as macOS does at the top of the screen, it shows the menus instead of ours.
+        UsesNativeMenu = window is INativeMenuBar;
     }
+
+    /// <summary>Gets a value indicating whether the operating system draws the menu bar, so the viewer draws none of its own.</summary>
+    internal bool UsesNativeMenu { get; }
 
     /// <summary>Gets the command that puts the window away, for a window the system gives no title bar.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> Minimize { get; }

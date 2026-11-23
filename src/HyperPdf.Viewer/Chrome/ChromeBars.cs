@@ -102,7 +102,7 @@ internal static class ChromeBars
 
         AddTabs(items, main, look, size.Width, actions);
         var top = metrics.TabHeight;
-        top += MenuBar.Add(items, main, look, top, size.Width, actions.ShowBarMenu);
+        top += actions.UsesNativeMenu ? 0 : MenuBar.Add(items, main, look, top, size.Width, actions.ShowBarMenu);
         top += AddToolbar(items, main, look, top, size.Width, actions);
         if (main.SelectedTab is { IsLoaded: true, AnnotationsInUse.IsAnnotating: true } marking)
         {

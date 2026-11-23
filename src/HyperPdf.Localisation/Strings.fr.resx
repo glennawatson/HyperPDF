@@ -2655,6 +2655,12 @@
   <data name="Hidden" xml:space="preserve">
     <value>Masqué</value>
   </data>
+  <data name="Hide HyperPDF" xml:space="preserve">
+    <value>Masquer HyperPDF</value>
+  </data>
+  <data name="Hide Others" xml:space="preserve">
+    <value>Masquer les autres</value>
+  </data>
   <data name="Hide details" xml:space="preserve">
     <value>Masquer les détails</value>
   </data>
@@ -4458,6 +4464,9 @@
   <data name="Quick text format" xml:space="preserve">
     <value>Mise en forme rapide du texte</value>
   </data>
+  <data name="Quit HyperPDF" xml:space="preserve">
+    <value>Quitter HyperPDF</value>
+  </data>
   <data name="Quote" xml:space="preserve">
     <value>Citation</value>
   </data>
@@ -5546,6 +5555,9 @@
   </data>
   <data name="Short edge" xml:space="preserve">
     <value>Bord court</value>
+  </data>
+  <data name="Show All" xml:space="preserve">
+    <value>Tout afficher</value>
   </data>
   <data name="Show All Comments" xml:space="preserve">
     <value>Afficher tous les commentaires</value>
