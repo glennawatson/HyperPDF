@@ -64,7 +64,7 @@ jobs:
         run: dotnet run --project "${{ github.workspace }}/src/tests/HyperPdfLibrary.Tests/HyperPdfLibrary.Tests.csproj" -c Release -f net11.0 -- --treenode-filter '/*/HyperPdfLibrary.Tests.Conformance.VeraPdf/*/*' --report-trx --results-directory "${{ runner.temp }}/pdfa-output"
       - name: Upload PDF/A outputs
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pdfa-validation
           path: ${{ runner.temp }}/pdfa-output
@@ -92,7 +92,7 @@ jobs:
         run: dotnet run --file src/tools/CheckPdf20Copies.cs -- "${{ runner.temp }}/reference-pdfs" "${{ runner.temp }}/pdf20-copies"
       - name: Upload PDF 2.0 copies
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pdf20-copies
           path: ${{ runner.temp }}/pdf20-copies
