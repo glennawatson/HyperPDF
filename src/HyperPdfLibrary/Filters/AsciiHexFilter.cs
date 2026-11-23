@@ -74,6 +74,8 @@ internal static class AsciiHexFilter
             input = input[..end];
         }
 
+        // Two digits make a byte, so the output is never longer than half the text, and one rental holds all of it.
+        output.Reserve((input.Length / DigitsPerByte) + 1);
         var state = new HexChunkState(PdfCharacters.NotHex, true);
         for (var offset = 0; offset < input.Length; offset += DecodeChunkLength)
         {

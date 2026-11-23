@@ -137,6 +137,21 @@ public ref struct PooledBuffer
         return array;
     }
 
+    /// <summary>
+    /// Makes room for bytes a decoder knows it is about to write, in one rental. Without it a large output climbs from the
+    /// smallest array by doubling, renting and copying at every step. The room is cut to the output bound, so a hint that
+    /// is too large is never an error.
+    /// </summary>
+    /// <param name="count">The bytes expected.</param>
+    internal void Reserve(int count)
+    {
+        var room = Math.Min(count, MaximumLength - Length);
+        if (room > 0 && (_array is null || _array.Length - Length < room))
+        {
+            Grow(room);
+        }
+    }
+
     /// <summary>Rents a larger array and copies the written bytes into it.</summary>
     /// <param name="sizeHint">The free space needed.</param>
     /// <exception cref="InvalidDataException">The data would be larger than the supported limit.</exception>
