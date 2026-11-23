@@ -442,6 +442,7 @@ internal static class ToolForms
         Answered = model.Answered,
         Picture = picture,
         PreviewText = () => model.IsTyped ? model.Preview?.Text : null,
+        StartsTyping = true,
         Pad = strokes => strokes.Where(static stroke => stroke.Done).Select(static stroke => stroke.Points).InvokeCommand(model.AddStrokeCommand),
         PadShown = () => model.IsDrawn,
         PadSeed = area => PadInks.FromMark(model.Drawing, area),

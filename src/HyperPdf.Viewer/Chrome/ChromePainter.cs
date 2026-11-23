@@ -65,6 +65,12 @@ internal static class ChromePainter
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
+            if (item.Framed)
+            {
+                // A control in a dialog is boxed at rest, so it is told apart from the words around it without pointing at it.
+                DrawBox(pass, item.Bounds, look.Theme.Surface, item.Enabled ? look.Theme.Border : look.Theme.Faded, look.Metrics.Line);
+            }
+
             DrawBackground(pass, item, look);
             DrawText(pass, item, look);
         }
@@ -245,6 +251,12 @@ internal static class ChromePainter
     {
         if (!item.Selected || !item.IsPressable || !item.Enabled)
         {
+            return;
+        }
+
+        if (item.Icon is ChromeIcon.CheckOn or ChromeIcon.RadioOn)
+        {
+            // A ticked box or a filled ring already says the row is chosen, so the row gets no band or bar as well.
             return;
         }
 

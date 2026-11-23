@@ -24,4 +24,7 @@ internal sealed record FormUi(int Open, int Focus, int First, IRenderSurface? Pi
 {
     /// <summary>Gets the state of a window the user has not touched.</summary>
     internal static FormUi Start { get; } = new(-1, -1, 0, null, default, PadInk.Empty, false, [], false);
+
+    /// <summary>Gets the most lines the dialog has shown since it opened. The dialog stays that tall, so its buttons do not move when rows go away.</summary>
+    internal int Tall { get; init; }
 }

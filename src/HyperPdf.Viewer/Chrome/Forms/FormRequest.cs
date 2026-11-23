@@ -48,4 +48,7 @@ internal sealed record FormRequest(
 
     /// <summary>Gets what reads the words shown where the picture would be while there is no picture, or <see langword="null"/> for none.</summary>
     internal Func<string?>? PreviewText { get; init; }
+
+    /// <summary>Gets a value indicating whether typing goes to the dialog's first text box as soon as it opens, for a dialog that is opened to be typed into.</summary>
+    internal bool StartsTyping { get; init; }
 }

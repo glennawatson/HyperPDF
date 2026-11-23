@@ -39,11 +39,19 @@ internal sealed class FormBuilder
         }
     }
 
-    /// <summary>Adds a name and its value as one line of text.</summary>
+    /// <summary>Adds a name and its value, the name in the column of names and the value beside it.</summary>
     /// <param name="name">The name.</param>
     /// <param name="value">The value.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal void Pair(string name, string value) => Text(value.Length > 0 ? $"{name}: {value}" : name);
+    internal void Pair(string name, string value)
+    {
+        if (value.Length == 0)
+        {
+            Text(name);
+            return;
+        }
+
+        Rows.Add(new(FormRowKind.Text, name, value, [], 0, true, NoId, null));
+    }
 
     /// <summary>Adds a setting that is on or off.</summary>
     /// <param name="label">The setting's name.</param>
