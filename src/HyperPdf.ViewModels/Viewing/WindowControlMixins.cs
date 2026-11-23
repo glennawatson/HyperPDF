@@ -103,7 +103,11 @@ public static class WindowControlMixins
                 edit.WhenChanged(static e => e.TextEdit).AsSignal())),
             tab.PartChanges<PageManagementViewModel>(static pages => Signal.Merge(
                 pages.WhenChanged(static p => p.CanUndo).AsSignal(),
-                pages.WhenChanged(static p => p.CanRedo).AsSignal())));
+                pages.WhenChanged(static p => p.CanRedo).AsSignal(),
+                pages.WhenChanged(static p => p.IsOrganising).AsSignal(),
+                pages.WhenChanged(static p => p.SelectedPages).AsSignal(),
+                pages.WhenChanged(static p => p.CanEdit).AsSignal(),
+                pages.WhenChanged(static p => p.Status).AsSignal())));
 
         /// <summary>Gets a signal for each change to the list the side panel shows. The view model of a list is only made once the panel shows it.</summary>
         private IObservable<RxVoid> PanelListChanges =>

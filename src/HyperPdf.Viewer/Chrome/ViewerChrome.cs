@@ -724,6 +724,23 @@ public sealed partial class ViewerChrome : IDisposable
         return true;
     }
 
+    /// <summary>Handles a right press on a row of the side panel, which opens the menu of what can be done to that row.</summary>
+    /// <param name="buttons">The buttons held.</param>
+    /// <param name="item">The control pressed.</param>
+    /// <param name="x">The x in device pixels.</param>
+    /// <param name="y">The y in device pixels.</param>
+    /// <returns><see langword="true"/> when the press opened a row's menu.</returns>
+    private bool PressRowWithRightButton(ViewerButtons buttons, ChromeItem item, int x, int y)
+    {
+        if ((buttons & ViewerButtons.Right) == 0 || _main.SelectedTab is not { } shown || SidebarContextMenus.ForRow(shown, item.Parameter) is not { } menu)
+        {
+            return false;
+        }
+
+        ShowMenu(menu, new(x, y));
+        return true;
+    }
+
     /// <summary>Handles a pointer press.</summary>
     /// <param name="windowEvent">The press.</param>
     /// <returns><see langword="true"/> when the press was on the controls.</returns>
@@ -792,6 +809,11 @@ public sealed partial class ViewerChrome : IDisposable
         }
 
         if (item.Kind == ChromeItemKind.Tab && PressTabWithAnotherButton(buttons, item))
+        {
+            return;
+        }
+
+        if (PressRowWithRightButton(buttons, item, x, y))
         {
             return;
         }

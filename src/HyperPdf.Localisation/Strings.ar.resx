@@ -120,6 +120,9 @@
   <data name="9 pt" xml:space="preserve">
     <value>9 نقاط</value>
   </data>
+  <data name="A _Blank Page" xml:space="preserve">
+    <value>صفحة فارغة</value>
+  </data>
   <data name="A block of data ended early, so the part that could be read is used." xml:space="preserve">
     <value>انتهت إحدى كتل البيانات مبكرًا، لذا يُستخدم الجزء الذي أمكن قراءته.</value>
   </data>
@@ -249,6 +252,9 @@
   <data name="Actual size" xml:space="preserve">
     <value>الحجم الفعلي</value>
   </data>
+  <data name="Add" xml:space="preserve">
+    <value>إضافة</value>
+  </data>
   <data name="Add Bates numbers" xml:space="preserve">
     <value>إضافة أرقام Bates</value>
   </data>
@@ -269,6 +275,9 @@
   </data>
   <data name="Add Text" xml:space="preserve">
     <value>إضافة نص</value>
+  </data>
+  <data name="Add This Page to the Selection" xml:space="preserve">
+    <value>إضافة هذه الصفحة إلى التحديد</value>
   </data>
   <data name="Add Validation Data or Timestamp" xml:space="preserve">
     <value>إضافة بيانات التحقق أو طابع زمني</value>
@@ -294,6 +303,9 @@
   <data name="Add _to Pages" xml:space="preserve">
     <value>إضافة _إلى الصفحات</value>
   </data>
+  <data name="Add a Boo_kmark Here…" xml:space="preserve">
+    <value>إضافة إشارة مرجعية هنا…</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>إضافة _خانة اختيار نموذج</value>
   </data>
@@ -305,6 +317,12 @@
   </data>
   <data name="Add a Form _Text Field" xml:space="preserve">
     <value>إضافة حقل _نص نموذج</value>
+  </data>
+  <data name="Add a _Blank Page" xml:space="preserve">
+    <value>إضافة صفحة فارغة</value>
+  </data>
+  <data name="Add a _Blank Page After" xml:space="preserve">
+    <value>إضافة صفحة فارغة بعدها</value>
   </data>
   <data name="Add a _Footer…" xml:space="preserve">
     <value>إضافة _تذييل…</value>
@@ -377,6 +395,9 @@
   </data>
   <data name="Add the Page I Am On to the Selection" xml:space="preserve">
     <value>إضافة الصفحة الحالية إلى التحديد</value>
+  </data>
+  <data name="Add the _Page I Am On" xml:space="preserve">
+    <value>إضافة الصفحة الحالية</value>
   </data>
   <data name="Add the custom tag type" xml:space="preserve">
     <value>إضافة نوع الوسم المخصّص</value>
@@ -1545,6 +1566,9 @@
   <data name="Copyright" xml:space="preserve">
     <value>حقوق النشر</value>
   </data>
+  <data name="Could not add a blank page." xml:space="preserve">
+    <value>تعذّرت إضافة صفحة فارغة.</value>
+  </data>
   <data name="Could not add pictures as pages." xml:space="preserve">
     <value>تعذرت إضافة الصور كصفحات.</value>
   </data>
@@ -1617,6 +1641,12 @@
   <data name="Could not remove the hidden information." xml:space="preserve">
     <value>تعذّرت إزالة المعلومات المخفية.</value>
   </data>
+  <data name="Could not replace pages." xml:space="preserve">
+    <value>تعذّر استبدال الصفحات.</value>
+  </data>
+  <data name="Could not reverse the pages." xml:space="preserve">
+    <value>تعذّر عكس الصفحات.</value>
+  </data>
   <data name="Could not rotate pages." xml:space="preserve">
     <value>تعذّر تدوير الصفحات.</value>
   </data>
@@ -1637,6 +1667,9 @@
   </data>
   <data name="Could not save the image: {0}" xml:space="preserve">
     <value>تعذّر حفظ الصورة: {0}</value>
+  </data>
+  <data name="Could not save the pages as separate files." xml:space="preserve">
+    <value>تعذّر حفظ الصفحات كملفات منفصلة.</value>
   </data>
   <data name="Could not save the picture." xml:space="preserve">
     <value>تعذّر حفظ الصورة.</value>
@@ -1739,6 +1772,9 @@
   </data>
   <data name="Default: {0}." xml:space="preserve">
     <value>الافتراضي: {0}.</value>
+  </data>
+  <data name="Dele_te" xml:space="preserve">
+    <value>حذف</value>
   </data>
   <data name="Delete" xml:space="preserve">
     <value>حذف</value>
@@ -2004,6 +2040,9 @@
   <data name="Drop PDF files here, or choose them from a folder." xml:space="preserve">
     <value>أفلت ملفات PDF هنا، أو اخترها من مجلد.</value>
   </data>
+  <data name="Duplicate" xml:space="preserve">
+    <value>تكرار</value>
+  </data>
   <data name="Duplicate pages" xml:space="preserve">
     <value>تكرار الصفحات</value>
   </data>
@@ -2021,6 +2060,9 @@
   </data>
   <data name="E_xtract Pages…" xml:space="preserve">
     <value>است_خراج الصفحات…</value>
+  </data>
+  <data name="E_xtract to a New File…" xml:space="preserve">
+    <value>استخراج إلى ملف جديد…</value>
   </data>
   <data name="Each sentence read aloud is sent to your own Azure Speech resource, which bills your Azure account. The key is kept in your settings file, readable only by you." xml:space="preserve">
     <value>تُرسل كل جملة تُقرأ بصوت عالٍ إلى مورد Azure Speech الخاص بك، وتُحتسب تكلفتها على حساب Azure الخاص بك. يُحفظ المفتاح في ملف إعداداتك الذي لا يمكن لأحد غيرك قراءته.</value>
@@ -2144,6 +2186,9 @@
   </data>
   <data name="Extracted {0} pages. {1}" xml:space="preserve">
     <value>استُخرجت {0} صفحات. {1}</value>
+  </data>
+  <data name="Extract…" xml:space="preserve">
+    <value>استخراج…</value>
   </data>
   <data name="FFmpeg could not read any sound or picture from this file." xml:space="preserve">
     <value>تعذر على FFmpeg قراءة أي صوت أو صورة من هذا الملف.</value>
@@ -3282,8 +3327,14 @@
   <data name="Move Down" xml:space="preserve">
     <value>نقل لأسفل</value>
   </data>
+  <data name="Move E_arlier" xml:space="preserve">
+    <value>نقل للأمام</value>
+  </data>
   <data name="Move Inside" xml:space="preserve">
     <value>نقل إلى الداخل</value>
+  </data>
+  <data name="Move La_ter" xml:space="preserve">
+    <value>نقل للخلف</value>
   </data>
   <data name="Move Up" xml:space="preserve">
     <value>نقل لأعلى</value>
@@ -3315,11 +3366,17 @@
   <data name="Move bookmark up" xml:space="preserve">
     <value>نقل الإشارة المرجعية لأعلى</value>
   </data>
+  <data name="Move earlier" xml:space="preserve">
+    <value>نقل للأمام</value>
+  </data>
   <data name="Move earlier (Ctrl+Alt+Up)" xml:space="preserve">
     <value>نقل إلى موضع سابق (Ctrl+Alt+Up)</value>
   </data>
   <data name="Move it there" xml:space="preserve">
     <value>نقله إلى هناك</value>
+  </data>
+  <data name="Move later" xml:space="preserve">
+    <value>نقل للخلف</value>
   </data>
   <data name="Move later (Ctrl+Alt+Down)" xml:space="preserve">
     <value>نقل إلى موضع لاحق (Ctrl+Alt+Down)</value>
@@ -3798,6 +3855,12 @@
   <data name="Ordinary page, not a colour separation" xml:space="preserve">
     <value>صفحة عادية، وليست فصل ألوان</value>
   </data>
+  <data name="Organise" xml:space="preserve">
+    <value>تنظيم</value>
+  </data>
+  <data name="Organise pages" xml:space="preserve">
+    <value>تنظيم الصفحات</value>
+  </data>
   <data name="Other things under a mark" xml:space="preserve">
     <value>العناصر الأخرى أسفل علامة</value>
   </data>
@@ -4077,6 +4140,9 @@
   <data name="Pictures are not changed, even under a mark." xml:space="preserve">
     <value>لا تتغيّر الصور، حتى تحت العلامة.</value>
   </data>
+  <data name="Pictures as P_ages…" xml:space="preserve">
+    <value>صور كصفحات…</value>
+  </data>
   <data name="Pictures under a mark" xml:space="preserve">
     <value>الصور أسفل علامة</value>
   </data>
@@ -4332,8 +4398,23 @@
   <data name="Re_load" xml:space="preserve">
     <value>إ_عادة التحميل</value>
   </data>
+  <data name="Re_move This Tag" xml:space="preserve">
+    <value>إزالة هذه العلامة</value>
+  </data>
   <data name="Re_move the Bookmark" xml:space="preserve">
     <value>_إزالة الإشارة المرجعية</value>
+  </data>
+  <data name="Re_place Pages with Pages from Files…" xml:space="preserve">
+    <value>استبدال صفحات بصفحات من ملفات…</value>
+  </data>
+  <data name="Re_place with Pages from Files…" xml:space="preserve">
+    <value>استبدال بصفحات من ملفات…</value>
+  </data>
+  <data name="Re_verse the Order" xml:space="preserve">
+    <value>عكس الترتيب</value>
+  </data>
+  <data name="Re_verse the Order of the Pages" xml:space="preserve">
+    <value>عكس ترتيب الصفحات</value>
   </data>
   <data name="Rea_d Mode" xml:space="preserve">
     <value>وضع ال_قراءة</value>
@@ -4752,6 +4833,9 @@
   <data name="Replacement text" xml:space="preserve">
     <value>النص البديل</value>
   </data>
+  <data name="Replace…" xml:space="preserve">
+    <value>استبدال…</value>
+  </data>
   <data name="Reply" xml:space="preserve">
     <value>رد</value>
   </data>
@@ -4790,6 +4874,9 @@
   </data>
   <data name="Retype text" xml:space="preserve">
     <value>إعادة كتابة النص</value>
+  </data>
+  <data name="Reverse" xml:space="preserve">
+    <value>عكس</value>
   </data>
   <data name="Rich media is not played." xml:space="preserve">
     <value>لا تُشغّل الوسائط الغنية.</value>
@@ -4871,6 +4958,9 @@
   </data>
   <data name="Save Changes" xml:space="preserve">
     <value>حفظ التغييرات</value>
+  </data>
+  <data name="Save Each Page as Its Own _File…" xml:space="preserve">
+    <value>حفظ كل صفحة في ملف خاص…</value>
   </data>
   <data name="Save Flat_tened Copy…" xml:space="preserve">
     <value>حفظ نسخة _مدمجة…</value>
@@ -5016,6 +5106,9 @@
   <data name="Save as PDF 2.0?" xml:space="preserve">
     <value>هل تريد الحفظ بصيغة PDF 2.0؟</value>
   </data>
+  <data name="Save each…" xml:space="preserve">
+    <value>حفظ كل صفحة…</value>
+  </data>
   <data name="Save pages as picture files or drawings. Your open file is never changed. A format that holds one page makes a numbered file for each page you choose." xml:space="preserve">
     <value>احفظ الصفحات كملفات صور أو رسومات. لن يتغير الملف المفتوح. التنسيق الذي يتسع لصفحة واحدة ينشئ ملفاً مرقماً لكل صفحة تختارها.</value>
   </data>
@@ -5108,6 +5201,9 @@
   </data>
   <data name="Saved {0} files, numbered by page, next to {1}." xml:space="preserve">
     <value>حُفظت {0} ملفات مرقمة حسب الصفحة بجوار {1}.</value>
+  </data>
+  <data name="Saved {0} pages as separate files in {1}." xml:space="preserve">
+    <value>تم حفظ {0} صفحات كملفات منفصلة في {1}.</value>
   </data>
   <data name="Saved {0}%. The file went from {1} to {2}." xml:space="preserve">
     <value>وُفّر {0}%. تغيّر حجم الملف من {1} إلى {2}.</value>
@@ -5235,6 +5331,9 @@
   <data name="Select A_ll Text on Page" xml:space="preserve">
     <value>تحديد _كل النص في الصفحة</value>
   </data>
+  <data name="Select Only This Page" xml:space="preserve">
+    <value>تحديد هذه الصفحة فقط</value>
+  </data>
   <data name="Select Te_xt" xml:space="preserve">
     <value>تحديد ن_ص</value>
   </data>
@@ -5261,6 +5360,12 @@
   </data>
   <data name="Select text, or click an annotation to pick it. Drag a picked annotation or its corner squares to move or resize it; arrow keys nudge it." xml:space="preserve">
     <value>حدّد نصًا أو انقر تعليقًا توضيحيًا لاختياره. اسحب التعليق المحدد أو مربعات زواياه لنقله أو تغيير حجمه؛ تحرّكه الأسهم قليلًا.</value>
+  </data>
+  <data name="Select the Eve_n Pages" xml:space="preserve">
+    <value>تحديد الصفحات الزوجية</value>
+  </data>
+  <data name="Select the _Odd Pages" xml:space="preserve">
+    <value>تحديد الصفحات الفردية</value>
   </data>
   <data name="Selected: {0}, {1}, on page {2} ({3})" xml:space="preserve">
     <value>المحدد: {0}، {1}، في الصفحة {2} ({3})</value>
@@ -5342,6 +5447,9 @@
   </data>
   <data name="Show Every _Layer as the Document Sets It" xml:space="preserve">
     <value>إظهار كل _طبقة كما يحددها المستند</value>
+  </data>
+  <data name="Show _Only This Layer" xml:space="preserve">
+    <value>إظهار هذه الطبقة فقط</value>
   </data>
   <data name="Show a document's own title when it asks" xml:space="preserve">
     <value>إظهار عنوان المستند عند طلبه</value>
@@ -5994,6 +6102,9 @@
   <data name="Tags tell a screen reader how this document reads. Choose a tag to change it." xml:space="preserve">
     <value>تخبر الوسوم قارئ الشاشة بكيفية قراءة هذا المستند. اختر وسماً لتغييره.</value>
   </data>
+  <data name="Take This Page out of the Selection" xml:space="preserve">
+    <value>إزالة هذه الصفحة من التحديد</value>
+  </data>
   <data name="Take a Picture of an _Area" xml:space="preserve">
     <value>التقاط صورة ل_منطقة</value>
   </data>
@@ -6159,8 +6270,14 @@
   <data name="That would replace the file you have open. Choose a different name." xml:space="preserve">
     <value>سيؤدي ذلك إلى استبدال الملف المفتوح. اختر اسماً آخر.</value>
   </data>
+  <data name="The Eve_n Pages" xml:space="preserve">
+    <value>الصفحات الزوجية</value>
+  </data>
   <data name="The PDF 2.0 standard no longer lets a file block screen readers, so this choice has no effect on the strong formats and they can still read the file." xml:space="preserve">
     <value>لم يعد معيار PDF 2.0 يسمح للملف بمنع قارئات الشاشة، لذا لا يؤثر هذا الخيار في التنسيقات القوية وتظل قارئات الشاشة قادرة على قراءة الملف.</value>
+  </data>
+  <data name="The _Odd Pages" xml:space="preserve">
+    <value>الصفحات الفردية</value>
   </data>
   <data name="The address of a server that adds a trusted time to signatures you make with a certificate. Empty adds none." xml:space="preserve">
     <value>عنوان خادم يضيف وقتًا موثوقًا إلى التوقيعات التي تنشئها بشهادة. تركه فارغًا لا يضيف شيئًا.</value>
@@ -6795,8 +6912,17 @@
   <data name="Treat look-alike characters as the same: curly and straight quotes, dashes, and full-width letters." xml:space="preserve">
     <value>معاملة المحارف المتشابهة بالتساوي: علامات الاقتباس المنحنية والمستقيمة والشرطات والحروف كاملة العرض.</value>
   </data>
+  <data name="Turn _Left" xml:space="preserve">
+    <value>تدوير لليسار</value>
+  </data>
+  <data name="Turn _Right" xml:space="preserve">
+    <value>تدوير لليمين</value>
+  </data>
   <data name="Turn anticlockwise by degrees" xml:space="preserve">
     <value>تدوير عكس عقارب الساعة بعدد درجات</value>
+  </data>
+  <data name="Turn left" xml:space="preserve">
+    <value>تدوير لليسار</value>
   </data>
   <data name="Turn pages" xml:space="preserve">
     <value>تدوير الصفحات</value>
@@ -6806,6 +6932,9 @@
   </data>
   <data name="Turn pages upright" xml:space="preserve">
     <value>تعديل الصفحات لتصبح عمودية</value>
+  </data>
+  <data name="Turn right" xml:space="preserve">
+    <value>تدوير لليمين</value>
   </data>
   <data name="Turn the Page _Left" xml:space="preserve">
     <value>تدوير الصفحة إلى ال_يسار</value>
@@ -7512,6 +7641,9 @@
   <data name="_Copy licence text" xml:space="preserve">
     <value>_نسخ نص الترخيص</value>
   </data>
+  <data name="_Copy the Link Address" xml:space="preserve">
+    <value>نسخ عنوان الرابط</value>
+  </data>
   <data name="_Crop the Pages…" xml:space="preserve">
     <value>_اقتصاص الصفحات…</value>
   </data>
@@ -7536,6 +7668,9 @@
   <data name="_Draw" xml:space="preserve">
     <value>_رسم</value>
   </data>
+  <data name="_Duplicate" xml:space="preserve">
+    <value>تكرار</value>
+  </data>
   <data name="_Duplicate the Page" xml:space="preserve">
     <value>_تكرار الصفحة</value>
   </data>
@@ -7547,6 +7682,9 @@
   </data>
   <data name="_Edit Text" xml:space="preserve">
     <value>_تحرير النص</value>
+  </data>
+  <data name="_Edit This Tag…" xml:space="preserve">
+    <value>تحرير هذه العلامة…</value>
   </data>
   <data name="_Edit the Page's Own Content" xml:space="preserve">
     <value>_تحرير محتوى الصفحة نفسه</value>
@@ -7560,8 +7698,14 @@
   <data name="_Ellipse" xml:space="preserve">
     <value>شكل _بيضاوي</value>
   </data>
+  <data name="_Every Page" xml:space="preserve">
+    <value>كل الصفحات</value>
+  </data>
   <data name="_Export…" xml:space="preserve">
     <value>تصدير…</value>
+  </data>
+  <data name="_Files Joined on at the End…" xml:space="preserve">
+    <value>ملفات تُضاف في النهاية…</value>
   </data>
   <data name="_Fill and Sign" xml:space="preserve">
     <value>_تعبئة وتوقيع</value>
@@ -7584,6 +7728,12 @@
   <data name="_Go" xml:space="preserve">
     <value>_انتقال</value>
   </data>
+  <data name="_Go to This Bookmark" xml:space="preserve">
+    <value>الانتقال إلى هذه الإشارة المرجعية</value>
+  </data>
+  <data name="_Go to This Comment" xml:space="preserve">
+    <value>الانتقال إلى هذا التعليق</value>
+  </data>
   <data name="_Go to a Document…" xml:space="preserve">
     <value>_الانتقال إلى مستند…</value>
   </data>
@@ -7595,6 +7745,9 @@
   </data>
   <data name="_Hand Tool" xml:space="preserve">
     <value>أداة ال_يد</value>
+  </data>
+  <data name="_Hide This Layer" xml:space="preserve">
+    <value>إخفاء هذه الطبقة</value>
   </data>
   <data name="_Highlight" xml:space="preserve">
     <value>_تمييز</value>
@@ -7653,17 +7806,35 @@
   <data name="_One Page Wide" xml:space="preserve">
     <value>_صفحة واحدة بالعرض</value>
   </data>
+  <data name="_Open in Another App" xml:space="preserve">
+    <value>فتح في تطبيق آخر</value>
+  </data>
+  <data name="_Open the Attached File" xml:space="preserve">
+    <value>فتح الملف المرفق</value>
+  </data>
+  <data name="_Open the Link" xml:space="preserve">
+    <value>فتح الرابط</value>
+  </data>
   <data name="_Open…" xml:space="preserve">
     <value>_فتح…</value>
   </data>
   <data name="_Orange" xml:space="preserve">
     <value>_برتقالي</value>
   </data>
+  <data name="_Organise Pages" xml:space="preserve">
+    <value>تنظيم الصفحات</value>
+  </data>
   <data name="_Pages" xml:space="preserve">
     <value>_الصفحات</value>
   </data>
+  <data name="_Pages from Files…" xml:space="preserve">
+    <value>صفحات من ملفات…</value>
+  </data>
   <data name="_Picture…" xml:space="preserve">
     <value>_صورة…</value>
+  </data>
+  <data name="_Play Here" xml:space="preserve">
+    <value>تشغيل هنا</value>
   </data>
   <data name="_Play or Pause" xml:space="preserve">
     <value>_تشغيل أو إيقاف مؤقت</value>
@@ -7734,6 +7905,9 @@
   <data name="_Save Copy…" xml:space="preserve">
     <value>_حفظ نسخة…</value>
   </data>
+  <data name="_Save Each as Its Own File…" xml:space="preserve">
+    <value>حفظ كل صفحة في ملف خاص…</value>
+  </data>
   <data name="_Save Note" xml:space="preserve">
     <value>حفظ _الملاحظة</value>
   </data>
@@ -7742,6 +7916,9 @@
   </data>
   <data name="_Save Unprotected Copy…" xml:space="preserve">
     <value>حفظ نسخة _غير محمية…</value>
+  </data>
+  <data name="_Save a Copy…" xml:space="preserve">
+    <value>حفظ نسخة…</value>
   </data>
   <data name="_Scroll Slowly by Itself" xml:space="preserve">
     <value>_تمرير بطيء تلقائي</value>
@@ -7754,6 +7931,9 @@
   </data>
   <data name="_Select Text" xml:space="preserve">
     <value>_تحديد النص</value>
+  </data>
+  <data name="_Show This Layer" xml:space="preserve">
+    <value>إظهار هذه الطبقة</value>
   </data>
   <data name="_Side Panel" xml:space="preserve">
     <value>_اللوحة الجانبية</value>

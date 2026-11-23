@@ -279,6 +279,15 @@ internal static class ChromeSidebar
         var left = room.X + Math.Floor((room.Width - pictureWidth) * Half);
         items.Add(new(ChromeItemKind.Thumbnail, pick, index, string.Empty, new(left, room.Y + metrics.Gap, pictureWidth, pictureHeight), true, reading) { Parameter = row.Target });
         var caption = new LayoutRect(room.X, room.Y + metrics.Gap + pictureHeight, room.Width, metrics.RowHeight);
+        if (tab.PagesInUse is { IsOrganising: true } pages)
+        {
+            // While the pages are organised the words under a page are a box that is ticked when the page tools change that
+            // page. Pressing it adds the page or takes it out, so several pages are chosen without holding a key.
+            var chosen = Array.BinarySearch(pages.SelectedPages, row.Page) >= 0;
+            items.Add(new(ChromeItemKind.Button, pages.TogglePageCommand, index, row.Text, caption, true, chosen) { Parameter = row.Target, Icon = chosen ? ChromeIcon.CheckOn : ChromeIcon.CheckOff });
+            return height;
+        }
+
         items.Add(new(ChromeItemKind.Button, pick, index, row.Text, caption, true, reading) { Parameter = row.Target, Icon = reading ? ChromeIcon.Done : ChromeIcon.None });
         return height;
     }

@@ -120,6 +120,9 @@
   <data name="9 pt" xml:space="preserve">
     <value>9 pt</value>
   </data>
+  <data name="A _Blank Page" xml:space="preserve">
+    <value>A _Blank Page</value>
+  </data>
   <data name="A block of data ended early, so the part that could be read is used." xml:space="preserve">
     <value>A block of data ended early, so the part that could be read is used.</value>
   </data>
@@ -249,6 +252,9 @@
   <data name="Actual size" xml:space="preserve">
     <value>Actual size</value>
   </data>
+  <data name="Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
   <data name="Add Bates numbers" xml:space="preserve">
     <value>Add Bates numbers</value>
   </data>
@@ -269,6 +275,9 @@
   </data>
   <data name="Add Text" xml:space="preserve">
     <value>Add Text</value>
+  </data>
+  <data name="Add This Page to the Selection" xml:space="preserve">
+    <value>Add This Page to the Selection</value>
   </data>
   <data name="Add Validation Data or Timestamp" xml:space="preserve">
     <value>Add Validation Data or Timestamp</value>
@@ -294,6 +303,9 @@
   <data name="Add _to Pages" xml:space="preserve">
     <value>Add _to Pages</value>
   </data>
+  <data name="Add a Boo_kmark Here…" xml:space="preserve">
+    <value>Add a Boo_kmark Here…</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>Add a Form Check _Box</value>
   </data>
@@ -305,6 +317,12 @@
   </data>
   <data name="Add a Form _Text Field" xml:space="preserve">
     <value>Add a Form _Text Field</value>
+  </data>
+  <data name="Add a _Blank Page" xml:space="preserve">
+    <value>Add a _Blank Page</value>
+  </data>
+  <data name="Add a _Blank Page After" xml:space="preserve">
+    <value>Add a _Blank Page After</value>
   </data>
   <data name="Add a _Footer…" xml:space="preserve">
     <value>Add a _Footer…</value>
@@ -377,6 +395,9 @@
   </data>
   <data name="Add the Page I Am On to the Selection" xml:space="preserve">
     <value>Add the Page I Am On to the Selection</value>
+  </data>
+  <data name="Add the _Page I Am On" xml:space="preserve">
+    <value>Add the _Page I Am On</value>
   </data>
   <data name="Add the custom tag type" xml:space="preserve">
     <value>Add the custom tag type</value>
@@ -1545,6 +1566,9 @@
   <data name="Copyright" xml:space="preserve">
     <value>Copyright</value>
   </data>
+  <data name="Could not add a blank page." xml:space="preserve">
+    <value>Could not add a blank page.</value>
+  </data>
   <data name="Could not add pictures as pages." xml:space="preserve">
     <value>Could not add pictures as pages.</value>
   </data>
@@ -1617,6 +1641,12 @@
   <data name="Could not remove the hidden information." xml:space="preserve">
     <value>Could not remove the hidden information.</value>
   </data>
+  <data name="Could not replace pages." xml:space="preserve">
+    <value>Could not replace pages.</value>
+  </data>
+  <data name="Could not reverse the pages." xml:space="preserve">
+    <value>Could not reverse the pages.</value>
+  </data>
   <data name="Could not rotate pages." xml:space="preserve">
     <value>Could not rotate pages.</value>
   </data>
@@ -1637,6 +1667,9 @@
   </data>
   <data name="Could not save the image: {0}" xml:space="preserve">
     <value>Could not save the image: {0}</value>
+  </data>
+  <data name="Could not save the pages as separate files." xml:space="preserve">
+    <value>Could not save the pages as separate files.</value>
   </data>
   <data name="Could not save the picture." xml:space="preserve">
     <value>Could not save the picture.</value>
@@ -1739,6 +1772,9 @@
   </data>
   <data name="Default: {0}." xml:space="preserve">
     <value>Default: {0}.</value>
+  </data>
+  <data name="Dele_te" xml:space="preserve">
+    <value>Dele_te</value>
   </data>
   <data name="Delete" xml:space="preserve">
     <value>Delete</value>
@@ -2004,6 +2040,9 @@
   <data name="Drop PDF files here, or choose them from a folder." xml:space="preserve">
     <value>Drop PDF files here, or choose them from a folder.</value>
   </data>
+  <data name="Duplicate" xml:space="preserve">
+    <value>Duplicate</value>
+  </data>
   <data name="Duplicate pages" xml:space="preserve">
     <value>Duplicate pages</value>
   </data>
@@ -2021,6 +2060,9 @@
   </data>
   <data name="E_xtract Pages…" xml:space="preserve">
     <value>E_xtract Pages…</value>
+  </data>
+  <data name="E_xtract to a New File…" xml:space="preserve">
+    <value>E_xtract to a New File…</value>
   </data>
   <data name="Each sentence read aloud is sent to your own Azure Speech resource, which bills your Azure account. The key is kept in your settings file, readable only by you." xml:space="preserve">
     <value>Each sentence read aloud is sent to your own Azure Speech resource, which bills your Azure account. The key is kept in your settings file, readable only by you.</value>
@@ -2144,6 +2186,9 @@
   </data>
   <data name="Extracted {0} pages. {1}" xml:space="preserve">
     <value>Extracted {0} pages. {1}</value>
+  </data>
+  <data name="Extract…" xml:space="preserve">
+    <value>Extract…</value>
   </data>
   <data name="FFmpeg could not read any sound or picture from this file." xml:space="preserve">
     <value>FFmpeg could not read any sound or picture from this file.</value>
@@ -3282,8 +3327,14 @@
   <data name="Move Down" xml:space="preserve">
     <value>Move Down</value>
   </data>
+  <data name="Move E_arlier" xml:space="preserve">
+    <value>Move E_arlier</value>
+  </data>
   <data name="Move Inside" xml:space="preserve">
     <value>Move Inside</value>
+  </data>
+  <data name="Move La_ter" xml:space="preserve">
+    <value>Move La_ter</value>
   </data>
   <data name="Move Up" xml:space="preserve">
     <value>Move Up</value>
@@ -3315,11 +3366,17 @@
   <data name="Move bookmark up" xml:space="preserve">
     <value>Move bookmark up</value>
   </data>
+  <data name="Move earlier" xml:space="preserve">
+    <value>Move earlier</value>
+  </data>
   <data name="Move earlier (Ctrl+Alt+Up)" xml:space="preserve">
     <value>Move earlier (Ctrl+Alt+Up)</value>
   </data>
   <data name="Move it there" xml:space="preserve">
     <value>Move it there</value>
+  </data>
+  <data name="Move later" xml:space="preserve">
+    <value>Move later</value>
   </data>
   <data name="Move later (Ctrl+Alt+Down)" xml:space="preserve">
     <value>Move later (Ctrl+Alt+Down)</value>
@@ -3798,6 +3855,12 @@
   <data name="Ordinary page, not a colour separation" xml:space="preserve">
     <value>Ordinary page, not a colour separation</value>
   </data>
+  <data name="Organise" xml:space="preserve">
+    <value>Organise</value>
+  </data>
+  <data name="Organise pages" xml:space="preserve">
+    <value>Organise pages</value>
+  </data>
   <data name="Other things under a mark" xml:space="preserve">
     <value>Other things under a mark</value>
   </data>
@@ -4077,6 +4140,9 @@
   <data name="Pictures are not changed, even under a mark." xml:space="preserve">
     <value>Pictures are not changed, even under a mark.</value>
   </data>
+  <data name="Pictures as P_ages…" xml:space="preserve">
+    <value>Pictures as P_ages…</value>
+  </data>
   <data name="Pictures under a mark" xml:space="preserve">
     <value>Pictures under a mark</value>
   </data>
@@ -4332,8 +4398,23 @@
   <data name="Re_load" xml:space="preserve">
     <value>Re_load</value>
   </data>
+  <data name="Re_move This Tag" xml:space="preserve">
+    <value>Re_move This Tag</value>
+  </data>
   <data name="Re_move the Bookmark" xml:space="preserve">
     <value>Re_move the Bookmark</value>
+  </data>
+  <data name="Re_place Pages with Pages from Files…" xml:space="preserve">
+    <value>Re_place Pages with Pages from Files…</value>
+  </data>
+  <data name="Re_place with Pages from Files…" xml:space="preserve">
+    <value>Re_place with Pages from Files…</value>
+  </data>
+  <data name="Re_verse the Order" xml:space="preserve">
+    <value>Re_verse the Order</value>
+  </data>
+  <data name="Re_verse the Order of the Pages" xml:space="preserve">
+    <value>Re_verse the Order of the Pages</value>
   </data>
   <data name="Rea_d Mode" xml:space="preserve">
     <value>Rea_d Mode</value>
@@ -4752,6 +4833,9 @@
   <data name="Replacement text" xml:space="preserve">
     <value>Replacement text</value>
   </data>
+  <data name="Replace…" xml:space="preserve">
+    <value>Replace…</value>
+  </data>
   <data name="Reply" xml:space="preserve">
     <value>Reply</value>
   </data>
@@ -4790,6 +4874,9 @@
   </data>
   <data name="Retype text" xml:space="preserve">
     <value>Retype text</value>
+  </data>
+  <data name="Reverse" xml:space="preserve">
+    <value>Reverse</value>
   </data>
   <data name="Rich media is not played." xml:space="preserve">
     <value>Rich media is not played.</value>
@@ -4871,6 +4958,9 @@
   </data>
   <data name="Save Changes" xml:space="preserve">
     <value>Save Changes</value>
+  </data>
+  <data name="Save Each Page as Its Own _File…" xml:space="preserve">
+    <value>Save Each Page as Its Own _File…</value>
   </data>
   <data name="Save Flat_tened Copy…" xml:space="preserve">
     <value>Save Flat_tened Copy…</value>
@@ -5016,6 +5106,9 @@
   <data name="Save as PDF 2.0?" xml:space="preserve">
     <value>Save as PDF 2.0?</value>
   </data>
+  <data name="Save each…" xml:space="preserve">
+    <value>Save each…</value>
+  </data>
   <data name="Save pages as picture files or drawings. Your open file is never changed. A format that holds one page makes a numbered file for each page you choose." xml:space="preserve">
     <value>Save pages as picture files or drawings. Your open file is never changed. A format that holds one page makes a numbered file for each page you choose.</value>
   </data>
@@ -5108,6 +5201,9 @@
   </data>
   <data name="Saved {0} files, numbered by page, next to {1}." xml:space="preserve">
     <value>Saved {0} files, numbered by page, next to {1}.</value>
+  </data>
+  <data name="Saved {0} pages as separate files in {1}." xml:space="preserve">
+    <value>Saved {0} pages as separate files in {1}.</value>
   </data>
   <data name="Saved {0}%. The file went from {1} to {2}." xml:space="preserve">
     <value>Saved {0}%. The file went from {1} to {2}.</value>
@@ -5235,6 +5331,9 @@
   <data name="Select A_ll Text on Page" xml:space="preserve">
     <value>Select A_ll Text on Page</value>
   </data>
+  <data name="Select Only This Page" xml:space="preserve">
+    <value>Select Only This Page</value>
+  </data>
   <data name="Select Te_xt" xml:space="preserve">
     <value>Select Te_xt</value>
   </data>
@@ -5261,6 +5360,12 @@
   </data>
   <data name="Select text, or click an annotation to pick it. Drag a picked annotation or its corner squares to move or resize it; arrow keys nudge it." xml:space="preserve">
     <value>Select text, or click an annotation to pick it. Drag a picked annotation or its corner squares to move or resize it; arrow keys nudge it.</value>
+  </data>
+  <data name="Select the Eve_n Pages" xml:space="preserve">
+    <value>Select the Eve_n Pages</value>
+  </data>
+  <data name="Select the _Odd Pages" xml:space="preserve">
+    <value>Select the _Odd Pages</value>
   </data>
   <data name="Selected: {0}, {1}, on page {2} ({3})" xml:space="preserve">
     <value>Selected: {0}, {1}, on page {2} ({3})</value>
@@ -5342,6 +5447,9 @@
   </data>
   <data name="Show Every _Layer as the Document Sets It" xml:space="preserve">
     <value>Show Every _Layer as the Document Sets It</value>
+  </data>
+  <data name="Show _Only This Layer" xml:space="preserve">
+    <value>Show _Only This Layer</value>
   </data>
   <data name="Show a document's own title when it asks" xml:space="preserve">
     <value>Show a document's own title when it asks</value>
@@ -5994,6 +6102,9 @@
   <data name="Tags tell a screen reader how this document reads. Choose a tag to change it." xml:space="preserve">
     <value>Tags tell a screen reader how this document reads. Choose a tag to change it.</value>
   </data>
+  <data name="Take This Page out of the Selection" xml:space="preserve">
+    <value>Take This Page out of the Selection</value>
+  </data>
   <data name="Take a Picture of an _Area" xml:space="preserve">
     <value>Take a Picture of an _Area</value>
   </data>
@@ -6159,8 +6270,14 @@
   <data name="That would replace the file you have open. Choose a different name." xml:space="preserve">
     <value>That would replace the file you have open. Choose a different name.</value>
   </data>
+  <data name="The Eve_n Pages" xml:space="preserve">
+    <value>The Eve_n Pages</value>
+  </data>
   <data name="The PDF 2.0 standard no longer lets a file block screen readers, so this choice has no effect on the strong formats and they can still read the file." xml:space="preserve">
     <value>The PDF 2.0 standard no longer lets a file block screen readers, so this choice has no effect on the strong formats and they can still read the file.</value>
+  </data>
+  <data name="The _Odd Pages" xml:space="preserve">
+    <value>The _Odd Pages</value>
   </data>
   <data name="The address of a server that adds a trusted time to signatures you make with a certificate. Empty adds none." xml:space="preserve">
     <value>The address of a server that adds a trusted time to signatures you make with a certificate. Empty adds none.</value>
@@ -6795,8 +6912,17 @@
   <data name="Treat look-alike characters as the same: curly and straight quotes, dashes, and full-width letters." xml:space="preserve">
     <value>Treat look-alike characters as the same: curly and straight quotes, dashes, and full-width letters.</value>
   </data>
+  <data name="Turn _Left" xml:space="preserve">
+    <value>Turn _Left</value>
+  </data>
+  <data name="Turn _Right" xml:space="preserve">
+    <value>Turn _Right</value>
+  </data>
   <data name="Turn anticlockwise by degrees" xml:space="preserve">
     <value>Turn anticlockwise by degrees</value>
+  </data>
+  <data name="Turn left" xml:space="preserve">
+    <value>Turn left</value>
   </data>
   <data name="Turn pages" xml:space="preserve">
     <value>Turn pages</value>
@@ -6806,6 +6932,9 @@
   </data>
   <data name="Turn pages upright" xml:space="preserve">
     <value>Turn pages upright</value>
+  </data>
+  <data name="Turn right" xml:space="preserve">
+    <value>Turn right</value>
   </data>
   <data name="Turn the Page _Left" xml:space="preserve">
     <value>Turn the Page _Left</value>
@@ -7512,6 +7641,9 @@
   <data name="_Copy licence text" xml:space="preserve">
     <value>_Copy licence text</value>
   </data>
+  <data name="_Copy the Link Address" xml:space="preserve">
+    <value>_Copy the Link Address</value>
+  </data>
   <data name="_Crop the Pages…" xml:space="preserve">
     <value>_Crop the Pages…</value>
   </data>
@@ -7536,6 +7668,9 @@
   <data name="_Draw" xml:space="preserve">
     <value>_Draw</value>
   </data>
+  <data name="_Duplicate" xml:space="preserve">
+    <value>_Duplicate</value>
+  </data>
   <data name="_Duplicate the Page" xml:space="preserve">
     <value>_Duplicate the Page</value>
   </data>
@@ -7547,6 +7682,9 @@
   </data>
   <data name="_Edit Text" xml:space="preserve">
     <value>_Edit Text</value>
+  </data>
+  <data name="_Edit This Tag…" xml:space="preserve">
+    <value>_Edit This Tag…</value>
   </data>
   <data name="_Edit the Page's Own Content" xml:space="preserve">
     <value>_Edit the Page's Own Content</value>
@@ -7560,8 +7698,14 @@
   <data name="_Ellipse" xml:space="preserve">
     <value>_Ellipse</value>
   </data>
+  <data name="_Every Page" xml:space="preserve">
+    <value>_Every Page</value>
+  </data>
   <data name="_Export…" xml:space="preserve">
     <value>_Export…</value>
+  </data>
+  <data name="_Files Joined on at the End…" xml:space="preserve">
+    <value>_Files Joined on at the End…</value>
   </data>
   <data name="_Fill and Sign" xml:space="preserve">
     <value>_Fill and Sign</value>
@@ -7584,6 +7728,12 @@
   <data name="_Go" xml:space="preserve">
     <value>_Go</value>
   </data>
+  <data name="_Go to This Bookmark" xml:space="preserve">
+    <value>_Go to This Bookmark</value>
+  </data>
+  <data name="_Go to This Comment" xml:space="preserve">
+    <value>_Go to This Comment</value>
+  </data>
   <data name="_Go to a Document…" xml:space="preserve">
     <value>_Go to a Document…</value>
   </data>
@@ -7595,6 +7745,9 @@
   </data>
   <data name="_Hand Tool" xml:space="preserve">
     <value>_Hand Tool</value>
+  </data>
+  <data name="_Hide This Layer" xml:space="preserve">
+    <value>_Hide This Layer</value>
   </data>
   <data name="_Highlight" xml:space="preserve">
     <value>_Highlight</value>
@@ -7653,17 +7806,35 @@
   <data name="_One Page Wide" xml:space="preserve">
     <value>_One Page Wide</value>
   </data>
+  <data name="_Open in Another App" xml:space="preserve">
+    <value>_Open in Another App</value>
+  </data>
+  <data name="_Open the Attached File" xml:space="preserve">
+    <value>_Open the Attached File</value>
+  </data>
+  <data name="_Open the Link" xml:space="preserve">
+    <value>_Open the Link</value>
+  </data>
   <data name="_Open…" xml:space="preserve">
     <value>_Open…</value>
   </data>
   <data name="_Orange" xml:space="preserve">
     <value>_Orange</value>
   </data>
+  <data name="_Organise Pages" xml:space="preserve">
+    <value>_Organise Pages</value>
+  </data>
   <data name="_Pages" xml:space="preserve">
     <value>_Pages</value>
   </data>
+  <data name="_Pages from Files…" xml:space="preserve">
+    <value>_Pages from Files…</value>
+  </data>
   <data name="_Picture…" xml:space="preserve">
     <value>_Picture…</value>
+  </data>
+  <data name="_Play Here" xml:space="preserve">
+    <value>_Play Here</value>
   </data>
   <data name="_Play or Pause" xml:space="preserve">
     <value>_Play or Pause</value>
@@ -7734,6 +7905,9 @@
   <data name="_Save Copy…" xml:space="preserve">
     <value>_Save Copy…</value>
   </data>
+  <data name="_Save Each as Its Own File…" xml:space="preserve">
+    <value>_Save Each as Its Own File…</value>
+  </data>
   <data name="_Save Note" xml:space="preserve">
     <value>_Save Note</value>
   </data>
@@ -7742,6 +7916,9 @@
   </data>
   <data name="_Save Unprotected Copy…" xml:space="preserve">
     <value>_Save Unprotected Copy…</value>
+  </data>
+  <data name="_Save a Copy…" xml:space="preserve">
+    <value>_Save a Copy…</value>
   </data>
   <data name="_Scroll Slowly by Itself" xml:space="preserve">
     <value>_Scroll Slowly by Itself</value>
@@ -7754,6 +7931,9 @@
   </data>
   <data name="_Select Text" xml:space="preserve">
     <value>_Select Text</value>
+  </data>
+  <data name="_Show This Layer" xml:space="preserve">
+    <value>_Show This Layer</value>
   </data>
   <data name="_Side Panel" xml:space="preserve">
     <value>_Side Panel</value>

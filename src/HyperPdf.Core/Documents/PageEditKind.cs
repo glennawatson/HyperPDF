@@ -18,4 +18,10 @@ public enum PageEditKind
 
     /// <summary>Copies the selected pages before an index in the current document.</summary>
     Duplicate = 3,
+
+    /// <summary>Adds a page with nothing on it before an index. The one selected page gives the new page its size.</summary>
+    InsertBlank = 4,
+
+    /// <summary>Puts the selected pages in the opposite order, each in a place one of them had.</summary>
+    Reverse = 5,
 }

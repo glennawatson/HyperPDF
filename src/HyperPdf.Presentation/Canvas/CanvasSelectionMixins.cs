@@ -280,7 +280,13 @@ public static class CanvasSelectionMixins
                 return ContextMenus.ForAnnotation(annotations, hit);
             }
 
-            return page >= 0 ? ContextMenus.ForPage(tab, new(page, state.ToPage(tab, page, position))) : null;
+            if (page < 0)
+            {
+                return null;
+            }
+
+            PageLocation location = new(page, state.ToPage(tab, page, position));
+            return state.HitTestLink(position) is { } link ? ContextMenus.ForLink(tab, link, location, copy) : ContextMenus.ForPage(tab, location);
         }
     }
 }

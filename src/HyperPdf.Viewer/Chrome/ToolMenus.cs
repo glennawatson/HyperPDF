@@ -22,6 +22,12 @@ namespace HyperPdf.Viewer.Chrome;
 /// </summary>
 internal static class ToolMenus
 {
+    /// <summary>The name of the icon of an entry that chooses pages: a ticked box.</summary>
+    private const string TickedIcon = "CheckOn";
+
+    /// <summary>The name of the icon of an entry that adds pages.</summary>
+    private const string AddIcon = "Add";
+
     /// <summary>How close two spacings are for them to be the same choice.</summary>
     private const float SpacingTolerance = 0.001F;
 
@@ -141,18 +147,55 @@ internal static class ToolMenus
             Item("Move the Page _Earlier", pages.MoveEarlierCommand),
             Item("Move the Page La_ter", pages.MoveLaterCommand),
             Item("_Duplicate the Page", pages.DuplicateCommand),
+            Item("Re_verse the Order of the Pages", pages.ReverseCommand).WithIcon("Reverse"),
             Item("Delete the Page", pages.DeleteCommand),
             MenuEntry.Separator(),
+            MenuEntry.Radio(UiText.Get("_Organise Pages"), tab.ToggleOrganisePagesCommand, null, pages.IsOrganising),
             Item("Select _Every Page", pages.SelectAllCommand),
+            Item("Select the _Odd Pages", pages.SelectOddCommand).WithIcon(TickedIcon),
+            Item("Select the Eve_n Pages", pages.SelectEvenCommand).WithIcon(TickedIcon),
             Item("Add the Page I Am On to the Selection", pages.AddCurrentToSelectionCommand),
             MenuEntry.Separator(),
             Item("E_xtract Pages…", pages.ExtractCommand),
+            Item("Save Each Page as Its Own _File…", pages.SplitPagesCommand).WithIcon("Split"),
+            Item("Add a _Blank Page", pages.InsertBlankPageCommand).WithIcon(AddIcon),
+            Item("Re_place Pages with Pages from Files…", pages.ReplaceCommand).WithIcon("Replace"),
             Item("_Insert Pages from Files…", pages.InsertFilesCommand),
             Item("Insert _Pictures as Pages…", pages.InsertImagesCommand),
             Item("_Merge Files…", pages.MergeFilesCommand),
             MenuEntry.Separator(),
             Named(pages.UndoText, pages.UndoCommand).WithIcon("Undo"),
             Named(pages.RedoText, pages.RedoCommand).WithIcon("Redo"),
+        ];
+    }
+
+    /// <summary>Lists what can be added to the pages while organising them: a blank page, the pages of files, pictures, and files joined on at the end.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>The entries.</returns>
+    internal static List<MenuEntry> AddPages(DocumentTabViewModel tab)
+    {
+        var pages = tab.Pages;
+        return
+        [
+            Item("A _Blank Page", pages.InsertBlankPageCommand).WithIcon(AddIcon),
+            Item("_Pages from Files…", pages.InsertFilesCommand).WithIcon(AddIcon),
+            Item("Pictures as P_ages…", pages.InsertImagesCommand).WithIcon(AddIcon),
+            Item("_Files Joined on at the End…", pages.MergeFilesCommand).WithIcon(AddIcon),
+        ];
+    }
+
+    /// <summary>Lists the ways to choose the pages the page tools change.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>The entries.</returns>
+    internal static List<MenuEntry> ChoosePages(DocumentTabViewModel tab)
+    {
+        var pages = tab.Pages;
+        return
+        [
+            Item("_Every Page", pages.SelectAllCommand).WithIcon(TickedIcon),
+            Item("The _Odd Pages", pages.SelectOddCommand).WithIcon(TickedIcon),
+            Item("The Eve_n Pages", pages.SelectEvenCommand).WithIcon(TickedIcon),
+            Item("Add the _Page I Am On", pages.AddCurrentToSelectionCommand).WithIcon(TickedIcon),
         ];
     }
 
