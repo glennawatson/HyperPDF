@@ -15,6 +15,7 @@
 //   dotnet run --file src/tools/CheckUiaReader.cs -- <viewer exe> <PDF>
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.IO;
 using System.Windows.Automation;
 
 return await HyperPdf.Scripts.CheckUiaReader.RunAsync(args).ConfigureAwait(false);
@@ -60,8 +61,19 @@ namespace HyperPdf.Scripts
                 return UsageExitCode;
             }
 
+            // Both must be existing files, and the PDF goes to the viewer as one argument, so a path with spaces stays whole.
+            var viewerPath = Path.GetFullPath(args[0]);
+            var pdfPath = Path.GetFullPath(args[1]);
+            if (!File.Exists(viewerPath) || !File.Exists(pdfPath))
+            {
+                await Console.Error.WriteLineAsync("The viewer and the PDF must both be existing files.").ConfigureAwait(false);
+                return UsageExitCode;
+            }
+
             Environment.SetEnvironmentVariable("HYPERPDF_RENDER_BACKEND", "Cpu");
-            using var viewer = Process.Start(new ProcessStartInfo(args[0], args[1]) { RedirectStandardError = true }) ?? throw new InvalidOperationException("The viewer did not start.");
+            var start = new ProcessStartInfo(viewerPath) { RedirectStandardError = true };
+            start.ArgumentList.Add(pdfPath);
+            using var viewer = Process.Start(start) ?? throw new InvalidOperationException("The viewer did notstart.");
             _ = Task.Run(async () =>
             {
                 string? line;

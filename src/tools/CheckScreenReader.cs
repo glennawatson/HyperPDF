@@ -89,12 +89,16 @@ while (appIndex < args.Length && args[appIndex].StartsWith("--", StringCompariso
     appIndex++;
 }
 
-if (args.Length <= appIndex)
-{
-    throw new ArgumentException("An application path is required.");
-}
+// The options are followed by the application's path.
+ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(appIndex, args.Length, nameof(args));
 
 var app = Path.GetFullPath(args[appIndex]);
+
+// The check starts the application it is given, so it must be a file that exists.
+if (!File.Exists(app))
+{
+    throw new ArgumentException($"'{app}' is not an application file.", nameof(args));
+}
 
 var minimumIndex = appIndex + 1;
 
