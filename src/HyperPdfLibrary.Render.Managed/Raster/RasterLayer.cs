@@ -90,6 +90,13 @@ internal sealed unsafe class RasterLayer : IDisposable
     /// <param name="pixel">The value.</param>
     internal void Fill(uint pixel)
     {
+        // An owned layer's rows follow one another, so it is filled in one run; a borrowed one may have a gap after each row.
+        if (_borrowed is null)
+        {
+            _owned.AsSpan(0, Width * Height).Fill(pixel);
+            return;
+        }
+
         for (var y = 0; y < Height; y++)
         {
             Row(y).Fill(pixel);
