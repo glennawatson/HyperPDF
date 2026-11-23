@@ -48,6 +48,37 @@ public sealed class PageAnnotationTests
     /// <summary>A rectangle.</summary>
     private static readonly PdfRectangle Box = new(72, 600, 172, 650);
 
+    /// <summary>Appending several annotations at once gives the array that appending them one by one gives, and an empty range changes nothing.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task AppendRangeMatchesAppendingOneByOne()
+    {
+        using var ranged = PdfDocumentReader.Open(TestPdf.Create(1), null);
+        using var single = PdfDocumentReader.Open(TestPdf.Create(1), null);
+        var rangedPage = PdfDocumentPages.GetPage(ranged, 0);
+        var singlePage = PdfDocumentPages.GetPage(single, 0);
+        var before = PdfPageAnnotations.GetArray(ranged.Objects, rangedPage)?.Count ?? 0;
+        KnownName[] kinds = [KnownName.Square, KnownName.Circle, KnownName.Square];
+
+        var empty = PdfPageAnnotations.AppendRange(ranged.Objects, rangedPage, []);
+        var first = PdfPageAnnotations.AppendRange(ranged.Objects, rangedPage, Array.ConvertAll(kinds, kind => PdfAnnotations.Create(ranged.Objects, kind, Box)));
+        foreach (var kind in kinds)
+        {
+            _ = PdfPageAnnotations.Append(single.Objects, singlePage, PdfAnnotations.Create(single.Objects, kind, Box));
+        }
+
+        await Assert.That(empty).IsEqualTo(-1);
+        await Assert.That(first).IsEqualTo(before);
+        await Assert.That(PdfPageAnnotations.GetArray(ranged.Objects, rangedPage)!.Count).IsEqualTo(before + kinds.Length);
+        for (var i = 0; i < kinds.Length; i++)
+        {
+            var one = PdfPageAnnotations.Get(single.Objects, singlePage, before + i)!;
+            var many = PdfPageAnnotations.Get(ranged.Objects, rangedPage, before + i)!;
+            await Assert.That(PdfPageAnnotations.GetId(ranged.Objects, rangedPage, before + i).IsValid).IsTrue();
+            await Assert.That(many.GetName(KnownName.Subtype).ToKnownName()).IsEqualTo(one.GetName(KnownName.Subtype).ToKnownName());
+        }
+    }
+
     /// <summary>Appending, replacing and removing annotations change the page's array, and a compact save keeps the result.</summary>
     /// <returns>A task.</returns>
     [Test]

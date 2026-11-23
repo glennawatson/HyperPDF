@@ -73,6 +73,46 @@ public static class PdfPageAnnotations
         return Publish(store, page, array) ? array.Count - 1 : -1;
     }
 
+    /// <summary>
+    /// Adds several annotations as new indirect objects at the end of the page's array, in order. The array is copied
+    /// once, so this is the way to add many: calling <see cref="Append"/> for each copies the whole array every time.
+    /// </summary>
+    /// <param name="store">The document.</param>
+    /// <param name="page">The page.</param>
+    /// <param name="annotations">The new annotations.</param>
+    /// <returns>The index of the first new annotation, or -1 when there are none or the page cannot be changed.</returns>
+    /// <exception cref="ArgumentNullException">An argument or one of the annotations is <see langword="null"/>.</exception>
+    public static int AppendRange(PdfObjectStore store, PdfPage page, ReadOnlySpan<PdfDictionary> annotations)
+    {
+        foreach (var annotation in annotations)
+        {
+            ArgumentNullException.ThrowIfNull(annotation, nameof(annotations));
+        }
+
+        var current = GetArray(store, page);
+        var first = current?.Count ?? 0;
+        if (annotations.IsEmpty || !CanPublish(store, page))
+        {
+            return -1;
+        }
+
+        var array = new PdfArray(store, first + annotations.Length);
+        if (current is not null)
+        {
+            foreach (var item in current.Items)
+            {
+                array.Add(item);
+            }
+        }
+
+        foreach (var annotation in annotations)
+        {
+            array.Add(PdfValue.FromReference(StoreEditing.Add(store, PdfValue.FromDictionary(annotation), PdfCacheScopes.None)));
+        }
+
+        return Publish(store, page, array) ? first : -1;
+    }
+
     /// <summary>Replaces the annotation at an index with an edited copy.</summary>
     /// <param name="store">The document.</param>
     /// <param name="page">The page.</param>
