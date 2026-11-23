@@ -17,4 +17,10 @@ internal sealed record ToolBar(string Text, BarAction[] Actions)
     /// while it is used, as the state of reading aloud does, sets it, so its buttons stay where they are.
     /// </summary>
     internal bool TextOnOwnLine { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether a button that cannot be pressed now is shown faded in its place, and not left out. A
+    /// bar whose buttons depend on what is chosen sets it, so the buttons do not move as the choice changes.
+    /// </summary>
+    internal bool KeepsButtons { get; init; }
 }

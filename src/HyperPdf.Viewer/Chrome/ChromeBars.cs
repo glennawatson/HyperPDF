@@ -385,6 +385,7 @@ internal static class ChromeBars
         row = row.Toggle(ChromeIcon.Highlight, UiText.Get("Annotate"), tab is { CanAnnotate: true } ? actions.ToggleAnnotate : null, tab is { AnnotationsInUse.IsAnnotating: true });
         row = row.Toggle(ChromeIcon.FillSign, UiText.Get("Fill & Sign"), tab?.ToggleFillAndSignCommand, tab is { FillAndSignIfMade.IsActive: true });
         row = row.Toggle(ChromeIcon.Cursor, UiText.Get("Edit"), tab?.ToggleContentEditingCommand, tab is { ContentEditIfMade.IsEditing: true });
+        row = row.Toggle(ChromeIcon.Thumbnails, UiText.Get("Organise"), tab?.ToggleOrganisePagesCommand, tab is { PagesInUse.IsOrganising: true });
         row = row.Divider();
         row = row.Button(ChromeIcon.Search, UiText.Get("Find"), open ? actions.ShowFind : null, open);
         row = row.Toggle(ChromeIcon.Focus, UiText.Get("Focus"), tab?.ToggleFocusModeCommand, tab is { FocusModeIfMade.IsOn: true });

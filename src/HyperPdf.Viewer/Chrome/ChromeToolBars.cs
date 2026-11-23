@@ -45,6 +45,7 @@ internal static class ChromeToolBars
         AddNotices(bars, tab, actions);
         AddReadingAids(bars, tab, actions);
         AddPageTools(bars, tab, actions);
+        AddOrganise(bars, tab, actions);
         var height = 0;
         foreach (var bar in bars)
         {
@@ -204,6 +205,47 @@ internal static class ChromeToolBars
         new(ChromeIcon.Add, MenuEntry.Item(UiText.Get("Get this voice"), null, aloud.DownloadVoiceCommand, null, aloud.CanDownloadVoice && !aloud.IsDownloading)),
         Item(ChromeIcon.More, "Settings", aloud.ShowSettingsCommand),
         Item(ChromeIcon.Close, "Close", aloud.CloseCommand),
+    ];
+
+    /// <summary>
+    /// Adds the bar that organises the pages, while that is on. Its buttons act on the pages ticked in the side panel, and
+    /// each keeps its place whether or not it can be pressed now.
+    /// </summary>
+    /// <param name="bars">Receives the bar.</param>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="actions">The commands that open the lists of what to add and which pages to choose.</param>
+    private static void AddOrganise(List<ToolBar> bars, DocumentTabViewModel tab, ChromeActions actions)
+    {
+        if (tab.PagesInUse is not { IsOrganising: true } pages)
+        {
+            return;
+        }
+
+        bars.Add(new(Label(UiText.Get("Organise pages"), pages.Status), OrganiseActions(tab, pages, actions)) { TextOnOwnLine = true, KeepsButtons = true });
+    }
+
+    /// <summary>Lists what the bar that organises pages offers, in the order choose, add, change, save, remove, undo.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <param name="pages">The page tools.</param>
+    /// <param name="actions">The commands that open the lists of what to add and which pages to choose.</param>
+    /// <returns>The actions, left to right.</returns>
+    private static BarAction[] OrganiseActions(DocumentTabViewModel tab, PageManagementViewModel pages, ChromeActions actions) =>
+    [
+        new(ChromeIcon.CheckOn, MenuEntry.Item(UiText.Get("Select"), null, actions.ShowChoosePages, null, true)),
+        new(ChromeIcon.Add, MenuEntry.Item(UiText.Get("Add"), null, actions.ShowAddPages, null, pages.CanEdit)),
+        Item(ChromeIcon.RotateLeft, "Turn left", pages.RotateCounterclockwiseCommand),
+        Item(ChromeIcon.RotateRight, "Turn right", pages.RotateClockwiseCommand),
+        Item(ChromeIcon.Copy, "Duplicate", pages.DuplicateCommand),
+        Item(ChromeIcon.PageUp, "Move earlier", pages.MoveEarlierCommand),
+        Item(ChromeIcon.PageDown, "Move later", pages.MoveLaterCommand),
+        Item(ChromeIcon.Reverse, "Reverse", pages.ReverseCommand),
+        Item(ChromeIcon.Replace, "Replace…", pages.ReplaceCommand),
+        Item(ChromeIcon.Save, "Extract…", pages.ExtractCommand),
+        Item(ChromeIcon.Split, "Save each…", pages.SplitPagesCommand),
+        Item(ChromeIcon.Close, "Delete", pages.DeleteCommand),
+        new(ChromeIcon.Undo, MenuEntry.Item(UiText.Get("Undo"), null, pages.UndoCommand, null, pages.CanUndo)) { Help = pages.UndoText },
+        new(ChromeIcon.Redo, MenuEntry.Item(UiText.Get("Redo"), null, pages.RedoCommand, null, pages.CanRedo)) { Help = pages.RedoText },
+        Item(ChromeIcon.Done, "Done", tab.ToggleOrganisePagesCommand),
     ];
 
     /// <summary>Adds the bar that says which ink of a colour separated page is shown and offers the others.</summary>
@@ -391,10 +433,12 @@ internal static class ChromeToolBars
         row = bar.TextOnOwnLine ? row with { Next = row.Limit } : row.Space();
         foreach (var action in bar.Actions)
         {
-            // A button that cannot do anything now is left out, so the bar only offers what works.
+            // A button that cannot do anything now is left out, so the bar only offers what works. A bar that keeps its
+            // buttons shows it faded in its place, so the others do not move as what can be done changes.
             var entry = action.Entry;
             if (!entry.IsEnabled)
             {
+                row = bar.KeepsButtons ? row.Button(action.Icon, entry.Header, null, false) : row;
                 continue;
             }
 

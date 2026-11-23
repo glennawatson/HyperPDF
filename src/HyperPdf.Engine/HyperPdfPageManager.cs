@@ -18,6 +18,9 @@ namespace HyperPdf.Engine;
 [DebuggerDisplay("HyperPdfPageManager: {UndoLabel}")]
 internal sealed class HyperPdfPageManager : IPageManager, IDisposable
 {
+    /// <summary>The degrees of a half turn. A page turned by anything else than a multiple of it lies on its side.</summary>
+    private const int HalfTurn = 180;
+
     /// <summary>The document whose caches and saved state follow each edit.</summary>
     private readonly HyperPdfDocument _owner;
 
@@ -174,6 +177,8 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
         PageEditKind.Rotate => "Rotate pages",
         PageEditKind.Move => "Move pages",
         PageEditKind.Duplicate => "Duplicate pages",
+        PageEditKind.InsertBlank => "Insert blank page",
+        PageEditKind.Reverse => "Reverse pages",
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     };
 
@@ -211,7 +216,50 @@ internal sealed class HyperPdfPageManager : IPageManager, IDisposable
                     PdfDocumentPageOperations.InsertPages(document, value, document, pages, report, cancellationToken);
                     break;
                 }
+
+            case PageEditKind.InsertBlank:
+                {
+                    InsertBlank(document, pages[0], value);
+                    break;
+                }
+
+            case PageEditKind.Reverse:
+                {
+                    Reverse(document, pages);
+                    break;
+                }
         }
+    }
+
+    /// <summary>Adds a page with nothing on it, as big as another page looks: its visible box, turned as the page is turned.</summary>
+    /// <param name="document">The document being edited.</param>
+    /// <param name="like">The page that gives the new page its size.</param>
+    /// <param name="index">The index the new page takes.</param>
+    private static void InsertBlank(PdfDocument document, int like, int index)
+    {
+        var page = PdfDocumentPages.GetPage(document, like);
+        var box = page.CropBox;
+        var sideways = page.Rotation % HalfTurn != 0;
+        PdfBlankPages.InsertPage(document, index, sideways ? box.Height : box.Width, sideways ? box.Width : box.Height);
+    }
+
+    /// <summary>Puts the selected pages in the opposite order. Every other page stays where it is.</summary>
+    /// <param name="document">The document being edited.</param>
+    /// <param name="pages">The selected page indexes, lowest first.</param>
+    private static void Reverse(PdfDocument document, ReadOnlySpan<int> pages)
+    {
+        var order = new int[document.PageCount];
+        for (var index = 0; index < order.Length; index++)
+        {
+            order[index] = index;
+        }
+
+        for (var index = 0; index < pages.Length; index++)
+        {
+            order[pages[index]] = pages[pages.Length - 1 - index];
+        }
+
+        PdfDocumentPageOperations.ReorderPages(document, order);
     }
 
     /// <summary>Loads selected pages and the catalog structures that page operations carry or prune.</summary>

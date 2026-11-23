@@ -246,6 +246,7 @@ internal static class TabRequests
         pages.MergeFilesInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Do(context.SetOutput)),
         pages.InsertImagesInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Do(context.SetOutput)),
         pages.ExtractInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
+        pages.SplitFolderInteraction.RegisterHandler(context => chrome.PickFolder(FolderOf(tab)).Do(context.SetOutput)),
         pages.Compare.ChooseFileInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Select(static files => files.Length > 0 ? files[0] : null).Do(context.SetOutput)),
         pages.Compare.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.Compare(context.Input)).Select(static _ => RxVoid.Default).Do(context.SetOutput)),
         pages.Sanitize.ShowInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.Sanitize(context.Input)).Do(context.SetOutput)),

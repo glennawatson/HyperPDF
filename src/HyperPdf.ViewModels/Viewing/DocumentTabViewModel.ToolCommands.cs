@@ -31,6 +31,20 @@ public sealed partial class DocumentTabViewModel
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ToggleContentEditing() => Signal.Return(RxVoid.Default).InvokeCommand(ContentEdit.ToggleEditingCommand).Dispose();
 
+    /// <summary>Starts or stops organising the pages. Starting shows the pages in the side panel, where they are chosen.</summary>
+    [ReactiveCommand]
+    private void ToggleOrganisePages()
+    {
+        Signal.Return(RxVoid.Default).InvokeCommand(Pages.ToggleOrganisingCommand).Dispose();
+        if (!Pages.IsOrganising)
+        {
+            return;
+        }
+
+        SidebarMode = SidebarMode.Thumbnails;
+        SidebarVisible = true;
+    }
+
     /// <summary>Prints the document.</summary>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

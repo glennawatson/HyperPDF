@@ -120,6 +120,9 @@
   <data name="9 pt" xml:space="preserve">
     <value>9 磅</value>
   </data>
+  <data name="A _Blank Page" xml:space="preserve">
+    <value>空白页(_B)</value>
+  </data>
   <data name="A block of data ended early, so the part that could be read is used." xml:space="preserve">
     <value>某个数据块提前结束，将使用能够读取的部分。</value>
   </data>
@@ -249,6 +252,9 @@
   <data name="Actual size" xml:space="preserve">
     <value>实际大小</value>
   </data>
+  <data name="Add" xml:space="preserve">
+    <value>添加</value>
+  </data>
   <data name="Add Bates numbers" xml:space="preserve">
     <value>添加贝茨编号</value>
   </data>
@@ -269,6 +275,9 @@
   </data>
   <data name="Add Text" xml:space="preserve">
     <value>添加文本</value>
+  </data>
+  <data name="Add This Page to the Selection" xml:space="preserve">
+    <value>将此页加入所选</value>
   </data>
   <data name="Add Validation Data or Timestamp" xml:space="preserve">
     <value>添加验证数据或时间戳</value>
@@ -305,6 +314,12 @@
   </data>
   <data name="Add a Form _Text Field" xml:space="preserve">
     <value>添加表单文本域(_T)</value>
+  </data>
+  <data name="Add a _Blank Page" xml:space="preserve">
+    <value>添加空白页(_B)</value>
+  </data>
+  <data name="Add a _Blank Page After" xml:space="preserve">
+    <value>在其后添加空白页(_B)</value>
   </data>
   <data name="Add a _Footer…" xml:space="preserve">
     <value>添加页脚(_F)…</value>
@@ -377,6 +392,9 @@
   </data>
   <data name="Add the Page I Am On to the Selection" xml:space="preserve">
     <value>将当前页添加到所选内容</value>
+  </data>
+  <data name="Add the _Page I Am On" xml:space="preserve">
+    <value>添加当前页(_P)</value>
   </data>
   <data name="Add the custom tag type" xml:space="preserve">
     <value>添加自定义标签类型</value>
@@ -1545,6 +1563,9 @@
   <data name="Copyright" xml:space="preserve">
     <value>版权</value>
   </data>
+  <data name="Could not add a blank page." xml:space="preserve">
+    <value>无法添加空白页。</value>
+  </data>
   <data name="Could not add pictures as pages." xml:space="preserve">
     <value>无法将图片添加为页面。</value>
   </data>
@@ -1617,6 +1638,12 @@
   <data name="Could not remove the hidden information." xml:space="preserve">
     <value>无法删除隐藏信息。</value>
   </data>
+  <data name="Could not replace pages." xml:space="preserve">
+    <value>无法替换页面。</value>
+  </data>
+  <data name="Could not reverse the pages." xml:space="preserve">
+    <value>无法反转页面。</value>
+  </data>
   <data name="Could not rotate pages." xml:space="preserve">
     <value>无法旋转页面。</value>
   </data>
@@ -1637,6 +1664,9 @@
   </data>
   <data name="Could not save the image: {0}" xml:space="preserve">
     <value>无法保存图片：{0}</value>
+  </data>
+  <data name="Could not save the pages as separate files." xml:space="preserve">
+    <value>无法将页面保存为单独文件。</value>
   </data>
   <data name="Could not save the picture." xml:space="preserve">
     <value>无法保存图片。</value>
@@ -1739,6 +1769,9 @@
   </data>
   <data name="Default: {0}." xml:space="preserve">
     <value>默认值：{0}。</value>
+  </data>
+  <data name="Dele_te" xml:space="preserve">
+    <value>删除(_T)</value>
   </data>
   <data name="Delete" xml:space="preserve">
     <value>删除</value>
@@ -2004,6 +2037,9 @@
   <data name="Drop PDF files here, or choose them from a folder." xml:space="preserve">
     <value>将 PDF 文件拖放到此处，或从文件夹中选择。</value>
   </data>
+  <data name="Duplicate" xml:space="preserve">
+    <value>复制页面</value>
+  </data>
   <data name="Duplicate pages" xml:space="preserve">
     <value>复制页面</value>
   </data>
@@ -2021,6 +2057,9 @@
   </data>
   <data name="E_xtract Pages…" xml:space="preserve">
     <value>提取页面(_X)…</value>
+  </data>
+  <data name="E_xtract to a New File…" xml:space="preserve">
+    <value>提取到新文件(_X)…</value>
   </data>
   <data name="Each sentence read aloud is sent to your own Azure Speech resource, which bills your Azure account. The key is kept in your settings file, readable only by you." xml:space="preserve">
     <value>朗读的每个句子都会发送到您自己的 Azure Speech 资源，并向您的 Azure 账户计费。密钥保存在仅您可读取的设置文件中。</value>
@@ -2144,6 +2183,9 @@
   </data>
   <data name="Extracted {0} pages. {1}" xml:space="preserve">
     <value>已提取 {0} 页。{1}</value>
+  </data>
+  <data name="Extract…" xml:space="preserve">
+    <value>提取…</value>
   </data>
   <data name="FFmpeg could not read any sound or picture from this file." xml:space="preserve">
     <value>FFmpeg 无法读取此文件中的任何声音或图像。</value>
@@ -3282,8 +3324,14 @@
   <data name="Move Down" xml:space="preserve">
     <value>下移</value>
   </data>
+  <data name="Move E_arlier" xml:space="preserve">
+    <value>前移(_A)</value>
+  </data>
   <data name="Move Inside" xml:space="preserve">
     <value>移入</value>
+  </data>
+  <data name="Move La_ter" xml:space="preserve">
+    <value>后移(_T)</value>
   </data>
   <data name="Move Up" xml:space="preserve">
     <value>上移</value>
@@ -3315,11 +3363,17 @@
   <data name="Move bookmark up" xml:space="preserve">
     <value>上移书签</value>
   </data>
+  <data name="Move earlier" xml:space="preserve">
+    <value>前移</value>
+  </data>
   <data name="Move earlier (Ctrl+Alt+Up)" xml:space="preserve">
     <value>提前（Ctrl+Alt+Up）</value>
   </data>
   <data name="Move it there" xml:space="preserve">
     <value>移到那里</value>
+  </data>
+  <data name="Move later" xml:space="preserve">
+    <value>后移</value>
   </data>
   <data name="Move later (Ctrl+Alt+Down)" xml:space="preserve">
     <value>延后（Ctrl+Alt+Down）</value>
@@ -3798,6 +3852,12 @@
   <data name="Ordinary page, not a colour separation" xml:space="preserve">
     <value>普通页面，非分色页</value>
   </data>
+  <data name="Organise" xml:space="preserve">
+    <value>整理</value>
+  </data>
+  <data name="Organise pages" xml:space="preserve">
+    <value>整理页面</value>
+  </data>
   <data name="Other things under a mark" xml:space="preserve">
     <value>标记下的其他内容</value>
   </data>
@@ -4077,6 +4137,9 @@
   <data name="Pictures are not changed, even under a mark." xml:space="preserve">
     <value>不更改图片，即使它们位于标记下。</value>
   </data>
+  <data name="Pictures as P_ages…" xml:space="preserve">
+    <value>图片作为页面(_A)…</value>
+  </data>
   <data name="Pictures under a mark" xml:space="preserve">
     <value>标记下的图片</value>
   </data>
@@ -4334,6 +4397,18 @@
   </data>
   <data name="Re_move the Bookmark" xml:space="preserve">
     <value>删除书签(_M)</value>
+  </data>
+  <data name="Re_place Pages with Pages from Files…" xml:space="preserve">
+    <value>用文件中的页面替换页面(_P)…</value>
+  </data>
+  <data name="Re_place with Pages from Files…" xml:space="preserve">
+    <value>用文件中的页面替换(_P)…</value>
+  </data>
+  <data name="Re_verse the Order" xml:space="preserve">
+    <value>反转顺序(_V)</value>
+  </data>
+  <data name="Re_verse the Order of the Pages" xml:space="preserve">
+    <value>反转页面顺序(_V)</value>
   </data>
   <data name="Rea_d Mode" xml:space="preserve">
     <value>阅读模式(_D)</value>
@@ -4752,6 +4827,9 @@
   <data name="Replacement text" xml:space="preserve">
     <value>替换文本</value>
   </data>
+  <data name="Replace…" xml:space="preserve">
+    <value>替换…</value>
+  </data>
   <data name="Reply" xml:space="preserve">
     <value>回复</value>
   </data>
@@ -4790,6 +4868,9 @@
   </data>
   <data name="Retype text" xml:space="preserve">
     <value>重新输入文字</value>
+  </data>
+  <data name="Reverse" xml:space="preserve">
+    <value>反转</value>
   </data>
   <data name="Rich media is not played." xml:space="preserve">
     <value>不播放富媒体。</value>
@@ -4871,6 +4952,9 @@
   </data>
   <data name="Save Changes" xml:space="preserve">
     <value>保存更改</value>
+  </data>
+  <data name="Save Each Page as Its Own _File…" xml:space="preserve">
+    <value>每页另存为单独文件(_F)…</value>
   </data>
   <data name="Save Flat_tened Copy…" xml:space="preserve">
     <value>保存扁_平化副本…</value>
@@ -5016,6 +5100,9 @@
   <data name="Save as PDF 2.0?" xml:space="preserve">
     <value>要保存为 PDF 2.0 吗？</value>
   </data>
+  <data name="Save each…" xml:space="preserve">
+    <value>逐页保存…</value>
+  </data>
   <data name="Save pages as picture files or drawings. Your open file is never changed. A format that holds one page makes a numbered file for each page you choose." xml:space="preserve">
     <value>将页面保存为图像文件或绘图。不会更改当前打开的文件。每个文件仅容纳一页的格式会为所选的每页生成一个带编号的文件。</value>
   </data>
@@ -5108,6 +5195,9 @@
   </data>
   <data name="Saved {0} files, numbered by page, next to {1}." xml:space="preserve">
     <value>已在 {1} 旁保存 {0} 个文件，并按页码编号。</value>
+  </data>
+  <data name="Saved {0} pages as separate files in {1}." xml:space="preserve">
+    <value>已将 {0} 页保存为单独文件，位于 {1}。</value>
   </data>
   <data name="Saved {0}%. The file went from {1} to {2}." xml:space="preserve">
     <value>节省了 {0}%。文件从 {1} 缩小为 {2}。</value>
@@ -5235,6 +5325,9 @@
   <data name="Select A_ll Text on Page" xml:space="preserve">
     <value>选择页面上的所有文本(_L)</value>
   </data>
+  <data name="Select Only This Page" xml:space="preserve">
+    <value>仅选择此页</value>
+  </data>
   <data name="Select Te_xt" xml:space="preserve">
     <value>选择文本(_X)</value>
   </data>
@@ -5261,6 +5354,12 @@
   </data>
   <data name="Select text, or click an annotation to pick it. Drag a picked annotation or its corner squares to move or resize it; arrow keys nudge it." xml:space="preserve">
     <value>选择文本，或单击选中批注。拖动选中的批注或其角上的方块可移动或调整大小；方向键可微调。</value>
+  </data>
+  <data name="Select the Eve_n Pages" xml:space="preserve">
+    <value>选择偶数页(_N)</value>
+  </data>
+  <data name="Select the _Odd Pages" xml:space="preserve">
+    <value>选择奇数页(_O)</value>
   </data>
   <data name="Selected: {0}, {1}, on page {2} ({3})" xml:space="preserve">
     <value>已选择：{0}，{1}，位于第 {2} 页（{3}）</value>
@@ -5994,6 +6093,9 @@
   <data name="Tags tell a screen reader how this document reads. Choose a tag to change it." xml:space="preserve">
     <value>标签向屏幕阅读器说明此文档的阅读方式。选择标签可进行更改。</value>
   </data>
+  <data name="Take This Page out of the Selection" xml:space="preserve">
+    <value>将此页移出所选</value>
+  </data>
   <data name="Take a Picture of an _Area" xml:space="preserve">
     <value>截取区域图片(_A)</value>
   </data>
@@ -6159,8 +6261,14 @@
   <data name="That would replace the file you have open. Choose a different name." xml:space="preserve">
     <value>这会替换当前打开的文件。请选择其他名称。</value>
   </data>
+  <data name="The Eve_n Pages" xml:space="preserve">
+    <value>偶数页(_N)</value>
+  </data>
   <data name="The PDF 2.0 standard no longer lets a file block screen readers, so this choice has no effect on the strong formats and they can still read the file." xml:space="preserve">
     <value>PDF 2.0 标准不再允许文件阻止屏幕阅读器，因此此选项对强加密格式无效，屏幕阅读器仍可读取文件。</value>
+  </data>
+  <data name="The _Odd Pages" xml:space="preserve">
+    <value>奇数页(_O)</value>
   </data>
   <data name="The address of a server that adds a trusted time to signatures you make with a certificate. Empty adds none." xml:space="preserve">
     <value>为用证书所做的签名添加可信时间的服务器地址。留空则不添加。</value>
@@ -6795,8 +6903,17 @@
   <data name="Treat look-alike characters as the same: curly and straight quotes, dashes, and full-width letters." xml:space="preserve">
     <value>将外观相似的字符视为相同：弯引号与直引号、破折号以及全角字母。</value>
   </data>
+  <data name="Turn _Left" xml:space="preserve">
+    <value>向左旋转(_L)</value>
+  </data>
+  <data name="Turn _Right" xml:space="preserve">
+    <value>向右旋转(_R)</value>
+  </data>
   <data name="Turn anticlockwise by degrees" xml:space="preserve">
     <value>逆时针旋转的度数</value>
+  </data>
+  <data name="Turn left" xml:space="preserve">
+    <value>向左旋转</value>
   </data>
   <data name="Turn pages" xml:space="preserve">
     <value>翻页</value>
@@ -6806,6 +6923,9 @@
   </data>
   <data name="Turn pages upright" xml:space="preserve">
     <value>将页面转正</value>
+  </data>
+  <data name="Turn right" xml:space="preserve">
+    <value>向右旋转</value>
   </data>
   <data name="Turn the Page _Left" xml:space="preserve">
     <value>将页面向左旋转(_L)</value>
@@ -7536,6 +7656,9 @@
   <data name="_Draw" xml:space="preserve">
     <value>绘图(_D)</value>
   </data>
+  <data name="_Duplicate" xml:space="preserve">
+    <value>复制页面(_D)</value>
+  </data>
   <data name="_Duplicate the Page" xml:space="preserve">
     <value>复制页面(_D)</value>
   </data>
@@ -7560,8 +7683,14 @@
   <data name="_Ellipse" xml:space="preserve">
     <value>椭圆(_E)</value>
   </data>
+  <data name="_Every Page" xml:space="preserve">
+    <value>所有页面(_E)</value>
+  </data>
   <data name="_Export…" xml:space="preserve">
     <value>_导出…</value>
+  </data>
+  <data name="_Files Joined on at the End…" xml:space="preserve">
+    <value>在末尾追加文件(_F)…</value>
   </data>
   <data name="_Fill and Sign" xml:space="preserve">
     <value>填写和签名(_F)</value>
@@ -7659,8 +7788,14 @@
   <data name="_Orange" xml:space="preserve">
     <value>橙色(_O)</value>
   </data>
+  <data name="_Organise Pages" xml:space="preserve">
+    <value>整理页面(_O)</value>
+  </data>
   <data name="_Pages" xml:space="preserve">
     <value>页面(_P)</value>
+  </data>
+  <data name="_Pages from Files…" xml:space="preserve">
+    <value>文件中的页面(_P)…</value>
   </data>
   <data name="_Picture…" xml:space="preserve">
     <value>图片(_P)…</value>
@@ -7733,6 +7868,9 @@
   </data>
   <data name="_Save Copy…" xml:space="preserve">
     <value>保存副本(_S)…</value>
+  </data>
+  <data name="_Save Each as Its Own File…" xml:space="preserve">
+    <value>每页另存为单独文件(_S)…</value>
   </data>
   <data name="_Save Note" xml:space="preserve">
     <value>保存便笺(_S)</value>

@@ -5,6 +5,7 @@
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using HyperPdf.Core.Documents;
@@ -25,6 +26,9 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
 {
     /// <summary>The clockwise page rotation in degrees.</summary>
     private const int ClockwiseDegrees = 90;
+
+    /// <summary>The step from one odd page to the next, or one even page to the next.</summary>
+    private const int EveryOtherStep = 2;
 
     /// <summary>The counterclockwise page rotation in degrees.</summary>
     private const int CounterclockwiseDegrees = -90;
@@ -62,6 +66,9 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <summary>Whether the selection can be deleted.</summary>
     private readonly IObservable<bool> _canDelete;
 
+    /// <summary>Whether the selection holds enough pages to put in the opposite order.</summary>
+    private readonly IObservable<bool> _canReverse;
+
     /// <summary>Whether an edit can be undone.</summary>
     private readonly IObservable<bool> _canUndo;
 
@@ -93,6 +100,7 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         _canMoveEarlier = this.WhenChanged(static vm => vm.CanMoveEarlier);
         _canMoveLater = this.WhenChanged(static vm => vm.CanMoveLater);
         _canDelete = this.WhenChanged(static vm => vm.CanDelete);
+        _canReverse = this.WhenChanged(static vm => vm.CanEdit, static vm => vm.SelectedPages, static (canEdit, pages) => canEdit && pages.Length > 1);
         _canUndo = this.WhenChanged(static vm => vm.CanUndo);
         _canRedo = this.WhenChanged(static vm => vm.CanRedo);
 
@@ -106,6 +114,16 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <summary>Gets a number that changes each time an edit changes the page order or geometry, so the tab reads its pages again.</summary>
     [Reactive]
     public partial int StructureVersion { get; private set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the pages are being organised: the bar of page tools is shown and each page
+    /// in the side panel has a box that adds it to, or takes it out of, the pages the tools change.
+    /// </summary>
+    [Reactive]
+    public partial bool IsOrganising { get; set; }
+
+    /// <summary>Gets the question that asks for the folder each chosen page is saved into as a file of its own; the answer is empty when the choice is given up.</summary>
+    public Interaction<RxVoid, string?> SplitFolderInteraction { get; } = new();
 
     /// <summary>Gets the selected zero-based page indexes in document order.</summary>
     [Reactive]
@@ -517,6 +535,86 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         UiText.Get("Could not extract pages."),
         false);
 
+    /// <summary>Starts or stops organising the pages. Starting with no page chosen chooses the page being read, so the tools have something to change.</summary>
+    [ReactiveCommand]
+    private void ToggleOrganising()
+    {
+        IsOrganising = !IsOrganising;
+        if (IsOrganising && SelectedPages.Length == 0 && _owner.PageCount > 0)
+        {
+            SelectPages([Math.Clamp(_owner.CurrentPageIndex, 0, _owner.PageCount - 1)]);
+        }
+    }
+
+    /// <summary>Adds a page with nothing on it after the last chosen page, or after the page being read. It is as big as the page it follows.</summary>
+    /// <returns>A signal that ends once the page is added or the edit failed.</returns>
+    [ReactiveCommand(CanExecute = nameof(_canEdit))]
+    private IObservable<RxVoid> InsertBlankPage()
+    {
+        var like = SelectedPages.Length > 0 ? SelectedPages[^1] : Math.Clamp(_owner.CurrentPageIndex, 0, Math.Max(0, _owner.PageCount - 1));
+        return RunEdit(static (manager, request, report) => manager.Apply(request, report), new(PageEditKind.InsertBlank, new[] { like }, like + 1), UiText.Get("Could not add a blank page."));
+    }
+
+    /// <summary>Puts the chosen pages in the opposite order, each in a place one of them had.</summary>
+    /// <returns>A signal that ends once the pages are reordered or the edit failed.</returns>
+    [ReactiveCommand(CanExecute = nameof(_canReverse))]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Reverse() => RunSelectedEdit(PageEditKind.Reverse, 0, UiText.Get("Could not reverse the pages."));
+
+    /// <summary>Chooses the second, fourth and every other even page.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SelectEven() => SelectPages(EveryOther(1));
+
+    /// <summary>Chooses the first, third and every other odd page.</summary>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SelectOdd() => SelectPages(EveryOther(0));
+
+    /// <summary>Chooses one page alone, as the menu of a page in the side panel does.</summary>
+    /// <param name="page">The page.</param>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SelectOnly(ThumbnailItemViewModel page) => SelectPages([page.PageIndex]);
+
+    /// <summary>Adds a page to the pages chosen, or takes it out when it is one of them, as the box under a page in the side panel does.</summary>
+    /// <param name="page">The page.</param>
+    [ReactiveCommand]
+    private void TogglePage(ThumbnailItemViewModel page)
+    {
+        var pages = new List<int>(SelectedPages);
+        var at = pages.BinarySearch(page.PageIndex);
+        if (at >= 0)
+        {
+            pages.RemoveAt(at);
+        }
+        else
+        {
+            pages.Insert(~at, page.PageIndex);
+        }
+
+        SelectPages(pages);
+    }
+
+    /// <summary>Asks for PDF files and puts their pages in place of the chosen pages: the chosen pages go, and the files' pages take the place of the first of them.</summary>
+    /// <returns>A signal that ends once the pages are replaced, the choice was given up or the edit failed.</returns>
+    [ReactiveCommand(CanExecute = nameof(_canDelete))]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> Replace() => Run(
+        manager => InsertInteraction.Handle(RxVoid.Default).ToSignal()
+            .SwitchMap(paths => paths.Length > 0 ? ReplaceWith(manager, paths) : Signal.Return(default(PageManagementOperationResult))),
+        UiText.Get("Could not replace pages."),
+        true);
+
+    /// <summary>Asks for a folder and saves each chosen page there as a PDF of its own.</summary>
+    /// <returns>A signal that ends once the files are written, the choice was given up or the edit failed.</returns>
+    [ReactiveCommand(CanExecute = nameof(_canEditSelection))]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> SplitPages() => Run(
+        manager => SplitFolderInteraction.Handle(RxVoid.Default).ToSignal().SwitchMap(folder => SplitInto(manager, folder)),
+        UiText.Get("Could not save the pages as separate files."),
+        false);
+
     /// <summary>Reverts the latest page edit.</summary>
     /// <returns>A signal that ends once the edit is reverted or failed.</returns>
     [ReactiveCommand(CanExecute = nameof(_canUndo))]
@@ -653,6 +751,78 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
         }
 
         return new(true, () => CopyRange(index, inserted));
+    }
+
+    /// <summary>Lists every other page of the document.</summary>
+    /// <param name="first">The index of the first page listed: 0 for the odd pages, 1 for the even ones.</param>
+    /// <returns>The page indexes.</returns>
+    private int[] EveryOther(int first)
+    {
+        var pages = new List<int>();
+        for (var index = first; index < _owner.PageCount; index += EveryOtherStep)
+        {
+            pages.Add(index);
+        }
+
+        return [.. pages];
+    }
+
+    /// <summary>Takes the chosen pages out and puts the pages of PDF files where the first of them was. Each half can be undone by itself.</summary>
+    /// <param name="manager">The page manager.</param>
+    /// <param name="paths">The files.</param>
+    /// <returns>A cold signal giving the result of the operation.</returns>
+    private IObservable<PageManagementOperationResult> ReplaceWith(IPageManager manager, string[] paths)
+    {
+        var removed = CopySelectedPages();
+        var first = removed[0];
+        var countAfterRemoval = _owner.PageCount - removed.Length;
+        var report = new PageEditReport();
+        return OnPool(manager.Apply(new(PageEditKind.Delete, removed, 0), report))
+            .SwitchMap(_ => OnPool(manager.Insert(first, paths, report)))
+            .Select(_ => Inserted(report, first, countAfterRemoval));
+    }
+
+    /// <summary>Saves each chosen page as a PDF of its own in a folder, named after the document and the page's number.</summary>
+    /// <param name="manager">The page manager.</param>
+    /// <param name="folder">The folder, or empty when the choice was given up.</param>
+    /// <returns>A cold signal giving an operation that changed nothing in the open document.</returns>
+    private IObservable<PageManagementOperationResult> SplitInto(IPageManager manager, string? folder)
+    {
+        if (string.IsNullOrWhiteSpace(folder))
+        {
+            return Signal.Return(default(PageManagementOperationResult));
+        }
+
+        var pages = CopySelectedPages();
+        return LazySequence.Concat(SplitFiles(manager, folder, pages))
+            .Count()
+            .Select(written => SplitDone(written, folder));
+    }
+
+    /// <summary>Makes the writing of one file for each page, started one after another.</summary>
+    /// <param name="manager">The page manager.</param>
+    /// <param name="folder">The folder.</param>
+    /// <param name="pages">The pages.</param>
+    /// <returns>The writes, in page order.</returns>
+    private IEnumerable<IObservable<bool>> SplitFiles(IPageManager manager, string folder, int[] pages)
+    {
+        var name = Path.GetFileNameWithoutExtension(_owner.FileName);
+        foreach (var page in pages)
+        {
+            var one = new[] { page };
+            var destination = Path.Combine(folder, string.Create(CultureInfo.InvariantCulture, $"{name}-page-{page + 1}.pdf"));
+            yield return CopyFile.WriteSignal(destination, TemporarySuffix, stream => manager.Extract(one, stream).Select(static _ => true), static written => written).TakeUntil(_lifetime);
+        }
+    }
+
+    /// <summary>Says how many files were written and where.</summary>
+    /// <param name="written">How many files were written.</param>
+    /// <param name="folder">The folder.</param>
+    /// <returns>An operation that changed nothing in the open document.</returns>
+    private PageManagementOperationResult SplitDone(int written, string folder)
+    {
+        _owner.SetNotice(LocalizedMessage.Format(UiText, "Saved {0} pages as separate files in {1}.", written, folder));
+        return default;
     }
 
     /// <summary>Writes the selected pages as a new PDF.</summary>
@@ -864,7 +1034,8 @@ public sealed partial class PageManagementViewModel : ReactiveObject, IDisposabl
     /// <returns>The updated page indexes.</returns>
     private int[]? SelectionAfterEdit(PageEditKind kind, int[] pages, int value) => kind switch
     {
-        PageEditKind.Rotate => pages,
+        PageEditKind.Rotate or PageEditKind.Reverse => pages,
+        PageEditKind.InsertBlank => [value],
         PageEditKind.Duplicate or PageEditKind.Move => CopyRange(value, pages.Length),
         PageEditKind.Delete => [Math.Min(pages[0], Math.Max(0, _owner.PageCount - 1))],
         _ => null,

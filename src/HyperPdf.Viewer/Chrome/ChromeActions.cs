@@ -29,6 +29,8 @@ internal sealed class ChromeActions : IDisposable
         SelectTab = ReactiveCommand.Create<DocumentTabViewModel>(tab => main.SelectedTab = tab);
         ShowMenu = ReactiveCommand.Create(() => chrome.ShowMenu([..MainMenu.Build(main)], Under(chrome, ShowMenu)));
         ShowTools = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowTools, static (_, tab) => ToolMenus.Tools(tab)));
+        ShowAddPages = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowAddPages, static (_, tab) => ToolMenus.AddPages(tab)));
+        ShowChoosePages = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowChoosePages, static (_, tab) => ToolMenus.ChoosePages(tab)));
         ShowDocument = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowDocument, MainMenu.Document));
         ShowView = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowView, MainMenu.ReadingView));
         ShowZoom = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowZoom, static (_, tab) => ToolMenus.Zoom(tab)));
@@ -84,6 +86,12 @@ internal sealed class ChromeActions : IDisposable
 
     /// <summary>Gets the command that opens the page tools menu.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowTools { get; }
+
+    /// <summary>Gets the command that opens the list of what can be added to the pages: a blank page, pages of files and pictures.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> ShowAddPages { get; }
+
+    /// <summary>Gets the command that opens the list of ways to choose pages: every page, the odd ones, the even ones or the one being read.</summary>
+    internal ReactiveCommand<RxVoid, RxVoid> ShowChoosePages { get; }
 
     /// <summary>Gets the command that opens the current document's actions.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowDocument { get; }
@@ -163,6 +171,8 @@ internal sealed class ChromeActions : IDisposable
         SelectTab.Dispose();
         ShowMenu.Dispose();
         ShowTools.Dispose();
+        ShowAddPages.Dispose();
+        ShowChoosePages.Dispose();
         ShowDocument.Dispose();
         ShowView.Dispose();
         ShowZoom.Dispose();
