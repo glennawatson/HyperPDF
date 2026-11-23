@@ -369,6 +369,9 @@
   <data name="Add tags worked out from the layout" xml:space="preserve">
     <value>Add tags worked out from the layout</value>
   </data>
+  <data name="Add text" xml:space="preserve">
+    <value>Add text</value>
+  </data>
   <data name="Add the Page I Am On to the Selection" xml:space="preserve">
     <value>Add the Page I Am On to the Selection</value>
   </data>
@@ -461,6 +464,9 @@
   </data>
   <data name="All types" xml:space="preserve">
     <value>All types</value>
+  </data>
+  <data name="All {0} signatures are valid and trusted." xml:space="preserve">
+    <value>All {0} signatures are valid and trusted.</value>
   </data>
   <data name="Also add a separate record for each signature, so a checker can find the data that belongs to it." xml:space="preserve">
     <value>Also add a separate record for each signature, so a checker can find the data that belongs to it.</value>
@@ -918,6 +924,9 @@
   <data name="Check accessibility" xml:space="preserve">
     <value>Check accessibility</value>
   </data>
+  <data name="Check accessibility tags" xml:space="preserve">
+    <value>Check accessibility tags</value>
+  </data>
   <data name="Check spelling in form fields" xml:space="preserve">
     <value>Check spelling in form fields</value>
   </data>
@@ -935,6 +944,9 @@
   </data>
   <data name="Check who signed this document and whether it changed after signing. This may go online." xml:space="preserve">
     <value>Check who signed this document and whether it changed after signing. This may go online.</value>
+  </data>
+  <data name="Checked {0} signatures ({1} valid and trusted)." xml:space="preserve">
+    <value>Checked {0} signatures ({1} valid and trusted).</value>
   </data>
   <data name="Checking changes to a signed file" xml:space="preserve">
     <value>Checking changes to a signed file</value>
@@ -1998,6 +2010,9 @@
   <data name="Edit or save copies of the pages selected in the thumbnail list." xml:space="preserve">
     <value>Edit or save copies of the pages selected in the thumbnail list.</value>
   </data>
+  <data name="Edit selected tag" xml:space="preserve">
+    <value>Edit selected tag</value>
+  </data>
   <data name="Edit tools" xml:space="preserve">
     <value>Edit tools</value>
   </data>
@@ -2151,6 +2166,9 @@
   <data name="Filter and sort" xml:space="preserve">
     <value>Filter and sort</value>
   </data>
+  <data name="Filter and sort the notes" xml:space="preserve">
+    <value>Filter and sort the notes</value>
+  </data>
   <data name="Filter comments" xml:space="preserve">
     <value>Filter comments</value>
   </data>
@@ -2177,6 +2195,9 @@
   </data>
   <data name="Find the words in this document in the chosen language. A language not on this computer downloads first and stays for next time." xml:space="preserve">
     <value>Find the words in this document in the chosen language. A language not on this computer downloads first and stays for next time.</value>
+  </data>
+  <data name="Find…" xml:space="preserve">
+    <value>Find…</value>
   </data>
   <data name="Finish Text" xml:space="preserve">
     <value>Finish Text</value>
@@ -3216,6 +3237,12 @@
   <data name="Move bookmark down" xml:space="preserve">
     <value>Move bookmark down</value>
   </data>
+  <data name="Move bookmark in" xml:space="preserve">
+    <value>Move bookmark in</value>
+  </data>
+  <data name="Move bookmark out" xml:space="preserve">
+    <value>Move bookmark out</value>
+  </data>
   <data name="Move bookmark out of its parent" xml:space="preserve">
     <value>Move bookmark out of its parent</value>
   </data>
@@ -3593,6 +3620,9 @@
   </data>
   <data name="Open documents at the last page read" xml:space="preserve">
     <value>Open documents at the last page read</value>
+  </data>
+  <data name="Open files" xml:space="preserve">
+    <value>Open files</value>
   </data>
   <data name="Open in Player…" xml:space="preserve">
     <value>Open in Player…</value>
@@ -4158,6 +4188,9 @@
   <data name="Put every layer back to how the file sets it. The file does not change." xml:space="preserve">
     <value>Put every layer back to how the file sets it. The file does not change.</value>
   </data>
+  <data name="Put inside tag above" xml:space="preserve">
+    <value>Put inside tag above</value>
+  </data>
   <data name="Put it down" xml:space="preserve">
     <value>Put it down</value>
   </data>
@@ -4244,6 +4277,12 @@
   </data>
   <data name="Read mode" xml:space="preserve">
     <value>Read mode</value>
+  </data>
+  <data name="Read tag earlier" xml:space="preserve">
+    <value>Read tag earlier</value>
+  </data>
+  <data name="Read tag later" xml:space="preserve">
+    <value>Read tag later</value>
   </data>
   <data name="Read the document aloud, starting from this page. Shortcut: Ctrl+Shift+Y" xml:space="preserve">
     <value>Read the document aloud, starting from this page. Shortcut: Ctrl+Shift+Y</value>
@@ -4631,6 +4670,9 @@
   </data>
   <data name="Reset Layers" xml:space="preserve">
     <value>Reset Layers</value>
+  </data>
+  <data name="Reset layers" xml:space="preserve">
+    <value>Reset layers</value>
   </data>
   <data name="Restart HyperPDF to apply the interface language." xml:space="preserve">
     <value>Restart HyperPDF to apply the interface language.</value>
@@ -5853,6 +5895,9 @@
   <data name="Take it out of its parent" xml:space="preserve">
     <value>Take it out of its parent</value>
   </data>
+  <data name="Take out of parent" xml:space="preserve">
+    <value>Take out of parent</value>
+  </data>
   <data name="Take out what you do not want to share. Your open file stays as it is until you save; Undo is in the Pages menu." xml:space="preserve">
     <value>Take out what you do not want to share. Your open file stays as it is until you save; Undo is in the Pages menu.</value>
   </data>
@@ -6828,6 +6873,9 @@
   <data name="Unused content" xml:space="preserve">
     <value>Unused content</value>
   </data>
+  <data name="Up one folder" xml:space="preserve">
+    <value>Up one folder</value>
+  </data>
   <data name="Updating pages…" xml:space="preserve">
     <value>Updating pages…</value>
   </data>
@@ -7307,6 +7355,9 @@
   </data>
   <data name="_Delete {0}" xml:space="preserve">
     <value>_Delete {0}</value>
+  </data>
+  <data name="_Document" xml:space="preserve">
+    <value>_Document</value>
   </data>
   <data name="_Double" xml:space="preserve">
     <value>_Double</value>

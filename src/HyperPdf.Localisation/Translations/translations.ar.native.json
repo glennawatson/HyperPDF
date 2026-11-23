@@ -516,5 +516,22 @@
   "Minimise": "تصغير",
   "Maximise": "تكبير",
   "Restore": "استعادة",
-  "Follow the page being read": "تتبّع الصفحة التي تقرؤها"
+  "Follow the page being read": "تتبّع الصفحة التي تقرؤها",
+  "All {0} signatures are valid and trusted.": "جميع التوقيعات ({0}) صالحة وموثوقة.",
+  "Checked {0} signatures ({1} valid and trusted).": "تم فحص {0} من التوقيعات ({1} صالحة وموثوقة).",
+  "Add text": "إضافة نص",
+  "Check accessibility tags": "فحص وسوم إمكانية الوصول",
+  "_Document": "_المستند",
+  "Edit selected tag": "تحرير الوسم المحدد",
+  "Filter and sort the notes": "تصفية الملاحظات وفرزها",
+  "Find…": "بحث…",
+  "Move bookmark in": "نقل الإشارة المرجعية إلى الداخل",
+  "Move bookmark out": "نقل الإشارة المرجعية إلى الخارج",
+  "Open files": "فتح ملفات",
+  "Put inside tag above": "وضع داخل الوسم الذي فوقه",
+  "Read tag earlier": "قراءة الوسم أبكر",
+  "Read tag later": "قراءة الوسم لاحقًا",
+  "Reset layers": "إعادة تعيين الطبقات",
+  "Take out of parent": "إخراج من الوسم الأصل",
+  "Up one folder": "مجلد واحد للأعلى"
 }

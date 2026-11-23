@@ -12,7 +12,10 @@ using ReactiveUI.Primitives.Signals;
 
 namespace HyperPdf.Viewer.Chrome;
 
-/// <summary>The yes or no dialog, drawn inside the window: a button, Enter or Escape answers it, and being sent away answers no.</summary>
+/// <summary>
+/// The yes or no dialog, drawn inside the window. A button answers it. Enter, Escape and being sent away all answer no, so
+/// backing out is the default; Tab moves to the button that agrees.
+/// </summary>
 internal static class ConfirmOverlays
 {
     /// <summary>Opens the dialog.</summary>
@@ -40,8 +43,12 @@ internal static class ConfirmOverlays
     /// <returns>The state after.</returns>
     private static ConfirmState Reduce(ConfirmState state, OverlayInput input) => state.Answered ? state : input switch
     {
-        { Kind: OverlayInputKind.Press, Item.Action: OverlayAction.Accept } or { Kind: OverlayInputKind.Key, Key: ViewerKey.Enter } => state with { Answered = true, Agreed = true },
+        { Kind: OverlayInputKind.Press, Item.Action: OverlayAction.Accept } => state with { Answered = true, Agreed = true },
+
+        // Cancel is the default: Enter with the keyboard on no button backs out, so a stray Enter never throws work away.
+        // Tab moves to the button that agrees, and Enter there presses it.
         { Kind: OverlayInputKind.Press, Item.Action: OverlayAction.Cancel }
+            or { Kind: OverlayInputKind.Key, Key: ViewerKey.Enter }
             or { Kind: OverlayInputKind.Key, Key: ViewerKey.Escape }
             or { Kind: OverlayInputKind.Dismiss } => state with { Answered = true },
         _ => state,

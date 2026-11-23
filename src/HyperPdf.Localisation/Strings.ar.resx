@@ -369,6 +369,9 @@
   <data name="Add tags worked out from the layout" xml:space="preserve">
     <value>إضافة وسوم مستنتجة من التخطيط</value>
   </data>
+  <data name="Add text" xml:space="preserve">
+    <value>إضافة نص</value>
+  </data>
   <data name="Add the Page I Am On to the Selection" xml:space="preserve">
     <value>إضافة الصفحة الحالية إلى التحديد</value>
   </data>
@@ -461,6 +464,9 @@
   </data>
   <data name="All types" xml:space="preserve">
     <value>كل الأنواع</value>
+  </data>
+  <data name="All {0} signatures are valid and trusted." xml:space="preserve">
+    <value>جميع التوقيعات ({0}) صالحة وموثوقة.</value>
   </data>
   <data name="Also add a separate record for each signature, so a checker can find the data that belongs to it." xml:space="preserve">
     <value>أضف أيضًا سجلًا منفصلًا لكل توقيع ليتمكن المدقق من العثور على بياناته.</value>
@@ -918,6 +924,9 @@
   <data name="Check accessibility" xml:space="preserve">
     <value>فحص إمكانية الوصول</value>
   </data>
+  <data name="Check accessibility tags" xml:space="preserve">
+    <value>فحص وسوم إمكانية الوصول</value>
+  </data>
   <data name="Check spelling in form fields" xml:space="preserve">
     <value>تدقيق الإملاء في حقول النموذج</value>
   </data>
@@ -935,6 +944,9 @@
   </data>
   <data name="Check who signed this document and whether it changed after signing. This may go online." xml:space="preserve">
     <value>التحقق من موقّع المستند ومن تغيّره بعد التوقيع. قد يتصل بالإنترنت.</value>
+  </data>
+  <data name="Checked {0} signatures ({1} valid and trusted)." xml:space="preserve">
+    <value>تم فحص {0} من التوقيعات ({1} صالحة وموثوقة).</value>
   </data>
   <data name="Checking changes to a signed file" xml:space="preserve">
     <value>التحقق من التغييرات في ملف موقّع</value>
@@ -1998,6 +2010,9 @@
   <data name="Edit or save copies of the pages selected in the thumbnail list." xml:space="preserve">
     <value>عدّل أو احفظ نسخًا من الصفحات المحددة في قائمة الصور المصغرة.</value>
   </data>
+  <data name="Edit selected tag" xml:space="preserve">
+    <value>تحرير الوسم المحدد</value>
+  </data>
   <data name="Edit tools" xml:space="preserve">
     <value>أدوات التحرير</value>
   </data>
@@ -2151,6 +2166,9 @@
   <data name="Filter and sort" xml:space="preserve">
     <value>تصفية وفرز</value>
   </data>
+  <data name="Filter and sort the notes" xml:space="preserve">
+    <value>تصفية الملاحظات وفرزها</value>
+  </data>
   <data name="Filter comments" xml:space="preserve">
     <value>تصفية التعليقات</value>
   </data>
@@ -2177,6 +2195,9 @@
   </data>
   <data name="Find the words in this document in the chosen language. A language not on this computer downloads first and stays for next time." xml:space="preserve">
     <value>التعرّف على كلمات المستند باللغة المحددة. تُنزّل اللغة غير الموجودة على الكمبيوتر أولًا وتُحفظ للمرة القادمة.</value>
+  </data>
+  <data name="Find…" xml:space="preserve">
+    <value>بحث…</value>
   </data>
   <data name="Finish Text" xml:space="preserve">
     <value>إنهاء النص</value>
@@ -3216,6 +3237,12 @@
   <data name="Move bookmark down" xml:space="preserve">
     <value>نقل الإشارة المرجعية لأسفل</value>
   </data>
+  <data name="Move bookmark in" xml:space="preserve">
+    <value>نقل الإشارة المرجعية إلى الداخل</value>
+  </data>
+  <data name="Move bookmark out" xml:space="preserve">
+    <value>نقل الإشارة المرجعية إلى الخارج</value>
+  </data>
   <data name="Move bookmark out of its parent" xml:space="preserve">
     <value>إخراج الإشارة المرجعية من أصلها</value>
   </data>
@@ -3593,6 +3620,9 @@
   </data>
   <data name="Open documents at the last page read" xml:space="preserve">
     <value>فتح المستندات عند آخر صفحة مقروءة</value>
+  </data>
+  <data name="Open files" xml:space="preserve">
+    <value>فتح ملفات</value>
   </data>
   <data name="Open in Player…" xml:space="preserve">
     <value>فتح في المشغّل…</value>
@@ -4158,6 +4188,9 @@
   <data name="Put every layer back to how the file sets it. The file does not change." xml:space="preserve">
     <value>أعد كل طبقة إلى إعداد الملف الأصلي. لا يتغير الملف.</value>
   </data>
+  <data name="Put inside tag above" xml:space="preserve">
+    <value>وضع داخل الوسم الذي فوقه</value>
+  </data>
   <data name="Put it down" xml:space="preserve">
     <value>وضعه</value>
   </data>
@@ -4244,6 +4277,12 @@
   </data>
   <data name="Read mode" xml:space="preserve">
     <value>وضع القراءة</value>
+  </data>
+  <data name="Read tag earlier" xml:space="preserve">
+    <value>قراءة الوسم أبكر</value>
+  </data>
+  <data name="Read tag later" xml:space="preserve">
+    <value>قراءة الوسم لاحقًا</value>
   </data>
   <data name="Read the document aloud, starting from this page. Shortcut: Ctrl+Shift+Y" xml:space="preserve">
     <value>اقرأ المستند بصوت عالٍ بدءًا من هذه الصفحة. الاختصار: Ctrl+Shift+Y</value>
@@ -4631,6 +4670,9 @@
   </data>
   <data name="Reset Layers" xml:space="preserve">
     <value>إعادة ضبط الطبقات</value>
+  </data>
+  <data name="Reset layers" xml:space="preserve">
+    <value>إعادة تعيين الطبقات</value>
   </data>
   <data name="Restart HyperPDF to apply the interface language." xml:space="preserve">
     <value>أعد تشغيل HyperPDF لتطبيق لغة الواجهة.</value>
@@ -5853,6 +5895,9 @@
   <data name="Take it out of its parent" xml:space="preserve">
     <value>إخراجه من أصله</value>
   </data>
+  <data name="Take out of parent" xml:space="preserve">
+    <value>إخراج من الوسم الأصل</value>
+  </data>
   <data name="Take out what you do not want to share. Your open file stays as it is until you save; Undo is in the Pages menu." xml:space="preserve">
     <value>أزل ما لا تريد مشاركته. يبقى ملفك المفتوح كما هو حتى تحفظ؛ التراجع في قائمة الصفحات.</value>
   </data>
@@ -6828,6 +6873,9 @@
   <data name="Unused content" xml:space="preserve">
     <value>محتوى غير مستخدم</value>
   </data>
+  <data name="Up one folder" xml:space="preserve">
+    <value>مجلد واحد للأعلى</value>
+  </data>
   <data name="Updating pages…" xml:space="preserve">
     <value>جارٍ تحديث الصفحات…</value>
   </data>
@@ -7307,6 +7355,9 @@
   </data>
   <data name="_Delete {0}" xml:space="preserve">
     <value>_حذف {0}</value>
+  </data>
+  <data name="_Document" xml:space="preserve">
+    <value>_المستند</value>
   </data>
   <data name="_Double" xml:space="preserve">
     <value>_مزدوج</value>
