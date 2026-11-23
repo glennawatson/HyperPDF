@@ -118,6 +118,20 @@ internal static class ChromePainter
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static int IconGap(in ChromeMetrics metrics) => metrics.Gap + (metrics.Gap >> 1);
 
+    /// <summary>
+    /// Draws the box of a text box. One filled in on the page brings its own paper, and gets a heavier outline that stands
+    /// out from the page.
+    /// </summary>
+    /// <param name="pass">The frame.</param>
+    /// <param name="item">The text box.</param>
+    /// <param name="look">The colours and sizes.</param>
+    private static void DrawField(IFramePass pass, ChromeItem item, ChromeLook look)
+    {
+        var onPage = item.Ground != 0;
+        var line = onPage ? look.Metrics.Line * MarkLines : look.Metrics.Line;
+        DrawBox(pass, item.Bounds, onPage ? item.Ground : look.Theme.Surface, item.Selected ? look.Theme.Accent : look.Theme.Border, line);
+    }
+
     /// <summary>Draws what lies behind the text of a control.</summary>
     /// <param name="pass">The frame.</param>
     /// <param name="item">The control.</param>
@@ -156,7 +170,7 @@ internal static class ChromePainter
 
             case ChromeItemKind.Field:
                 {
-                    DrawBox(pass, bounds, theme.Surface, item.Selected ? theme.Accent : theme.Border, line);
+                    DrawField(pass, item, look);
                     break;
                 }
 
@@ -269,10 +283,10 @@ internal static class ChromePainter
             pass.DrawSurface(surface, new(left, top, run.Width, run.Height), false);
         }
 
-        if (item is { Kind: ChromeItemKind.Field, Selected: true })
+        if (item is { Kind: ChromeItemKind.Field, Selected: true, HidesText: false })
         {
             // The caret sits after the text, where the next typed character goes.
-            pass.FillRect(new(left + run.Width, bounds.Y + metrics.Gap, metrics.Line * MarkLines, bounds.Height - metrics.Gap - metrics.Gap), look.Theme.Text);
+            pass.FillRect(new(left + run.Width, bounds.Y + metrics.Gap, metrics.Line * MarkLines, bounds.Height - metrics.Gap - metrics.Gap), style.Color);
         }
     }
 

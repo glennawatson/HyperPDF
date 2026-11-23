@@ -24,6 +24,27 @@ internal static class TypingOverlays
     /// <summary>What Enter adds to a box of several lines.</summary>
     private const string NewLine = "\n";
 
+    /// <summary>The paper a form field is filled in on: white, as the page is.</summary>
+    private const uint FieldPaper = 0xFFFFFFFF;
+
+    /// <summary>The ink a form field is filled in with: near black, as the page's own letters are.</summary>
+    private const uint FieldInk = 0xFF1A1A1A;
+
+    /// <summary>The sides of a box that have padding: left and right.</summary>
+    private const int PaddingSides = 2;
+
+    /// <summary>The share of a field's height its letters take.</summary>
+    private const double TextShare = 0.7;
+
+    /// <summary>The smallest letters a field is filled in with, in device pixels.</summary>
+    private const int MinTextSize = 9;
+
+    /// <summary>The thinnest box a field is filled in with, in device pixels, so its letters can be read on a page zoomed far out.</summary>
+    private const int MinFieldHeight = 14;
+
+    /// <summary>How many times the window's own text size the letters of a field may be, on a page zoomed far in.</summary>
+    private const int MaxTextScale = 4;
+
     /// <summary>
     /// Opens the box. Each way of ending the typing tells the view model first, and then closes the box: a press somewhere else keeps
     /// what was typed, as leaving a field does in any form.
@@ -70,11 +91,12 @@ internal static class TypingOverlays
     /// <param name="line">The line of text that is drawn.</param>
     /// <param name="offset">Where the line starts in the whole text.</param>
     /// <param name="row">Where the text of the line starts, and how tall the row is.</param>
-    /// <param name="metrics">The sizes of the window's controls.</param>
-    /// <param name="runs">The window's drawn text.</param>
-    private static void AddUnderlines(List<ChromeItem> items, TextRange[] words, string line, int offset, in LayoutRect row, in ChromeMetrics metrics, TextRuns runs)
+    /// <param name="style">How the line of text is drawn.</param>
+    /// <param name="at">The sizes of the window's controls and its drawn text.</param>
+    private static void AddUnderlines(List<ChromeItem> items, TextRange[] words, string line, int offset, in LayoutRect row, TextStyle style, in OverlayPlace at)
     {
-        var style = ChromeBars.Style(metrics);
+        var metrics = at.Metrics;
+        var runs = at.Runs;
 
         // A line that was cut to fit is drawn from its end, so where a word lies is not known and no line is drawn.
         if (words.Length == 0 || runs.Measure(line, style) > row.Width - metrics.Padding - metrics.Padding)
@@ -119,6 +141,30 @@ internal static class TypingOverlays
         }
     }
 
+    /// <summary>
+    /// Adds the box a form field is filled in with. It lies exactly on the field, on the page's own paper with dark letters
+    /// the size the field's height gives, and an outline in the accent colour, so the field is filled in where it is and as
+    /// it will look, as a browser does. Only a field too thin to read at this zoom gets a taller box.
+    /// </summary>
+    /// <param name="items">Receives the box, the lines under misspelled words and the corrections.</param>
+    /// <param name="target">The field being typed into.</param>
+    /// <param name="text">The text typed so far.</param>
+    /// <param name="place">Where the field lies in the window.</param>
+    /// <param name="at">What to lay the box out with.</param>
+    private static void AddField(List<ChromeItem> items, TypingTarget target, string text, in LayoutRect place, in OverlayPlace at)
+    {
+        var metrics = at.Metrics;
+        var height = Math.Max(place.Height, MinFieldHeight);
+        var width = Math.Max(place.Width, height);
+        var size = Math.Clamp((int)(height * TextShare), MinTextSize, metrics.TextSize * MaxTextScale);
+        var style = ChromeBars.Style(metrics) with { Size = size };
+        var room = (int)width - metrics.Padding - metrics.Padding;
+        var box = new LayoutRect(place.X, place.Y, width, height);
+        items.Add(new(ChromeItemKind.Field, null, 0, ChromeText.FitEnd(text, style, room, at.Runs), box, true, true) { TextSize = size, Ground = FieldPaper, Tint = FieldInk });
+        AddUnderlines(items, target.Misspelled(), text, 0, box with { X = box.X + metrics.Padding }, style, in at);
+        AddCorrections(items, target.Corrections(), new(place.X, place.Y + height, Math.Max(width, metrics.PopupWidth), 0), in metrics, at.Runs);
+    }
+
     /// <summary>Lays the box out over the field or the text box on the page.</summary>
     /// <param name="items">Receives the controls, back to front.</param>
     /// <param name="target">What is typed into.</param>
@@ -130,32 +176,47 @@ internal static class TypingOverlays
         var runs = at.Runs;
         var metrics = at.Metrics;
 
-        // The box is never smaller than a row of the window's own text, so it can be read on a page that is zoomed far out.
         var place = canvas.GetWindowRect(target.Page, target.Bounds);
         placed.OnNext(place);
-        var width = Math.Max(place.Width, metrics.PopupWidth);
-        var height = Math.Max(place.Height, metrics.RowHeight);
-        var room = (int)width - metrics.Padding - metrics.Padding;
         var text = target.Read();
         if (!target.TakesLines)
         {
-            items.Add(new(ChromeItemKind.Field, null, 0, ChromeText.FitEnd(text, ChromeBars.Style(metrics), room, runs), new(place.X, place.Y, width, height), true, true));
-            AddUnderlines(items, target.Misspelled(), text, 0, new(place.X + metrics.Padding, place.Y, width, height), in metrics, runs);
-            AddCorrections(items, target.Corrections(), place with { Y = place.Y + height, Width = width }, in metrics, runs);
+            AddField(items, target, text, in place, in at);
             return;
         }
 
-        // A box of several lines is a panel as tall as its lines, with one row of text for each line.
+        // A box of several lines is drawn as a field is: on paper, in dark letters the size its lines give, inside an
+        // outline, one row for each line. Its place gives the height of one line.
+        var rowHeight = Math.Max(place.Height, MinFieldHeight);
+        var size = Math.Clamp((int)(rowHeight * TextShare), MinTextSize, metrics.TextSize * MaxTextScale);
+        var style = ChromeBars.Style(metrics) with { Size = size };
         var lines = text.Split('\n');
-        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, new(place.X, place.Y, width, Math.Max(height, lines.Length * metrics.RowHeight)), true, false));
+
+        // The box grows with its longest line, so what is typed is never cut off at the box's edge.
+        var widest = 0;
+        foreach (var line in lines)
+        {
+            widest = Math.Max(widest, runs.Measure(line, style));
+        }
+
+        var width = Math.Max(Math.Max(place.Width, rowHeight), widest + (metrics.Padding * PaddingSides) + metrics.Padding);
+        var room = (int)width - metrics.Padding - metrics.Padding;
+        items.Add(new(ChromeItemKind.Field, null, 0, string.Empty, new(place.X, place.Y, width, lines.Length * rowHeight), true, true) { Ground = FieldPaper, HidesText = true });
         var offset = 0;
         var marked = target.Misspelled();
+        var last = string.Empty;
         for (var i = 0; i < lines.Length; i++)
         {
-            var bounds = new LayoutRect(place.X, place.Y + (i * metrics.RowHeight), width, metrics.RowHeight);
-            items.Add(new(ChromeItemKind.Label, null, i, ChromeText.FitEnd(lines[i], ChromeBars.Style(metrics), room, runs), bounds, true, false));
-            AddUnderlines(items, marked, lines[i], offset, bounds with { X = bounds.X + metrics.Padding }, in metrics, runs);
+            var bounds = new LayoutRect(place.X, place.Y + (i * rowHeight), width, rowHeight);
+            last = ChromeText.FitEnd(lines[i], style, room, runs);
+            items.Add(new(ChromeItemKind.Label, null, i, last, bounds, true, false) { TextSize = size, Tint = FieldInk });
+            AddUnderlines(items, marked, lines[i], offset, bounds with { X = bounds.X + metrics.Padding }, style, in at);
             offset += lines[i].Length + 1;
         }
+
+        // The caret sits after the last line, where the next typed character goes.
+        var caretTop = place.Y + ((lines.Length - 1) * rowHeight) + metrics.Gap;
+        var caret = new LayoutRect(place.X + metrics.Padding + runs.Measure(last, style), caretTop, metrics.Line + metrics.Line, rowHeight - metrics.Gap - metrics.Gap);
+        items.Add(new(ChromeItemKind.Popup, null, 0, string.Empty, caret, false, false) { Ground = FieldInk });
     }
 }
