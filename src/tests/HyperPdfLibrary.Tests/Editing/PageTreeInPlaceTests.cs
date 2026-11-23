@@ -182,6 +182,33 @@ public sealed class PageTreeInPlaceTests
         await Assert.That(PageTreeVerifier.Verify(target.Objects, target.PageCount, out _)).IsTrue();
     }
 
+    /// <summary>Writing the tree again keeps the pages that stay under the same node as they were, and undo puts the deleted page back.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RewritingTheTreeLeavesPagesUnderTheSameNodeAlone()
+    {
+        using var target = PdfDocumentReader.Open(EditingTestDocuments.CreateFlat(FullRoot + ExtraPages), null);
+
+        // The first rewrite gives the tree its intermediate nodes.
+        PdfDocumentPageOperations.DeletePages(target, [target.PageCount - 1]);
+        var before = EditingTestDocuments.PageTexts(target);
+        var first = PdfDocumentPages.GetPage(target, 0).Dictionary;
+
+        PdfDocumentPageOperations.DeletePages(target, [target.PageCount - 1]);
+        var kept = ReferenceEquals(PdfDocumentPages.GetPage(target, 0).Dictionary, first);
+        var after = EditingTestDocuments.PageTexts(target);
+        var sound = PageTreeVerifier.Verify(target.Objects, target.PageCount, out _);
+        var parents = CountPagesWithWrongParent(target);
+        _ = PdfDocumentEditing.Undo(target);
+
+        await Assert.That(kept).IsTrue();
+        await Assert.That(string.Join('|', after)).IsEqualTo(string.Join('|', before[..^1]));
+        await Assert.That(sound).IsTrue();
+        await Assert.That(parents).IsEqualTo(0);
+        await Assert.That(string.Join('|', EditingTestDocuments.PageTexts(target))).IsEqualTo(string.Join('|', before));
+        await Assert.That(PageTreeVerifier.Verify(target.Objects, target.PageCount, out _)).IsTrue();
+    }
+
     /// <summary>A plain page is parsed when it is first used, not when the page tree is read.</summary>
     /// <returns>A task.</returns>
     [Test]

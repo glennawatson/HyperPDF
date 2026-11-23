@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.InteropServices;
 using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
@@ -39,7 +40,6 @@ internal static class PdfPageTreeWriter
         var rootId = rootValue.AsReference();
         var oldRoot = StoreReading.Resolve(store, rootValue).AsDictionary();
         using var walk = NodeWalk.Rent(store);
-        var oldNodes = walk.Nodes;
         CollectNodes(store, oldRoot, rootId, walk);
         if (!rootId.IsValid)
         {
@@ -52,7 +52,9 @@ internal static class PdfPageTreeWriter
 
         var root = oldRoot?.Clone() ?? new PdfDictionary(store);
         var pushFromRoot = HasInheritable(root);
-        var kids = WriteKids(transaction, store, slots, rootId, pushFromRoot, entries);
+
+        // Old nodes that pass nothing down can be taken by new nodes, so the pages under them keep their /Parent.
+        var kids = WriteKids(transaction, store, slots, new(rootId, pushFromRoot, walk.CarryAttributes ? null : walk), entries);
         root.Set(KnownName.Type, PdfValue.FromName(KnownName.Pages));
         root.Set(KnownName.Kids, PdfValue.FromArray(kids));
         root.Set(KnownName.Count, PdfValue.FromInteger(slots.Length));
@@ -66,20 +68,8 @@ internal static class PdfPageTreeWriter
         }
 
         transaction.Replace(rootId, PdfValue.FromDictionary(root));
-        foreach (var node in oldNodes)
-        {
-            transaction.Delete(node);
-        }
-
-        foreach (var entry in entries)
-        {
-            if (!entry.Id.IsValid && entry.Direct is null)
-            {
-                return null;
-            }
-        }
-
-        return entries;
+        DeleteUntaken(transaction, walk);
+        return AllPages(entries) ? entries : null;
     }
 
     /// <summary>
@@ -89,26 +79,15 @@ internal static class PdfPageTreeWriter
     /// <param name="transaction">The transaction.</param>
     /// <param name="store">The document's objects.</param>
     /// <param name="slots">The pages below the node, in order.</param>
-    /// <param name="parentId">The node whose kids these are.</param>
-    /// <param name="pushFromRoot">Whether the root's own attributes are being pushed down.</param>
+    /// <param name="level">The node whose kids these are, whether the root's attributes are pushed down, and the old nodes that may be taken.</param>
     /// <param name="entries">Receives the entry of each page, in the order of <paramref name="slots"/>; a kid that is not a page dictionary is left empty.</param>
     /// <returns>The kids.</returns>
-    internal static PdfArray WriteKids(PdfEditTransaction transaction, PdfObjectStore store, ReadOnlySpan<PdfPageSlot> slots, PdfObjectId parentId, bool pushFromRoot, Span<PdfPageEntry> entries)
+    internal static PdfArray WriteKids(PdfEditTransaction transaction, PdfObjectStore store, ReadOnlySpan<PdfPageSlot> slots, in TreeLevel level, Span<PdfPageEntry> entries)
     {
         var kids = new PdfArray(store, Math.Min(slots.Length, FanOut));
         if (slots.Length <= FanOut)
         {
-            for (var i = 0; i < slots.Length; i++)
-            {
-                var kid = WritePage(transaction, store, slots[i].Kid, parentId, pushFromRoot, out var isPage);
-                kids.Add(kid);
-                if (isPage)
-                {
-                    // Every attribute the page inherited is now on the page, and the new nodes carry none.
-                    entries[i] = kid.IsReference ? new(kid.AsReference(), null, 0) : new(default, kid.AsDictionary(), 0);
-                }
-            }
-
+            WritePages(transaction, store, slots, level, entries, kids);
             return kids;
         }
 
@@ -116,14 +95,7 @@ internal static class PdfPageTreeWriter
         for (var start = 0; start < slots.Length; start += capacity)
         {
             var part = slots.Slice(start, Math.Min(capacity, slots.Length - start));
-            var id = transaction.Add(default);
-            var node = new PdfDictionary(store);
-            node.Set(KnownName.Type, PdfValue.FromName(KnownName.Pages));
-            node.Set(KnownName.Parent, PdfValue.FromReference(parentId));
-            node.Set(KnownName.Kids, PdfValue.FromArray(WriteKids(transaction, store, part, id, pushFromRoot, entries.Slice(start, part.Length))));
-            node.Set(KnownName.Count, PdfValue.FromInteger(part.Length));
-            transaction.Replace(id, PdfValue.FromDictionary(node));
-            kids.Add(PdfValue.FromReference(id));
+            kids.Add(PdfValue.FromReference(WriteNode(transaction, store, part, level, entries.Slice(start, part.Length))));
         }
 
         return kids;
@@ -274,6 +246,7 @@ internal static class PdfPageTreeWriter
                 }
 
                 AddNode(walk.Nodes, raw.AsReference());
+                walk.CarryAttributes |= HasInheritable(node);
                 pending.Push(new(node, visit.Depth + 1));
             }
         }
@@ -306,13 +279,129 @@ internal static class PdfPageTreeWriter
         }
     }
 
+    /// <summary>Writes the pages of a node that holds pages.</summary>
+    /// <param name="transaction">The transaction.</param>
+    /// <param name="store">The document's objects.</param>
+    /// <param name="slots">The pages, in order.</param>
+    /// <param name="level">The node they go under and whether the root's attributes are pushed down.</param>
+    /// <param name="entries">Receives the entry of each page.</param>
+    /// <param name="kids">Receives the pages' /Kids entries.</param>
+    private static void WritePages(PdfEditTransaction transaction, PdfObjectStore store, ReadOnlySpan<PdfPageSlot> slots, in TreeLevel level, Span<PdfPageEntry> entries, PdfArray kids)
+    {
+        for (var i = 0; i < slots.Length; i++)
+        {
+            var kid = WritePage(transaction, store, slots[i].Kid, level.ParentId, level.PushFromRoot, out var isPage);
+            kids.Add(kid);
+            if (isPage)
+            {
+                // Every attribute the page inherited is now on the page, and the new nodes carry none.
+                entries[i] = kid.IsReference ? new(kid.AsReference(), null, 0) : new(default, kid.AsDictionary(), 0);
+            }
+        }
+    }
+
+    /// <summary>Writes one intermediate node and what is below it.</summary>
+    /// <param name="transaction">The transaction.</param>
+    /// <param name="store">The document's objects.</param>
+    /// <param name="part">The pages below the node, in order.</param>
+    /// <param name="level">The node's parent, whether the root's attributes are pushed down, and the old nodes that may be taken.</param>
+    /// <param name="entries">Receives the entry of each page.</param>
+    /// <returns>The node's id.</returns>
+    private static PdfObjectId WriteNode(PdfEditTransaction transaction, PdfObjectStore store, ReadOnlySpan<PdfPageSlot> part, in TreeLevel level, Span<PdfPageEntry> entries)
+    {
+        // A node that holds pages takes the old node most of them sit under, so those pages need not change.
+        var id = part.Length <= FanOut && level.Reuse is { } reuse ? TakeNode(store, part, reuse) : default;
+        id = id.IsValid ? id : transaction.Add(default);
+        var node = new PdfDictionary(store);
+        node.Set(KnownName.Type, PdfValue.FromName(KnownName.Pages));
+        node.Set(KnownName.Parent, PdfValue.FromReference(level.ParentId));
+        node.Set(KnownName.Kids, PdfValue.FromArray(WriteKids(transaction, store, part, level with { ParentId = id }, entries)));
+        node.Set(KnownName.Count, PdfValue.FromInteger(part.Length));
+        transaction.Replace(id, PdfValue.FromDictionary(node));
+        return id;
+    }
+
+    /// <summary>Deletes the old nodes no new node took.</summary>
+    /// <param name="transaction">The transaction.</param>
+    /// <param name="walk">The old nodes and those taken.</param>
+    private static void DeleteUntaken(PdfEditTransaction transaction, NodeWalk walk)
+    {
+        foreach (var node in walk.Nodes)
+        {
+            if (!walk.Taken.Contains(node.Number))
+            {
+                transaction.Delete(node);
+            }
+        }
+    }
+
+    /// <summary>Tells whether every kid written was a page dictionary.</summary>
+    /// <param name="entries">The entries.</param>
+    /// <returns><see langword="true"/> when each entry names a page.</returns>
+    private static bool AllPages(ReadOnlySpan<PdfPageEntry> entries)
+    {
+        foreach (var entry in entries)
+        {
+            if (!entry.Id.IsValid && entry.Direct is null)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Takes the old node that is the /Parent of most of a run of pages, when no new node has taken it yet.</summary>
+    /// <param name="store">The document's objects.</param>
+    /// <param name="pages">The pages the new node will hold.</param>
+    /// <param name="walk">The old nodes and those already taken.</param>
+    /// <returns>The old node's id, or an invalid id when none of the pages sits under an old node free to take.</returns>
+    private static PdfObjectId TakeNode(PdfObjectStore store, ReadOnlySpan<PdfPageSlot> pages, NodeWalk walk)
+    {
+        var counts = walk.Counts;
+        counts.Clear();
+        var best = default(PdfObjectId);
+        var bestCount = 0;
+        foreach (var slot in pages)
+        {
+            var parent = StoreReading.Resolve(store, slot.Kid).AsDictionary()?.GetRaw(KnownName.Parent).AsReference() ?? default;
+            if (!parent.IsValid || walk.Taken.Contains(parent.Number) || !walk.Nodes.Contains(parent))
+            {
+                continue;
+            }
+
+            ref var count = ref CollectionsMarshal.GetValueRefOrAddDefault(counts, parent.Number, out _);
+            count++;
+            if (count <= bestCount)
+            {
+                continue;
+            }
+
+            best = parent;
+            bestCount = count;
+        }
+
+        if (best.IsValid)
+        {
+            _ = walk.Taken.Add(best.Number);
+        }
+
+        return best;
+    }
+
+    /// <summary>Where a run of kids is written.</summary>
+    /// <param name="ParentId">The node whose kids they are.</param>
+    /// <param name="PushFromRoot">Whether the root's own attributes are being pushed down.</param>
+    /// <param name="Reuse">The old nodes new nodes may take, or <see langword="null"/> when an old node passes attributes down.</param>
+    internal readonly record struct TreeLevel(PdfObjectId ParentId, bool PushFromRoot, NodeWalk? Reuse);
+
     /// <summary>A page tree node waiting to be visited.</summary>
     /// <param name="Node">The node.</param>
     /// <param name="Depth">Its depth.</param>
-    private readonly record struct NodeVisit(PdfDictionary Node, int Depth);
+    internal readonly record struct NodeVisit(PdfDictionary Node, int Depth);
 
     /// <summary>Temporary traversal collections, returned after clearing every document reference.</summary>
-    private sealed class NodeWalk : IDisposable
+    internal sealed class NodeWalk : IDisposable
     {
         /// <summary>The largest temporary collection retained between rewrites.</summary>
         private const int MaxKeptNodes = 4096;
@@ -329,6 +418,15 @@ internal static class PdfPageTreeWriter
         /// <summary>Gets the nodes awaiting traversal.</summary>
         internal Stack<NodeVisit> Pending { get; } = new();
 
+        /// <summary>Gets the numbers of the old nodes new nodes have taken, which are kept rather than deleted.</summary>
+        internal HashSet<int> Taken { get; } = [];
+
+        /// <summary>Gets how many pages of a run sit under each old node.</summary>
+        internal Dictionary<int, int> Counts { get; } = [];
+
+        /// <summary>Gets or sets a value indicating whether any old node passes attributes down to its kids.</summary>
+        internal bool CarryAttributes { get; set; }
+
         /// <summary>Clears and returns bounded scratch storage.</summary>
         public void Dispose()
         {
@@ -338,6 +436,9 @@ internal static class PdfPageTreeWriter
             Nodes.Clear();
             Visited.Clear();
             Pending.Clear();
+            Taken.Clear();
+            Counts.Clear();
+            CarryAttributes = false;
             if (keep)
             {
                 _ = slots?.Offer(this);

@@ -129,22 +129,16 @@ public sealed class FontCatalog
     public static FontCatalog Scan(IEnumerable<string> directories)
     {
         ArgumentNullException.ThrowIfNull(directories);
-        var faces = new List<FontFace>();
-        var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.System };
-        foreach (var directory in directories)
-        {
-            if (!Directory.Exists(directory))
-            {
-                continue;
-            }
+        var paths = FontFiles(directories);
 
-            foreach (var path in Directory.EnumerateFiles(directory, "*", options))
-            {
-                if (IsFontFile(path))
-                {
-                    ReadFile(path, faces);
-                }
-            }
+        // Opening hundreds of font files is most of the time, so they are read side by side; each file's faces are kept at
+        // the file's place, so the catalog is the same whichever file finishes first.
+        var read = new FontFace[]?[paths.Count];
+        _ = Parallel.For(0, paths.Count, index => read[index] = ReadFile(paths[index]));
+        var faces = new List<FontFace>(paths.Count);
+        foreach (var file in read)
+        {
+            faces.AddRange(file ?? []);
         }
 
         return new(faces);
@@ -206,22 +200,52 @@ public sealed class FontCatalog
             || extension.Equals(".otc", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Lists the font files under some folders, in the order the folders and their files are listed.</summary>
+    /// <param name="directories">The folders, searched with their sub-folders.</param>
+    /// <returns>The paths.</returns>
+    private static List<string> FontFiles(IEnumerable<string> directories)
+    {
+        var paths = new List<string>();
+        var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.System };
+        foreach (var directory in directories)
+        {
+            if (!Directory.Exists(directory))
+            {
+                continue;
+            }
+
+            foreach (var path in Directory.EnumerateFiles(directory, "*", options))
+            {
+                if (IsFontFile(path))
+                {
+                    paths.Add(path);
+                }
+            }
+        }
+
+        return paths;
+    }
+
     /// <summary>Reads one font file, skipping it when it cannot be read.</summary>
     /// <param name="path">The file.</param>
-    /// <param name="faces">Receives its faces.</param>
-    private static void ReadFile(string path, List<FontFace> faces)
+    /// <returns>Its faces, or <see langword="null"/> when it has none or cannot be read.</returns>
+    private static FontFace[]? ReadFile(string path)
     {
         try
         {
+            var faces = new List<FontFace>(1);
             FontFaceReader.Read(path, faces);
+            return faces.Count == 0 ? null : [.. faces];
         }
         catch (IOException)
         {
             // A font that disappears or is locked while scanning is skipped.
+            return null;
         }
         catch (UnauthorizedAccessException)
         {
             // A font the user cannot read is skipped.
+            return null;
         }
     }
 }
