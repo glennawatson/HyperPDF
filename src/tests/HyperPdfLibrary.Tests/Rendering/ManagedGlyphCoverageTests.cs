@@ -103,6 +103,28 @@ public class ManagedGlyphCoverageTests
         await Assert.That(last.Width).IsEqualTo(Side);
     }
 
+    /// <summary>The cache starts with a small block and grows it, and a glyph kept before it grew is still there after.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task CacheKeepsItsGlyphsWhenItGrows()
+    {
+        const byte Ink = 7;
+        const int BytesPastTheFirstBlock = 1 << 17;
+        var cache = new GlyphCoverageCache();
+        var first = cache.Add(KeyOf(0), 0, 0, Side, Side);
+        cache.Row(first, 0).Fill(Ink);
+        for (var glyph = 1; glyph * Side * Side < BytesPastTheFirstBlock; glyph++)
+        {
+            _ = cache.Add(KeyOf(glyph), 0, 0, Side, Side);
+        }
+
+        var found = cache.TryGet(KeyOf(0), out var again);
+        var kept = found && !cache.Row(again, 0).ContainsAnyExcept(Ink);
+
+        await Assert.That(found).IsTrue();
+        await Assert.That(kept).IsTrue();
+    }
+
     /// <summary>Names a glyph by a number, so each number is a different glyph of the same outline.</summary>
     /// <param name="glyph">The number.</param>
     /// <returns>The name.</returns>

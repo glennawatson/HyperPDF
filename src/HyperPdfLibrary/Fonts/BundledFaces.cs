@@ -21,6 +21,9 @@ internal static class BundledFaces
     /// <summary>The number of styles of a family: regular, bold, italic and bold italic.</summary>
     private const int StylesPerFamily = 4;
 
+    /// <summary>About how many times larger a font program is than its packed resource. It only sizes the first buffer, which still grows when a program is larger.</summary>
+    private const int UnpackedPerPacked = 3;
+
     /// <summary>The bit that selects the bold style within a family.</summary>
     private const int BoldBit = 1;
 
@@ -172,7 +175,9 @@ internal static class BundledFaces
 
         var length = (int)stream.Length;
         var packed = ArrayPool<byte>.Shared.Rent(length);
-        var output = new PooledBuffer(0);
+
+        // The buffer starts near the size of the program, so it is rented once and not grown from the smallest size by doubling.
+        var output = new PooledBuffer(length * UnpackedPerPacked);
         try
         {
             stream.ReadExactly(packed, 0, length);
