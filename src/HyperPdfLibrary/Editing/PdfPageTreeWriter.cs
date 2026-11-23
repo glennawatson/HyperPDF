@@ -202,9 +202,10 @@ internal static class PdfPageTreeWriter
     /// <returns>The raw value, or null when no ancestor has it.</returns>
     private static PdfValue FindInherited(PdfDictionary page, KnownName key)
     {
-        var visited = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance) { page, };
+        // The depth limit ends a /Parent chain that loops, so no set of the nodes passed is needed; a loop only repeats nodes
+        // already asked, which gives the same answer.
         var node = page.GetDictionary(KnownName.Parent);
-        for (var depth = 0; node is not null && depth < PdfLimits.MaxPageTreeDepth && visited.Add(node); depth++)
+        for (var depth = 0; node is not null && depth < PdfLimits.MaxPageTreeDepth && !ReferenceEquals(node, page); depth++)
         {
             var value = node.GetRaw(key);
             if (!value.IsNull)
