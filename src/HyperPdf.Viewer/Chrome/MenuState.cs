@@ -15,5 +15,7 @@ namespace HyperPdf.Viewer.Chrome;
 /// <param name="FollowCursor">Whether the scroll offset follows the keyboard cursor rather than the mouse wheel.</param>
 /// <param name="Chosen">The entry that was chosen, or <see langword="null"/> while none was.</param>
 /// <param name="Done">Whether the menu was closed, by a choice, by going back from the top menu, or by being sent away.</param>
+/// <param name="Switches">Whether the menu is one of the menu bar's, which Left and Right leave for the menu beside it.</param>
+/// <param name="Step">The menu asked for when it closed: 1 for the one to the right, -1 for the one to the left, 0 for none.</param>
 [DebuggerDisplay("MenuState: {Shown.Length} entries, cursor {Cursor}, done {Done}")]
-internal sealed record MenuState(MenuEntry[] Shown, MenuEntry[][] Parents, int Cursor, int First, bool FollowCursor, MenuEntry? Chosen, bool Done);
+internal sealed record MenuState(MenuEntry[] Shown, MenuEntry[][] Parents, int Cursor, int First, bool FollowCursor, MenuEntry? Chosen, bool Done, bool Switches, int Step);

@@ -1440,6 +1440,9 @@
   <data name="Close tab" xml:space="preserve">
     <value>关闭标签页</value>
   </data>
+  <data name="Close the _Window" xml:space="preserve">
+    <value>关闭窗口(_W)</value>
+  </data>
   <data name="Close the find bar. Shortcut: Esc" xml:space="preserve">
     <value>关闭查找栏。快捷键：Esc</value>
   </data>
@@ -2198,6 +2201,9 @@
   </data>
   <data name="F_ind…" xml:space="preserve">
     <value>查找(_I)…</value>
+  </data>
+  <data name="F_orms" xml:space="preserve">
+    <value>表单(_O)</value>
   </data>
   <data name="Faster" xml:space="preserve">
     <value>更快</value>
@@ -7572,6 +7578,9 @@
   <data name="_Add a Bookmark Here…" xml:space="preserve">
     <value>在此添加书签(_A)…</value>
   </data>
+  <data name="_Annotate" xml:space="preserve">
+    <value>批注(_A)</value>
+  </data>
   <data name="_Annotate…" xml:space="preserve">
     <value>添加注释(_A)…</value>
   </data>
@@ -7629,6 +7638,9 @@
   <data name="_Comfort Page Colour" xml:space="preserve">
     <value>舒适页面颜色(_C)</value>
   </data>
+  <data name="_Comment" xml:space="preserve">
+    <value>注释(_C)</value>
+  </data>
   <data name="_Compare with Another Document…" xml:space="preserve">
     <value>与另一个文档比较(_C)…</value>
   </data>
@@ -7674,6 +7686,9 @@
   <data name="_Duplicate the Page" xml:space="preserve">
     <value>复制页面(_D)</value>
   </data>
+  <data name="_Edit" xml:space="preserve">
+    <value>编辑(_E)</value>
+  </data>
   <data name="_Edit Note" xml:space="preserve">
     <value>编辑便笺(_E)</value>
   </data>
@@ -7703,6 +7718,9 @@
   </data>
   <data name="_Export…" xml:space="preserve">
     <value>_导出…</value>
+  </data>
+  <data name="_File" xml:space="preserve">
+    <value>文件(_F)</value>
   </data>
   <data name="_Files Joined on at the End…" xml:space="preserve">
     <value>在末尾追加文件(_F)…</value>
@@ -7746,6 +7764,9 @@
   <data name="_Hand Tool" xml:space="preserve">
     <value>抓手工具(_H)</value>
   </data>
+  <data name="_Help" xml:space="preserve">
+    <value>帮助(_H)</value>
+  </data>
   <data name="_Hide This Layer" xml:space="preserve">
     <value>隐藏此图层(_H)</value>
   </data>
@@ -7781,6 +7802,9 @@
   </data>
   <data name="_Merge Files…" xml:space="preserve">
     <value>合并文件(_M)…</value>
+  </data>
+  <data name="_More Marking Tools" xml:space="preserve">
+    <value>更多标记工具(_M)</value>
   </data>
   <data name="_New Window" xml:space="preserve">
     <value>新建窗口(_N)</value>
@@ -7967,6 +7991,9 @@
   </data>
   <data name="_Tight" xml:space="preserve">
     <value>紧凑(_T)</value>
+  </data>
+  <data name="_Tools" xml:space="preserve">
+    <value>工具(_T)</value>
   </data>
   <data name="_Two Pages" xml:space="preserve">
     <value>双页(_T)</value>

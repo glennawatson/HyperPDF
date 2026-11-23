@@ -1440,6 +1440,9 @@
   <data name="Close tab" xml:space="preserve">
     <value>Close tab</value>
   </data>
+  <data name="Close the _Window" xml:space="preserve">
+    <value>Close the _Window</value>
+  </data>
   <data name="Close the find bar. Shortcut: Esc" xml:space="preserve">
     <value>Close the find bar. Shortcut: Esc</value>
   </data>
@@ -2198,6 +2201,9 @@
   </data>
   <data name="F_ind…" xml:space="preserve">
     <value>F_ind…</value>
+  </data>
+  <data name="F_orms" xml:space="preserve">
+    <value>F_orms</value>
   </data>
   <data name="Faster" xml:space="preserve">
     <value>Faster</value>
@@ -7572,6 +7578,9 @@
   <data name="_Add a Bookmark Here…" xml:space="preserve">
     <value>_Add a Bookmark Here…</value>
   </data>
+  <data name="_Annotate" xml:space="preserve">
+    <value>_Annotate</value>
+  </data>
   <data name="_Annotate…" xml:space="preserve">
     <value>_Annotate…</value>
   </data>
@@ -7629,6 +7638,9 @@
   <data name="_Comfort Page Colour" xml:space="preserve">
     <value>_Comfort Page Colour</value>
   </data>
+  <data name="_Comment" xml:space="preserve">
+    <value>_Comment</value>
+  </data>
   <data name="_Compare with Another Document…" xml:space="preserve">
     <value>_Compare with Another Document…</value>
   </data>
@@ -7674,6 +7686,9 @@
   <data name="_Duplicate the Page" xml:space="preserve">
     <value>_Duplicate the Page</value>
   </data>
+  <data name="_Edit" xml:space="preserve">
+    <value>_Edit</value>
+  </data>
   <data name="_Edit Note" xml:space="preserve">
     <value>_Edit Note</value>
   </data>
@@ -7703,6 +7718,9 @@
   </data>
   <data name="_Export…" xml:space="preserve">
     <value>_Export…</value>
+  </data>
+  <data name="_File" xml:space="preserve">
+    <value>_File</value>
   </data>
   <data name="_Files Joined on at the End…" xml:space="preserve">
     <value>_Files Joined on at the End…</value>
@@ -7746,6 +7764,9 @@
   <data name="_Hand Tool" xml:space="preserve">
     <value>_Hand Tool</value>
   </data>
+  <data name="_Help" xml:space="preserve">
+    <value>_Help</value>
+  </data>
   <data name="_Hide This Layer" xml:space="preserve">
     <value>_Hide This Layer</value>
   </data>
@@ -7781,6 +7802,9 @@
   </data>
   <data name="_Merge Files…" xml:space="preserve">
     <value>_Merge Files…</value>
+  </data>
+  <data name="_More Marking Tools" xml:space="preserve">
+    <value>_More Marking Tools</value>
   </data>
   <data name="_New Window" xml:space="preserve">
     <value>_New Window</value>
@@ -7967,6 +7991,9 @@
   </data>
   <data name="_Tight" xml:space="preserve">
     <value>_Tight</value>
+  </data>
+  <data name="_Tools" xml:space="preserve">
+    <value>_Tools</value>
   </data>
   <data name="_Two Pages" xml:space="preserve">
     <value>_Two Pages</value>

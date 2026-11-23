@@ -53,10 +53,22 @@ internal static class MenuOverlays
     /// <param name="anchor">Where the menu's top left corner is wanted, in device pixels.</param>
     /// <param name="run">Runs the command of the entry that was chosen.</param>
     /// <returns>The menu.</returns>
-    internal static Overlay Open(ReadOnlySpan<MenuEntry> entries, ScreenPoint anchor, Action<MenuEntry> run)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Overlay Open(ReadOnlySpan<MenuEntry> entries, ScreenPoint anchor, Action<MenuEntry> run) => Open(entries, anchor, run, null);
+
+    /// <summary>
+    /// Opens a menu of the menu bar. Left on the menu itself, and Right on an entry that opens no submenu, close it and ask for the
+    /// menu beside it, as a desktop menu bar does.
+    /// </summary>
+    /// <param name="entries">The entries.</param>
+    /// <param name="anchor">Where the menu's top left corner is wanted, in device pixels.</param>
+    /// <param name="run">Runs the command of the entry that was chosen.</param>
+    /// <param name="step">Opens the menu beside it: 1 for the one to the right, -1 for the one to the left; or <see langword="null"/> for a menu on its own.</param>
+    /// <returns>The menu.</returns>
+    internal static Overlay Open(ReadOnlySpan<MenuEntry> entries, ScreenPoint anchor, Action<MenuEntry> run, Action<int>? step)
     {
         var input = new Signal<OverlayInput>();
-        var start = new MenuState([..entries], [], BackIndex - 1, 0, true, null, false);
+        var start = new MenuState([..entries], [], BackIndex - 1, 0, true, null, false, step is not null, 0);
         var state = OverlayStates.Track(input, start, Reduce);
         var done = state.Where(static current => current.Done);
         return new(
@@ -66,7 +78,11 @@ internal static class MenuOverlays
             input,
             Signal.Never<RxVoid>(),
             done.AsSignal(),
-            new MultipleDisposable(input, state, done.Where(static current => current.Chosen is not null).Select(static current => current.Chosen!).Take(1).SubscribeSafe(run, ErrorTrace.Write)));
+            new MultipleDisposable(
+                input,
+                state,
+                done.Where(static current => current.Chosen is not null).Select(static current => current.Chosen!).Take(1).SubscribeSafe(run, ErrorTrace.Write),
+                step is null ? EmptyDisposable.Instance : done.Where(static current => current.Step != 0).Select(static current => current.Step).Take(1).SubscribeSafe(step, ErrorTrace.Write)));
     }
 
     /// <summary>Makes the state that follows what the user did.</summary>
@@ -103,10 +119,18 @@ internal static class MenuOverlays
     {
         ViewerKey.Down => MoveCursor(state, 1),
         ViewerKey.Up => MoveCursor(state, -1),
+        ViewerKey.Left when state.Switches && state.Parents.Length == 0 => state with { Step = -1, Done = true },
+        ViewerKey.Right when state.Switches && !OnSubmenu(state) => state with { Step = 1, Done = true },
         ViewerKey.Enter or ViewerKey.Space or ViewerKey.Right when state.Cursor >= 0 && state.Cursor < state.Shown.Length => Run(state, state.Shown[state.Cursor]),
         ViewerKey.Escape or ViewerKey.Left or ViewerKey.Enter => GoBack(state),
         _ => state,
     };
+
+    /// <summary>Tells whether the keyboard is on an entry that opens a submenu, which Right opens.</summary>
+    /// <param name="state">What the menu shows.</param>
+    /// <returns><see langword="true"/> when it is.</returns>
+    private static bool OnSubmenu(MenuState state) =>
+        state.Cursor >= 0 && state.Cursor < state.Shown.Length && state.Shown[state.Cursor] is { Kind: MenuEntryKind.Submenu, IsEnabled: true };
 
     /// <summary>Runs an entry, or opens its submenu.</summary>
     /// <param name="state">The state before.</param>

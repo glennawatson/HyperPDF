@@ -109,6 +109,7 @@ internal static class EvdevInput
     private static readonly Dictionary<uint, ViewerKey> MoreKeys = new()
     {
         [0x30] = ViewerKey.B,
+        [0x20] = ViewerKey.D,
         [0x12] = ViewerKey.E,
         [0x22] = ViewerKey.G,
         [0x23] = ViewerKey.H,

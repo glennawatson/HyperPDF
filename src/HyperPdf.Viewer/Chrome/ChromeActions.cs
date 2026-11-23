@@ -27,11 +27,9 @@ internal sealed class ChromeActions : IDisposable
     internal ChromeActions(ViewerChrome chrome, MainViewModel main, IPlatformWindow window)
     {
         SelectTab = ReactiveCommand.Create<DocumentTabViewModel>(tab => main.SelectedTab = tab);
-        ShowMenu = ReactiveCommand.Create(() => chrome.ShowMenu([..MainMenu.Build(main)], Under(chrome, ShowMenu)));
-        ShowTools = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowTools, static (_, tab) => ToolMenus.Tools(tab)));
+        ShowBarMenu = ReactiveCommand.Create<int>(index => OpenBarMenu(main, chrome, index));
         ShowAddPages = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowAddPages, static (_, tab) => ToolMenus.AddPages(tab)));
         ShowChoosePages = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowChoosePages, static (_, tab) => ToolMenus.ChoosePages(tab)));
-        ShowDocument = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowDocument, MainMenu.Document));
         ShowView = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowView, MainMenu.ReadingView));
         ShowZoom = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowZoom, static (_, tab) => ToolMenus.Zoom(tab)));
         ShowVoices = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowVoices, static (_, tab) => ToolMenus.Voices(tab.ReadAloud)));
@@ -81,20 +79,14 @@ internal sealed class ChromeActions : IDisposable
     /// <summary>Gets the command that shows a tab, which is its parameter.</summary>
     internal ReactiveCommand<DocumentTabViewModel, RxVoid> SelectTab { get; }
 
-    /// <summary>Gets the command that opens the main menu under its button.</summary>
-    internal ReactiveCommand<RxVoid, RxVoid> ShowMenu { get; }
-
-    /// <summary>Gets the command that opens the page tools menu.</summary>
-    internal ReactiveCommand<RxVoid, RxVoid> ShowTools { get; }
+    /// <summary>Gets the command that opens a menu of the menu bar under its name. Its parameter is the menu's place on the bar.</summary>
+    internal ReactiveCommand<int, RxVoid> ShowBarMenu { get; }
 
     /// <summary>Gets the command that opens the list of what can be added to the pages: a blank page, pages of files and pictures.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowAddPages { get; }
 
     /// <summary>Gets the command that opens the list of ways to choose pages: every page, the odd ones, the even ones or the one being read.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowChoosePages { get; }
-
-    /// <summary>Gets the command that opens the current document's actions.</summary>
-    internal ReactiveCommand<RxVoid, RxVoid> ShowDocument { get; }
 
     /// <summary>Gets the command that opens the reading and page layout choices.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowView { get; }
@@ -169,11 +161,9 @@ internal sealed class ChromeActions : IDisposable
     public void Dispose()
     {
         SelectTab.Dispose();
-        ShowMenu.Dispose();
-        ShowTools.Dispose();
+        ShowBarMenu.Dispose();
         ShowAddPages.Dispose();
         ShowChoosePages.Dispose();
-        ShowDocument.Dispose();
         ShowView.Dispose();
         ShowZoom.Dispose();
         ShowVoices.Dispose();
@@ -345,5 +335,19 @@ internal sealed class ChromeActions : IDisposable
                 Run(tab.GoToPageEntryCommand);
             },
             ErrorTrace.Write);
+    }
+
+    /// <summary>Opens a menu of the menu bar under its name. Left and Right in it open the menu beside it.</summary>
+    /// <param name="main">The main view model.</param>
+    /// <param name="chrome">The window's controls.</param>
+    /// <param name="index">The menu's place on the bar.</param>
+    private void OpenBarMenu(MainViewModel main, ViewerChrome chrome, int index)
+    {
+        if (!MenuBar.CanOpen(main, index))
+        {
+            return;
+        }
+
+        chrome.ShowMenu(MenuBar.Build(index, main, this), MenuBar.Under(chrome.Bars, ShowBarMenu, index), step => OpenBarMenu(main, chrome, MenuBar.Beside(main, index, step)));
     }
 }

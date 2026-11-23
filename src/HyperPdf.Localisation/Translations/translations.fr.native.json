@@ -503,7 +503,7 @@
   "_Two Pages Wide": "_Deux pages de large",
   "_Underlined": "_Souligné",
   "_View": "_Affichage",
-  "_Window": "_Fenêtre",
+  "_Window": "Fe_nêtre",
   "_Wrap the Pages": "_Enchaîner les pages",
   "no": "non",
   "yes": "oui",
@@ -651,5 +651,14 @@
   "Re_move This Tag": "_Supprimer cette balise",
   "Add a Boo_kmark Here…": "Ajouter un _signet ici…",
   "_Open the Link": "_Ouvrir le lien",
-  "_Copy the Link Address": "_Copier l’adresse du lien"
+  "_Copy the Link Address": "_Copier l’adresse du lien",
+  "_File": "_Fichier",
+  "_Edit": "Éd_ition",
+  "_Comment": "_Commentaire",
+  "F_orms": "F_ormulaires",
+  "_Tools": "Ou_tils",
+  "_Help": "Aid_e",
+  "Close the _Window": "Fermer la _fenêtre",
+  "_More Marking Tools": "_Autres outils de marquage",
+  "_Annotate": "_Annoter"
 }

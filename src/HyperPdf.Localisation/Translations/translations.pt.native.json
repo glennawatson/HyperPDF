@@ -502,8 +502,8 @@
   "_Tabs": "_Guias",
   "_Two Pages Wide": "_Duas páginas de largura",
   "_Underlined": "_Sublinhado",
-  "_View": "_Exibir",
-  "_Window": "_Janela",
+  "_View": "Exi_bir",
+  "_Window": "Ja_nela",
   "_Wrap the Pages": "_Quebrar as páginas",
   "no": "não",
   "yes": "sim",
@@ -651,5 +651,14 @@
   "Re_move This Tag": "_Remover esta etiqueta",
   "Add a Boo_kmark Here…": "Adicionar um _marcador aqui…",
   "_Open the Link": "_Abrir a ligação",
-  "_Copy the Link Address": "_Copiar o endereço da ligação"
+  "_Copy the Link Address": "_Copiar o endereço da ligação",
+  "_File": "_Ficheiro",
+  "_Edit": "_Editar",
+  "_Comment": "_Comentário",
+  "F_orms": "F_ormulários",
+  "_Tools": "Ferramen_tas",
+  "_Help": "Ajud_a",
+  "Close the _Window": "Fechar a _janela",
+  "_More Marking Tools": "_Mais ferramentas de marcação",
+  "_Annotate": "_Anotar"
 }

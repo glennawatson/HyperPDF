@@ -1440,6 +1440,9 @@
   <data name="Close tab" xml:space="preserve">
     <value>Tab schließen</value>
   </data>
+  <data name="Close the _Window" xml:space="preserve">
+    <value>_Fenster schließen</value>
+  </data>
   <data name="Close the find bar. Shortcut: Esc" xml:space="preserve">
     <value>Suchleiste schließen. Tastenkürzel: Esc</value>
   </data>
@@ -2198,6 +2201,9 @@
   </data>
   <data name="F_ind…" xml:space="preserve">
     <value>_Suchen…</value>
+  </data>
+  <data name="F_orms" xml:space="preserve">
+    <value>_Formulare</value>
   </data>
   <data name="Faster" xml:space="preserve">
     <value>Schneller</value>
@@ -7572,6 +7578,9 @@
   <data name="_Add a Bookmark Here…" xml:space="preserve">
     <value>Hier ein Lesezeichen _hinzufügen…</value>
   </data>
+  <data name="_Annotate" xml:space="preserve">
+    <value>_Kommentieren</value>
+  </data>
   <data name="_Annotate…" xml:space="preserve">
     <value>_Anmerken…</value>
   </data>
@@ -7629,6 +7638,9 @@
   <data name="_Comfort Page Colour" xml:space="preserve">
     <value>_Augenfreundliche Seitenfarbe</value>
   </data>
+  <data name="_Comment" xml:space="preserve">
+    <value>Ko_mmentar</value>
+  </data>
   <data name="_Compare with Another Document…" xml:space="preserve">
     <value>Mit einem anderen Dokument _vergleichen…</value>
   </data>
@@ -7657,7 +7669,7 @@
     <value>{0} _löschen</value>
   </data>
   <data name="_Document" xml:space="preserve">
-    <value>_Dokument</value>
+    <value>D_okument</value>
   </data>
   <data name="_Double" xml:space="preserve">
     <value>_Doppelt</value>
@@ -7673,6 +7685,9 @@
   </data>
   <data name="_Duplicate the Page" xml:space="preserve">
     <value>Seite _duplizieren</value>
+  </data>
+  <data name="_Edit" xml:space="preserve">
+    <value>_Bearbeiten</value>
   </data>
   <data name="_Edit Note" xml:space="preserve">
     <value>Notiz _bearbeiten</value>
@@ -7703,6 +7718,9 @@
   </data>
   <data name="_Export…" xml:space="preserve">
     <value>_Exportieren…</value>
+  </data>
+  <data name="_File" xml:space="preserve">
+    <value>_Datei</value>
   </data>
   <data name="_Files Joined on at the End…" xml:space="preserve">
     <value>_Dateien am Ende anfügen…</value>
@@ -7746,6 +7764,9 @@
   <data name="_Hand Tool" xml:space="preserve">
     <value>_Handwerkzeug</value>
   </data>
+  <data name="_Help" xml:space="preserve">
+    <value>_Hilfe</value>
+  </data>
   <data name="_Hide This Layer" xml:space="preserve">
     <value>Diese Ebene _ausblenden</value>
   </data>
@@ -7781,6 +7802,9 @@
   </data>
   <data name="_Merge Files…" xml:space="preserve">
     <value>Dateien _zusammenführen…</value>
+  </data>
+  <data name="_More Marking Tools" xml:space="preserve">
+    <value>_Weitere Markierungswerkzeuge</value>
   </data>
   <data name="_New Window" xml:space="preserve">
     <value>_Neues Fenster</value>
@@ -7968,6 +7992,9 @@
   <data name="_Tight" xml:space="preserve">
     <value>_Eng</value>
   </data>
+  <data name="_Tools" xml:space="preserve">
+    <value>_Werkzeuge</value>
+  </data>
   <data name="_Two Pages" xml:space="preserve">
     <value>_Zwei Seiten</value>
   </data>
@@ -7993,7 +8020,7 @@
     <value>_Breit</value>
   </data>
   <data name="_Window" xml:space="preserve">
-    <value>_Fenster</value>
+    <value>Fe_nster</value>
   </data>
   <data name="_Wrap Pages" xml:space="preserve">
     <value>_Seiten umbrechen</value>

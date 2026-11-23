@@ -651,5 +651,14 @@
   "Re_move This Tag": "移除此标签(_M)",
   "Add a Boo_kmark Here…": "在此添加书签(_K)…",
   "_Open the Link": "打开链接(_O)",
-  "_Copy the Link Address": "复制链接地址(_C)"
+  "_Copy the Link Address": "复制链接地址(_C)",
+  "_File": "文件(_F)",
+  "_Edit": "编辑(_E)",
+  "_Comment": "注释(_C)",
+  "F_orms": "表单(_O)",
+  "_Tools": "工具(_T)",
+  "_Help": "帮助(_H)",
+  "Close the _Window": "关闭窗口(_W)",
+  "_More Marking Tools": "更多标记工具(_M)",
+  "_Annotate": "批注(_A)"
 }

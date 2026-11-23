@@ -651,5 +651,14 @@
   "Re_move This Tag": "إزالة هذه العلامة",
   "Add a Boo_kmark Here…": "إضافة إشارة مرجعية هنا…",
   "_Open the Link": "فتح الرابط",
-  "_Copy the Link Address": "نسخ عنوان الرابط"
+  "_Copy the Link Address": "نسخ عنوان الرابط",
+  "_File": "_ملف",
+  "_Edit": "_تحرير",
+  "_Comment": "_تعليق",
+  "F_orms": "_نماذج",
+  "_Tools": "_أدوات",
+  "_Help": "_مساعدة",
+  "Close the _Window": "إغلاق _النافذة",
+  "_More Marking Tools": "_أدوات تعليم إضافية",
+  "_Annotate": "_إضافة تعليقات"
 }

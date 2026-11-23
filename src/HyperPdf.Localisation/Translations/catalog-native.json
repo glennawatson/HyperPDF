@@ -651,5 +651,14 @@
   "Re_move This Tag": "Re_move This Tag",
   "Add a Boo_kmark Here…": "Add a Boo_kmark Here…",
   "_Open the Link": "_Open the Link",
-  "_Copy the Link Address": "_Copy the Link Address"
+  "_Copy the Link Address": "_Copy the Link Address",
+  "_File": "_File",
+  "_Edit": "_Edit",
+  "_Comment": "_Comment",
+  "F_orms": "F_orms",
+  "_Tools": "_Tools",
+  "_Help": "_Help",
+  "Close the _Window": "Close the _Window",
+  "_More Marking Tools": "_More Marking Tools",
+  "_Annotate": "_Annotate"
 }

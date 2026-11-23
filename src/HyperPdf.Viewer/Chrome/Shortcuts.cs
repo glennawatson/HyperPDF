@@ -124,6 +124,18 @@ internal static class Shortcuts
         return null;
     }
 
+    /// <summary>Gets what undo runs: the page edit's undo while page objects are being edited, and the annotations' otherwise.</summary>
+    /// <param name="main">The main view model.</param>
+    /// <returns>The command, or <see langword="null"/> with no tab.</returns>
+    internal static ReactiveCommand<RxVoid, RxVoid>? UndoOf(MainViewModel main) =>
+        main.SelectedTab is { ContentEdit.IsEditing: true } tab ? tab.Pages.UndoCommand : main.SelectedTab?.Annotations.UndoCommand;
+
+    /// <summary>Gets what redo runs: the page edit's redo while page objects are being edited, and the annotations' otherwise.</summary>
+    /// <param name="main">The main view model.</param>
+    /// <returns>The command, or <see langword="null"/> with no tab.</returns>
+    internal static ReactiveCommand<RxVoid, RxVoid>? RedoOf(MainViewModel main) =>
+        main.SelectedTab is { ContentEdit.IsEditing: true } tab ? tab.Pages.RedoCommand : main.SelectedTab?.Annotations.RedoCommand;
+
     /// <summary>Gets what Ctrl+Shift+Up runs: moves the chosen bookmark, tag or page one place up, in whichever list the side panel shows.</summary>
     /// <param name="main">The main view model.</param>
     /// <returns>The command, or <see langword="null"/> when the side panel shows no list that can be put in order.</returns>
@@ -200,18 +212,6 @@ internal static class Shortcuts
     /// <param name="tab">The tab.</param>
     /// <returns><see langword="true"/> when the page takes the key.</returns>
     private static bool PageHasTheKey(DocumentTabViewModel tab) => tab.Annotations.Selected is not null || tab.ContentEdit.IsEditing;
-
-    /// <summary>Gets what undo runs: the page edit's undo while page objects are being edited, and the annotations' otherwise.</summary>
-    /// <param name="main">The main view model.</param>
-    /// <returns>The command, or <see langword="null"/> with no tab.</returns>
-    private static ReactiveCommand<RxVoid, RxVoid>? UndoOf(MainViewModel main) =>
-        main.SelectedTab is { ContentEdit.IsEditing: true } tab ? tab.Pages.UndoCommand : main.SelectedTab?.Annotations.UndoCommand;
-
-    /// <summary>Gets what redo runs: the page edit's redo while page objects are being edited, and the annotations' otherwise.</summary>
-    /// <param name="main">The main view model.</param>
-    /// <returns>The command, or <see langword="null"/> with no tab.</returns>
-    private static ReactiveCommand<RxVoid, RxVoid>? RedoOf(MainViewModel main) =>
-        main.SelectedTab is { ContentEdit.IsEditing: true } tab ? tab.Pages.RedoCommand : main.SelectedTab?.Annotations.RedoCommand;
 
     /// <summary>Gets what Escape runs: it ends a presentation or reading mode, whose bars are hidden, and does nothing otherwise.</summary>
     /// <param name="main">The main view model.</param>

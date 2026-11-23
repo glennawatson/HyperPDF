@@ -503,7 +503,7 @@
   "_Two Pages Wide": "_Dos páginas de ancho",
   "_Underlined": "_Subrayado",
   "_View": "_Ver",
-  "_Window": "_Ventana",
+  "_Window": "Ve_ntana",
   "_Wrap the Pages": "_Ajustar las páginas",
   "no": "no",
   "yes": "sí",
@@ -651,5 +651,14 @@
   "Re_move This Tag": "_Quitar esta etiqueta",
   "Add a Boo_kmark Here…": "Añadir un _marcador aquí…",
   "_Open the Link": "_Abrir el enlace",
-  "_Copy the Link Address": "_Copiar la dirección del enlace"
+  "_Copy the Link Address": "_Copiar la dirección del enlace",
+  "_File": "_Archivo",
+  "_Edit": "_Edición",
+  "_Comment": "_Comentario",
+  "F_orms": "_Formularios",
+  "_Tools": "_Herramientas",
+  "_Help": "A_yuda",
+  "Close the _Window": "Cerrar la _ventana",
+  "_More Marking Tools": "_Más herramientas de marcado",
+  "_Annotate": "_Anotar"
 }

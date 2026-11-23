@@ -1440,6 +1440,9 @@
   <data name="Close tab" xml:space="preserve">
     <value>إغلاق علامة التبويب</value>
   </data>
+  <data name="Close the _Window" xml:space="preserve">
+    <value>إغلاق _النافذة</value>
+  </data>
   <data name="Close the find bar. Shortcut: Esc" xml:space="preserve">
     <value>أغلق شريط البحث. الاختصار: Esc</value>
   </data>
@@ -2198,6 +2201,9 @@
   </data>
   <data name="F_ind…" xml:space="preserve">
     <value>_بحث…</value>
+  </data>
+  <data name="F_orms" xml:space="preserve">
+    <value>_نماذج</value>
   </data>
   <data name="Faster" xml:space="preserve">
     <value>أسرع</value>
@@ -7572,6 +7578,9 @@
   <data name="_Add a Bookmark Here…" xml:space="preserve">
     <value>_إضافة إشارة مرجعية هنا…</value>
   </data>
+  <data name="_Annotate" xml:space="preserve">
+    <value>_إضافة تعليقات</value>
+  </data>
   <data name="_Annotate…" xml:space="preserve">
     <value>_إضافة تعليق…</value>
   </data>
@@ -7629,6 +7638,9 @@
   <data name="_Comfort Page Colour" xml:space="preserve">
     <value>لون صفحة _مريح</value>
   </data>
+  <data name="_Comment" xml:space="preserve">
+    <value>_تعليق</value>
+  </data>
   <data name="_Compare with Another Document…" xml:space="preserve">
     <value>_مقارنة مع مستند آخر…</value>
   </data>
@@ -7674,6 +7686,9 @@
   <data name="_Duplicate the Page" xml:space="preserve">
     <value>_تكرار الصفحة</value>
   </data>
+  <data name="_Edit" xml:space="preserve">
+    <value>_تحرير</value>
+  </data>
   <data name="_Edit Note" xml:space="preserve">
     <value>_تحرير الملاحظة</value>
   </data>
@@ -7703,6 +7718,9 @@
   </data>
   <data name="_Export…" xml:space="preserve">
     <value>تصدير…</value>
+  </data>
+  <data name="_File" xml:space="preserve">
+    <value>_ملف</value>
   </data>
   <data name="_Files Joined on at the End…" xml:space="preserve">
     <value>ملفات تُضاف في النهاية…</value>
@@ -7746,6 +7764,9 @@
   <data name="_Hand Tool" xml:space="preserve">
     <value>أداة ال_يد</value>
   </data>
+  <data name="_Help" xml:space="preserve">
+    <value>_مساعدة</value>
+  </data>
   <data name="_Hide This Layer" xml:space="preserve">
     <value>إخفاء هذه الطبقة</value>
   </data>
@@ -7781,6 +7802,9 @@
   </data>
   <data name="_Merge Files…" xml:space="preserve">
     <value>_دمج الملفات…</value>
+  </data>
+  <data name="_More Marking Tools" xml:space="preserve">
+    <value>_أدوات تعليم إضافية</value>
   </data>
   <data name="_New Window" xml:space="preserve">
     <value>نافذة _جديدة</value>
@@ -7967,6 +7991,9 @@
   </data>
   <data name="_Tight" xml:space="preserve">
     <value>_ضيّق</value>
+  </data>
+  <data name="_Tools" xml:space="preserve">
+    <value>_أدوات</value>
   </data>
   <data name="_Two Pages" xml:space="preserve">
     <value>صف_حتان</value>

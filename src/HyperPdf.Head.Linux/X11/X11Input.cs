@@ -175,6 +175,7 @@ internal static class X11Input
     private static readonly Dictionary<uint, ViewerKey> MoreKeys = new()
     {
         [0x62] = ViewerKey.B,
+        [0x64] = ViewerKey.D,
         [0x65] = ViewerKey.E,
         [0x67] = ViewerKey.G,
         [0x68] = ViewerKey.H,

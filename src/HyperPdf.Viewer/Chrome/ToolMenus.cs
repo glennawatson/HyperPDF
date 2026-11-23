@@ -362,21 +362,28 @@ internal static class ToolMenus
         return entries;
     }
 
-    /// <summary>Lists the tools that work on the page besides marking: measuring, filling and signing, changing the page's own content and taking a picture of an area.</summary>
+    /// <summary>Lists the measuring tool and what can be done with a measurement.</summary>
     /// <param name="tab">The tab shown.</param>
     /// <returns>The entries.</returns>
-    internal static List<MenuEntry> PageWork(DocumentTabViewModel tab)
+    internal static List<MenuEntry> Measuring(DocumentTabViewModel tab)
     {
         var measure = tab.Measure;
-        var sign = tab.FillAndSign;
-        var edit = tab.ContentEdit;
-        var marks = tab.Annotations;
         return
         [
             MenuEntry.Radio(UiText.Get("_Measure"), measure.ToggleCommand, null, measure.IsOn),
             Item("Keep the Measurement as a Mark", measure.KeepCommand),
             Item("Clear the Measurement", measure.ClearCommand),
-            MenuEntry.Separator(),
+        ];
+    }
+
+    /// <summary>Lists filling and signing: placing a signature or initials and adjusting the mark being placed.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>The entries.</returns>
+    internal static List<MenuEntry> Signing(DocumentTabViewModel tab)
+    {
+        var sign = tab.FillAndSign;
+        return
+        [
             MenuEntry.Radio(UiText.Get("_Fill and Sign"), sign.ToggleCommand, null, sign.IsActive),
             Item("Place My _Signature…", sign.SignatureCommand),
             Item("Place My _Initials…", sign.InitialsCommand),
@@ -386,8 +393,37 @@ internal static class ToolMenus
             Item("Make the Mark Smaller", sign.SmallerCommand),
             Item("Remove the Mark", sign.RemoveMarkCommand),
             Item("Stop Placing", sign.CancelPlacementCommand),
+        ];
+    }
+
+    /// <summary>Lists the form fields that can be added and what can be changed about the picked field.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>The entries.</returns>
+    internal static List<MenuEntry> FormFields(DocumentTabViewModel tab)
+    {
+        var design = tab.FormDesign;
+        return
+        [
+            Item("Add a Form _Text Field", design.AddTextFieldCommand),
+            Item("Add a Form Check _Box", design.AddCheckBoxCommand),
+            Item("Add a Form Drop-_Down List", design.AddDropDownCommand),
+            Item("Add a Form _Button", design.AddButtonCommand),
             MenuEntry.Separator(),
-            Item("_Edit the Page's Own Content", edit.ToggleEditingCommand),
+            Item("Make the Picked Field Required or Not", design.ToggleRequiredCommand),
+            Item("Make the Picked Field Read-Only or Not", design.ToggleReadOnlyCommand),
+            Item("Remove the Picked Form Field", design.RemoveFocusedCommand),
+        ];
+    }
+
+    /// <summary>Lists what changes the page's own content: turning Edit mode on, adding shapes, text and pictures, and changing the picked objects.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>The entries.</returns>
+    internal static List<MenuEntry> ContentEditing(DocumentTabViewModel tab)
+    {
+        var edit = tab.ContentEdit;
+        return
+        [
+            MenuEntry.Radio(UiText.Get("_Edit the Page's Own Content"), edit.ToggleEditingCommand, null, edit.IsEditing),
             Item("Change the Picked Text…", edit.EditPickedTextCommand),
             Item("Remove the Picked Object", edit.RemovePickedCommand),
             Item("Add a _Rectangle", edit.AddRectangleCommand),
@@ -406,23 +442,6 @@ internal static class ToolMenus
             .. Palette("Fill the Picked Object with {0}", edit.SetPickedFillCommand),
             .. Palette("Colour the Picked Object's Line {0}", edit.SetPickedLineCommand),
             .. Looks(edit),
-            MenuEntry.Separator(),
-            Item("Add a Form _Text Field", tab.FormDesign.AddTextFieldCommand),
-            Item("Add a Form Check _Box", tab.FormDesign.AddCheckBoxCommand),
-            Item("Add a Form Drop-_Down List", tab.FormDesign.AddDropDownCommand),
-            Item("Add a Form _Button", tab.FormDesign.AddButtonCommand),
-            Item("Make the Picked Field Required or Not", tab.FormDesign.ToggleRequiredCommand),
-            Item("Make the Picked Field Read-Only or Not", tab.FormDesign.ToggleReadOnlyCommand),
-            Item("Remove the Picked Form Field", tab.FormDesign.RemoveFocusedCommand),
-            MenuEntry.Separator(),
-            Item("Stamp from a _Picture…", marks.PictureStampCommand),
-            Item("Stamp with My Own _Words…", marks.CustomStampCommand),
-            Item("Make the Typed Text Larger", marks.GrowTextCommand),
-            Item("Make the Typed Text Smaller", marks.ShrinkTextCommand),
-            Item("Show Every Note Again", marks.ClearFilterCommand),
-            MenuEntry.Separator(),
-            Item("Take a Picture of an _Area", tab.PageTools.ToggleSnapshotToolCommand),
-            Item("Show Every _Layer as the Document Sets It", tab.Layers.ResetCommand),
         ];
     }
 
