@@ -9,7 +9,7 @@ using HyperPdf.Core.Media;
 namespace HyperPdf.Benchmarks;
 
 /// <summary>Measures the parts of in-app media playback that run on every picture and caption; allocations come from the EventPipe trace.</summary>
-public sealed class MediaPlaybackBenchmarks : IDisposable
+public class MediaPlaybackBenchmarks : IDisposable
 {
     /// <summary>The captions in the sample file.</summary>
     private const int CueCount = 300;
@@ -72,7 +72,8 @@ public sealed class MediaPlaybackBenchmarks : IDisposable
     [GlobalCleanup]
     public void Dispose()
     {
-        // The pump and the pictures hold no unmanaged resources.
+        Dispose(true);
+        GC.SuppressFinalize(this);
     }
 
     /// <summary>Reads a file of captions.</summary>
@@ -96,5 +97,12 @@ public sealed class MediaPlaybackBenchmarks : IDisposable
         }
 
         return _pump.TryCopy(_copy) ? _pump.Version : 0;
+    }
+
+    /// <summary>Releases nothing: the pump and the pictures hold no unmanaged resources.</summary>
+    /// <param name="disposing">Whether the call comes from <see cref="Dispose()"/>.</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        // The pump and the pictures are plain arrays.
     }
 }

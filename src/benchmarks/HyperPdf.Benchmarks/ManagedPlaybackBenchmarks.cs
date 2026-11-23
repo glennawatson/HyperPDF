@@ -9,7 +9,7 @@ using ReactiveUI.Primitives;
 namespace HyperPdf.Benchmarks;
 
 /// <summary>Measures opening a clip and playing it to its end with the built-in decoders; allocations come from the EventPipe trace.</summary>
-public sealed class ManagedPlaybackBenchmarks : IDisposable
+public class ManagedPlaybackBenchmarks : IDisposable
 {
     /// <summary>The longest to wait for the clip to end, in seconds.</summary>
     private const int WaitSeconds = 30;
@@ -26,7 +26,11 @@ public sealed class ManagedPlaybackBenchmarks : IDisposable
 
     /// <summary>Stops the player.</summary>
     [GlobalCleanup]
-    public void Dispose() => _player?.Dispose();
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
 
     /// <summary>Opens the clip and reads what it holds.</summary>
     /// <returns>A task that completes with the width of the picture.</returns>
@@ -57,5 +61,15 @@ public sealed class ManagedPlaybackBenchmarks : IDisposable
         _player.Play();
         await ended.Task.WaitAsync(TimeSpan.FromSeconds(WaitSeconds)).ConfigureAwait(false);
         return _player.Snapshot.FrameVersion;
+    }
+
+    /// <summary>Releases the player.</summary>
+    /// <param name="disposing">Whether the call comes from <see cref="Dispose()"/>.</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _player?.Dispose();
+        }
     }
 }

@@ -13,7 +13,7 @@ using HyperPdfLibrary.Objects;
 namespace HyperPdf.Benchmarks;
 
 /// <summary>Measures name classification and bounded colour-space resource walks.</summary>
-public sealed class PdfNameClassificationBenchmarks
+public class PdfNameClassificationBenchmarks
 {
     /// <summary>The caller's markup-only flattening options.</summary>
     private readonly PdfFlattenOptions _options = new() { Targets = PdfFlattenTargets.MarkupOnly };

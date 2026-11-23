@@ -79,7 +79,7 @@ if (added != 0)
 
 try
 {
-    var relative = Path.Combine("benchmarks", "HyperPdf.Benchmarks");
+    var relative = Path.Combine("src", "benchmarks", "HyperPdf.Benchmarks");
     CopyBenchmarks(Path.Combine(root, relative), Path.Combine(baseline, relative));
     string[] allocation = [
         "--launchCount",
