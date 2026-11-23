@@ -306,6 +306,9 @@
   <data name="Add a Boo_kmark Here…" xml:space="preserve">
     <value>إضافة إشارة مرجعية هنا…</value>
   </data>
+  <data name="Add a Box to _Sign" xml:space="preserve">
+    <value>إضافة مربع توقيع</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>إضافة _خانة اختيار نموذج</value>
   </data>
@@ -315,8 +318,14 @@
   <data name="Add a Form _Button" xml:space="preserve">
     <value>إضافة _زر نموذج</value>
   </data>
+  <data name="Add a Form _List Box" xml:space="preserve">
+    <value>إضافة مربع قائمة للنموذج</value>
+  </data>
   <data name="Add a Form _Text Field" xml:space="preserve">
     <value>إضافة حقل _نص نموذج</value>
+  </data>
+  <data name="Add a Pair of _Radio Buttons" xml:space="preserve">
+    <value>إضافة زرّي اختيار</value>
   </data>
   <data name="Add a _Blank Page" xml:space="preserve">
     <value>إضافة صفحة فارغة</value>
@@ -603,6 +612,15 @@
   <data name="As PDF/A-3u, and the file must have a reading structure (tags) for screen readers." xml:space="preserve">
     <value>مثل PDF/A-3u، ويجب أن يتضمن الملف بنية قراءة (وسومًا) لقارئات الشاشة.</value>
   </data>
+  <data name="As _HTML…" xml:space="preserve">
+    <value>بصيغة HTML…</value>
+  </data>
+  <data name="As _Markdown…" xml:space="preserve">
+    <value>بصيغة Markdown…</value>
+  </data>
+  <data name="As _Plain Text…" xml:space="preserve">
+    <value>كنص عادي…</value>
+  </data>
   <data name="As above, and the outlines of links are drawn on the page too." xml:space="preserve">
     <value>كما سبق، مع رسم حدود الروابط على الصفحة أيضًا.</value>
   </data>
@@ -618,8 +636,20 @@
   <data name="Asking the timestamp server for a trusted time." xml:space="preserve">
     <value>جارٍ طلب وقت موثوق من خادم الختم الزمني.</value>
   </data>
+  <data name="Attach a _File…" xml:space="preserve">
+    <value>إرفاق ملف…</value>
+  </data>
+  <data name="Attach a file" xml:space="preserve">
+    <value>إرفاق ملف</value>
+  </data>
+  <data name="Attached 1 file." xml:space="preserve">
+    <value>تم إرفاق ملف واحد.</value>
+  </data>
   <data name="Attached files can be listed and saved, not changed." xml:space="preserve">
     <value>يمكن سرد الملفات المرفقة وحفظها، ولكن لا يمكن تعديلها.</value>
+  </data>
+  <data name="Attached {0} files." xml:space="preserve">
+    <value>تم إرفاق {0} ملفات.</value>
   </data>
   <data name="Attachments" xml:space="preserve">
     <value>المرفقات</value>
@@ -864,6 +894,9 @@
   <data name="Change how wide the column of text is." xml:space="preserve">
     <value>غيّر عرض عمود النص.</value>
   </data>
+  <data name="Change the Document _Details…" xml:space="preserve">
+    <value>تغيير تفاصيل المستند…</value>
+  </data>
   <data name="Change the Picked Paragraph…" xml:space="preserve">
     <value>تغيير الفقرة المحددة…</value>
   </data>
@@ -911,6 +944,9 @@
   </data>
   <data name="Changed the dashes." xml:space="preserve">
     <value>تم تغيير الشرطات.</value>
+  </data>
+  <data name="Changed the document's details. Save to keep them." xml:space="preserve">
+    <value>تم تغيير تفاصيل المستند. احفظ للاحتفاظ بها.</value>
   </data>
   <data name="Changed the fill colour." xml:space="preserve">
     <value>تم تغيير لون التعبئة.</value>
@@ -1440,6 +1476,9 @@
   <data name="Close tab" xml:space="preserve">
     <value>إغلاق علامة التبويب</value>
   </data>
+  <data name="Close the _Window" xml:space="preserve">
+    <value>إغلاق _النافذة</value>
+  </data>
   <data name="Close the find bar. Shortcut: Esc" xml:space="preserve">
     <value>أغلق شريط البحث. الاختصار: Esc</value>
   </data>
@@ -1572,6 +1611,9 @@
   <data name="Could not add pictures as pages." xml:space="preserve">
     <value>تعذرت إضافة الصور كصفحات.</value>
   </data>
+  <data name="Could not attach the file: {0}" xml:space="preserve">
+    <value>تعذّر إرفاق الملف: {0}</value>
+  </data>
   <data name="Could not change the page numbers." xml:space="preserve">
     <value>تعذّر تغيير أرقام الصفحات.</value>
   </data>
@@ -1665,11 +1707,17 @@
   <data name="Could not save the copy: {0}" xml:space="preserve">
     <value>تعذّر حفظ النسخة: {0}</value>
   </data>
+  <data name="Could not save the file: {0}" xml:space="preserve">
+    <value>تعذّر حفظ الملف: {0}</value>
+  </data>
   <data name="Could not save the image: {0}" xml:space="preserve">
     <value>تعذّر حفظ الصورة: {0}</value>
   </data>
   <data name="Could not save the pages as separate files." xml:space="preserve">
     <value>تعذّر حفظ الصفحات كملفات منفصلة.</value>
+  </data>
+  <data name="Could not save the parts as separate files." xml:space="preserve">
+    <value>تعذّر حفظ الأجزاء كملفات منفصلة.</value>
   </data>
   <data name="Could not save the picture." xml:space="preserve">
     <value>تعذّر حفظ الصورة.</value>
@@ -1685,6 +1733,9 @@
   </data>
   <data name="Could not save: {0}" xml:space="preserve">
     <value>تعذّر الحفظ: {0}</value>
+  </data>
+  <data name="Could not shuffle the pages in." xml:space="preserve">
+    <value>تعذّر إدخال الصفحات بالتناوب.</value>
   </data>
   <data name="Could not sign: {0}" xml:space="preserve">
     <value>تعذّر التوقيع: {0}</value>
@@ -1850,6 +1901,9 @@
   </data>
   <data name="Document Propert_ies…" xml:space="preserve">
     <value>خصائص ال_مستند…</value>
+  </data>
+  <data name="Document details" xml:space="preserve">
+    <value>تفاصيل المستند</value>
   </data>
   <data name="Document digest, if your signing service wants a hash: {0}" xml:space="preserve">
     <value>بصمة المستند، إذا طلبت خدمة التوقيع بصمة: {0}</value>
@@ -2058,6 +2112,9 @@
   <data name="E_xport Pages as Pictures or Drawings…" xml:space="preserve">
     <value>تصدير الصفحات كصور أو رسومات…</value>
   </data>
+  <data name="E_xport the Text" xml:space="preserve">
+    <value>تصدير النص</value>
+  </data>
   <data name="E_xtract Pages…" xml:space="preserve">
     <value>است_خراج الصفحات…</value>
   </data>
@@ -2199,6 +2256,9 @@
   <data name="F_ind…" xml:space="preserve">
     <value>_بحث…</value>
   </data>
+  <data name="F_orms" xml:space="preserve">
+    <value>_نماذج</value>
+  </data>
   <data name="Faster" xml:space="preserve">
     <value>أسرع</value>
   </data>
@@ -2247,6 +2307,9 @@
   <data name="Filter and Sort" xml:space="preserve">
     <value>تصفية وفرز</value>
   </data>
+  <data name="Filter and _Sort the Notes…" xml:space="preserve">
+    <value>تصفية الملاحظات وترتيبها…</value>
+  </data>
   <data name="Filter and sort" xml:space="preserve">
     <value>تصفية وفرز</value>
   </data>
@@ -2267,6 +2330,12 @@
   </data>
   <data name="Find an open tab by part of its name, title or folder. Shortcut: Ctrl+Shift+A" xml:space="preserve">
     <value>اعثر على علامة تبويب مفتوحة بجزء من اسمها أو عنوانها أو مجلدها. الاختصار: Ctrl+Shift+A</value>
+  </data>
+  <data name="Find and _Replace in the Pages…" xml:space="preserve">
+    <value>بحث واستبدال في الصفحات…</value>
+  </data>
+  <data name="Find and replace" xml:space="preserve">
+    <value>بحث واستبدال</value>
   </data>
   <data name="Find in document" xml:space="preserve">
     <value>البحث في المستند</value>
@@ -2831,6 +2900,9 @@
   </data>
   <data name="Keep the text you are typing. Shortcut: Ctrl+Enter." xml:space="preserve">
     <value>الاحتفاظ بالنص الذي تكتبه. الاختصار: Ctrl+Enter.</value>
+  </data>
+  <data name="Keep these details" xml:space="preserve">
+    <value>الاحتفاظ بهذه التفاصيل</value>
   </data>
   <data name="Keep this language and start using the app." xml:space="preserve">
     <value>احتفظ بهذه اللغة وابدأ استخدام التطبيق.</value>
@@ -4008,6 +4080,9 @@
   <data name="Pages in order" xml:space="preserve">
     <value>الصفحات بالترتيب</value>
   </data>
+  <data name="Pages of a File _Shuffled In…" xml:space="preserve">
+    <value>صفحات ملف بالتناوب…</value>
+  </data>
   <data name="Pages per sheet" xml:space="preserve">
     <value>الصفحات في كل ورقة</value>
   </data>
@@ -4827,8 +4902,17 @@
   <data name="Repeated content" xml:space="preserve">
     <value>محتوى مكرر</value>
   </data>
+  <data name="Replace all" xml:space="preserve">
+    <value>استبدال الكل</value>
+  </data>
+  <data name="Replace with" xml:space="preserve">
+    <value>استبدال بـ</value>
+  </data>
   <data name="Replaced the picture." xml:space="preserve">
     <value>تم استبدال الصورة.</value>
+  </data>
+  <data name="Replaced the words {0} times on {1} pages." xml:space="preserve">
+    <value>تم استبدال الكلمات {0} مرات في {1} صفحات.</value>
   </data>
   <data name="Replacement text" xml:space="preserve">
     <value>النص البديل</value>
@@ -4926,6 +5010,9 @@
   <data name="SVG drawing" xml:space="preserve">
     <value>رسم SVG</value>
   </data>
+  <data name="S_huffle In the Pages of a File…" xml:space="preserve">
+    <value>إدخال صفحات ملف بالتناوب…</value>
+  </data>
   <data name="S_plit the View" xml:space="preserve">
     <value>_تقسيم العرض</value>
   </data>
@@ -4934,6 +5021,9 @@
   </data>
   <data name="S_top" xml:space="preserve">
     <value>إي_قاف</value>
+  </data>
+  <data name="S_wap the Two Selected Pages" xml:space="preserve">
+    <value>تبديل الصفحتين المحددتين</value>
   </data>
   <data name="Safety" xml:space="preserve">
     <value>الأمان</value>
@@ -5124,8 +5214,17 @@
   <data name="Save tag changes" xml:space="preserve">
     <value>حفظ تغييرات الوسوم</value>
   </data>
+  <data name="Save the Answers as _FDF…" xml:space="preserve">
+    <value>حفظ الإجابات بصيغة FDF…</value>
+  </data>
+  <data name="Save the Answers as _XFDF…" xml:space="preserve">
+    <value>حفظ الإجابات بصيغة XFDF…</value>
+  </data>
   <data name="Save the Bytes to Sign" xml:space="preserve">
     <value>حفظ البايتات المراد توقيعها</value>
+  </data>
+  <data name="Save the Parts Between _Bookmarks as Files…" xml:space="preserve">
+    <value>حفظ الأجزاء بين الإشارات المرجعية كملفات…</value>
   </data>
   <data name="Save the Picked Picture as a File…" xml:space="preserve">
     <value>حفظ الصورة المحددة كملف…</value>
@@ -5196,8 +5295,17 @@
   <data name="Saved the changes to {0}. Undo takes them back." xml:space="preserve">
     <value>حُفظت التغييرات في {0}. يعيدها التراجع.</value>
   </data>
+  <data name="Saved the document as {0} parts in {1}, each starting at a bookmark." xml:space="preserve">
+    <value>تم حفظ المستند في {0} أجزاء في {1}، يبدأ كل منها عند إشارة مرجعية.</value>
+  </data>
+  <data name="Saved the form's answers to {0}." xml:space="preserve">
+    <value>تم حفظ إجابات النموذج في {0}.</value>
+  </data>
   <data name="Saved the picture." xml:space="preserve">
     <value>تم حفظ الصورة.</value>
+  </data>
+  <data name="Saved the text to {0}." xml:space="preserve">
+    <value>تم حفظ النص في {0}.</value>
   </data>
   <data name="Saved {0} files, numbered by page, next to {1}." xml:space="preserve">
     <value>حُفظت {0} ملفات مرقمة حسب الصفحة بجوار {1}.</value>
@@ -6102,6 +6210,9 @@
   <data name="Tags tell a screen reader how this document reads. Choose a tag to change it." xml:space="preserve">
     <value>تخبر الوسوم قارئ الشاشة بكيفية قراءة هذا المستند. اختر وسماً لتغييره.</value>
   </data>
+  <data name="Take It Out" xml:space="preserve">
+    <value>إزالته</value>
+  </data>
   <data name="Take This Page out of the Selection" xml:space="preserve">
     <value>إزالة هذه الصفحة من التحديد</value>
   </data>
@@ -6143,6 +6254,9 @@
   </data>
   <data name="Take this much off the top, in points" xml:space="preserve">
     <value>قص هذا المقدار من الأعلى، بالنقاط</value>
+  </data>
+  <data name="Take {0} out of the document?" xml:space="preserve">
+    <value>إزالة {0} من المستند؟</value>
   </data>
   <data name="Text" xml:space="preserve">
     <value>النص</value>
@@ -6285,6 +6399,9 @@
   <data name="The app changes straight away. You can change this later in Preferences." xml:space="preserve">
     <value>يتغير التطبيق فورًا. يمكنك تغيير ذلك لاحقًا من التفضيلات.</value>
   </data>
+  <data name="The attached files could not be changed." xml:space="preserve">
+    <value>تعذّر تغيير الملفات المرفقة.</value>
+  </data>
   <data name="The bookmarks could not be changed." xml:space="preserve">
     <value>تعذّر تغيير الإشارات المرجعية.</value>
   </data>
@@ -6351,6 +6468,9 @@
   <data name="The document was closed or reloaded while this window was open. Close this window and open it again from the menu." xml:space="preserve">
     <value>أُغلق المستند أو أُعيد تحميله أثناء فتح هذه النافذة. أغلقها وافتحها مجددًا من القائمة.</value>
   </data>
+  <data name="The document's details could not be changed." xml:space="preserve">
+    <value>تعذّر تغيير تفاصيل المستند.</value>
+  </data>
   <data name="The document's pages. Page Up and Page Down move a page at a time. F7 turns on a text cursor for the arrow keys. The value is the current page's text." xml:space="preserve">
     <value>صفحات المستند. ينتقل Page Up وPage Down صفحة واحدة في كل مرة. يفعّل F7 مؤشر النص لمفاتيح الأسهم. القيمة هي نص الصفحة الحالية.</value>
   </data>
@@ -6377,6 +6497,9 @@
   </data>
   <data name="The file holds no certificate." xml:space="preserve">
     <value>لا يحتوي الملف على شهادة.</value>
+  </data>
+  <data name="The file is no longer kept inside this PDF once you save. Save a copy of it first if you need it." xml:space="preserve">
+    <value>لن يبقى الملف داخل هذا المستند بعد الحفظ. احفظ نسخة منه أولاً إذا احتجت إليها.</value>
   </data>
   <data name="The file listed &quot;{0}&quot; as something it needs. The edits left nothing in the file that uses it, so the requirement was removed." xml:space="preserve">
     <value>كان الملف يسرد «{0}» ضمن متطلباته. لم تترك التعديلات أي محتوى يستخدمه، لذا أُزيل هذا المتطلب.</value>
@@ -6660,6 +6783,9 @@
   <data name="This document could not be opened" xml:space="preserve">
     <value>تعذّر فتح هذا المستند</value>
   </data>
+  <data name="This document has no bookmarks to split it at." xml:space="preserve">
+    <value>لا توجد في هذا المستند إشارات مرجعية لتقسيمه عندها.</value>
+  </data>
   <data name="This document has no outline." xml:space="preserve">
     <value>لا توجد بنية لهذا المستند.</value>
   </data>
@@ -6690,98 +6816,113 @@
   <data name="This document needs a certificate" xml:space="preserve">
     <value>يحتاج هذا المستند إلى شهادة</value>
   </data>
-  <data name="This document uses 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses 3D models, which HyperPDF cannot show or run. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses 3D models, which HyperPDF cannot show or run. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند حافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند حافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form and form scripts, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA وبرامج نصية للنماذج، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form and form scripts, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA وبرامج نصية للنماذج، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA وصوت أو فيديو، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA وصوت أو فيديو، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج وصوت أو فيديو، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج وصوت أو فيديو، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج, صوت أو فيديو ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج, صوت أو فيديو ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج, صوت أو فيديو وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج, صوت أو فيديو وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج, صوت أو فيديو, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA, برامج نصية للنماذج, صوت أو فيديو, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA, صوت أو فيديو ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA, صوت أو فيديو ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA, صوت أو فيديو وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA, صوت أو فيديو وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA, صوت أو فيديو, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA, صوت أو فيديو, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses an XFA form, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند نموذج XFA، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند نموذج XFA، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصفحات المعروضة هي النسخة المعدة لبرامج العرض الأخرى وقد تكون فارغة أو قديمة. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses form scripts and 3D models, which HyperPDF cannot show or run. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند برامج نصية للنماذج ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts and 3D models, which HyperPDF cannot show or run. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند برامج نصية للنماذج ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses form scripts and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند برامج نصية للنماذج وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند برامج نصية للنماذج وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses form scripts and sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند برامج نصية للنماذج وصوت أو فيديو، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts and sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند برامج نصية للنماذج وصوت أو فيديو، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند برامج نصية للنماذج, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند برامج نصية للنماذج, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses form scripts, sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند برامج نصية للنماذج, صوت أو فيديو ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts, sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند برامج نصية للنماذج, صوت أو فيديو ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند برامج نصية للنماذج, صوت أو فيديو وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند برامج نصية للنماذج, صوت أو فيديو وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند برامج نصية للنماذج, صوت أو فيديو, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند برامج نصية للنماذج, صوت أو فيديو, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses form scripts, which HyperPDF cannot show or run. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند برامج نصية للنماذج، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts, which HyperPDF cannot show or run. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند برامج نصية للنماذج، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند صوت أو فيديو ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند صوت أو فيديو ونماذج ثلاثية الأبعاد، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند صوت أو فيديو وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند صوت أو فيديو وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند صوت أو فيديو, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند صوت أو فيديو, نماذج ثلاثية الأبعاد وحافظة PDF، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. ملفاته مدرجة ضمن المرفقات. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
   </data>
-  <data name="This document uses sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>يستخدم هذا المستند صوت أو فيديو، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في Adobe Acrobat Reader.</value>
+  <data name="This document uses sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>يستخدم هذا المستند صوت أو فيديو، وهي محتويات لا يستطيع HyperPDF عرضها أو تشغيلها. الصوت والفيديو مدرجان ضمن الوسائط، حيث يمكنك حفظهما أو فتحهما بمشغّلك. لاستخدام كل المحتويات، افتحه في قارئ PDF يدعمها.</value>
+  </data>
+  <data name="This document's details cannot be changed." xml:space="preserve">
+    <value>لا يمكن تغيير تفاصيل هذا المستند.</value>
+  </data>
+  <data name="This document's form answers cannot be loaded." xml:space="preserve">
+    <value>لا يمكن تحميل إجابات نموذج هذا المستند.</value>
+  </data>
+  <data name="This document's form answers cannot be saved." xml:space="preserve">
+    <value>لا يمكن حفظ إجابات نموذج هذا المستند.</value>
+  </data>
+  <data name="This document's text cannot be changed." xml:space="preserve">
+    <value>لا يمكن تغيير نص هذا المستند.</value>
+  </data>
+  <data name="This document's text cannot be saved." xml:space="preserve">
+    <value>لا يمكن حفظ نص هذا المستند.</value>
   </data>
   <data name="This file contains an encrypted document named {0}. Open it from Attachments." xml:space="preserve">
     <value>يحتوي الملف على مستند مشفّر باسم {0}. افتحه من المرفقات.</value>
@@ -6852,6 +6993,9 @@
   <data name="Those pages or that first number are not right. Pages are counted from 1, and the first number must be 1 or more." xml:space="preserve">
     <value>هذه الصفحات أو الرقم الأول غير صحيحة. تُحسب الصفحات من 1، ويجب أن يكون الرقم الأول 1 أو أكثر.</value>
   </data>
+  <data name="Those words are not in the pages' text, so nothing was replaced." xml:space="preserve">
+    <value>هذه الكلمات غير موجودة في نص الصفحات، لذا لم يُستبدل شيء.</value>
+  </data>
   <data name="Thumbnails" xml:space="preserve">
     <value>المصغّرات</value>
   </data>
@@ -6893,6 +7037,9 @@
   </data>
   <data name="To page, or leave empty for the end of the document" xml:space="preserve">
     <value>إلى الصفحة، أو اتركه فارغًا لنهاية المستند</value>
+  </data>
+  <data name="Took {0} out of the document." xml:space="preserve">
+    <value>تمت إزالة {0} من المستند.</value>
   </data>
   <data name="Tool bar" xml:space="preserve">
     <value>شريط الأدوات</value>
@@ -7572,6 +7719,9 @@
   <data name="_Add a Bookmark Here…" xml:space="preserve">
     <value>_إضافة إشارة مرجعية هنا…</value>
   </data>
+  <data name="_Annotate" xml:space="preserve">
+    <value>_إضافة تعليقات</value>
+  </data>
   <data name="_Annotate…" xml:space="preserve">
     <value>_إضافة تعليق…</value>
   </data>
@@ -7583,6 +7733,9 @@
   </data>
   <data name="_Arrow" xml:space="preserve">
     <value>_سهم</value>
+  </data>
+  <data name="_Attach Another File…" xml:space="preserve">
+    <value>إرفاق ملف آخر…</value>
   </data>
   <data name="_Auto-scroll" xml:space="preserve">
     <value>تمرير _تلقائي</value>
@@ -7629,6 +7782,9 @@
   <data name="_Comfort Page Colour" xml:space="preserve">
     <value>لون صفحة _مريح</value>
   </data>
+  <data name="_Comment" xml:space="preserve">
+    <value>_تعليق</value>
+  </data>
   <data name="_Compare with Another Document…" xml:space="preserve">
     <value>_مقارنة مع مستند آخر…</value>
   </data>
@@ -7674,6 +7830,9 @@
   <data name="_Duplicate the Page" xml:space="preserve">
     <value>_تكرار الصفحة</value>
   </data>
+  <data name="_Edit" xml:space="preserve">
+    <value>_تحرير</value>
+  </data>
   <data name="_Edit Note" xml:space="preserve">
     <value>_تحرير الملاحظة</value>
   </data>
@@ -7703,6 +7862,9 @@
   </data>
   <data name="_Export…" xml:space="preserve">
     <value>تصدير…</value>
+  </data>
+  <data name="_File" xml:space="preserve">
+    <value>_ملف</value>
   </data>
   <data name="_Files Joined on at the End…" xml:space="preserve">
     <value>ملفات تُضاف في النهاية…</value>
@@ -7746,6 +7908,9 @@
   <data name="_Hand Tool" xml:space="preserve">
     <value>أداة ال_يد</value>
   </data>
+  <data name="_Help" xml:space="preserve">
+    <value>_مساعدة</value>
+  </data>
   <data name="_Hide This Layer" xml:space="preserve">
     <value>إخفاء هذه الطبقة</value>
   </data>
@@ -7770,6 +7935,12 @@
   <data name="_Line" xml:space="preserve">
     <value>_خط</value>
   </data>
+  <data name="_Link the Selected Text…" xml:space="preserve">
+    <value>ربط النص المحدد…</value>
+  </data>
+  <data name="_Load Answers from a File…" xml:space="preserve">
+    <value>تحميل الإجابات من ملف…</value>
+  </data>
   <data name="_Measure" xml:space="preserve">
     <value>_قياس</value>
   </data>
@@ -7781,6 +7952,9 @@
   </data>
   <data name="_Merge Files…" xml:space="preserve">
     <value>_دمج الملفات…</value>
+  </data>
+  <data name="_More Marking Tools" xml:space="preserve">
+    <value>_أدوات تعليم إضافية</value>
   </data>
   <data name="_New Window" xml:space="preserve">
     <value>نافذة _جديدة</value>
@@ -7962,11 +8136,17 @@
   <data name="_Tabs" xml:space="preserve">
     <value>_التبويبات</value>
   </data>
+  <data name="_Take It Out of the Document…" xml:space="preserve">
+    <value>إزالته من المستند…</value>
+  </data>
   <data name="_Thin" xml:space="preserve">
     <value>_رفيع</value>
   </data>
   <data name="_Tight" xml:space="preserve">
     <value>_ضيّق</value>
+  </data>
+  <data name="_Tools" xml:space="preserve">
+    <value>_أدوات</value>
   </data>
   <data name="_Two Pages" xml:space="preserve">
     <value>صف_حتان</value>

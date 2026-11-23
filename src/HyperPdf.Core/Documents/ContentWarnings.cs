@@ -9,7 +9,7 @@ namespace HyperPdf.Core.Documents;
 /// <summary>Puts unsupported content into plain words, and spots PDF portfolios from their cover page.</summary>
 public static class ContentWarnings
 {
-    /// <summary>The words Acrobat's portfolio cover pages use.</summary>
+    /// <summary>The word portfolio cover pages use.</summary>
     private const string PortfolioWord = "portfolio";
 
     /// <summary>Every unsupported part's bit.</summary>
@@ -97,7 +97,7 @@ public static class ContentWarnings
                 _ = builder.Append("Those parts are left out of the page. ");
             }
 
-            return builder.Append("To use everything, open it in Adobe Acrobat Reader.").ToString();
+            return builder.Append("To use everything, open it in a PDF reader that supports them.").ToString();
         }
 
         /// <summary>Joins names as "a", "a and b" or "a, b and c".</summary>

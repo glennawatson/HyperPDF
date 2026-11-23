@@ -23,7 +23,7 @@ public sealed class ContentWarningsTests
 
         await Assert.That(message).StartsWith("This document uses an XFA form, which HyperPDF cannot show or run.");
         await Assert.That(message).Contains("version made for other viewers");
-        await Assert.That(message).EndsWith("open it in Adobe Acrobat Reader.");
+        await Assert.That(message).EndsWith("open it in a PDF reader that supports them.");
     }
 
     /// <summary>Several parts are listed together in plain words.</summary>
@@ -43,7 +43,7 @@ public sealed class ContentWarningsTests
     /// <param name="expected">Whether it is a portfolio.</param>
     /// <returns>A task.</returns>
     [Test]
-    [Arguments(2, "For the best experience, open this PDF Portfolio in Acrobat.", true)]
+    [Arguments(2, "For the best experience, open this PDF Portfolio in a viewer that supports it.", true)]
     [Arguments(0, "PDF Portfolio", false)]
     [Arguments(2, "Quarterly report", false)]
     public async Task SpotsPortfolios(int attachments, string text, bool expected) =>

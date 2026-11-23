@@ -24,7 +24,7 @@ public enum PdfJpegPixelFormat
 
     /// <summary>
     /// Four bytes a pixel: cyan, magenta, yellow, black, where 255 is full ink as in a PDF <c>/DeviceCMYK</c> image. The JPEG has
-    /// four components and an Adobe marker, and the samples are stored inverted as Adobe applications do, so the
+    /// four components and an Adobe marker, and the samples are stored inverted, as is usual for such files, so the
     /// <c>/DCTDecode</c> image needs <c>/Decode [1 0 1 0 1 0 1 0]</c>, which <see cref="PdfImageWriter.AddJpeg(HyperPdfLibrary.Writing.IPdfObjectSink, ReadOnlySpan{byte})"/> adds.
     /// </summary>
     Cmyk32 = 5,

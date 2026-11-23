@@ -70,6 +70,27 @@ internal readonly record struct SimpleEncoding(FontEncoding Base, byte[]?[]? Dif
         return Base == FontEncoding.None ? [] : FontEncodings.GetGlyphName(Base, code);
     }
 
+    /// <summary>
+    /// Gets the id of a code's glyph name, as <see cref="GetName"/> names it. A base encoding's ids are read from its table;
+    /// only a /Differences name is looked up by its bytes.
+    /// </summary>
+    /// <param name="code">The code.</param>
+    /// <returns>The id, or <see cref="GlyphNames.NoName"/> when the code has no name the table holds.</returns>
+    internal int GetNameId(int code)
+    {
+        if ((uint)code >= FontEncodings.CodeCount)
+        {
+            return GlyphNames.NoName;
+        }
+
+        if (Differences?[code] is { } name)
+        {
+            return GlyphNames.Find(name);
+        }
+
+        return Base == FontEncoding.None ? GlyphNames.NoName : FontEncodings.GetNameId(Base, code);
+    }
+
     /// <summary>Chooses the base when the font has no /Encoding.</summary>
     /// <param name="settings">The settings.</param>
     /// <returns>The base encoding.</returns>

@@ -75,7 +75,12 @@ internal static class SpanBlender
     /// <param name="color">The premultiplied colour.</param>
     internal static void SolidEach(Span<uint> pixels, ReadOnlySpan<byte> coverage, uint color)
     {
-        var done = Vector128.IsHardwareAccelerated && coverage.Length >= Vector128<uint>.Count ? SolidVector(pixels, coverage, color) : 0;
+        var done = Vector256.IsHardwareAccelerated && coverage.Length >= Vector256<uint>.Count ? SolidVector256(pixels, coverage, color) : 0;
+        if (Vector128.IsHardwareAccelerated && coverage.Length - done >= Vector128<uint>.Count)
+        {
+            done += SolidVector(pixels[done..], coverage[done..], color);
+        }
+
         for (var i = done; i < coverage.Length; i++)
         {
             var value = coverage[i];
@@ -190,6 +195,12 @@ internal static class SpanBlender
         for (; i <= end; i += Vector128<uint>.Count)
         {
             var word = Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref MemoryMarshal.GetReference(coverage), i));
+            if (word == 0)
+            {
+                // No coverage leaves the pixels as they are, which the space around a glyph mostly is.
+                continue;
+            }
+
             var value = Vector128.WidenLower(Vector128.WidenLower(Vector128.CreateScalar(word).AsByte()));
             var source = Scale(solid, value);
             var keep = full - Vector128.ShiftRightLogical(source, AlphaShift);
@@ -198,6 +209,53 @@ internal static class SpanBlender
         }
 
         return i;
+    }
+
+    /// <summary>Blends one colour onto eight pixels at a time, through the coverage of each, with the exact result of the one pixel loop.</summary>
+    /// <param name="pixels">The pixels.</param>
+    /// <param name="coverage">The coverage of each pixel.</param>
+    /// <param name="color">The premultiplied colour.</param>
+    /// <returns>How many pixels were done, which is a whole number of vectors.</returns>
+    private static int SolidVector256(Span<uint> pixels, ReadOnlySpan<byte> coverage, uint color)
+    {
+        var full = Vector256.Create(Full);
+        var solid = Vector256.Create(color);
+        var end = coverage.Length - Vector256<uint>.Count;
+        var i = 0;
+        for (; i <= end; i += Vector256<uint>.Count)
+        {
+            var word = Unsafe.ReadUnaligned<ulong>(ref Unsafe.Add(ref MemoryMarshal.GetReference(coverage), i));
+            if (word == 0)
+            {
+                // No coverage leaves the pixels as they are, which the space around a glyph mostly is.
+                continue;
+            }
+
+            var shorts = Vector128.WidenLower(Vector128.CreateScalar(word).AsByte());
+            var value = Vector256.Create(Vector128.WidenLower(shorts), Vector128.WidenUpper(shorts));
+            var source = Scale(solid, value);
+            var keep = full - Vector256.ShiftRightLogical(source, AlphaShift);
+            var under = Vector256.LoadUnsafe(ref MemoryMarshal.GetReference(pixels), (nuint)i);
+            (source + Scale(under, keep)).StoreUnsafe(ref MemoryMarshal.GetReference(pixels), (nuint)i);
+        }
+
+        return i;
+    }
+
+    /// <summary>Multiplies every byte of eight pixels by a fraction each, as the one pixel overload does.</summary>
+    /// <param name="pixel">The pixels.</param>
+    /// <param name="fraction">The fraction of each pixel, where 255 is one.</param>
+    /// <returns>The scaled pixels.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector256<uint> Scale(Vector256<uint> pixel, Vector256<uint> fraction)
+    {
+        var mask = Vector256.Create(EvenBytes);
+        var round = Vector256.Create(RoundPair);
+        var even = ((pixel & mask) * fraction) + round;
+        even = ((even + (Vector256.ShiftRightLogical(even, ByteBits) & mask)) >> ByteBits) & mask;
+        var odd = ((Vector256.ShiftRightLogical(pixel, ByteBits) & mask) * fraction) + round;
+        odd = ((odd + (Vector256.ShiftRightLogical(odd, ByteBits) & mask)) >> ByteBits) & mask;
+        return even | Vector256.ShiftLeft(odd, ByteBits);
     }
 
     /// <summary>

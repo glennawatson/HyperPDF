@@ -10,6 +10,9 @@ namespace HyperPdf.Viewer.Chrome;
 /// <summary>Picks the icon drawn beside a menu entry from its explicit icon name, its radio state, or what it does.</summary>
 internal static class MenuIcons
 {
+    /// <summary>Icons by the name a menu entry gives, made once so a lookup makes nothing.</summary>
+    private static readonly Dictionary<string, ChromeIcon> ByName = NameTable();
+
     /// <summary>Icons by the English menu header without its access-key mark.</summary>
     private static readonly Dictionary<string, ChromeIcon> ByHeader = new(StringComparer.Ordinal)
     {
@@ -145,7 +148,7 @@ internal static class MenuIcons
     /// <returns>The icon.</returns>
     internal static ChromeIcon Of(MenuEntry entry)
     {
-        if (entry.Icon is { Length: > 0 } explicitName && Enum.TryParse<ChromeIcon>(explicitName, out var named))
+        if (entry.Icon is { Length: > 0 } explicitName && ByName.TryGetValue(explicitName, out var named))
         {
             return named;
         }
@@ -196,5 +199,19 @@ internal static class MenuIcons
         }
 
         return entry.Kind == MenuEntryKind.Submenu ? ChromeIcon.More : ChromeIcon.Choose;
+    }
+
+    /// <summary>Makes the table of every icon by its name, as a menu entry names it.</summary>
+    /// <returns>The table.</returns>
+    private static Dictionary<string, ChromeIcon> NameTable()
+    {
+        var values = Enum.GetValues<ChromeIcon>();
+        var table = new Dictionary<string, ChromeIcon>(values.Length, StringComparer.Ordinal);
+        foreach (var icon in values)
+        {
+            table[icon.ToString()] = icon;
+        }
+
+        return table;
     }
 }

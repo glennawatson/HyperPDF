@@ -149,7 +149,7 @@ internal static class HyperPdfNavigation
     /// <param name="scopes">The parts of the document the edit can have changed.</param>
     internal static void PagesEdited(HyperPdfDocument self, PdfCacheScopes scopes)
     {
-        HyperPdfEditing.Edited(self, scopes);
+        HyperPdfEditing.Edited(self);
         if ((scopes & (PdfCacheScopes.PageSet | PdfCacheScopes.PageContent)) != PdfCacheScopes.None)
         {
             PdfDocumentPageContent.InvalidatePageContent(self.Document);

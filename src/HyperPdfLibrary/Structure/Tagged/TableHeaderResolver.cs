@@ -8,7 +8,7 @@ namespace HyperPdfLibrary.Structure.Tagged;
 /// Places a table's cells on a grid, honouring row and column spans, and links each cell to the header cells that
 /// label it. A cell's <c>/Headers</c> ids win; otherwise header cells label the cells below them (column scope) or to
 /// their right (row scope). A header cell with no <c>/Scope</c> labels its column when it is in the table head or the
-/// first row, its row when it is in the first column, and its column otherwise, as Acrobat infers it.
+/// first row, its row when it is in the first column, and its column otherwise.
 /// </summary>
 internal static class TableHeaderResolver
 {

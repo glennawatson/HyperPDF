@@ -54,7 +54,7 @@ public sealed class ViewerFindAndMenuTests
     private const int ScrollSteps = 3;
 
     /// <summary>The text of the main menu button.</summary>
-    private const string MenuName = "Menu";
+    private const string MenuName = "File";
 
     /// <summary>Running the find command, as Ctrl+F and the menu do, opens the search bar.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
@@ -127,10 +127,10 @@ public sealed class ViewerFindAndMenuTests
         await Assert.That(outcome.HasSearchIcon).IsTrue();
     }
 
-    /// <summary>In an 810-pixel window, every main-menu entry carries an icon and the menu stays below the toolbar and inside the window.</summary>
+    /// <summary>In an 810-pixel window, every File menu entry carries an icon and the menu stays below the menu bar and inside the window.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task MainMenu_InEightHundredTenWindow_ShowsIconsAndStaysInsideWindow()
+    public async Task FileMenu_InEightHundredTenWindow_ShowsIconsAndStaysInsideWindow()
     {
         var outcome = await WithTab(TwelveHundredWidth, LaptopHeight, static (session, window, _) =>
         {
@@ -147,7 +147,7 @@ public sealed class ViewerFindAndMenuTests
         await Assert.That(outcome.FitsBottom).IsTrue();
     }
 
-    /// <summary>Clicks the main menu button on the toolbar.</summary>
+    /// <summary>Clicks the File menu's name on the menu bar.</summary>
     /// <param name="session">The viewer session.</param>
     /// <param name="window">The headless window.</param>
     private static void OpenMainMenu(ViewerSession session, HeadlessWindow window)

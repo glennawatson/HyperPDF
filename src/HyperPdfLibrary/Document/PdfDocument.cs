@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Drawing;
 using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Fonts;
@@ -85,8 +84,19 @@ public sealed class PdfDocument : IDisposable, IObjectsChangedListener
 
     /// <summary>Invalidates document caches when the owned object store changes.</summary>
     /// <param name="scopes">The parts of the document the change can affect.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    void IObjectsChangedListener.OnObjectsChanged(PdfCacheScopes scopes) => PdfDocumentEditing.InvalidateCaches(this, scopes);
+    /// <param name="record">The history record committed, undone or redone, if any.</param>
+    /// <param name="undone">Whether the record was undone.</param>
+    void IObjectsChangedListener.OnObjectsChanged(PdfCacheScopes scopes, PdfEditRecord? record, bool undone)
+    {
+        // Every transaction ends with this call, so the pages noted at its start go here whether it committed or not.
+        var start = Interlocked.Exchange(ref State.TransactionStart, null);
+        if (record is not null)
+        {
+            PdfPageOrderHistory.KeepOrRestore(this, record, undone, start);
+        }
+
+        PdfDocumentEditing.InvalidateCaches(this, scopes);
+    }
 
     /// <summary>Takes the open context's services, which it makes when the open selected none, once.</summary>
     /// <returns>The services.</returns>

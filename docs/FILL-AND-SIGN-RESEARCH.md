@@ -14,9 +14,9 @@ Signing work is tracked in [form signing controls](https://github.com/glennawats
 
 ## Typing on the page
 
-Adobe's [fill and sign guide](https://helpx.adobe.com/au/acrobat/desktop/work-with-pdf-forms/fill-sign-forms/fill-sign.html) sets the model: click to type, a small format row, and fields snapped to the form. A dialog only adds steps, so typing starts with a caret and the dialog stays for advanced properties.
+The model is: click to type, a small format row, and fields snapped to the form. A dialog only adds steps, so typing starts with a caret and the dialog stays for advanced properties.
 
-- Save typed text as FreeText with `/IT /FreeTextTypeWriter`, `/DA`, `/DS` and `/RC` ([ISO 32000-1, 12.5.6.6](https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/PDF32000_2008.pdf)). Draw the appearance from text runs, so readers without rich-text support show the same result.
+- Save typed text as FreeText with `/IT /FreeTextTypeWriter`, `/DA`, `/DS` and `/RC` ([ISO 32000-1, 12.5.6.6](https://www.iso.org/standard/51502.html)). Draw the appearance from text runs, so readers without rich-text support show the same result.
 - Embed installed fonts as subsets. Honour the OpenType [`fsType`](https://learn.microsoft.com/en-us/typography/opentype/spec/os2#fstype) bits: restricted and bitmap-only fonts are never embedded, and no-subsetting fonts are not cut down. Showing a restricted font on screen is opt-in. Its text is saved in the closest built-in font.
 - Comb fields use field flag bit 25 with `/MaxLen` (12.7.4.3). Printed letter boxes get the same spacing.
 - Flat forms are read from a 2× render. Drawn rules become lines, boxes and letter-box rows. Faded, grainy and soft scans are read, and pages turned up to about a degree. Pages turned further, or with broken lines, may be missed. Alt-click places text freely, so a missed place never blocks typing.

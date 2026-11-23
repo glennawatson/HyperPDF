@@ -1171,15 +1171,20 @@ public static class TestPdf
     /// <returns>The file bytes.</returns>
     private static byte[] Serialize(List<string> objects, int root, int info)
     {
-        var output = new StringBuilder("%PDF-1.7\n");
+        // The bytes written so far are counted as each object is added, rather than by encoding the whole output again.
+        const string Header = "%PDF-1.7\n";
+        var output = new StringBuilder(Header);
+        var position = Encoding.ASCII.GetByteCount(Header);
         var offsets = new int[objects.Count];
         for (var i = 0; i < objects.Count; i++)
         {
-            offsets[i] = Encoding.ASCII.GetByteCount(output.ToString());
-            _ = output.Append(CultureInfo.InvariantCulture, $"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+            offsets[i] = position;
+            var written = string.Create(CultureInfo.InvariantCulture, $"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+            _ = output.Append(written);
+            position += Encoding.ASCII.GetByteCount(written);
         }
 
-        var xref = Encoding.ASCII.GetByteCount(output.ToString());
+        var xref = position;
         _ = output.Append(CultureInfo.InvariantCulture, $"xref\n0 {objects.Count + 1}\n0000000000 65535 f \n");
         foreach (var offset in offsets)
         {

@@ -923,7 +923,7 @@ public sealed partial class ViewerChrome : IDisposable
         }
 
         Layout();
-        if (_overlay is { IsModal: false } && (RunShortcut(key, modifiers) || OpenMenuByKey(key)))
+        if (_overlay is { IsModal: false } && (RunShortcut(key, modifiers) || OpenMenuByKey(key, modifiers)))
         {
             // A shortcut and the menu key still work over the search bar, focus mode or the start view. A dialog keeps every key to itself.
             return true;
@@ -958,21 +958,44 @@ public sealed partial class ViewerChrome : IDisposable
             return true;
         }
 
-        return OpenMenuByKey(key) || (_focus.Index >= 0 && PressFocusKey(key, modifiers));
+        return OpenMenuByKey(key, modifiers) || (_focus.Index >= 0 && PressFocusKey(key, modifiers));
     }
 
-    /// <summary>Opens the main menu when the key is F10, under its button.</summary>
+    /// <summary>Opens a menu of the menu bar: File with F10, or the menu whose access letter is pressed with Alt.</summary>
     /// <param name="key">The key.</param>
-    /// <returns><see langword="true"/> when the menu was opened.</returns>
-    private bool OpenMenuByKey(ViewerKey key)
+    /// <param name="modifiers">The modifier keys held.</param>
+    /// <returns><see langword="true"/> when a menu was opened.</returns>
+    private bool OpenMenuByKey(ViewerKey key, ViewerModifiers modifiers)
     {
-        if (key != ViewerKey.F10 || !_bars.Exists(item => ReferenceEquals(item.Command, Actions.ShowMenu)))
+        var index = key == ViewerKey.F10 && modifiers == ViewerModifiers.None ? MenuBar.FileMenu : -1;
+        if (modifiers == ViewerModifiers.Alt)
+        {
+            index = MenuBar.ForKey(key);
+        }
+
+        if (index < 0 || !MenuBar.CanOpen(_main, index) || !ShowsMenuBar())
         {
             return false;
         }
 
-        ChromeActions.Run(Actions.ShowMenu);
+        Actions.OpenBarMenu(index);
         return true;
+    }
+
+    /// <summary>Tells whether the menu bar is among the controls shown; a presentation and reading mode hide it.</summary>
+    /// <returns><see langword="true"/> when it is shown.</returns>
+    private bool ShowsMenuBar()
+    {
+        var open = Actions.ShowBarMenu;
+        foreach (var item in _bars)
+        {
+            if (ReferenceEquals(item.Command, open))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Runs the command of a shortcut key.</summary>

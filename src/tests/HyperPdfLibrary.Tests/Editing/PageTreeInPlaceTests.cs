@@ -132,6 +132,56 @@ public sealed class PageTreeInPlaceTests
         await Assert.That(PageTreeVerifier.Verify(target.Objects, target.PageCount, out _)).IsTrue();
     }
 
+    /// <summary>Undo and redo of a move put back the pages kept from before and after it, without reading the page tree again.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task UndoAndRedoOfAMoveReuseTheKeptPages()
+    {
+        using var target = PdfDocumentReader.Open(EditingTestDocuments.CreateFlat(LazyPages), null);
+        var before = string.Join('|', EditingTestDocuments.PageTexts(target));
+        var entriesBefore = PdfDocumentPages.GetPageSet(target).Entries;
+        PdfDocumentPageOperations.MovePages(target, [LazyPages - 1], 0);
+        var moved = string.Join('|', EditingTestDocuments.PageTexts(target));
+        var entriesMoved = PdfDocumentPages.GetPageSet(target).Entries;
+
+        _ = PdfDocumentEditing.Undo(target);
+        var undone = string.Join('|', EditingTestDocuments.PageTexts(target));
+        var entriesUndone = PdfDocumentPages.GetPageSet(target).Entries;
+        _ = PdfDocumentEditing.Redo(target);
+        var redone = string.Join('|', EditingTestDocuments.PageTexts(target));
+        var entriesRedone = PdfDocumentPages.GetPageSet(target).Entries;
+
+        await Assert.That(moved).IsNotEqualTo(before);
+        await Assert.That(undone).IsEqualTo(before);
+        await Assert.That(redone).IsEqualTo(moved);
+        await Assert.That(ReferenceEquals(entriesUndone, entriesBefore)).IsTrue();
+        await Assert.That(ReferenceEquals(entriesRedone, entriesMoved)).IsTrue();
+        await Assert.That(PageTreeVerifier.Verify(target.Objects, target.PageCount, out _)).IsTrue();
+    }
+
+    /// <summary>Undoing a deletion made inside an open edit puts back the pages kept from before the edit, without reading the page tree again.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task UndoOfADeletionInAnOpenEditReusesTheKeptPages()
+    {
+        using var target = PdfDocumentReader.Open(EditingTestDocuments.CreateFlat(LazyPages), null);
+        var before = string.Join('|', EditingTestDocuments.PageTexts(target));
+        var entriesBefore = PdfDocumentPages.GetPageSet(target).Entries;
+        using (var transaction = PdfDocumentEditing.BeginEdit(target, "Delete"))
+        {
+            PdfDocumentPageOperations.DeletePages(target, [1]);
+            transaction.Commit();
+        }
+
+        var deleted = EditingTestDocuments.PageTexts(target);
+        _ = PdfDocumentEditing.Undo(target);
+
+        await Assert.That(deleted.Length).IsEqualTo(LazyPages - 1);
+        await Assert.That(string.Join('|', EditingTestDocuments.PageTexts(target))).IsEqualTo(before);
+        await Assert.That(ReferenceEquals(PdfDocumentPages.GetPageSet(target).Entries, entriesBefore)).IsTrue();
+        await Assert.That(PageTreeVerifier.Verify(target.Objects, target.PageCount, out _)).IsTrue();
+    }
+
     /// <summary>A plain page is parsed when it is first used, not when the page tree is read.</summary>
     /// <returns>A task.</returns>
     [Test]

@@ -37,6 +37,17 @@ public sealed partial class ViewerChrome
         Show(MenuOverlays.Open(CollectionsMarshal.AsSpan(entries), at, RunEntry));
     }
 
+    /// <summary>Shows a menu of the menu bar, which Left and Right leave for the menu beside it.</summary>
+    /// <param name="entries">The entries.</param>
+    /// <param name="at">Where its top left corner goes, in device pixels.</param>
+    /// <param name="step">Opens the menu beside it: 1 for the one to the right, -1 for the one to the left.</param>
+    public void ShowMenu(List<MenuEntry> entries, ScreenPoint at, Action<int> step)
+    {
+        ArgumentNullException.ThrowIfNull(entries);
+        ArgumentNullException.ThrowIfNull(step);
+        Show(MenuOverlays.Open(CollectionsMarshal.AsSpan(entries), at, RunEntry, step));
+    }
+
     /// <summary>Asks a yes or no question in a dialog. The dialog opens when the answer is subscribed to.</summary>
     /// <param name="request">What is asked.</param>
     /// <returns>One value when the dialog closes: <see langword="true"/> when the user agreed.</returns>

@@ -525,7 +525,7 @@ public sealed class ViewerChromeTests
         _ = PumpUntil(session, () => session.Main.SelectedTab is { CurrentPageIndex: > 0 });
         var page = session.Main.SelectedTab?.CurrentPageIndex ?? -1;
 
-        Click(window, Find(chrome.Bars, "Menu"));
+        Click(window, Find(chrome.Bars, "File"));
         _ = PumpUntil(session, () => chrome.HasOverlay);
         var menuRows = chrome.OverlayItems.Count(static item => item.Kind == ChromeItemKind.Row);
         window.Send(new(WindowEventKind.KeyDown, 0, 0, (uint)ViewerKey.Escape, 0));

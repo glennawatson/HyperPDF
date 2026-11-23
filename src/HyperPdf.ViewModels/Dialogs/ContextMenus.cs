@@ -40,7 +40,9 @@ public static class ContextMenus
                 [..ColorItems(mark, lines, static (selected, color) => new MarkSelectionRequest(AnnotationKind.Highlight, color, selected))]),
             MenuEntry.Item(UiText.Get("_Underline"), null, mark, new MarkSelectionRequest(AnnotationKind.Underline, annotations.Color, lines), editable),
             MenuEntry.Item(UiText.Get("_Strike Out"), null, mark, new MarkSelectionRequest(AnnotationKind.StrikeOut, AnnotationColors.Clay, lines), editable),
-            MenuEntry.Item(UiText.Get("S_quiggly Underline"), null, mark, new MarkSelectionRequest(AnnotationKind.Squiggly, AnnotationColors.Clay, lines), editable)
+            MenuEntry.Item(UiText.Get("S_quiggly Underline"), null, mark, new MarkSelectionRequest(AnnotationKind.Squiggly, AnnotationColors.Clay, lines), editable),
+            MenuEntry.Separator(),
+            MenuEntry.Item(UiText.Get("_Link the Selected Text…"), null, annotations.LinkSelectionCommand, lines, editable, "Follow")
         ];
     }
 
@@ -103,9 +105,9 @@ public static class ContextMenus
             MenuEntry.Item(UiText.Get("_Annotate…"), null, annotations.StartCommand, null, editable),
             MenuEntry.Item(UiText.Get("Add a Boo_kmark Here…"), null, bookmarks.AddCommand, null, ((ICommand)bookmarks.AddCommand).CanExecute(null)),
             MenuEntry.Separator(),
-            MenuEntry.Radio(UiText.Get("_Select Text"), pages.SetPageToolCommand, PageTool.SelectText, !marking && pages.PageTool == PageTool.SelectText),
-            MenuEntry.Radio(UiText.Get("_Hand"), pages.SetPageToolCommand, PageTool.Hand, !marking && pages.PageTool == PageTool.Hand),
-            MenuEntry.Radio(UiText.Get("_Zoom to Area"), pages.SetPageToolCommand, PageTool.ZoomArea, !marking && pages.PageTool == PageTool.ZoomArea),
+            MenuEntry.Radio(UiText.Get("_Select Text"), pages.SetPageToolCommand, MenuParameters.Of(PageTool.SelectText), !marking && pages.PageTool == PageTool.SelectText),
+            MenuEntry.Radio(UiText.Get("_Hand"), pages.SetPageToolCommand, MenuParameters.Of(PageTool.Hand), !marking && pages.PageTool == PageTool.Hand),
+            MenuEntry.Radio(UiText.Get("_Zoom to Area"), pages.SetPageToolCommand, MenuParameters.Of(PageTool.ZoomArea), !marking && pages.PageTool == PageTool.ZoomArea),
             MenuEntry.Separator(),
             MenuEntry.Item(UiText.Get("_Back"), null, tab.GoBackCommand, null, tab.CanGoBack),
             MenuEntry.Item(UiText.Get("For_ward"), null, tab.GoForwardCommand, null, tab.CanGoForward),

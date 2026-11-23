@@ -162,6 +162,7 @@ public sealed class PdfEditTransaction : IDisposable
     public void Commit()
     {
         PdfCacheScopes scopes;
+        PdfEditRecord? record = null;
         lock (_store.Gate)
         {
             ThrowIfEnded();
@@ -186,11 +187,12 @@ public sealed class PdfEditTransaction : IDisposable
             StoreTransactions.RefreshCatalogLocked(_store);
             if (before.Length > 0 || trailerBefore.Length > 0)
             {
-                StoreTransactions.GetHistory(_store).PushLocked(new(Label, Kinds, scopes, before, after, trailerBefore, trailerAfter));
+                record = new(Label, Kinds, scopes, before, after, trailerBefore, trailerAfter);
+                StoreTransactions.GetHistory(_store).PushLocked(record);
             }
         }
 
-        StoreTransactions.NotifyChanged(_store, scopes);
+        StoreTransactions.NotifyChanged(_store, scopes, record, false);
     }
 
     /// <summary>Ends the transaction, putting back every object and trailer entry it changed.</summary>

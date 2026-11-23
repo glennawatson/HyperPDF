@@ -261,7 +261,11 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
         if (direct is not null)
         {
             PdfDocumentPageOperations.WritePages(document, transaction, CollectionsMarshal.AsSpan(direct));
+            return;
         }
+
+        // Only page objects were replaced, under the same numbers and nodes: the pages stay where they were and are made again.
+        Volatile.Write(ref document.State.NextPageSet, PdfDocumentPages.GetPageSet(document).Unmade());
     }
 
     /// <summary>Adds a new page object to the document and puts it in the page tree.</summary>
@@ -822,7 +826,13 @@ static (transaction, edit) => PdfDocumentPageOperations.InsertCore(edit.Document
     {
         var labelled = document.Catalog.GetDictionary(KnownName.PageLabels) is not null || PdfDocumentPageOperations.HasInsertedLabels(slots);
         var labels = labelled ? PdfDocumentPageOperations.CollectLabels(document, slots) : null;
-        PdfPageTreeWriter.Write(transaction, document.Objects, slots);
+        if (PdfPageTreeWriter.Write(transaction, document.Objects, slots) is { } entries)
+        {
+            // The edit's invalidation takes these pages instead of reading the tree just written.
+            PdfPageSet written = new(document.Objects, entries, [default]);
+            Volatile.Write(ref document.State.NextPageSet, written);
+        }
+
         if (labels is not null)
         {
             PdfPageLabelWriter.Write(transaction, document.Objects, labels);

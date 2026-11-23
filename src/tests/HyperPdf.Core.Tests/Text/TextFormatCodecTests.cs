@@ -33,8 +33,8 @@ public sealed class TextFormatCodecTests
     /// <summary>Mid grey as 0xRRGGBB.</summary>
     private const uint Grey = 0x808080;
 
-    /// <summary>The size in an Acrobat style.</summary>
-    private const float AcrobatSize = 10;
+    /// <summary>The size in a CSS font shorthand.</summary>
+    private const float ShorthandSize = 10;
 
     /// <summary>A size too large to use.</summary>
     private const float Huge = 9000;
@@ -99,7 +99,7 @@ public sealed class TextFormatCodecTests
         await Assert.That(cmyk.Color).IsEqualTo(Red);
     }
 
-    /// <summary>The default style is CSS that reads back, and Acrobat's font shorthand is understood.</summary>
+    /// <summary>The default style is CSS that reads back, and the CSS font shorthand is understood.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task WritesAndReadsTheDefaultStyle()
@@ -107,15 +107,15 @@ public sealed class TextFormatCodecTests
         var format = new TextFormat("DejaVu Sans", Size, Teal) { IsBold = true, IsItalic = true, IsUnderline = true, Alignment = TextBoxAlignment.Center, CharacterSpacing = Spacing };
         var style = FreeTextStyle.DefaultStyle(format);
         var back = FreeTextStyle.ApplyDefaultStyle(style, TextFormat.Default);
-        var acrobat = FreeTextStyle.ApplyDefaultStyle("font: bold italic 10.0pt Helvetica,sans-serif; text-align:right; color:#FF0000", TextFormat.Default);
+        var shorthand = FreeTextStyle.ApplyDefaultStyle("font: bold italic 10.0pt Helvetica,sans-serif; text-align:right; color:#FF0000", TextFormat.Default);
         var generic = FreeTextStyle.ApplyDefaultStyle("font-family: serif; font-weight: 700", TextFormat.Default);
 
         await Assert.That(back with { LineSpacing = format.LineSpacing }).IsEqualTo(format);
-        await Assert.That(acrobat.FontFamily).IsEqualTo("Helvetica");
-        await Assert.That(acrobat.IsBold && acrobat.IsItalic).IsTrue();
-        await Assert.That(acrobat.FontSize).IsEqualTo(AcrobatSize);
-        await Assert.That(acrobat.Alignment).IsEqualTo(TextBoxAlignment.Right);
-        await Assert.That(acrobat.Color).IsEqualTo(Red);
+        await Assert.That(shorthand.FontFamily).IsEqualTo("Helvetica");
+        await Assert.That(shorthand.IsBold && shorthand.IsItalic).IsTrue();
+        await Assert.That(shorthand.FontSize).IsEqualTo(ShorthandSize);
+        await Assert.That(shorthand.Alignment).IsEqualTo(TextBoxAlignment.Right);
+        await Assert.That(shorthand.Color).IsEqualTo(Red);
         await Assert.That(generic.FontFamily).IsEqualTo(StandardFontFamilies.Serif);
         await Assert.That(generic.IsBold).IsTrue();
     }

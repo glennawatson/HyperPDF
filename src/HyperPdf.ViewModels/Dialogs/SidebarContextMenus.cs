@@ -82,7 +82,7 @@ public static class SidebarContextMenus
         var edit = tab.OutlineEditing;
         return
         [
-            MenuEntry.Item(UiText.Get("_Go to This Bookmark"), null, tab.FollowLinkCommand, bookmark.Target, true).WithIcon(Goes),
+            MenuEntry.Item(UiText.Get("_Go to This Bookmark"), null, tab.FollowLinkCommand, bookmark.Target, true, Goes),
             MenuEntry.Separator(),
             Item("_Add a Bookmark Here…", edit.AddCommand, "Add"),
             Item("_Rename the Bookmark…", edit.RenameCommand, "Text"),
@@ -104,7 +104,7 @@ public static class SidebarContextMenus
     {
         annotations.Select(comment.Annotation);
         var items = ContextMenus.ForAnnotation(annotations, comment.Annotation);
-        items.Insert(1, MenuEntry.Item(UiText.Get("_Go to This Comment"), null, annotations.GoToCommand, comment, true).WithIcon(Goes));
+        items.Insert(1, MenuEntry.Item(UiText.Get("_Go to This Comment"), null, annotations.GoToCommand, comment, true, Goes));
         return items;
     }
 
@@ -119,6 +119,9 @@ public static class SidebarContextMenus
         [
             Item("_Open the Attached File", attachments.OpenSelectedCommand, "Open"),
             Item(SaveCopy, attachments.SaveCommand, "Save"),
+            MenuEntry.Separator(),
+            Item("_Attach Another File…", attachments.AttachFilesCommand, "Add"),
+            Item("_Take It Out of the Document…", attachments.RemoveSelectedCommand, Removes),
         ];
     }
 
@@ -146,9 +149,14 @@ public static class SidebarContextMenus
     /// <returns>The menu items.</returns>
     private static List<MenuEntry> ForLayer(LayersViewModel layers, LayerItemViewModel layer) =>
     [
-        MenuEntry.Item(layer.IsVisible ? UiText.Get("_Hide This Layer") : UiText.Get("_Show This Layer"), null, layers.ToggleLayerCommand, layer, layer.CanToggle)
-            .WithIcon(layer.IsVisible ? "CheckOn" : "CheckOff"),
-        MenuEntry.Item(UiText.Get("Show _Only This Layer"), null, layers.ShowOnlyCommand, layer, layer.CanToggle).WithIcon("Layers"),
+        MenuEntry.Item(
+            layer.IsVisible ? UiText.Get("_Hide This Layer") : UiText.Get("_Show This Layer"),
+            null,
+            layers.ToggleLayerCommand,
+            layer,
+            layer.CanToggle,
+            layer.IsVisible ? "CheckOn" : "CheckOff"),
+        MenuEntry.Item(UiText.Get("Show _Only This Layer"), null, layers.ShowOnlyCommand, layer, layer.CanToggle, "Layers"),
         MenuEntry.Separator(),
         Item("Show Every _Layer as the Document Sets It", layers.ResetCommand, "Undo"),
     ];
@@ -180,5 +188,5 @@ public static class SidebarContextMenus
     /// <returns>The entry.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static MenuEntry Item(string header, ICommand command, string icon) =>
-        MenuEntry.Item(UiText.Get(header), null, command, null, command.CanExecute(null)).WithIcon(icon);
+        MenuEntry.Item(UiText.Get(header), null, command, null, command.CanExecute(null), icon);
 }

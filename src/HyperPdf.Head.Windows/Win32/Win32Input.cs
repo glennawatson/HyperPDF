@@ -100,6 +100,7 @@ internal static class Win32Input
     private static readonly Dictionary<uint, ViewerKey> MoreKeys = new()
     {
         [0x42] = ViewerKey.B,
+        [0x44] = ViewerKey.D,
         [0x45] = ViewerKey.E,
         [0x47] = ViewerKey.G,
         [0x48] = ViewerKey.H,

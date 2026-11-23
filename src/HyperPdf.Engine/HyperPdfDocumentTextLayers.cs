@@ -4,7 +4,6 @@
 
 using HyperPdf.Core.Ocr;
 using HyperPdfLibrary.Document;
-using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Objects;
 
 namespace HyperPdf.Engine;
@@ -66,7 +65,7 @@ internal static class HyperPdfDocumentTextLayers
         {
             // The page has new text: its characters, words and web links are read again.
             PdfDocumentText.GetTextPages(self.Document).Clear();
-            HyperPdfEditing.Edited(self, PdfCacheScopes.PageContent);
+            HyperPdfEditing.Edited(self);
         }
 
         return written;

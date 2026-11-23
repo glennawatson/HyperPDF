@@ -202,11 +202,13 @@ internal static class SimpleFontLoader
     {
         if (facts.Program is null && facts.Standard != StandardFont.None)
         {
-            var metrics = StandardFonts.Get(facts.Standard);
-            var name = encoding.GetName(code);
-            if (!name.IsEmpty ? metrics.TryGetWidth(name, out var named) : metrics.TryGetWidth(code, out named))
+            // The name's id comes from the encoding's table, so each code costs no search through every glyph name.
+            var named = !encoding.GetName(code).IsEmpty
+                ? StandardFonts.TryGetWidth(facts.Standard, encoding.GetNameId(code), out var width)
+                : StandardFonts.Get(facts.Standard).TryGetWidth(code, out width);
+            if (named)
             {
-                return named;
+                return width;
             }
         }
 

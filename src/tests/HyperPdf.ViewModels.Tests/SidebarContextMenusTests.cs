@@ -20,8 +20,8 @@ public sealed class SidebarContextMenusTests
     /// <summary>The index of the page a right-click lands on.</summary>
     private const int PressedPage = 2;
 
-    /// <summary>The entries of an attached file's menu: open and save.</summary>
-    private const int AttachmentEntries = 2;
+    /// <summary>The entries of an attached file's menu: open, save, a line, attach another and take it out.</summary>
+    private const int AttachmentEntries = 5;
 
     /// <summary>Where the note of the comment test goes.</summary>
     private static readonly PagePoint NoteAt = new(300, 300);

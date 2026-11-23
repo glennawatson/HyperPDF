@@ -306,6 +306,9 @@
   <data name="Add a Boo_kmark Here…" xml:space="preserve">
     <value>在此添加书签(_K)…</value>
   </data>
+  <data name="Add a Box to _Sign" xml:space="preserve">
+    <value>添加签名框(_S)</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>添加表单复选框(_B)</value>
   </data>
@@ -315,8 +318,14 @@
   <data name="Add a Form _Button" xml:space="preserve">
     <value>添加表单按钮(_B)</value>
   </data>
+  <data name="Add a Form _List Box" xml:space="preserve">
+    <value>添加表单列表框(_L)</value>
+  </data>
   <data name="Add a Form _Text Field" xml:space="preserve">
     <value>添加表单文本域(_T)</value>
+  </data>
+  <data name="Add a Pair of _Radio Buttons" xml:space="preserve">
+    <value>添加一对单选按钮(_R)</value>
   </data>
   <data name="Add a _Blank Page" xml:space="preserve">
     <value>添加空白页(_B)</value>
@@ -603,6 +612,15 @@
   <data name="As PDF/A-3u, and the file must have a reading structure (tags) for screen readers." xml:space="preserve">
     <value>与 PDF/A-3u 相同，且文件必须具有供屏幕阅读器使用的阅读结构（标签）。</value>
   </data>
+  <data name="As _HTML…" xml:space="preserve">
+    <value>导出为 HTML(_H)…</value>
+  </data>
+  <data name="As _Markdown…" xml:space="preserve">
+    <value>导出为 Markdown(_M)…</value>
+  </data>
+  <data name="As _Plain Text…" xml:space="preserve">
+    <value>导出为纯文本(_P)…</value>
+  </data>
   <data name="As above, and the outlines of links are drawn on the page too." xml:space="preserve">
     <value>与上述相同，并在页面上绘制链接轮廓。</value>
   </data>
@@ -618,8 +636,20 @@
   <data name="Asking the timestamp server for a trusted time." xml:space="preserve">
     <value>正在向时间戳服务器请求可信时间。</value>
   </data>
+  <data name="Attach a _File…" xml:space="preserve">
+    <value>附加文件(_F)…</value>
+  </data>
+  <data name="Attach a file" xml:space="preserve">
+    <value>附加文件</value>
+  </data>
+  <data name="Attached 1 file." xml:space="preserve">
+    <value>已附加 1 个文件。</value>
+  </data>
   <data name="Attached files can be listed and saved, not changed." xml:space="preserve">
     <value>可以列出和保存附件，但不能修改。</value>
+  </data>
+  <data name="Attached {0} files." xml:space="preserve">
+    <value>已附加 {0} 个文件。</value>
   </data>
   <data name="Attachments" xml:space="preserve">
     <value>附件</value>
@@ -864,6 +894,9 @@
   <data name="Change how wide the column of text is." xml:space="preserve">
     <value>调整文本栏宽度。</value>
   </data>
+  <data name="Change the Document _Details…" xml:space="preserve">
+    <value>更改文档详细信息(_D)…</value>
+  </data>
   <data name="Change the Picked Paragraph…" xml:space="preserve">
     <value>更改所选段落…</value>
   </data>
@@ -911,6 +944,9 @@
   </data>
   <data name="Changed the dashes." xml:space="preserve">
     <value>已更改虚线。</value>
+  </data>
+  <data name="Changed the document's details. Save to keep them." xml:space="preserve">
+    <value>已更改文档详细信息。请保存以保留更改。</value>
   </data>
   <data name="Changed the fill colour." xml:space="preserve">
     <value>已更改填充颜色。</value>
@@ -1440,6 +1476,9 @@
   <data name="Close tab" xml:space="preserve">
     <value>关闭标签页</value>
   </data>
+  <data name="Close the _Window" xml:space="preserve">
+    <value>关闭窗口(_W)</value>
+  </data>
   <data name="Close the find bar. Shortcut: Esc" xml:space="preserve">
     <value>关闭查找栏。快捷键：Esc</value>
   </data>
@@ -1572,6 +1611,9 @@
   <data name="Could not add pictures as pages." xml:space="preserve">
     <value>无法将图片添加为页面。</value>
   </data>
+  <data name="Could not attach the file: {0}" xml:space="preserve">
+    <value>无法附加文件：{0}</value>
+  </data>
   <data name="Could not change the page numbers." xml:space="preserve">
     <value>无法更改页码。</value>
   </data>
@@ -1665,11 +1707,17 @@
   <data name="Could not save the copy: {0}" xml:space="preserve">
     <value>无法保存副本：{0}</value>
   </data>
+  <data name="Could not save the file: {0}" xml:space="preserve">
+    <value>无法保存文件：{0}</value>
+  </data>
   <data name="Could not save the image: {0}" xml:space="preserve">
     <value>无法保存图片：{0}</value>
   </data>
   <data name="Could not save the pages as separate files." xml:space="preserve">
     <value>无法将页面保存为单独文件。</value>
+  </data>
+  <data name="Could not save the parts as separate files." xml:space="preserve">
+    <value>无法将各部分保存为单独文件。</value>
   </data>
   <data name="Could not save the picture." xml:space="preserve">
     <value>无法保存图片。</value>
@@ -1685,6 +1733,9 @@
   </data>
   <data name="Could not save: {0}" xml:space="preserve">
     <value>无法保存：{0}</value>
+  </data>
+  <data name="Could not shuffle the pages in." xml:space="preserve">
+    <value>无法交错插入页面。</value>
   </data>
   <data name="Could not sign: {0}" xml:space="preserve">
     <value>无法签名：{0}</value>
@@ -1850,6 +1901,9 @@
   </data>
   <data name="Document Propert_ies…" xml:space="preserve">
     <value>文档属性(_I)…</value>
+  </data>
+  <data name="Document details" xml:space="preserve">
+    <value>文档详细信息</value>
   </data>
   <data name="Document digest, if your signing service wants a hash: {0}" xml:space="preserve">
     <value>文档摘要（若签名服务需要哈希值）：{0}</value>
@@ -2058,6 +2112,9 @@
   <data name="E_xport Pages as Pictures or Drawings…" xml:space="preserve">
     <value>将页面导出为图像或绘图(_X)…</value>
   </data>
+  <data name="E_xport the Text" xml:space="preserve">
+    <value>导出文本(_X)</value>
+  </data>
   <data name="E_xtract Pages…" xml:space="preserve">
     <value>提取页面(_X)…</value>
   </data>
@@ -2199,6 +2256,9 @@
   <data name="F_ind…" xml:space="preserve">
     <value>查找(_I)…</value>
   </data>
+  <data name="F_orms" xml:space="preserve">
+    <value>表单(_O)</value>
+  </data>
   <data name="Faster" xml:space="preserve">
     <value>更快</value>
   </data>
@@ -2247,6 +2307,9 @@
   <data name="Filter and Sort" xml:space="preserve">
     <value>筛选与排序</value>
   </data>
+  <data name="Filter and _Sort the Notes…" xml:space="preserve">
+    <value>筛选和排序批注(_S)…</value>
+  </data>
   <data name="Filter and sort" xml:space="preserve">
     <value>筛选与排序</value>
   </data>
@@ -2267,6 +2330,12 @@
   </data>
   <data name="Find an open tab by part of its name, title or folder. Shortcut: Ctrl+Shift+A" xml:space="preserve">
     <value>按名称、标题或文件夹的一部分查找已打开的标签页。快捷键：Ctrl+Shift+A</value>
+  </data>
+  <data name="Find and _Replace in the Pages…" xml:space="preserve">
+    <value>在页面中查找和替换(_R)…</value>
+  </data>
+  <data name="Find and replace" xml:space="preserve">
+    <value>查找和替换</value>
   </data>
   <data name="Find in document" xml:space="preserve">
     <value>在文档中查找</value>
@@ -2831,6 +2900,9 @@
   </data>
   <data name="Keep the text you are typing. Shortcut: Ctrl+Enter." xml:space="preserve">
     <value>保留正在输入的文本。快捷键：Ctrl+Enter。</value>
+  </data>
+  <data name="Keep these details" xml:space="preserve">
+    <value>保留这些详细信息</value>
   </data>
   <data name="Keep this language and start using the app." xml:space="preserve">
     <value>保留此语言并开始使用应用。</value>
@@ -4008,6 +4080,9 @@
   <data name="Pages in order" xml:space="preserve">
     <value>按顺序排列页面</value>
   </data>
+  <data name="Pages of a File _Shuffled In…" xml:space="preserve">
+    <value>交错插入文件的页面(_S)…</value>
+  </data>
   <data name="Pages per sheet" xml:space="preserve">
     <value>每张纸的页数</value>
   </data>
@@ -4827,8 +4902,17 @@
   <data name="Repeated content" xml:space="preserve">
     <value>重复内容</value>
   </data>
+  <data name="Replace all" xml:space="preserve">
+    <value>全部替换</value>
+  </data>
+  <data name="Replace with" xml:space="preserve">
+    <value>替换为</value>
+  </data>
   <data name="Replaced the picture." xml:space="preserve">
     <value>已替换图片。</value>
+  </data>
+  <data name="Replaced the words {0} times on {1} pages." xml:space="preserve">
+    <value>已在 {1} 页中替换 {0} 处。</value>
   </data>
   <data name="Replacement text" xml:space="preserve">
     <value>替换文本</value>
@@ -4926,6 +5010,9 @@
   <data name="SVG drawing" xml:space="preserve">
     <value>SVG 绘图</value>
   </data>
+  <data name="S_huffle In the Pages of a File…" xml:space="preserve">
+    <value>交错插入文件的页面(_H)…</value>
+  </data>
   <data name="S_plit the View" xml:space="preserve">
     <value>拆分视图(_P)</value>
   </data>
@@ -4934,6 +5021,9 @@
   </data>
   <data name="S_top" xml:space="preserve">
     <value>停止(_T)</value>
+  </data>
+  <data name="S_wap the Two Selected Pages" xml:space="preserve">
+    <value>交换所选的两页(_W)</value>
   </data>
   <data name="Safety" xml:space="preserve">
     <value>安全</value>
@@ -5124,8 +5214,17 @@
   <data name="Save tag changes" xml:space="preserve">
     <value>保存标签更改</value>
   </data>
+  <data name="Save the Answers as _FDF…" xml:space="preserve">
+    <value>将答案保存为 FDF(_F)…</value>
+  </data>
+  <data name="Save the Answers as _XFDF…" xml:space="preserve">
+    <value>将答案保存为 XFDF(_X)…</value>
+  </data>
   <data name="Save the Bytes to Sign" xml:space="preserve">
     <value>保存待签名字节</value>
+  </data>
+  <data name="Save the Parts Between _Bookmarks as Files…" xml:space="preserve">
+    <value>将书签之间的部分保存为文件(_B)…</value>
   </data>
   <data name="Save the Picked Picture as a File…" xml:space="preserve">
     <value>将所选图片保存为文件…</value>
@@ -5196,8 +5295,17 @@
   <data name="Saved the changes to {0}. Undo takes them back." xml:space="preserve">
     <value>已保存对 {0} 的更改。可通过撤销恢复。</value>
   </data>
+  <data name="Saved the document as {0} parts in {1}, each starting at a bookmark." xml:space="preserve">
+    <value>已将文档保存为 {0} 个部分，位于 {1}，每个部分从一个书签开始。</value>
+  </data>
+  <data name="Saved the form's answers to {0}." xml:space="preserve">
+    <value>已将表单答案保存到 {0}。</value>
+  </data>
   <data name="Saved the picture." xml:space="preserve">
     <value>已保存图片。</value>
+  </data>
+  <data name="Saved the text to {0}." xml:space="preserve">
+    <value>已将文本保存到 {0}。</value>
   </data>
   <data name="Saved {0} files, numbered by page, next to {1}." xml:space="preserve">
     <value>已在 {1} 旁保存 {0} 个文件，并按页码编号。</value>
@@ -6102,6 +6210,9 @@
   <data name="Tags tell a screen reader how this document reads. Choose a tag to change it." xml:space="preserve">
     <value>标签向屏幕阅读器说明此文档的阅读方式。选择标签可进行更改。</value>
   </data>
+  <data name="Take It Out" xml:space="preserve">
+    <value>移除</value>
+  </data>
   <data name="Take This Page out of the Selection" xml:space="preserve">
     <value>将此页移出所选</value>
   </data>
@@ -6143,6 +6254,9 @@
   </data>
   <data name="Take this much off the top, in points" xml:space="preserve">
     <value>从顶部裁掉这么多（磅）</value>
+  </data>
+  <data name="Take {0} out of the document?" xml:space="preserve">
+    <value>要从文档中移除 {0} 吗？</value>
   </data>
   <data name="Text" xml:space="preserve">
     <value>文本</value>
@@ -6285,6 +6399,9 @@
   <data name="The app changes straight away. You can change this later in Preferences." xml:space="preserve">
     <value>应用会立即切换语言。您以后可以在“偏好设置”中更改。</value>
   </data>
+  <data name="The attached files could not be changed." xml:space="preserve">
+    <value>无法更改附件。</value>
+  </data>
   <data name="The bookmarks could not be changed." xml:space="preserve">
     <value>无法更改书签。</value>
   </data>
@@ -6351,6 +6468,9 @@
   <data name="The document was closed or reloaded while this window was open. Close this window and open it again from the menu." xml:space="preserve">
     <value>此窗口打开期间文档已关闭或重新加载。请关闭此窗口，再从菜单重新打开。</value>
   </data>
+  <data name="The document's details could not be changed." xml:space="preserve">
+    <value>无法更改文档详细信息。</value>
+  </data>
   <data name="The document's pages. Page Up and Page Down move a page at a time. F7 turns on a text cursor for the arrow keys. The value is the current page's text." xml:space="preserve">
     <value>文档页面。Page Up 和 Page Down 每次移动一页。F7 启用文本光标，以便使用方向键。其值为当前页的文本。</value>
   </data>
@@ -6377,6 +6497,9 @@
   </data>
   <data name="The file holds no certificate." xml:space="preserve">
     <value>文件中没有证书。</value>
+  </data>
+  <data name="The file is no longer kept inside this PDF once you save. Save a copy of it first if you need it." xml:space="preserve">
+    <value>保存后此文件将不再保留在该 PDF 中。如有需要，请先保存一份副本。</value>
   </data>
   <data name="The file listed &quot;{0}&quot; as something it needs. The edits left nothing in the file that uses it, so the requirement was removed." xml:space="preserve">
     <value>文件将“{0}”列为要求。编辑后文件中已没有内容使用此功能，因此已移除该要求。</value>
@@ -6660,6 +6783,9 @@
   <data name="This document could not be opened" xml:space="preserve">
     <value>无法打开此文档</value>
   </data>
+  <data name="This document has no bookmarks to split it at." xml:space="preserve">
+    <value>此文档没有可用于拆分的书签。</value>
+  </data>
   <data name="This document has no outline." xml:space="preserve">
     <value>此文档没有大纲。</value>
   </data>
@@ -6690,98 +6816,113 @@
   <data name="This document needs a certificate" xml:space="preserve">
     <value>此文档需要证书</value>
   </data>
-  <data name="This document uses 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses 3D models, which HyperPDF cannot show or run. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了3D 模型，HyperPDF 无法显示或运行这些内容。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses 3D models, which HyperPDF cannot show or run. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了3D 模型，HyperPDF 无法显示或运行这些内容。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单和3D 模型，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单和3D 模型，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form and form scripts, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单和表单脚本，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form and form scripts, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单和表单脚本，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单和声音或视频，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单和声音或视频，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, form scripts and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单, 表单脚本和3D 模型，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, form scripts and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单, 表单脚本和3D 模型，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, form scripts and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单, 表单脚本和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, form scripts and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单, 表单脚本和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, form scripts and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单, 表单脚本和声音或视频，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, form scripts and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单, 表单脚本和声音或视频，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单, 表单脚本, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单, 表单脚本, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单, 表单脚本, 声音或视频和3D 模型，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, form scripts, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单, 表单脚本, 声音或视频和3D 模型，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单, 表单脚本, 声音或视频和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单, 表单脚本, 声音或视频和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单, 表单脚本, 声音或视频, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单, 表单脚本, 声音或视频, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单, 声音或视频和3D 模型，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单, 声音或视频和3D 模型，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单, 声音或视频和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单, 声音或视频和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单, 声音或视频, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单, 声音或视频, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses an XFA form, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了XFA 表单，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses an XFA form, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了XFA 表单，HyperPDF 无法显示或运行这些内容。所显示的页面是为其他阅读器制作的版本，可能为空或已过时。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses form scripts and 3D models, which HyperPDF cannot show or run. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了表单脚本和3D 模型，HyperPDF 无法显示或运行这些内容。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses form scripts and 3D models, which HyperPDF cannot show or run. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了表单脚本和3D 模型，HyperPDF 无法显示或运行这些内容。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses form scripts and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了表单脚本和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses form scripts and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了表单脚本和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses form scripts and sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了表单脚本和声音或视频，HyperPDF 无法显示或运行这些内容。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses form scripts and sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了表单脚本和声音或视频，HyperPDF 无法显示或运行这些内容。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了表单脚本, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了表单脚本, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses form scripts, sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了表单脚本, 声音或视频和3D 模型，HyperPDF 无法显示或运行这些内容。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses form scripts, sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了表单脚本, 声音或视频和3D 模型，HyperPDF 无法显示或运行这些内容。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了表单脚本, 声音或视频和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了表单脚本, 声音或视频和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了表单脚本, 声音或视频, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了表单脚本, 声音或视频, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses form scripts, which HyperPDF cannot show or run. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了表单脚本，HyperPDF 无法显示或运行这些内容。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses form scripts, which HyperPDF cannot show or run. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了表单脚本，HyperPDF 无法显示或运行这些内容。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了声音或视频和3D 模型，HyperPDF 无法显示或运行这些内容。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了声音或视频和3D 模型，HyperPDF 无法显示或运行这些内容。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了声音或视频和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了声音或视频和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了声音或视频, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了声音或视频, 3D 模型和PDF 文件包，HyperPDF 无法显示或运行这些内容。其中的文件列在“附件”下。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
   </data>
-  <data name="This document uses sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>此文档使用了声音或视频，HyperPDF 无法显示或运行这些内容。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在 Adobe Acrobat Reader 中打开此文件。</value>
+  <data name="This document uses sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>此文档使用了声音或视频，HyperPDF 无法显示或运行这些内容。声音和视频列在“媒体”下，您可以在其中保存它们或使用播放器打开。要使用全部内容，请在支持这些内容的 PDF 阅读器中打开此文件。</value>
+  </data>
+  <data name="This document's details cannot be changed." xml:space="preserve">
+    <value>无法更改此文档的详细信息。</value>
+  </data>
+  <data name="This document's form answers cannot be loaded." xml:space="preserve">
+    <value>无法加载此文档的表单答案。</value>
+  </data>
+  <data name="This document's form answers cannot be saved." xml:space="preserve">
+    <value>无法保存此文档的表单答案。</value>
+  </data>
+  <data name="This document's text cannot be changed." xml:space="preserve">
+    <value>无法更改此文档的文本。</value>
+  </data>
+  <data name="This document's text cannot be saved." xml:space="preserve">
+    <value>无法保存此文档的文本。</value>
   </data>
   <data name="This file contains an encrypted document named {0}. Open it from Attachments." xml:space="preserve">
     <value>此文件包含名为 {0} 的加密文档。请从“附件”中打开。</value>
@@ -6852,6 +6993,9 @@
   <data name="Those pages or that first number are not right. Pages are counted from 1, and the first number must be 1 or more." xml:space="preserve">
     <value>这些页面或第一个编号不正确。页面从 1 开始计数，第一个编号必须为 1 或更大。</value>
   </data>
+  <data name="Those words are not in the pages' text, so nothing was replaced." xml:space="preserve">
+    <value>页面文本中没有这些字词，因此未替换任何内容。</value>
+  </data>
   <data name="Thumbnails" xml:space="preserve">
     <value>缩略图</value>
   </data>
@@ -6893,6 +7037,9 @@
   </data>
   <data name="To page, or leave empty for the end of the document" xml:space="preserve">
     <value>结束页；留空表示到文档末尾</value>
+  </data>
+  <data name="Took {0} out of the document." xml:space="preserve">
+    <value>已从文档中移除 {0}。</value>
   </data>
   <data name="Tool bar" xml:space="preserve">
     <value>工具栏</value>
@@ -7572,6 +7719,9 @@
   <data name="_Add a Bookmark Here…" xml:space="preserve">
     <value>在此添加书签(_A)…</value>
   </data>
+  <data name="_Annotate" xml:space="preserve">
+    <value>批注(_A)</value>
+  </data>
   <data name="_Annotate…" xml:space="preserve">
     <value>添加注释(_A)…</value>
   </data>
@@ -7583,6 +7733,9 @@
   </data>
   <data name="_Arrow" xml:space="preserve">
     <value>箭头(_A)</value>
+  </data>
+  <data name="_Attach Another File…" xml:space="preserve">
+    <value>附加另一个文件(_A)…</value>
   </data>
   <data name="_Auto-scroll" xml:space="preserve">
     <value>自动滚动(_A)</value>
@@ -7629,6 +7782,9 @@
   <data name="_Comfort Page Colour" xml:space="preserve">
     <value>舒适页面颜色(_C)</value>
   </data>
+  <data name="_Comment" xml:space="preserve">
+    <value>注释(_C)</value>
+  </data>
   <data name="_Compare with Another Document…" xml:space="preserve">
     <value>与另一个文档比较(_C)…</value>
   </data>
@@ -7674,6 +7830,9 @@
   <data name="_Duplicate the Page" xml:space="preserve">
     <value>复制页面(_D)</value>
   </data>
+  <data name="_Edit" xml:space="preserve">
+    <value>编辑(_E)</value>
+  </data>
   <data name="_Edit Note" xml:space="preserve">
     <value>编辑便笺(_E)</value>
   </data>
@@ -7703,6 +7862,9 @@
   </data>
   <data name="_Export…" xml:space="preserve">
     <value>_导出…</value>
+  </data>
+  <data name="_File" xml:space="preserve">
+    <value>文件(_F)</value>
   </data>
   <data name="_Files Joined on at the End…" xml:space="preserve">
     <value>在末尾追加文件(_F)…</value>
@@ -7746,6 +7908,9 @@
   <data name="_Hand Tool" xml:space="preserve">
     <value>抓手工具(_H)</value>
   </data>
+  <data name="_Help" xml:space="preserve">
+    <value>帮助(_H)</value>
+  </data>
   <data name="_Hide This Layer" xml:space="preserve">
     <value>隐藏此图层(_H)</value>
   </data>
@@ -7770,6 +7935,12 @@
   <data name="_Line" xml:space="preserve">
     <value>直线(_L)</value>
   </data>
+  <data name="_Link the Selected Text…" xml:space="preserve">
+    <value>链接所选文本(_L)…</value>
+  </data>
+  <data name="_Load Answers from a File…" xml:space="preserve">
+    <value>从文件加载答案(_L)…</value>
+  </data>
   <data name="_Measure" xml:space="preserve">
     <value>测量(_M)</value>
   </data>
@@ -7781,6 +7952,9 @@
   </data>
   <data name="_Merge Files…" xml:space="preserve">
     <value>合并文件(_M)…</value>
+  </data>
+  <data name="_More Marking Tools" xml:space="preserve">
+    <value>更多标记工具(_M)</value>
   </data>
   <data name="_New Window" xml:space="preserve">
     <value>新建窗口(_N)</value>
@@ -7962,11 +8136,17 @@
   <data name="_Tabs" xml:space="preserve">
     <value>标签页(_T)</value>
   </data>
+  <data name="_Take It Out of the Document…" xml:space="preserve">
+    <value>从文档中移除(_T)…</value>
+  </data>
   <data name="_Thin" xml:space="preserve">
     <value>细(_T)</value>
   </data>
   <data name="_Tight" xml:space="preserve">
     <value>紧凑(_T)</value>
+  </data>
+  <data name="_Tools" xml:space="preserve">
+    <value>工具(_T)</value>
   </data>
   <data name="_Two Pages" xml:space="preserve">
     <value>双页(_T)</value>

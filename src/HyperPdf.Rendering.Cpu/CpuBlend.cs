@@ -39,14 +39,8 @@ public static class CpuBlend
     /// <summary>The alpha bits of a pixel read as a little endian integer.</summary>
     private const uint AlphaMask = 0xFF000000;
 
-    /// <summary>Gets the shuffle that copies each pixel's alpha byte over its four channels.</summary>
-    private static Vector128<byte> AlphaShuffle => Vector128.Create(AlphaShuffleBytes);
-
-    /// <summary>Gets the byte indexes of the alpha shuffle: the alpha byte of each of the four pixels, four times.</summary>
-    private static ReadOnlySpan<byte> AlphaShuffleBytes =>
-    [
-        0x03, 0x03, 0x03, 0x03, 0x07, 0x07, 0x07, 0x07, 0x0B, 0x0B, 0x0B, 0x0B, 0x0F, 0x0F, 0x0F, 0x0F
-    ];
+    /// <summary>The shift that moves a pixel's lower two bytes to its upper two.</summary>
+    private const int HalfShift = 16;
 
     /// <summary>Tells whether every pixel of a row is fully opaque, so the row can be copied as it is.</summary>
     /// <param name="row">The BGRA row.</param>
@@ -89,11 +83,29 @@ public static class CpuBlend
         {
             ref var source = ref MemoryMarshal.GetReference(from);
             ref var target = ref MemoryMarshal.GetReference(to);
+            var alphaMask = Vector128.Create(AlphaMask);
             for (; i <= from.Length - VectorBytes; i += VectorBytes)
             {
                 var pixels = Vector128.LoadUnsafe(ref source, (nuint)i);
-                var inverse = ~Vector128.Shuffle(pixels, AlphaShuffle);
-                Over(pixels, inverse, Vector128.LoadUnsafe(ref target, (nuint)i)).StoreUnsafe(ref target, (nuint)i);
+                var words = pixels.AsUInt32();
+                if ((words & alphaMask) == alphaMask)
+                {
+                    // Opaque pixels cover what is under them.
+                    pixels.StoreUnsafe(ref target, (nuint)i);
+                    continue;
+                }
+
+                if (words == Vector128<uint>.Zero)
+                {
+                    // Clear pixels leave what is under them.
+                    continue;
+                }
+
+                // Each pixel's alpha, spread over its four bytes.
+                var alpha = words >>> AlphaShift;
+                alpha |= alpha << ByteShift;
+                alpha |= alpha << HalfShift;
+                Over(pixels, ~alpha.AsByte(), Vector128.LoadUnsafe(ref target, (nuint)i)).StoreUnsafe(ref target, (nuint)i);
             }
         }
 

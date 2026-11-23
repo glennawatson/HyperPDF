@@ -164,6 +164,7 @@ public sealed class PdfEditHistory
     private bool Step(List<PdfEditRecord> from, List<PdfEditRecord> to, bool undo)
     {
         PdfCacheScopes scopes;
+        PdfEditRecord record;
         lock (_store.Gate)
         {
             if (StoreTransactions.GetCurrentTransaction(_store) is not null)
@@ -176,7 +177,7 @@ public sealed class PdfEditHistory
                 return false;
             }
 
-            var record = from[^1];
+            record = from[^1];
             scopes = record.Scopes;
             from.RemoveAt(from.Count - 1);
             if (undo)
@@ -192,7 +193,7 @@ public sealed class PdfEditHistory
             Trim(to, _depth);
         }
 
-        StoreTransactions.NotifyChanged(_store, scopes);
+        StoreTransactions.NotifyChanged(_store, scopes, record, undo);
         return true;
     }
 }
