@@ -2,6 +2,7 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using HyperPdfLibrary.Document;
 using HyperPdfLibrary.Filters;
 using HyperPdfLibrary.Objects;
 
@@ -27,8 +28,13 @@ internal static class PdfPageTreeWriter
     /// <param name="transaction">The transaction.</param>
     /// <param name="store">The document's objects.</param>
     /// <param name="slots">The pages in their new order.</param>
-    internal static void Write(PdfEditTransaction transaction, PdfObjectStore store, ReadOnlySpan<PdfPageSlot> slots)
+    /// <returns>
+    /// The entries of the pages as the written tree holds them, none inheriting anything, so the tree need not be read again;
+    /// <see langword="null"/> when a kid is not a page dictionary, which leaves the reading to the page tree reader.
+    /// </returns>
+    internal static PdfPageEntry[]? Write(PdfEditTransaction transaction, PdfObjectStore store, ReadOnlySpan<PdfPageSlot> slots)
     {
+        var entries = new PdfPageEntry[slots.Length];
         var rootValue = store.Catalog.GetRaw(KnownName.Pages);
         var rootId = rootValue.AsReference();
         var oldRoot = StoreReading.Resolve(store, rootValue).AsDictionary();
@@ -46,7 +52,7 @@ internal static class PdfPageTreeWriter
 
         var root = oldRoot?.Clone() ?? new PdfDictionary(store);
         var pushFromRoot = HasInheritable(root);
-        var kids = WriteKids(transaction, store, slots, rootId, pushFromRoot);
+        var kids = WriteKids(transaction, store, slots, rootId, pushFromRoot, entries);
         root.Set(KnownName.Type, PdfValue.FromName(KnownName.Pages));
         root.Set(KnownName.Kids, PdfValue.FromArray(kids));
         root.Set(KnownName.Count, PdfValue.FromInteger(slots.Length));
@@ -64,6 +70,16 @@ internal static class PdfPageTreeWriter
         {
             transaction.Delete(node);
         }
+
+        foreach (var entry in entries)
+        {
+            if (!entry.Id.IsValid && entry.Direct is null)
+            {
+                return null;
+            }
+        }
+
+        return entries;
     }
 
     /// <summary>
@@ -75,15 +91,22 @@ internal static class PdfPageTreeWriter
     /// <param name="slots">The pages below the node, in order.</param>
     /// <param name="parentId">The node whose kids these are.</param>
     /// <param name="pushFromRoot">Whether the root's own attributes are being pushed down.</param>
+    /// <param name="entries">Receives the entry of each page, in the order of <paramref name="slots"/>; a kid that is not a page dictionary is left empty.</param>
     /// <returns>The kids.</returns>
-    internal static PdfArray WriteKids(PdfEditTransaction transaction, PdfObjectStore store, ReadOnlySpan<PdfPageSlot> slots, PdfObjectId parentId, bool pushFromRoot)
+    internal static PdfArray WriteKids(PdfEditTransaction transaction, PdfObjectStore store, ReadOnlySpan<PdfPageSlot> slots, PdfObjectId parentId, bool pushFromRoot, Span<PdfPageEntry> entries)
     {
         var kids = new PdfArray(store, Math.Min(slots.Length, FanOut));
         if (slots.Length <= FanOut)
         {
-            foreach (var slot in slots)
+            for (var i = 0; i < slots.Length; i++)
             {
-                kids.Add(WritePage(transaction, store, slot.Kid, parentId, pushFromRoot));
+                var kid = WritePage(transaction, store, slots[i].Kid, parentId, pushFromRoot, out var isPage);
+                kids.Add(kid);
+                if (isPage)
+                {
+                    // Every attribute the page inherited is now on the page, and the new nodes carry none.
+                    entries[i] = kid.IsReference ? new(kid.AsReference(), null, 0) : new(default, kid.AsDictionary(), 0);
+                }
             }
 
             return kids;
@@ -97,7 +120,7 @@ internal static class PdfPageTreeWriter
             var node = new PdfDictionary(store);
             node.Set(KnownName.Type, PdfValue.FromName(KnownName.Pages));
             node.Set(KnownName.Parent, PdfValue.FromReference(parentId));
-            node.Set(KnownName.Kids, PdfValue.FromArray(WriteKids(transaction, store, part, id, pushFromRoot)));
+            node.Set(KnownName.Kids, PdfValue.FromArray(WriteKids(transaction, store, part, id, pushFromRoot, entries.Slice(start, part.Length))));
             node.Set(KnownName.Count, PdfValue.FromInteger(part.Length));
             transaction.Replace(id, PdfValue.FromDictionary(node));
             kids.Add(PdfValue.FromReference(id));
@@ -164,10 +187,12 @@ internal static class PdfPageTreeWriter
     /// <param name="kid">The page's /Kids entry.</param>
     /// <param name="rootId">The root node.</param>
     /// <param name="pushFromRoot">Whether the root's own attributes are being pushed down.</param>
+    /// <param name="isPage">Set when the kid is a page dictionary.</param>
     /// <returns>The page's new /Kids entry.</returns>
-    private static PdfValue WritePage(PdfEditTransaction transaction, PdfObjectStore store, PdfValue kid, PdfObjectId rootId, bool pushFromRoot)
+    private static PdfValue WritePage(PdfEditTransaction transaction, PdfObjectStore store, PdfValue kid, PdfObjectId rootId, bool pushFromRoot, out bool isPage)
     {
         var page = StoreReading.Resolve(store, kid).AsDictionary();
+        isPage = page is not null;
         if (page is null)
         {
             return kid;

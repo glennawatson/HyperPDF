@@ -159,4 +159,7 @@ public enum ViewerKey
 
     /// <summary>The F11 key, which puts the window into or out of full screen.</summary>
     F11 = 50,
+
+    /// <summary>The D key, which with Alt opens the Document menu.</summary>
+    D = 51,
 }

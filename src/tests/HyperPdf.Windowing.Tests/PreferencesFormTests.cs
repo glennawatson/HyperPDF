@@ -72,7 +72,7 @@ public sealed class PreferencesFormTests
             session.Open([path]);
             _ = PumpUntil(session, () => session.Main.SelectedTab is { IsLoaded: true });
 
-            var defaultMenuHeight = chrome.Bars.First(static item => item.Icon == ChromeIcon.Menu).Bounds.Height;
+            var defaultOpenHeight = chrome.Bars.First(static item => item.Icon == ChromeIcon.Open).Bounds.Height;
             chrome.Theme = ChromeTheme.From(ColorSchemes.Light);
             session.Canvas.DrawFrame();
             var lightButtonsFit = chrome.Bars.Where(static item => item.Kind == ChromeItemKind.Button).All(static item => item.Bounds.Right <= NarrowWidth);
@@ -81,10 +81,10 @@ public sealed class PreferencesFormTests
             chrome.FontSizePoints = LargeFontPoints;
             Settle(session);
             session.Canvas.DrawFrame();
-            var largeMenuHeight = chrome.Bars.First(static item => item.Icon == ChromeIcon.Menu).Bounds.Height;
+            var largeOpenHeight = chrome.Bars.First(static item => item.Icon == ChromeIcon.Open).Bounds.Height;
             var highContrastFits = chrome.Bars.Where(static item => item.Kind == ChromeItemKind.Button).All(static item => item.Bounds.Right <= NarrowWidth);
 
-            outcome = new(lightButtonsFit, highContrastFits, largeMenuHeight > defaultMenuHeight);
+            outcome = new(lightButtonsFit, highContrastFits, largeOpenHeight > defaultOpenHeight);
         }
         finally
         {

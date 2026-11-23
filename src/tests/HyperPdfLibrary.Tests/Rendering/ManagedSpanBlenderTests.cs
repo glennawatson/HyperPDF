@@ -45,6 +45,12 @@ public sealed class ManagedSpanBlenderTests
     /// <summary>The factor that spreads the test pixels over all four bytes.</summary>
     private const uint Spread = 2_654_435_761U;
 
+    /// <summary>The pixels in each run of the gap test.</summary>
+    private const int GapRun = 7;
+
+    /// <summary>Every this many runs of the gap test is uncovered.</summary>
+    private const int GapEvery = 3;
+
     /// <summary>Putting a colour over runs of every length up to a few vectors matches the scalar result, tail included.</summary>
     /// <param name="length">The number of pixels.</param>
     /// <param name="color">The premultiplied colour.</param>
@@ -163,6 +169,44 @@ public sealed class ManagedSpanBlenderTests
         }
 
         SpanBlender.SolidEach(pixels, coverage, color);
+
+        await Assert.That(pixels.AsSpan().SequenceEqual(expected)).IsTrue();
+    }
+
+    /// <summary>Blending through coverage with uncovered gaps of every length leaves the uncovered pixels alone and matches the one pixel formula.</summary>
+    /// <param name="length">The number of pixels.</param>
+    /// <returns>A task.</returns>
+    [Test]
+    [Arguments(8)]
+    [Arguments(13)]
+    [Arguments(64)]
+    [Arguments(301)]
+    public async Task SolidEachSkipsUncoveredGaps(int length)
+    {
+        const uint Color = 0xFF102030U;
+        var pixels = new uint[length];
+        var coverage = new byte[length];
+        for (var i = 0; i < length; i++)
+        {
+            pixels[i] = ((uint)(i + 1) * Spread) | 0xFF000000U;
+
+            // Uncovered runs of seven pixels, so gaps fall across and within vector widths.
+            coverage[i] = (i / GapRun) % GapEvery == 0 ? (byte)0 : (byte)((i * CoverageStep) | 1);
+        }
+
+        var expected = (uint[])pixels.Clone();
+        for (var i = 0; i < length; i++)
+        {
+            if (coverage[i] == 0)
+            {
+                continue;
+            }
+
+            var source = coverage[i] == Full ? Color : SpanBlender.Scale(Color, coverage[i]);
+            expected[i] = source + SpanBlender.Scale(pixels[i], Full - (source >> AlphaShift));
+        }
+
+        SpanBlender.SolidEach(pixels, coverage, Color);
 
         await Assert.That(pixels.AsSpan().SequenceEqual(expected)).IsTrue();
     }

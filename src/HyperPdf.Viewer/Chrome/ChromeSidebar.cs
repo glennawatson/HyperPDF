@@ -164,6 +164,12 @@ internal static class ChromeSidebar
                     return (int)place.X;
                 }
 
+            case SidebarMode.Attachments:
+                {
+                    items.Add(new(ChromeItemKind.Button, tab.Attachments.AttachFilesCommand, 0, UiText.Get("Attach a file"), place, true, false) { Icon = ChromeIcon.Add, HidesText = true });
+                    return (int)place.X;
+                }
+
             default:
                 {
                     return (int)area.Right;

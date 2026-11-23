@@ -77,7 +77,7 @@ public sealed class AnnotationFallbackRenderTests
         await RenderCheck.Near(image, Middle, Middle, Rgb.White, Tolerance, nameof(LinkBorderIsDrawnInsideTheRectangle));
     }
 
-    /// <summary>A link with neither /Border nor /BS draws nothing, as Acrobat does.</summary>
+    /// <summary>A link with neither /Border nor /BS draws nothing.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task LinkWithoutBorderEntriesIsInvisible()

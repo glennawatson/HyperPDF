@@ -53,10 +53,23 @@ internal static class MenuOverlays
     /// <param name="anchor">Where the menu's top left corner is wanted, in device pixels.</param>
     /// <param name="run">Runs the command of the entry that was chosen.</param>
     /// <returns>The menu.</returns>
-    internal static Overlay Open(ReadOnlySpan<MenuEntry> entries, ScreenPoint anchor, Action<MenuEntry> run)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Overlay Open(ReadOnlySpan<MenuEntry> entries, ScreenPoint anchor, Action<MenuEntry> run) => Open(entries, anchor, run, null);
+
+    /// <summary>
+    /// Opens a menu of the menu bar. Left on the menu itself, and Right on an entry that opens no submenu, close it and ask for the
+    /// menu beside it, as a desktop menu bar does.
+    /// </summary>
+    /// <param name="entries">The entries.</param>
+    /// <param name="anchor">Where the menu's top left corner is wanted, in device pixels.</param>
+    /// <param name="run">Runs the command of the entry that was chosen.</param>
+    /// <param name="step">Opens the menu beside it: 1 for the one to the right, -1 for the one to the left; or <see langword="null"/> for a menu on its own.</param>
+    /// <returns>The menu.</returns>
+    internal static Overlay Open(ReadOnlySpan<MenuEntry> entries, ScreenPoint anchor, Action<MenuEntry> run, Action<int>? step)
     {
         var input = new Signal<OverlayInput>();
-        var start = new MenuState([..entries], [], BackIndex - 1, 0, true, null, false);
+        MenuEntry[] shown = [.. entries];
+        var start = new MenuState(shown, Headers(shown), [], BackIndex - 1, 0, true, null, false, step is not null, 0);
         var state = OverlayStates.Track(input, start, Reduce);
         var done = state.Where(static current => current.Done);
         return new(
@@ -66,7 +79,11 @@ internal static class MenuOverlays
             input,
             Signal.Never<RxVoid>(),
             done.AsSignal(),
-            new MultipleDisposable(input, state, done.Where(static current => current.Chosen is not null).Select(static current => current.Chosen!).Take(1).SubscribeSafe(run, ErrorTrace.Write)));
+            new MultipleDisposable(
+                input,
+                state,
+                done.Where(static current => current.Chosen is not null).Select(static current => current.Chosen!).Take(1).SubscribeSafe(run, ErrorTrace.Write),
+                step is null ? EmptyDisposable.Instance : done.Where(static current => current.Step != 0).Select(static current => current.Step).Take(1).SubscribeSafe(step, ErrorTrace.Write)));
     }
 
     /// <summary>Makes the state that follows what the user did.</summary>
@@ -103,10 +120,18 @@ internal static class MenuOverlays
     {
         ViewerKey.Down => MoveCursor(state, 1),
         ViewerKey.Up => MoveCursor(state, -1),
+        ViewerKey.Left when state.Switches && state.Parents.Length == 0 => state with { Step = -1, Done = true },
+        ViewerKey.Right when state.Switches && !OnSubmenu(state) => state with { Step = 1, Done = true },
         ViewerKey.Enter or ViewerKey.Space or ViewerKey.Right when state.Cursor >= 0 && state.Cursor < state.Shown.Length => Run(state, state.Shown[state.Cursor]),
         ViewerKey.Escape or ViewerKey.Left or ViewerKey.Enter => GoBack(state),
         _ => state,
     };
+
+    /// <summary>Tells whether the keyboard is on an entry that opens a submenu, which Right opens.</summary>
+    /// <param name="state">What the menu shows.</param>
+    /// <returns><see langword="true"/> when it is.</returns>
+    private static bool OnSubmenu(MenuState state) =>
+        state.Cursor >= 0 && state.Cursor < state.Shown.Length && state.Shown[state.Cursor] is { Kind: MenuEntryKind.Submenu, IsEnabled: true };
 
     /// <summary>Runs an entry, or opens its submenu.</summary>
     /// <param name="state">The state before.</param>
@@ -121,7 +146,7 @@ internal static class MenuOverlays
 
         if (entry.Kind == MenuEntryKind.Submenu)
         {
-            return state with { Parents = [.. state.Parents, state.Shown], Shown = entry.Children, Cursor = BackIndex - 1, First = 0, FollowCursor = true };
+            return state with { Parents = [.. state.Parents, state.Shown], Shown = entry.Children, Headers = Headers(entry.Children), Cursor = BackIndex - 1, First = 0, FollowCursor = true };
         }
 
         return entry.Command is null ? state : state with { Chosen = entry, Done = true };
@@ -132,7 +157,7 @@ internal static class MenuOverlays
     /// <returns>The state after.</returns>
     private static MenuState GoBack(MenuState state) => state.Parents.Length == 0
         ? state with { Done = true }
-        : state with { Shown = state.Parents[^1], Parents = state.Parents[..^1], Cursor = BackIndex - 1, First = 0, FollowCursor = true };
+        : state with { Shown = state.Parents[^1], Headers = Headers(state.Parents[^1]), Parents = state.Parents[..^1], Cursor = BackIndex - 1, First = 0, FollowCursor = true };
 
     /// <summary>Tells whether the keyboard can stop on an entry.</summary>
     /// <param name="state">What the menu shows.</param>
@@ -244,7 +269,7 @@ internal static class MenuOverlays
         {
             var entry = state.Shown[i];
             var rightRoom = RightDecorationWidth(entry, runs, style, in metrics);
-            var needed = runs.Measure(Header(entry), style) + iconRoom + rightRoom + (metrics.Padding * RowPaddings);
+            var needed = runs.Measure(state.Headers[i], style) + iconRoom + rightRoom + (metrics.Padding * RowPaddings);
             width = Math.Max(width, needed);
         }
 
@@ -331,6 +356,20 @@ internal static class MenuOverlays
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string Header(MenuEntry entry) => ChromeText.WithoutAccessMark(entry.Header);
 
+    /// <summary>Gets the words of each entry without the access mark, once for the menu shown.</summary>
+    /// <param name="entries">The entries.</param>
+    /// <returns>The words, in the entries' order.</returns>
+    private static string[] Headers(MenuEntry[] entries)
+    {
+        var headers = new string[entries.Length];
+        for (var i = 0; i < entries.Length; i++)
+        {
+            headers[i] = Header(entries[i]);
+        }
+
+        return headers;
+    }
+
     /// <summary>Tells what an entry is beyond a row: ticked, or one that opens another menu.</summary>
     /// <param name="entry">The entry.</param>
     /// <returns>The trait.</returns>
@@ -373,7 +412,7 @@ internal static class MenuOverlays
         var iconRoom = icon == ChromeIcon.None ? 0 : metrics.IconSize + ChromePainter.IconGap(metrics);
         var textRoom = Math.Max(1, (int)bounds.Width - (metrics.Padding * MarginSides) - iconRoom - rightRoom);
         var pressable = entry.IsEnabled && (entry.Command is not null || entry.Kind == MenuEntryKind.Submenu);
-        var fitted = ChromeText.Fit(Header(entry), style, textRoom, runs);
+        var fitted = ChromeText.Fit(state.Headers[index], style, textRoom, runs);
         var action = pressable ? OverlayAction.PickOption : OverlayAction.None;
         items.Add(new(ChromeItemKind.Row, action, index, fitted, bounds, entry.IsEnabled, index == state.Cursor) { Trait = TraitOf(entry), Icon = icon });
         AddRightDecoration(items, entry, runs, style, in metrics, index, in bounds);

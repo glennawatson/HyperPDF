@@ -49,7 +49,13 @@ internal static class TabRequests
 
         // Files to write, each offered under the name the view model suggests.
         tab.Attachments.SaveInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
+        tab.Attachments.AttachInteraction.RegisterHandler(context => chrome.PickFiles(FolderOf(tab)).Do(context.SetOutput)),
+        tab.Attachments.RemoveInteraction.RegisterHandler(context => chrome.Confirm(context.Input).Do(context.SetOutput)),
         tab.PageTools.SaveImageInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
+        tab.ExportInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), Path.GetFileName(context.Input)).Do(context.SetOutput)),
+        tab.ImportInteraction.RegisterHandler(context => chrome.PickFile(FolderOf(tab), null).Do(context.SetOutput)),
+        tab.DocumentInfoInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.DocumentInfo(context.Input)).Do(context.SetOutput)),
+        tab.FindReplaceInteraction.RegisterHandler(context => chrome.ShowForm(ToolForms.FindReplace(context.Input)).Do(context.SetOutput)),
 
         // A part of the tab that is made on first use is followed from when it is made, so showing a tab does not make it.
         FollowParts(chrome, tab),

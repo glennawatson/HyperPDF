@@ -5,8 +5,10 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using HyperPdf.Core.Attachments;
 using HyperPdf.Core.Documents;
+using HyperPdf.ViewModels.Dialogs;
 using ReactiveUI;
 using ReactiveUI.Binding;
 using ReactiveUI.Primitives;
@@ -71,6 +73,12 @@ public sealed partial class AttachmentsViewModel : ReactiveObject, ILocalisation
 
     /// <summary>Gets the interaction asking where to save a file; the input is the suggested name.</summary>
     public Interaction<string, string?> SaveInteraction { get; } = new();
+
+    /// <summary>Gets the interaction asking which files to attach to the document.</summary>
+    public Interaction<RxVoid, string[]> AttachInteraction { get; } = new();
+
+    /// <summary>Gets the interaction asking whether to take a file out of the document. Cancel is the answer a plain Enter gives.</summary>
+    public Interaction<ConfirmRequest, bool> RemoveInteraction { get; } = new();
 
     /// <summary>Describes a portfolio in words.</summary>
     /// <param name="portfolio">The portfolio.</param>
@@ -201,7 +209,7 @@ public sealed partial class AttachmentsViewModel : ReactiveObject, ILocalisation
     }
 
     /// <inheritdoc/>
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void ILocalisationChildren.Refresh(HashSet<object> visited) => LocalisationRefresh.RefreshCore(_owner, visited);
 
     /// <summary>Gets the place a file takes in the list: the portfolio's order, then the files it does not describe in their own order.</summary>
@@ -209,6 +217,27 @@ public sealed partial class AttachmentsViewModel : ReactiveObject, ILocalisation
     /// <returns>The rank, which is the portfolio order when the file has one and a larger number otherwise.</returns>
     private static long PortfolioRank(DocumentAttachment attachment) =>
         attachment.PortfolioOrder >= 0 ? attachment.PortfolioOrder : (long)int.MaxValue + attachment.Index;
+
+    /// <summary>Reads each file and attaches it.</summary>
+    /// <param name="editor">The document's attachment editor.</param>
+    /// <param name="paths">The files.</param>
+    /// <param name="cancellationToken">Stops the work.</param>
+    /// <returns>The number of files attached.</returns>
+    private static async Task<int> AttachAllAsync(IAttachmentEditor editor, string[] paths, CancellationToken cancellationToken)
+    {
+        var added = 0;
+        foreach (var path in paths)
+        {
+            var bytes = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+            var result = await editor.AddAttachment(Path.GetFileName(path), bytes).ToTask(cancellationToken).ConfigureAwait(false);
+            if (result.Succeeded)
+            {
+                added++;
+            }
+        }
+
+        return added;
+    }
 
     /// <summary>Extracts an embedded file into a new file.</summary>
     /// <param name="source">The document's attachments.</param>
@@ -298,6 +327,74 @@ public sealed partial class AttachmentsViewModel : ReactiveObject, ILocalisation
     [ReactiveCommand(CanExecute = nameof(_canSave))]
     private IObservable<RxVoid> OpenSelected() =>
         Selected is { } attachment ? Open(attachment).Select(static _ => RxVoid.Default) : Signal.Return(RxVoid.Default);
+
+    /// <summary>Asks which files to attach, then adds each to the document. The list shows them once they are in.</summary>
+    /// <returns>A signal that ends once the files are attached or the choice is given up.</returns>
+    [ReactiveCommand]
+    private IObservable<RxVoid> AttachFiles() =>
+        DocumentFeature<IAttachmentEditor>.Get(_owner.TryGetDocument()) is not { } editor
+            ? Signal.Return(RxVoid.Default)
+            : AttachInteraction.Handle(RxVoid.Default).ToSignal()
+                .SwitchMap(paths => paths is { Length: > 0 } ? AttachAll(editor, paths) : Signal.Return(RxVoid.Default));
+
+    /// <summary>Asks whether to take the selected file out of the document, then takes it out.</summary>
+    /// <returns>A signal that ends once the file is removed or the question is answered no.</returns>
+    [ReactiveCommand(CanExecute = nameof(_canSave))]
+    private IObservable<RxVoid> RemoveSelected()
+    {
+        if (Selected is not { } attachment || DocumentFeature<IAttachmentEditor>.Get(_owner.TryGetDocument()) is not { } editor)
+        {
+            return Signal.Return(RxVoid.Default);
+        }
+
+        var question = new ConfirmRequest(
+            UiText.Format("Take {0} out of the document?", attachment.Name),
+            UiText.Get("The file is no longer kept inside this PDF once you save. Save a copy of it first if you need it."),
+            UiText.Get("Take It Out"));
+        return RemoveInteraction.Handle(question).ToSignal()
+            .SwitchMap(yes => !yes
+                ? Signal.Return(RxVoid.Default)
+                : editor.RemoveAttachment(attachment.Index)
+                    .ObserveOn(RxSchedulers.MainThreadScheduler)
+                    .Select(result => AttachmentsChanged(result, UiText.Format("Took {0} out of the document.", attachment.Name))));
+    }
+
+    /// <summary>Reads each file and attaches it, one after another, so the files keep the order they were chosen in.</summary>
+    /// <param name="editor">The document's attachment editor.</param>
+    /// <param name="paths">The files.</param>
+    /// <returns>A signal that ends once every file is attached.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> AttachAll(IAttachmentEditor editor, string[] paths) =>
+        Signal.FromAsync(token => AttachAllAsync(editor, paths, token))
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            .Select(added => AttachmentsChanged(new(added > 0, null), added == 1 ? UiText.Get("Attached 1 file.") : UiText.Format("Attached {0} files.", added)))
+            .Catch<RxVoid, IOException>(error => Refused(error.Message))
+            .Catch<RxVoid, UnauthorizedAccessException>(error => Refused(error.Message));
+
+    /// <summary>Lists the files again after a change and says what happened.</summary>
+    /// <param name="result">What the engine said.</param>
+    /// <param name="done">What to say when it worked.</param>
+    /// <returns>The completion value.</returns>
+    private RxVoid AttachmentsChanged(DocumentEditResult result, string done)
+    {
+        if (result.Succeeded)
+        {
+            Refresh();
+            _owner.Pages.Refresh();
+        }
+
+        _owner.SetNotice(LocalizedMessage.Literal(result.Succeeded ? done : result.Problem ?? UiText.Get("The attached files could not be changed.")));
+        return RxVoid.Default;
+    }
+
+    /// <summary>Says a file could not be read to attach it.</summary>
+    /// <param name="reason">Why.</param>
+    /// <returns>A signal that ends at once.</returns>
+    private IObservable<RxVoid> Refused(string reason)
+    {
+        _owner.SetNotice(LocalizedMessage.Format(UiText, "Could not attach the file: {0}", reason));
+        return Signal.Return(RxVoid.Default);
+    }
 
     /// <summary>Asks where to save the selected file, then saves it.</summary>
     /// <returns>A signal that ends when the file is saved or the choice is given up.</returns>

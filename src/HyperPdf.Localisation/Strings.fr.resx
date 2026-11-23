@@ -306,6 +306,9 @@
   <data name="Add a Boo_kmark Here…" xml:space="preserve">
     <value>Ajouter un _signet ici…</value>
   </data>
+  <data name="Add a Box to _Sign" xml:space="preserve">
+    <value>Ajouter une zone de _signature</value>
+  </data>
   <data name="Add a Form Check _Box" xml:space="preserve">
     <value>Ajouter une _case à cocher de formulaire</value>
   </data>
@@ -315,8 +318,14 @@
   <data name="Add a Form _Button" xml:space="preserve">
     <value>Ajouter un _bouton de formulaire</value>
   </data>
+  <data name="Add a Form _List Box" xml:space="preserve">
+    <value>Ajouter une _liste de formulaire</value>
+  </data>
   <data name="Add a Form _Text Field" xml:space="preserve">
     <value>Ajouter un champ _texte de formulaire</value>
+  </data>
+  <data name="Add a Pair of _Radio Buttons" xml:space="preserve">
+    <value>Ajouter deux _boutons radio</value>
   </data>
   <data name="Add a _Blank Page" xml:space="preserve">
     <value>Ajouter une page _blanche</value>
@@ -603,6 +612,15 @@
   <data name="As PDF/A-3u, and the file must have a reading structure (tags) for screen readers." xml:space="preserve">
     <value>Comme PDF/A-3u, avec une structure de lecture (balises) obligatoire pour les lecteurs d’écran.</value>
   </data>
+  <data name="As _HTML…" xml:space="preserve">
+    <value>En _HTML…</value>
+  </data>
+  <data name="As _Markdown…" xml:space="preserve">
+    <value>En _Markdown…</value>
+  </data>
+  <data name="As _Plain Text…" xml:space="preserve">
+    <value>En _texte brut…</value>
+  </data>
   <data name="As above, and the outlines of links are drawn on the page too." xml:space="preserve">
     <value>Comme ci-dessus, avec les contours des liens également dessinés sur la page.</value>
   </data>
@@ -618,8 +636,20 @@
   <data name="Asking the timestamp server for a trusted time." xml:space="preserve">
     <value>Demande d’une heure de confiance au serveur d’horodatage.</value>
   </data>
+  <data name="Attach a _File…" xml:space="preserve">
+    <value>Joindre un _fichier…</value>
+  </data>
+  <data name="Attach a file" xml:space="preserve">
+    <value>Joindre un fichier</value>
+  </data>
+  <data name="Attached 1 file." xml:space="preserve">
+    <value>1 fichier joint.</value>
+  </data>
   <data name="Attached files can be listed and saved, not changed." xml:space="preserve">
     <value>Les pièces jointes peuvent être listées et enregistrées, mais pas modifiées.</value>
+  </data>
+  <data name="Attached {0} files." xml:space="preserve">
+    <value>{0} fichiers joints.</value>
   </data>
   <data name="Attachments" xml:space="preserve">
     <value>Pièces jointes</value>
@@ -864,6 +894,9 @@
   <data name="Change how wide the column of text is." xml:space="preserve">
     <value>Modifiez la largeur de la colonne de texte.</value>
   </data>
+  <data name="Change the Document _Details…" xml:space="preserve">
+    <value>Modifier les _détails du document…</value>
+  </data>
   <data name="Change the Picked Paragraph…" xml:space="preserve">
     <value>Modifier le paragraphe choisi…</value>
   </data>
@@ -911,6 +944,9 @@
   </data>
   <data name="Changed the dashes." xml:space="preserve">
     <value>Pointillés modifiés.</value>
+  </data>
+  <data name="Changed the document's details. Save to keep them." xml:space="preserve">
+    <value>Détails du document modifiés. Enregistrez pour les conserver.</value>
   </data>
   <data name="Changed the fill colour." xml:space="preserve">
     <value>Couleur de remplissage modifiée.</value>
@@ -1440,6 +1476,9 @@
   <data name="Close tab" xml:space="preserve">
     <value>Fermer l’onglet</value>
   </data>
+  <data name="Close the _Window" xml:space="preserve">
+    <value>Fermer la _fenêtre</value>
+  </data>
   <data name="Close the find bar. Shortcut: Esc" xml:space="preserve">
     <value>Fermez la barre de recherche. Raccourci : Échap</value>
   </data>
@@ -1572,6 +1611,9 @@
   <data name="Could not add pictures as pages." xml:space="preserve">
     <value>Impossible d'ajouter les images comme pages.</value>
   </data>
+  <data name="Could not attach the file: {0}" xml:space="preserve">
+    <value>Impossible de joindre le fichier : {0}</value>
+  </data>
   <data name="Could not change the page numbers." xml:space="preserve">
     <value>Impossible de modifier les numéros de page.</value>
   </data>
@@ -1665,11 +1707,17 @@
   <data name="Could not save the copy: {0}" xml:space="preserve">
     <value>Impossible d’enregistrer la copie : {0}</value>
   </data>
+  <data name="Could not save the file: {0}" xml:space="preserve">
+    <value>Impossible d’enregistrer le fichier : {0}</value>
+  </data>
   <data name="Could not save the image: {0}" xml:space="preserve">
     <value>Impossible d’enregistrer l’image : {0}</value>
   </data>
   <data name="Could not save the pages as separate files." xml:space="preserve">
     <value>Impossible d’enregistrer les pages en fichiers séparés.</value>
+  </data>
+  <data name="Could not save the parts as separate files." xml:space="preserve">
+    <value>Impossible d’enregistrer les parties en fichiers séparés.</value>
   </data>
   <data name="Could not save the picture." xml:space="preserve">
     <value>Impossible d'enregistrer l'image.</value>
@@ -1685,6 +1733,9 @@
   </data>
   <data name="Could not save: {0}" xml:space="preserve">
     <value>Impossible d’enregistrer : {0}</value>
+  </data>
+  <data name="Could not shuffle the pages in." xml:space="preserve">
+    <value>Impossible d’intercaler les pages.</value>
   </data>
   <data name="Could not sign: {0}" xml:space="preserve">
     <value>Impossible de signer : {0}</value>
@@ -1850,6 +1901,9 @@
   </data>
   <data name="Document Propert_ies…" xml:space="preserve">
     <value>_Propriétés du document…</value>
+  </data>
+  <data name="Document details" xml:space="preserve">
+    <value>Détails du document</value>
   </data>
   <data name="Document digest, if your signing service wants a hash: {0}" xml:space="preserve">
     <value>Empreinte du document, si votre service de signature la demande : {0}</value>
@@ -2058,6 +2112,9 @@
   <data name="E_xport Pages as Pictures or Drawings…" xml:space="preserve">
     <value>E_xporter les pages en images ou dessins…</value>
   </data>
+  <data name="E_xport the Text" xml:space="preserve">
+    <value>E_xporter le texte</value>
+  </data>
   <data name="E_xtract Pages…" xml:space="preserve">
     <value>E_xtraire des pages…</value>
   </data>
@@ -2199,6 +2256,9 @@
   <data name="F_ind…" xml:space="preserve">
     <value>_Rechercher…</value>
   </data>
+  <data name="F_orms" xml:space="preserve">
+    <value>F_ormulaires</value>
+  </data>
   <data name="Faster" xml:space="preserve">
     <value>Plus vite</value>
   </data>
@@ -2247,6 +2307,9 @@
   <data name="Filter and Sort" xml:space="preserve">
     <value>Filtrer et trier</value>
   </data>
+  <data name="Filter and _Sort the Notes…" xml:space="preserve">
+    <value>Filtrer et _trier les notes…</value>
+  </data>
   <data name="Filter and sort" xml:space="preserve">
     <value>Filtrer et trier</value>
   </data>
@@ -2267,6 +2330,12 @@
   </data>
   <data name="Find an open tab by part of its name, title or folder. Shortcut: Ctrl+Shift+A" xml:space="preserve">
     <value>Recherchez un onglet ouvert par une partie de son nom, de son titre ou de son dossier. Raccourci : Ctrl+Maj+A</value>
+  </data>
+  <data name="Find and _Replace in the Pages…" xml:space="preserve">
+    <value>Rechercher et _remplacer dans les pages…</value>
+  </data>
+  <data name="Find and replace" xml:space="preserve">
+    <value>Rechercher et remplacer</value>
   </data>
   <data name="Find in document" xml:space="preserve">
     <value>Rechercher dans le document</value>
@@ -2831,6 +2900,9 @@
   </data>
   <data name="Keep the text you are typing. Shortcut: Ctrl+Enter." xml:space="preserve">
     <value>Conserver le texte en cours de saisie. Raccourci : Ctrl+Entrée.</value>
+  </data>
+  <data name="Keep these details" xml:space="preserve">
+    <value>Conserver ces détails</value>
   </data>
   <data name="Keep this language and start using the app." xml:space="preserve">
     <value>Conserver cette langue et commencer à utiliser l’application.</value>
@@ -4008,6 +4080,9 @@
   <data name="Pages in order" xml:space="preserve">
     <value>Pages dans l’ordre</value>
   </data>
+  <data name="Pages of a File _Shuffled In…" xml:space="preserve">
+    <value>Pages d’un fichier _intercalées…</value>
+  </data>
   <data name="Pages per sheet" xml:space="preserve">
     <value>Pages par feuille</value>
   </data>
@@ -4827,8 +4902,17 @@
   <data name="Repeated content" xml:space="preserve">
     <value>Contenu répété</value>
   </data>
+  <data name="Replace all" xml:space="preserve">
+    <value>Tout remplacer</value>
+  </data>
+  <data name="Replace with" xml:space="preserve">
+    <value>Remplacer par</value>
+  </data>
   <data name="Replaced the picture." xml:space="preserve">
     <value>Image remplacée.</value>
+  </data>
+  <data name="Replaced the words {0} times on {1} pages." xml:space="preserve">
+    <value>Mots remplacés {0} fois sur {1} pages.</value>
   </data>
   <data name="Replacement text" xml:space="preserve">
     <value>Texte de remplacement</value>
@@ -4926,6 +5010,9 @@
   <data name="SVG drawing" xml:space="preserve">
     <value>Dessin SVG</value>
   </data>
+  <data name="S_huffle In the Pages of a File…" xml:space="preserve">
+    <value>_Intercaler les pages d’un fichier…</value>
+  </data>
   <data name="S_plit the View" xml:space="preserve">
     <value>_Diviser la vue</value>
   </data>
@@ -4934,6 +5021,9 @@
   </data>
   <data name="S_top" xml:space="preserve">
     <value>Arrê_ter</value>
+  </data>
+  <data name="S_wap the Two Selected Pages" xml:space="preserve">
+    <value>_Échanger les deux pages sélectionnées</value>
   </data>
   <data name="Safety" xml:space="preserve">
     <value>Sécurité</value>
@@ -5124,8 +5214,17 @@
   <data name="Save tag changes" xml:space="preserve">
     <value>Enregistrer les modifications des balises</value>
   </data>
+  <data name="Save the Answers as _FDF…" xml:space="preserve">
+    <value>Enregistrer les réponses en _FDF…</value>
+  </data>
+  <data name="Save the Answers as _XFDF…" xml:space="preserve">
+    <value>Enregistrer les réponses en _XFDF…</value>
+  </data>
   <data name="Save the Bytes to Sign" xml:space="preserve">
     <value>Enregistrer les octets à signer</value>
+  </data>
+  <data name="Save the Parts Between _Bookmarks as Files…" xml:space="preserve">
+    <value>Enregistrer les parties entre _signets en fichiers…</value>
   </data>
   <data name="Save the Picked Picture as a File…" xml:space="preserve">
     <value>Enregistrer l'image choisie dans un fichier…</value>
@@ -5196,8 +5295,17 @@
   <data name="Saved the changes to {0}. Undo takes them back." xml:space="preserve">
     <value>Modifications enregistrées dans {0}. Annuler permet de revenir en arrière.</value>
   </data>
+  <data name="Saved the document as {0} parts in {1}, each starting at a bookmark." xml:space="preserve">
+    <value>Document enregistré en {0} parties dans {1}, chacune commençant à un signet.</value>
+  </data>
+  <data name="Saved the form's answers to {0}." xml:space="preserve">
+    <value>Réponses du formulaire enregistrées dans {0}.</value>
+  </data>
   <data name="Saved the picture." xml:space="preserve">
     <value>Image enregistrée.</value>
+  </data>
+  <data name="Saved the text to {0}." xml:space="preserve">
+    <value>Texte enregistré dans {0}.</value>
   </data>
   <data name="Saved {0} files, numbered by page, next to {1}." xml:space="preserve">
     <value>{0} fichiers numérotés par page ont été enregistrés à côté de {1}.</value>
@@ -6102,6 +6210,9 @@
   <data name="Tags tell a screen reader how this document reads. Choose a tag to change it." xml:space="preserve">
     <value>Les balises indiquent au lecteur d’écran comment lire ce document. Choisissez une balise pour la modifier.</value>
   </data>
+  <data name="Take It Out" xml:space="preserve">
+    <value>Le retirer</value>
+  </data>
   <data name="Take This Page out of the Selection" xml:space="preserve">
     <value>Retirer cette page de la sélection</value>
   </data>
@@ -6143,6 +6254,9 @@
   </data>
   <data name="Take this much off the top, in points" xml:space="preserve">
     <value>Enlever cette quantité en haut, en points</value>
+  </data>
+  <data name="Take {0} out of the document?" xml:space="preserve">
+    <value>Retirer {0} du document ?</value>
   </data>
   <data name="Text" xml:space="preserve">
     <value>Texte</value>
@@ -6285,6 +6399,9 @@
   <data name="The app changes straight away. You can change this later in Preferences." xml:space="preserve">
     <value>L’application change immédiatement. Vous pourrez modifier ce choix plus tard dans les Préférences.</value>
   </data>
+  <data name="The attached files could not be changed." xml:space="preserve">
+    <value>Les fichiers joints n’ont pas pu être modifiés.</value>
+  </data>
   <data name="The bookmarks could not be changed." xml:space="preserve">
     <value>Impossible de modifier les signets.</value>
   </data>
@@ -6351,6 +6468,9 @@
   <data name="The document was closed or reloaded while this window was open. Close this window and open it again from the menu." xml:space="preserve">
     <value>Le document a été fermé ou rechargé pendant que cette fenêtre était ouverte. Fermez-la et rouvrez-la depuis le menu.</value>
   </data>
+  <data name="The document's details could not be changed." xml:space="preserve">
+    <value>Les détails du document n’ont pas pu être modifiés.</value>
+  </data>
   <data name="The document's pages. Page Up and Page Down move a page at a time. F7 turns on a text cursor for the arrow keys. The value is the current page's text." xml:space="preserve">
     <value>Pages du document. Page précédente et Page suivante changent de page. F7 active un curseur de texte utilisable avec les flèches. La valeur est le texte de la page actuelle.</value>
   </data>
@@ -6377,6 +6497,9 @@
   </data>
   <data name="The file holds no certificate." xml:space="preserve">
     <value>Le fichier ne contient aucun certificat.</value>
+  </data>
+  <data name="The file is no longer kept inside this PDF once you save. Save a copy of it first if you need it." xml:space="preserve">
+    <value>Le fichier n’est plus conservé dans ce PDF une fois enregistré. Enregistrez-en d’abord une copie si vous en avez besoin.</value>
   </data>
   <data name="The file listed &quot;{0}&quot; as something it needs. The edits left nothing in the file that uses it, so the requirement was removed." xml:space="preserve">
     <value>Le fichier indiquait « {0} » comme exigence. Après les modifications, aucun élément ne l’utilise ; cette exigence a donc été supprimée.</value>
@@ -6660,6 +6783,9 @@
   <data name="This document could not be opened" xml:space="preserve">
     <value>Ce document n’a pas pu être ouvert</value>
   </data>
+  <data name="This document has no bookmarks to split it at." xml:space="preserve">
+    <value>Ce document n’a pas de signets où le découper.</value>
+  </data>
   <data name="This document has no outline." xml:space="preserve">
     <value>Ce document n’a pas de plan.</value>
   </data>
@@ -6690,98 +6816,113 @@
   <data name="This document needs a certificate" xml:space="preserve">
     <value>Ce document nécessite un certificat</value>
   </data>
-  <data name="This document uses 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses 3D models, which HyperPDF cannot show or run. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses 3D models, which HyperPDF cannot show or run. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form and form scripts, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA et des scripts de formulaire que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form and form scripts, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA et des scripts de formulaire que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA et du son ou de la vidéo que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA et du son ou de la vidéo que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA, des scripts de formulaire et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA, des scripts de formulaire et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA, des scripts de formulaire et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA, des scripts de formulaire et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA, des scripts de formulaire et du son ou de la vidéo que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts and sound or video, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA, des scripts de formulaire et du son ou de la vidéo que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA, des scripts de formulaire, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA, des scripts de formulaire, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA, des scripts de formulaire, du son ou de la vidéo et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA, des scripts de formulaire, du son ou de la vidéo et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA, des scripts de formulaire, du son ou de la vidéo et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA, des scripts de formulaire, du son ou de la vidéo et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA, des scripts de formulaire, du son ou de la vidéo, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA, des scripts de formulaire, du son ou de la vidéo, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA, du son ou de la vidéo et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, sound or video and 3D models, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA, du son ou de la vidéo et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA, du son ou de la vidéo et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, sound or video and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA, du son ou de la vidéo et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA, du son ou de la vidéo, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA, du son ou de la vidéo, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses an XFA form, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise un formulaire XFA que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses an XFA form, which HyperPDF cannot show or run. The pages shown are the version made for other viewers and may be empty or out of date. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise un formulaire XFA que HyperPDF ne peut pas afficher ou exécuter. Les pages affichées sont la version conçue pour d’autres lecteurs et peuvent être vides ou obsolètes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses form scripts and 3D models, which HyperPDF cannot show or run. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise des scripts de formulaire et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts and 3D models, which HyperPDF cannot show or run. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise des scripts de formulaire et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses form scripts and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise des scripts de formulaire et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise des scripts de formulaire et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses form scripts and sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise des scripts de formulaire et du son ou de la vidéo que HyperPDF ne peut pas afficher ou exécuter. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts and sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise des scripts de formulaire et du son ou de la vidéo que HyperPDF ne peut pas afficher ou exécuter. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise des scripts de formulaire, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise des scripts de formulaire, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses form scripts, sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise des scripts de formulaire, du son ou de la vidéo et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts, sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise des scripts de formulaire, du son ou de la vidéo et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise des scripts de formulaire, du son ou de la vidéo et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts, sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise des scripts de formulaire, du son ou de la vidéo et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise des scripts de formulaire, du son ou de la vidéo, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts, sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise des scripts de formulaire, du son ou de la vidéo, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses form scripts, which HyperPDF cannot show or run. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise des scripts de formulaire que HyperPDF ne peut pas afficher ou exécuter. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses form scripts, which HyperPDF cannot show or run. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise des scripts de formulaire que HyperPDF ne peut pas afficher ou exécuter. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise du son ou de la vidéo et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses sound or video and 3D models, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise du son ou de la vidéo et des modèles 3D que HyperPDF ne peut pas afficher ou exécuter. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise du son ou de la vidéo et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses sound or video and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise du son ou de la vidéo et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise du son ou de la vidéo, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses sound or video, 3D models and a PDF portfolio, which HyperPDF cannot show or run. Its files are listed under Attachments. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise du son ou de la vidéo, des modèles 3D et un portfolio PDF que HyperPDF ne peut pas afficher ou exécuter. Ses fichiers figurent dans Pièces jointes. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
   </data>
-  <data name="This document uses sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in Adobe Acrobat Reader." xml:space="preserve">
-    <value>Ce document utilise du son ou de la vidéo que HyperPDF ne peut pas afficher ou exécuter. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans Adobe Acrobat Reader.</value>
+  <data name="This document uses sound or video, which HyperPDF cannot show or run. Sound and video are listed under Media, where you can save them or open them with your player. To use everything, open it in a PDF reader that supports them." xml:space="preserve">
+    <value>Ce document utilise du son ou de la vidéo que HyperPDF ne peut pas afficher ou exécuter. Le son et la vidéo figurent dans Médias, où vous pouvez les enregistrer ou les ouvrir avec votre lecteur. Pour tout utiliser, ouvrez-le dans un lecteur PDF qui les prend en charge.</value>
+  </data>
+  <data name="This document's details cannot be changed." xml:space="preserve">
+    <value>Les détails de ce document ne peuvent pas être modifiés.</value>
+  </data>
+  <data name="This document's form answers cannot be loaded." xml:space="preserve">
+    <value>Les réponses du formulaire de ce document ne peuvent pas être chargées.</value>
+  </data>
+  <data name="This document's form answers cannot be saved." xml:space="preserve">
+    <value>Les réponses du formulaire de ce document ne peuvent pas être enregistrées.</value>
+  </data>
+  <data name="This document's text cannot be changed." xml:space="preserve">
+    <value>Le texte de ce document ne peut pas être modifié.</value>
+  </data>
+  <data name="This document's text cannot be saved." xml:space="preserve">
+    <value>Le texte de ce document ne peut pas être enregistré.</value>
   </data>
   <data name="This file contains an encrypted document named {0}. Open it from Attachments." xml:space="preserve">
     <value>Ce fichier contient un document chiffré nommé {0}. Ouvrez-le depuis les Pièces jointes.</value>
@@ -6852,6 +6993,9 @@
   <data name="Those pages or that first number are not right. Pages are counted from 1, and the first number must be 1 or more." xml:space="preserve">
     <value>Ces pages ou ce premier numéro ne conviennent pas. Les pages sont comptées à partir de 1, et le premier numéro doit être 1 ou plus.</value>
   </data>
+  <data name="Those words are not in the pages' text, so nothing was replaced." xml:space="preserve">
+    <value>Ces mots ne figurent pas dans le texte des pages, rien n’a donc été remplacé.</value>
+  </data>
   <data name="Thumbnails" xml:space="preserve">
     <value>Miniatures</value>
   </data>
@@ -6893,6 +7037,9 @@
   </data>
   <data name="To page, or leave empty for the end of the document" xml:space="preserve">
     <value>Jusqu'à la page, ou laisser vide pour la fin du document</value>
+  </data>
+  <data name="Took {0} out of the document." xml:space="preserve">
+    <value>{0} a été retiré du document.</value>
   </data>
   <data name="Tool bar" xml:space="preserve">
     <value>Barre d’outils</value>
@@ -7572,6 +7719,9 @@
   <data name="_Add a Bookmark Here…" xml:space="preserve">
     <value>_Ajouter un signet ici…</value>
   </data>
+  <data name="_Annotate" xml:space="preserve">
+    <value>_Annoter</value>
+  </data>
   <data name="_Annotate…" xml:space="preserve">
     <value>_Annoter…</value>
   </data>
@@ -7583,6 +7733,9 @@
   </data>
   <data name="_Arrow" xml:space="preserve">
     <value>_Flèche</value>
+  </data>
+  <data name="_Attach Another File…" xml:space="preserve">
+    <value>_Joindre un autre fichier…</value>
   </data>
   <data name="_Auto-scroll" xml:space="preserve">
     <value>_Défilement automatique</value>
@@ -7629,6 +7782,9 @@
   <data name="_Comfort Page Colour" xml:space="preserve">
     <value>_Couleur de page confortable</value>
   </data>
+  <data name="_Comment" xml:space="preserve">
+    <value>_Commentaire</value>
+  </data>
   <data name="_Compare with Another Document…" xml:space="preserve">
     <value>_Comparer avec un autre document…</value>
   </data>
@@ -7674,6 +7830,9 @@
   <data name="_Duplicate the Page" xml:space="preserve">
     <value>_Dupliquer la page</value>
   </data>
+  <data name="_Edit" xml:space="preserve">
+    <value>Éd_ition</value>
+  </data>
   <data name="_Edit Note" xml:space="preserve">
     <value>_Modifier la note</value>
   </data>
@@ -7703,6 +7862,9 @@
   </data>
   <data name="_Export…" xml:space="preserve">
     <value>_Exporter…</value>
+  </data>
+  <data name="_File" xml:space="preserve">
+    <value>_Fichier</value>
   </data>
   <data name="_Files Joined on at the End…" xml:space="preserve">
     <value>_Fichiers ajoutés à la fin…</value>
@@ -7746,6 +7908,9 @@
   <data name="_Hand Tool" xml:space="preserve">
     <value>_Outil main</value>
   </data>
+  <data name="_Help" xml:space="preserve">
+    <value>Aid_e</value>
+  </data>
   <data name="_Hide This Layer" xml:space="preserve">
     <value>_Masquer ce calque</value>
   </data>
@@ -7770,6 +7935,12 @@
   <data name="_Line" xml:space="preserve">
     <value>_Ligne</value>
   </data>
+  <data name="_Link the Selected Text…" xml:space="preserve">
+    <value>_Lier le texte sélectionné…</value>
+  </data>
+  <data name="_Load Answers from a File…" xml:space="preserve">
+    <value>_Charger les réponses depuis un fichier…</value>
+  </data>
   <data name="_Measure" xml:space="preserve">
     <value>_Mesurer</value>
   </data>
@@ -7781,6 +7952,9 @@
   </data>
   <data name="_Merge Files…" xml:space="preserve">
     <value>_Fusionner des fichiers…</value>
+  </data>
+  <data name="_More Marking Tools" xml:space="preserve">
+    <value>_Autres outils de marquage</value>
   </data>
   <data name="_New Window" xml:space="preserve">
     <value>_Nouvelle fenêtre</value>
@@ -7962,11 +8136,17 @@
   <data name="_Tabs" xml:space="preserve">
     <value>_Onglets</value>
   </data>
+  <data name="_Take It Out of the Document…" xml:space="preserve">
+    <value>_Le retirer du document…</value>
+  </data>
   <data name="_Thin" xml:space="preserve">
     <value>_Fin</value>
   </data>
   <data name="_Tight" xml:space="preserve">
     <value>_Serré</value>
+  </data>
+  <data name="_Tools" xml:space="preserve">
+    <value>Ou_tils</value>
   </data>
   <data name="_Two Pages" xml:space="preserve">
     <value>_Deux pages</value>
@@ -7993,7 +8173,7 @@
     <value>_Large</value>
   </data>
   <data name="_Window" xml:space="preserve">
-    <value>_Fenêtre</value>
+    <value>Fe_nêtre</value>
   </data>
   <data name="_Wrap Pages" xml:space="preserve">
     <value>_Retour à la ligne des pages</value>

@@ -109,6 +109,7 @@ internal static class CocoaInput
     private static readonly Dictionary<ushort, ViewerKey> MoreKeys = new()
     {
         [0x0B] = ViewerKey.B,
+        [0x02] = ViewerKey.D,
         [0x0E] = ViewerKey.E,
         [0x05] = ViewerKey.G,
         [0x04] = ViewerKey.H,

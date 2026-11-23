@@ -11,9 +11,16 @@ using ReactiveUI.Primitives;
 
 namespace HyperPdf.Benchmarks;
 
-/// <summary>Measures multi-page edits and undo through the adapter's asynchronous page manager.</summary>
+/// <summary>
+/// Measures multi-page edits and undo through the adapter's asynchronous page manager. Each iteration opens the document again,
+/// because an edit kept for redo grows the document.
+/// </summary>
+[InvocationCount(InvocationsPerIteration)]
 public class HyperPdfPageManagementBenchmarks
 {
+    /// <summary>The edits measured in each iteration, on one opened document.</summary>
+    private const int InvocationsPerIteration = 16;
+
     /// <summary>The pages in the existing editing benchmark fixture.</summary>
     private const int Pages = 100;
 
@@ -29,6 +36,9 @@ public class HyperPdfPageManagementBenchmarks
     /// <summary>The selected pages, preserved in ascending order.</summary>
     private readonly int[] _selection = CreateSelection();
 
+    /// <summary>The document's bytes.</summary>
+    private readonly byte[] _pdf = TestPdf.Create(Pages);
+
     /// <summary>The adapter owning the edit history.</summary>
     private HyperPdfDocument? _document;
 
@@ -36,7 +46,7 @@ public class HyperPdfPageManagementBenchmarks
     private IPageManager? _manager;
 
     /// <summary>Gets or sets the action measured together with its undo.</summary>
-    [Params(PageEditKind.Rotate, PageEditKind.Delete, PageEditKind.Move, PageEditKind.Duplicate)]
+    [Params(PageEditKind.Rotate, PageEditKind.Delete, PageEditKind.Move, PageEditKind.Duplicate, PageEditKind.InsertBlank, PageEditKind.Reverse)]
     public PageEditKind Kind { get; set; }
 
     /// <summary>Opens the same generated fixture as the core editing benchmarks and warms the selected action.</summary>
@@ -44,9 +54,17 @@ public class HyperPdfPageManagementBenchmarks
     [GlobalSetup]
     public async Task Setup()
     {
-        _document = new(PdfDocumentReader.Open(TestPdf.Create(Pages), null), "page-management-benchmark.pdf");
-        _manager = HyperPdfDocumentPageManagement.GetPageManager(_document);
+        Open();
         _ = await ApplyAndUndo().ConfigureAwait(false);
+    }
+
+    /// <summary>Opens the document for this iteration.</summary>
+    [IterationSetup]
+    public void Open()
+    {
+        _document?.Dispose();
+        _document = new(PdfDocumentReader.Open(_pdf, null), "page-management-benchmark.pdf");
+        _manager = HyperPdfDocumentPageManagement.GetPageManager(_document);
     }
 
     /// <summary>Closes the document and any retained sources.</summary>

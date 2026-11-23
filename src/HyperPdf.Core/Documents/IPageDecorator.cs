@@ -7,7 +7,7 @@ using ReactiveUI.Primitives;
 namespace HyperPdf.Core.Documents;
 
 /// <summary>
-/// Adds to pages what Adobe's Edit PDF tools add around the page's own content: watermarks, headers and footers, page numbers, Bates
+/// Adds to pages what sits around the page's own content: watermarks, headers and footers, page numbers, Bates
 /// numbers, a background colour, and a crop. Each call is one undo step and changes the open document in place.
 /// </summary>
 public interface IPageDecorator : IDocumentFeature

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using HyperPdfLibrary.Accessibility;
+using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Features;
 using HyperPdfLibrary.Fonts;
 using HyperPdfLibrary.Forms;
@@ -30,6 +31,12 @@ internal record struct PdfDocumentState
 
     /// <summary>The pages an edit that changed the page tree in place leaves, taken by the next invalidation instead of reading the tree again.</summary>
     private PdfPageSet? _nextPageSet;
+
+    /// <summary>The page orders before and after each page tree edit still in the history, made with the first such edit.</summary>
+    private ConditionalWeakTable<PdfEditRecord, PdfPageOrders>? _pageOrders;
+
+    /// <summary>The pages as the open transaction started; taken when the transaction ends.</summary>
+    private PdfPagesAtStart? _transactionStart;
 
     /// <summary>The attachment snapshot until structural invalidation.</summary>
     private PdfAttachment[]? _attachments;
@@ -153,6 +160,14 @@ internal record struct PdfDocumentState
     /// <summary>Gets the storage for the pages an in-place page tree edit hands to the next invalidation.</summary>
     [UnscopedRef]
     internal ref PdfPageSet? NextPageSet => ref _nextPageSet;
+
+    /// <summary>Gets the storage for the page orders kept for undo and redo of page tree edits.</summary>
+    [UnscopedRef]
+    internal ref ConditionalWeakTable<PdfEditRecord, PdfPageOrders>? PageOrders => ref _pageOrders;
+
+    /// <summary>Gets the storage for the pages as the open transaction started.</summary>
+    [UnscopedRef]
+    internal ref PdfPagesAtStart? TransactionStart => ref _transactionStart;
 
     /// <summary>Gets storage for the attachment snapshot until structural invalidation.</summary>
     [UnscopedRef]

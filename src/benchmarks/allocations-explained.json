@@ -6873,5 +6873,150 @@
     "type": "System.Object[]",
     "frame": "HyperPdfLibrary.Render.Managed.Pictures.PictureOpList.Grow()",
     "reason": "The list of recorded steps rents an array from the shared pool as it grows. A rent that finds the pool empty on the running thread makes a new array, which happens for the first recordings on a thread and is reused after that. The benchmark opens one document at a time, so it measures those first recordings."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Dialogs.MenuEntry.",
+    "reason": "A menu's entries are made when the menu opens, from what the document allows at that moment: which entries can be chosen and which are ticked. It is one set of entries for each opening, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Dialogs.ContextMenus",
+    "reason": "A menu's entries are made when the menu opens, from what the document allows at that moment: which entries can be chosen and which are ticked. It is one set of entries for each opening, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Dialogs.PageContextMenus.",
+    "reason": "A menu's entries are made when the menu opens, from what the document allows at that moment: which entries can be chosen and which are ticked. It is one set of entries for each opening, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.ViewModels.Dialogs.SidebarContextMenus.",
+    "reason": "A menu's entries are made when the menu opens, from what the document allows at that moment: which entries can be chosen and which are ticked. It is one set of entries for each opening, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.MenuBarMenus.",
+    "reason": "A menu's entries are made when the menu opens, from what the document allows at that moment: which entries can be chosen and which are ticked. It is one set of entries for each opening, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.ToolMenus.",
+    "reason": "A menu's entries are made when the menu opens, from what the document allows at that moment: which entries can be chosen and which are ticked. It is one set of entries for each opening, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.MainMenu.",
+    "reason": "A menu's entries are made when the menu opens, from what the document allows at that moment: which entries can be chosen and which are ticked. It is one set of entries for each opening, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.ChromeText.WithoutAccessMark",
+    "reason": "The words of each entry are copied once without the access mark when a menu is shown, and the menu names once when the menu bar is laid out again. Nothing is copied for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.MenuOverlays.Headers",
+    "reason": "The words of each entry are copied once without the access mark when a menu is shown, and the menu names once when the menu bar is laid out again. Nothing is copied for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.MenuOverlays.AddEntry",
+    "reason": "Each row of an open menu is one immutable ChromeItem in each layout of the menu, made when the menu opens or the keyboard moves in it. Nothing is made for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.MenuOverlays.AddRightDecoration",
+    "reason": "Each row of an open menu is one immutable ChromeItem in each layout of the menu, made when the menu opens or the keyboard moves in it. Nothing is made for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.MenuOverlays.Open",
+    "reason": "Opening a menu makes its input signal, the state that follows the keys and presses, and the subscriptions that run the chosen entry and close the menu. They live while the menu is open and are let go when it closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.OverlayStates.Track",
+    "reason": "Opening a menu makes its input signal, the state that follows the keys and presses, and the subscriptions that run the chosen entry and close the menu. They live while the menu is open and are let go when it closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.ViewerChrome.Show",
+    "reason": "Opening a menu makes its input signal, the state that follows the keys and presses, and the subscriptions that run the chosen entry and close the menu. They live while the menu is open and are let go when it closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.ViewerChrome.ReleaseRetired",
+    "reason": "Opening a menu makes its input signal, the state that follows the keys and presses, and the subscriptions that run the chosen entry and close the menu. They live while the menu is open and are let go when it closes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Viewer.Chrome.MenuState.<Clone>",
+    "reason": "Each key or press in an open menu makes the next immutable state of the menu. It is one record for each key or press a person makes."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfPageManager.Apply",
+    "reason": "Each edit is a cold signal over the edit's task. The signal, its closure and the task are made once for an edit a person asks for, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfPageManager.Interleave",
+    "reason": "Each edit is a cold signal over the edit's task. The signal, its closure and the task are made once for an edit a person asks for, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfPageManager.InterleaveCoreAsync",
+    "reason": "These hold the file being shuffled in, its pages and what the copy could not keep, for the one edit a person asks for. They are let go when the edit ends."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfPageManager.InterleavePrepared",
+    "reason": "These hold the file being shuffled in, its pages and what the copy could not keep, for the one edit a person asks for. They are let go when the edit ends."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfPageManager.PrepareImportAsync",
+    "reason": "These hold the file being shuffled in, its pages and what the copy could not keep, for the one edit a person asks for. They are let go when the edit ends."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentInfoEditorService.SetInfo",
+    "reason": "Each edit is a cold signal over the edit's task. The signal, its closure and the task are made once for an edit a person asks for, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentInfoEditorService+",
+    "reason": "Each edit is a cold signal over the edit's task. The signal, its closure and the task are made once for an edit a person asks for, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfDocumentInfoEditorService.Apply",
+    "reason": "The edit's arguments are passed to the library as one record for the edit a person asks for."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfAttachmentEditorService.AddAttachment",
+    "reason": "Each edit is a cold signal over the edit's task. The signal, its closure and the task are made once for an edit a person asks for, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfAttachmentEditorService+",
+    "reason": "Each edit is a cold signal over the edit's task. The signal, its closure and the task are made once for an edit a person asks for, not for a frame."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Engine.HyperPdfAttachmentEditorService.Add",
+    "reason": "The edit's arguments are passed to the library as one record for the edit a person asks for."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.HyperPdfEditingToolBenchmarks.",
+    "reason": "The benchmark waits for the edit and its undo with ToTask, which makes a task and its subscription for each operation. This is the benchmark's own waiting, not the editor's."
+  },
+  {
+    "type": "",
+    "frame": "HyperPdf.Benchmarks.HyperPdfPageManagementBenchmarks.ApplyAndUndo",
+    "reason": "The benchmark waits for the edit and its undo with ToTask, which makes a task and its subscription for each operation. This is the benchmark's own waiting, not the editor's."
   }
 ]

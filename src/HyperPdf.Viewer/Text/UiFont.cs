@@ -18,8 +18,17 @@ internal sealed class UiFont
     /// <summary>The family every window text is set in first. It ships inside the application, so text looks the same on every system.</summary>
     private const string Family = "Arimo";
 
+    /// <summary>The characters whose glyphs are kept: Basic Latin through Latin Extended-B, which hold nearly all window text.</summary>
+    private const int KeptCharacters = 0x250;
+
+    /// <summary>A kept glyph slot not looked up yet.</summary>
+    private const int Unknown = int.MinValue;
+
     /// <summary>The face.</summary>
     private readonly ScreenFontFace _face;
+
+    /// <summary>The glyph of each kept character, looked up from the character map once; the font never changes.</summary>
+    private readonly int[] _glyphs = CreateGlyphSlots();
 
     /// <summary>The shaper that reads the face's own layout tables, made the first time text needs shaping.</summary>
     private PdfOpenTypeShaper? _shaper;
@@ -57,7 +66,7 @@ internal sealed class UiFont
     /// <param name="rune">The character.</param>
     /// <returns><see langword="true"/> when it has one.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal bool Has(Rune rune) => Program.GetGlyphByUnicode(rune.Value) > 0;
+    internal bool Has(Rune rune) => Lookup(rune) > 0;
 
     /// <summary>Tells whether the face has a glyph for every character of a piece of text, so it can be set without shaping or another font.</summary>
     /// <param name="text">The text.</param>
@@ -124,9 +133,41 @@ internal sealed class UiFont
         pen.Close();
     }
 
+    /// <summary>Makes the kept glyph slots, all not looked up yet.</summary>
+    /// <returns>The slots.</returns>
+    private static int[] CreateGlyphSlots()
+    {
+        var slots = new int[KeptCharacters];
+        Array.Fill(slots, Unknown);
+        return slots;
+    }
+
     /// <summary>Finds the glyph of a character.</summary>
     /// <param name="rune">The character.</param>
     /// <returns>The glyph, or the font's missing glyph when it has none for the character.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private int GlyphOf(Rune rune) => Math.Max(Program.GetGlyphByUnicode(rune.Value), 0);
+    private int GlyphOf(Rune rune) => Math.Max(Lookup(rune), 0);
+
+    /// <summary>Looks up the glyph of a character, keeping those of the Latin characters so the character map is searched once for each.</summary>
+    /// <param name="rune">The character.</param>
+    /// <returns>The glyph, or zero or less when the face has none.</returns>
+    private int Lookup(Rune rune)
+    {
+        var value = rune.Value;
+        if ((uint)value >= KeptCharacters)
+        {
+            return Program.GetGlyphByUnicode(value);
+        }
+
+        // Two threads that look up the same character store the same glyph, so a race only repeats the search.
+        ref var slot = ref _glyphs[value];
+        var glyph = Volatile.Read(ref slot);
+        if (glyph == Unknown)
+        {
+            glyph = Program.GetGlyphByUnicode(value);
+            Volatile.Write(ref slot, glyph);
+        }
+
+        return glyph;
+    }
 }

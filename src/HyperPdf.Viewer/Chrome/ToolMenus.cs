@@ -28,6 +28,9 @@ internal static class ToolMenus
     /// <summary>The name of the icon of an entry that adds pages.</summary>
     private const string AddIcon = "Add";
 
+    /// <summary>The pages Swap works on: two.</summary>
+    private const int PairOfPages = 2;
+
     /// <summary>How close two spacings are for them to be the same choice.</summary>
     private const float SpacingTolerance = 0.001F;
 
@@ -147,25 +150,28 @@ internal static class ToolMenus
             Item("Move the Page _Earlier", pages.MoveEarlierCommand),
             Item("Move the Page La_ter", pages.MoveLaterCommand),
             Item("_Duplicate the Page", pages.DuplicateCommand),
-            Item("Re_verse the Order of the Pages", pages.ReverseCommand).WithIcon("Reverse"),
+            Item("Re_verse the Order of the Pages", pages.ReverseCommand, "Reverse"),
+            MenuEntry.Item(UiText.Get("S_wap the Two Selected Pages"), null, pages.ReverseCommand, null, pages.SelectedPages.Length == PairOfPages, "Reverse"),
             Item("Delete the Page", pages.DeleteCommand),
             MenuEntry.Separator(),
             MenuEntry.Radio(UiText.Get("_Organise Pages"), tab.ToggleOrganisePagesCommand, null, pages.IsOrganising),
             Item("Select _Every Page", pages.SelectAllCommand),
-            Item("Select the _Odd Pages", pages.SelectOddCommand).WithIcon(TickedIcon),
-            Item("Select the Eve_n Pages", pages.SelectEvenCommand).WithIcon(TickedIcon),
+            Item("Select the _Odd Pages", pages.SelectOddCommand, TickedIcon),
+            Item("Select the Eve_n Pages", pages.SelectEvenCommand, TickedIcon),
             Item("Add the Page I Am On to the Selection", pages.AddCurrentToSelectionCommand),
             MenuEntry.Separator(),
             Item("E_xtract Pages…", pages.ExtractCommand),
-            Item("Save Each Page as Its Own _File…", pages.SplitPagesCommand).WithIcon("Split"),
-            Item("Add a _Blank Page", pages.InsertBlankPageCommand).WithIcon(AddIcon),
-            Item("Re_place Pages with Pages from Files…", pages.ReplaceCommand).WithIcon("Replace"),
+            Item("Save Each Page as Its Own _File…", pages.SplitPagesCommand, "Split"),
+            Item("Add a _Blank Page", pages.InsertBlankPageCommand, AddIcon),
+            Item("Re_place Pages with Pages from Files…", pages.ReplaceCommand, "Replace"),
             Item("_Insert Pages from Files…", pages.InsertFilesCommand),
             Item("Insert _Pictures as Pages…", pages.InsertImagesCommand),
             Item("_Merge Files…", pages.MergeFilesCommand),
+            Item("S_huffle In the Pages of a File…", pages.InterleaveCommand, AddIcon),
+            Item("Save the Parts Between _Bookmarks as Files…", pages.SplitAtBookmarksCommand, "Split"),
             MenuEntry.Separator(),
-            Named(pages.UndoText, pages.UndoCommand).WithIcon("Undo"),
-            Named(pages.RedoText, pages.RedoCommand).WithIcon("Redo"),
+            MenuEntry.Item(pages.UndoText, null, pages.UndoCommand, null, ((ICommand)pages.UndoCommand).CanExecute(null), "Undo"),
+            MenuEntry.Item(pages.RedoText, null, pages.RedoCommand, null, ((ICommand)pages.RedoCommand).CanExecute(null), "Redo"),
         ];
     }
 
@@ -177,10 +183,11 @@ internal static class ToolMenus
         var pages = tab.Pages;
         return
         [
-            Item("A _Blank Page", pages.InsertBlankPageCommand).WithIcon(AddIcon),
-            Item("_Pages from Files…", pages.InsertFilesCommand).WithIcon(AddIcon),
-            Item("Pictures as P_ages…", pages.InsertImagesCommand).WithIcon(AddIcon),
-            Item("_Files Joined on at the End…", pages.MergeFilesCommand).WithIcon(AddIcon),
+            Item("A _Blank Page", pages.InsertBlankPageCommand, AddIcon),
+            Item("_Pages from Files…", pages.InsertFilesCommand, AddIcon),
+            Item("Pictures as P_ages…", pages.InsertImagesCommand, AddIcon),
+            Item("_Files Joined on at the End…", pages.MergeFilesCommand, AddIcon),
+            Item("Pages of a File _Shuffled In…", pages.InterleaveCommand, AddIcon),
         ];
     }
 
@@ -192,10 +199,10 @@ internal static class ToolMenus
         var pages = tab.Pages;
         return
         [
-            Item("_Every Page", pages.SelectAllCommand).WithIcon(TickedIcon),
-            Item("The _Odd Pages", pages.SelectOddCommand).WithIcon(TickedIcon),
-            Item("The Eve_n Pages", pages.SelectEvenCommand).WithIcon(TickedIcon),
-            Item("Add the _Page I Am On", pages.AddCurrentToSelectionCommand).WithIcon(TickedIcon),
+            Item("_Every Page", pages.SelectAllCommand, TickedIcon),
+            Item("The _Odd Pages", pages.SelectOddCommand, TickedIcon),
+            Item("The Eve_n Pages", pages.SelectEvenCommand, TickedIcon),
+            Item("Add the _Page I Am On", pages.AddCurrentToSelectionCommand, TickedIcon),
         ];
     }
 
@@ -362,21 +369,28 @@ internal static class ToolMenus
         return entries;
     }
 
-    /// <summary>Lists the tools that work on the page besides marking: measuring, filling and signing, changing the page's own content and taking a picture of an area.</summary>
+    /// <summary>Lists the measuring tool and what can be done with a measurement.</summary>
     /// <param name="tab">The tab shown.</param>
     /// <returns>The entries.</returns>
-    internal static List<MenuEntry> PageWork(DocumentTabViewModel tab)
+    internal static List<MenuEntry> Measuring(DocumentTabViewModel tab)
     {
         var measure = tab.Measure;
-        var sign = tab.FillAndSign;
-        var edit = tab.ContentEdit;
-        var marks = tab.Annotations;
         return
         [
             MenuEntry.Radio(UiText.Get("_Measure"), measure.ToggleCommand, null, measure.IsOn),
             Item("Keep the Measurement as a Mark", measure.KeepCommand),
             Item("Clear the Measurement", measure.ClearCommand),
-            MenuEntry.Separator(),
+        ];
+    }
+
+    /// <summary>Lists filling and signing: placing a signature or initials and adjusting the mark being placed.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>The entries.</returns>
+    internal static List<MenuEntry> Signing(DocumentTabViewModel tab)
+    {
+        var sign = tab.FillAndSign;
+        return
+        [
             MenuEntry.Radio(UiText.Get("_Fill and Sign"), sign.ToggleCommand, null, sign.IsActive),
             Item("Place My _Signature…", sign.SignatureCommand),
             Item("Place My _Initials…", sign.InitialsCommand),
@@ -386,8 +400,40 @@ internal static class ToolMenus
             Item("Make the Mark Smaller", sign.SmallerCommand),
             Item("Remove the Mark", sign.RemoveMarkCommand),
             Item("Stop Placing", sign.CancelPlacementCommand),
+        ];
+    }
+
+    /// <summary>Lists the form fields that can be added and what can be changed about the picked field.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>The entries.</returns>
+    internal static List<MenuEntry> FormFields(DocumentTabViewModel tab)
+    {
+        var design = tab.FormDesign;
+        return
+        [
+            Item("Add a Form _Text Field", design.AddTextFieldCommand),
+            Item("Add a Form Check _Box", design.AddCheckBoxCommand),
+            Item("Add a Form Drop-_Down List", design.AddDropDownCommand),
+            Item("Add a Form _List Box", design.AddListBoxCommand),
+            Item("Add a Pair of _Radio Buttons", design.AddRadioButtonsCommand),
+            Item("Add a Box to _Sign", design.AddSignatureFieldCommand),
+            Item("Add a Form _Button", design.AddButtonCommand),
             MenuEntry.Separator(),
-            Item("_Edit the Page's Own Content", edit.ToggleEditingCommand),
+            Item("Make the Picked Field Required or Not", design.ToggleRequiredCommand),
+            Item("Make the Picked Field Read-Only or Not", design.ToggleReadOnlyCommand),
+            Item("Remove the Picked Form Field", design.RemoveFocusedCommand),
+        ];
+    }
+
+    /// <summary>Lists what changes the page's own content: turning Edit mode on, adding shapes, text and pictures, and changing the picked objects.</summary>
+    /// <param name="tab">The tab shown.</param>
+    /// <returns>The entries.</returns>
+    internal static List<MenuEntry> ContentEditing(DocumentTabViewModel tab)
+    {
+        var edit = tab.ContentEdit;
+        return
+        [
+            MenuEntry.Radio(UiText.Get("_Edit the Page's Own Content"), edit.ToggleEditingCommand, null, edit.IsEditing),
             Item("Change the Picked Text…", edit.EditPickedTextCommand),
             Item("Remove the Picked Object", edit.RemovePickedCommand),
             Item("Add a _Rectangle", edit.AddRectangleCommand),
@@ -406,23 +452,6 @@ internal static class ToolMenus
             .. Palette("Fill the Picked Object with {0}", edit.SetPickedFillCommand),
             .. Palette("Colour the Picked Object's Line {0}", edit.SetPickedLineCommand),
             .. Looks(edit),
-            MenuEntry.Separator(),
-            Item("Add a Form _Text Field", tab.FormDesign.AddTextFieldCommand),
-            Item("Add a Form Check _Box", tab.FormDesign.AddCheckBoxCommand),
-            Item("Add a Form Drop-_Down List", tab.FormDesign.AddDropDownCommand),
-            Item("Add a Form _Button", tab.FormDesign.AddButtonCommand),
-            Item("Make the Picked Field Required or Not", tab.FormDesign.ToggleRequiredCommand),
-            Item("Make the Picked Field Read-Only or Not", tab.FormDesign.ToggleReadOnlyCommand),
-            Item("Remove the Picked Form Field", tab.FormDesign.RemoveFocusedCommand),
-            MenuEntry.Separator(),
-            Item("Stamp from a _Picture…", marks.PictureStampCommand),
-            Item("Stamp with My Own _Words…", marks.CustomStampCommand),
-            Item("Make the Typed Text Larger", marks.GrowTextCommand),
-            Item("Make the Typed Text Smaller", marks.ShrinkTextCommand),
-            Item("Show Every Note Again", marks.ClearFilterCommand),
-            MenuEntry.Separator(),
-            Item("Take a Picture of an _Area", tab.PageTools.ToggleSnapshotToolCommand),
-            Item("Show Every _Layer as the Document Sets It", tab.Layers.ResetCommand),
         ];
     }
 
@@ -463,9 +492,9 @@ internal static class ToolMenus
         entries.Add(MenuEntry.Radio(UiText.Get("Bol_d"), marks.ToggleBoldCommand, null, marks.IsBold));
         entries.Add(MenuEntry.Radio(UiText.Get("_Italic"), marks.ToggleItalicCommand, null, marks.IsItalic));
         entries.Add(MenuEntry.Radio(UiText.Get("_Underlined"), marks.ToggleUnderlineCommand, null, marks.IsUnderline));
-        entries.Add(MenuEntry.Radio(UiText.Get("Align _Left"), marks.SetAlignmentCommand, TextBoxAlignment.Left, marks.TextAlignment == TextBoxAlignment.Left));
-        entries.Add(MenuEntry.Radio(UiText.Get("Align _Centre"), marks.SetAlignmentCommand, TextBoxAlignment.Center, marks.TextAlignment == TextBoxAlignment.Center));
-        entries.Add(MenuEntry.Radio(UiText.Get("Align _Right"), marks.SetAlignmentCommand, TextBoxAlignment.Right, marks.TextAlignment == TextBoxAlignment.Right));
+        entries.Add(MenuEntry.Radio(UiText.Get("Align _Left"), marks.SetAlignmentCommand, MenuParameters.Of(TextBoxAlignment.Left), marks.TextAlignment == TextBoxAlignment.Left));
+        entries.Add(MenuEntry.Radio(UiText.Get("Align _Centre"), marks.SetAlignmentCommand, MenuParameters.Of(TextBoxAlignment.Center), marks.TextAlignment == TextBoxAlignment.Center));
+        entries.Add(MenuEntry.Radio(UiText.Get("Align _Right"), marks.SetAlignmentCommand, MenuParameters.Of(TextBoxAlignment.Right), marks.TextAlignment == TextBoxAlignment.Right));
         entries.Add(Item("Make the Typed Text Larger", marks.GrowTextCommand));
         entries.Add(Item("Make the Typed Text Smaller", marks.ShrinkTextCommand));
         entries.Add(MenuEntry.Separator());
@@ -526,7 +555,7 @@ internal static class ToolMenus
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static MenuEntry Copy<T>(TabCopyAction<T> action, string icon)
         where T : class, ICopyWindowRequest =>
-        MenuEntry.Item(action.MenuText, null, action.RunCommand, null, action.CanRun).WithIcon(icon);
+        MenuEntry.Item(action.MenuText, null, action.RunCommand, null, action.CanRun, icon);
 
     /// <summary>Makes the entry of a marking tool, ticked while it is the tool in use.</summary>
     /// <param name="marks">The marking tools of the tab shown.</param>
@@ -535,7 +564,7 @@ internal static class ToolMenus
     /// <returns>The entry.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static MenuEntry MarkTool(AnnotationsViewModel marks, string header, AnnotationTool tool) =>
-        MenuEntry.Radio(header, marks.SetToolCommand, tool, marks.Tool == tool);
+        MenuEntry.Radio(header, marks.SetToolCommand, MenuParameters.Of(tool), marks.Tool == tool);
 
     /// <summary>Makes the entry of one spacing choice, ticked while it is the spacing in use.</summary>
     /// <param name="format">The words of the entry, with the spacing's name in place of the placeholder.</param>
@@ -554,12 +583,13 @@ internal static class ToolMenus
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static MenuEntry Item(string header, ICommand command) => MenuEntry.Item(UiText.Get(header), null, command, null, command.CanExecute(null));
 
-    /// <summary>Makes an entry whose words are already in the user's language, as the undo text is.</summary>
-    /// <param name="text">The words.</param>
+    /// <summary>Makes an entry that runs a command and shows a named icon, greyed while the command cannot run.</summary>
+    /// <param name="header">The entry's text in English, which is looked up in the language shown.</param>
     /// <param name="command">The command.</param>
+    /// <param name="icon">The icon name.</param>
     /// <returns>The entry.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static MenuEntry Named(string text, ICommand command) => MenuEntry.Item(text, null, command, null, command.CanExecute(null));
+    private static MenuEntry Item(string header, ICommand command, string icon) => MenuEntry.Item(UiText.Get(header), null, command, null, command.CanExecute(null), icon);
 
     /// <summary>Lists what can be done with several picked objects: picking them all, lining them up and spreading them.</summary>
     /// <param name="edit">The view model of Edit mode.</param>

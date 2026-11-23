@@ -23,16 +23,22 @@ public static class MiniPdf
     {
         ArgumentNullException.ThrowIfNull(trailerEntries);
         ArgumentNullException.ThrowIfNull(objects);
+
+        // The bytes written so far are counted as each object is added, rather than by encoding the whole output again.
+        const string Header = "%PDF-1.7\n";
         var latin1 = Encoding.Latin1;
-        var output = new StringBuilder("%PDF-1.7\n");
+        var output = new StringBuilder(Header);
+        var position = latin1.GetByteCount(Header);
         var offsets = new int[objects.Length];
         for (var i = 0; i < objects.Length; i++)
         {
-            offsets[i] = latin1.GetByteCount(output.ToString());
-            _ = output.Append(CultureInfo.InvariantCulture, $"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+            offsets[i] = position;
+            var written = string.Create(CultureInfo.InvariantCulture, $"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+            _ = output.Append(written);
+            position += latin1.GetByteCount(written);
         }
 
-        var xref = latin1.GetByteCount(output.ToString());
+        var xref = position;
         _ = output.Append(CultureInfo.InvariantCulture, $"xref\n0 {objects.Length + 1}\n0000000000 65535 f \n");
         foreach (var offset in offsets)
         {

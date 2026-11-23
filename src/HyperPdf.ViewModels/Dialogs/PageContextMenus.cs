@@ -20,6 +20,9 @@ public static class PageContextMenus
     /// <summary>The name of the icon of an entry that adds pages.</summary>
     private const string Adds = "Add";
 
+    /// <summary>The pages Swap works on: two.</summary>
+    private const int PairOfPages = 2;
+
     /// <summary>Lists what can be done to the chosen pages, for the page under the pointer.</summary>
     /// <param name="tab">The tab the page is in.</param>
     /// <param name="page">The page under the pointer.</param>
@@ -32,9 +35,14 @@ public static class PageContextMenus
         var chosen = Array.BinarySearch(pages.SelectedPages, page.PageIndex) >= 0;
         return
         [
-            MenuEntry.Item(UiText.Get("Select Only This Page"), null, pages.SelectOnlyCommand, page, true).WithIcon(Ticked),
-            MenuEntry.Item(chosen ? UiText.Get("Take This Page out of the Selection") : UiText.Get("Add This Page to the Selection"), null, pages.TogglePageCommand, page, true)
-                .WithIcon(chosen ? "CheckOff" : Ticked),
+            MenuEntry.Item(UiText.Get("Select Only This Page"), null, pages.SelectOnlyCommand, page, true, Ticked),
+            MenuEntry.Item(
+                chosen ? UiText.Get("Take This Page out of the Selection") : UiText.Get("Add This Page to the Selection"),
+                null,
+                pages.TogglePageCommand,
+                page,
+                true,
+                chosen ? "CheckOff" : Ticked),
             Item("Select _Every Page", pages.SelectAllCommand, Ticked),
             MenuEntry.Separator(),
             Item("Add a _Blank Page After", pages.InsertBlankPageCommand, Adds),
@@ -47,6 +55,7 @@ public static class PageContextMenus
             Item("Move E_arlier", pages.MoveEarlierCommand, "PageUp"),
             Item("Move La_ter", pages.MoveLaterCommand, "PageDown"),
             Item("Re_verse the Order", pages.ReverseCommand, "Reverse"),
+            MenuEntry.Item(UiText.Get("S_wap the Two Selected Pages"), null, pages.ReverseCommand, null, pages.SelectedPages.Length == PairOfPages, "Reverse"),
             Item("Re_place with Pages from Files…", pages.ReplaceCommand, "Replace"),
             MenuEntry.Separator(),
             Item("E_xtract to a New File…", pages.ExtractCommand, "Save"),
@@ -54,8 +63,8 @@ public static class PageContextMenus
             MenuEntry.Separator(),
             Item("Dele_te", pages.DeleteCommand, "Close"),
             MenuEntry.Separator(),
-            MenuEntry.Item(pages.UndoText, null, pages.UndoCommand, null, pages.CanUndo).WithIcon("Undo"),
-            MenuEntry.Item(pages.RedoText, null, pages.RedoCommand, null, pages.CanRedo).WithIcon("Redo"),
+            MenuEntry.Item(pages.UndoText, null, pages.UndoCommand, null, pages.CanUndo, "Undo"),
+            MenuEntry.Item(pages.RedoText, null, pages.RedoCommand, null, pages.CanRedo, "Redo"),
         ];
     }
 
@@ -66,5 +75,5 @@ public static class PageContextMenus
     /// <returns>The entry.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static MenuEntry Item(string header, ICommand command, string icon) =>
-        MenuEntry.Item(UiText.Get(header), null, command, null, command.CanExecute(null)).WithIcon(icon);
+        MenuEntry.Item(UiText.Get(header), null, command, null, command.CanExecute(null), icon);
 }

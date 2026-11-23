@@ -104,7 +104,16 @@ public static class StoreTransactions
     /// <param name = "self">The owned object-store state.</param>
     /// <param name = "scopes">The parts of the document the change can affect.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void NotifyChanged(PdfObjectStore self, PdfCacheScopes scopes) => Volatile.Read(ref self.ChangedState)?.OnObjectsChanged(scopes);
+    internal static void NotifyChanged(PdfObjectStore self, PdfCacheScopes scopes) => Volatile.Read(ref self.ChangedState)?.OnObjectsChanged(scopes, null, false);
+
+    /// <summary>Tells the change listener which history record changed the objects. Called without holding the lock.</summary>
+    /// <param name = "self">The owned object-store state.</param>
+    /// <param name = "scopes">The parts of the document the change can affect.</param>
+    /// <param name = "record">The record committed, undone or redone; <see langword="null"/> when the change made none.</param>
+    /// <param name = "undone">Whether the record was undone.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void NotifyChanged(PdfObjectStore self, PdfCacheScopes scopes, PdfEditRecord? record, bool undone) =>
+        Volatile.Read(ref self.ChangedState)?.OnObjectsChanged(scopes, record, undone);
 
     /// <summary>Closes a transaction, while holding the lock.</summary>
     /// <param name = "self">The owned object-store state.</param>

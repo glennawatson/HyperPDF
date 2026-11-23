@@ -4,7 +4,7 @@ A calm PDF viewer for Linux, Windows and macOS. Read, search, annotate, fill for
 
 HyperPDF is made for people with ADHD or autism, and it works to improve access for people with low vision. Controls are clear, stay where you left them and can be adjusted. See [Comfort and access](#comfort-and-access).
 
-![Document tabs, toolbar actions and thumbnails](docs/images/document-window.png)
+![Document tabs, the menu bar, the toolbar and page thumbnails](docs/images/document-window.png)
 
 ## Get started
 
@@ -19,10 +19,30 @@ Download a package from [GitHub releases](https://github.com/glennawatson/HyperP
 1. Choose **Open**, or drop a PDF onto the window.
 2. Use the page box, thumbnails or bookmarks to move through it.
 3. Choose **Find** to search or **Focus** for adjustable reading text.
-4. Open **Tabs & settings → Preferences** for appearance and startup settings.
+4. Choose **Edit → Preferences** (Ctrl+,) for appearance and startup settings.
 
 The interface supports English, French, German, Mandarin Chinese, Arabic, Spanish and Portuguese. Choose **Interface language** in Preferences to update existing windows immediately. Arabic uses right-to-left controls while PDF pages keep their document layout.
 If a PDF needs a recipient certificate, choose your `.p12` or `.pfx` file and enter its password. RSA and elliptic-curve certificates both work. If the file has no private key, or the PDF uses an encryption method the viewer cannot read, the viewer says so. The viewer keeps that choice only while the tab is open. A wrapper PDF names its enclosed document and offers it in **Attachments**; open that file there and enter its document password if asked.
+
+## Menus
+
+The menu bar under the tabs holds every tool: **File**, **Edit**, **View**, **Document**, **Comment**, **Forms**, **Tools**, **Window** and **Help**. Click a name, or press Alt and its letter: Alt+F, Alt+E, Alt+V, Alt+D, Alt+C, Alt+O for Forms, Alt+T, Alt+W or Alt+H. F10 opens File. In an open menu, Left and Right move to the menu beside it. A menu opens only when you ask; it never opens because the pointer passes over it. A menu that needs a document is faded until one is open, and keeps its place.
+
+![The Document menu open from the menu bar](docs/images/menu-bar.png)
+
+Right-click for the tools that fit what is under the pointer:
+
+| Right-click on | Offers |
+|---|---|
+| A page | Read aloud from here, add a note, type text, add a bookmark, the pointer tools, back and forward, rotate, find and print |
+| Selected text | Copy, read aloud, highlight, underline, strike out, and link the text to an address or a page |
+| A link | Open it or copy its address |
+| A comment, on the page or in the list | Go to it, edit, reply, status, colour and delete |
+| A page thumbnail | Every page tool, as in Organise |
+| A bookmark, attached file, film, layer or tag | What can be done to that item |
+| A tab | Close it, close the others, save and reload |
+
+![The right-click menu of a page](docs/images/page-menu.png)
 
 ## Features
 
@@ -31,23 +51,37 @@ If a PDF needs a recipient certificate, choose your `.p12` or `.pfx` file and en
 | Manage documents | Reorder tabs, find tabs, hover previews, restore the session and reopen closed tabs. Open files, password-protected PDFs and web URLs. Open Recent lists recent files; each reopens at the page you left. |
 | Navigate | Thumbnails, bookmarks, page labels, links and back/forward history. Links to other PDFs open them in a tab. Links to other files ask first; programs never start. |
 | View | Continuous, page-by-page, two-page and cover layouts. Rotate, fit page, fit width or set zoom. Ctrl+wheel or a pinch zooms around the pointer. Zoom to a dragged area, move pages with the Hand tool and auto-scroll at an adjustable speed. Split View shows two places at once; New Window opens another window. |
-| Find text | Match case or whole words. Search one PDF or every PDF in a folder. |
+| Find text | Match case or whole words. Search one PDF or every PDF in a folder. **Edit → Find and Replace in the Pages** changes words in the pages' own text. |
 | Read | Select and copy text, or all of a page's text. Copy an image of part of a page with Snapshot. Use caret browsing, Read Mode or presentation. |
-| Inspect | Document properties, including whether a PDF is linearized, layers and attachments. Open or save attachments. A message names content the app cannot show, such as XFA forms or 3D. In a preseparated print file, each colour separation page names its colourant and printed page, and you can switch to another separation of the same page. |
+| Inspect | Document properties, including whether a PDF is linearized, layers and attachments. **Document → Change the Document Details** sets the title, author, subject and keywords. Attach files to the document, take them out, or open and save them. A message names content the app cannot show, such as XFA forms or 3D. In a preseparated print file, each colour separation page names its colourant and printed page, and you can switch to another separation of the same page. |
 | Tags | The Tags panel lists the tags that tell a screen reader how a document reads, in plain words. **Check Accessibility** lists what a screen reader would struggle with and jumps to it. Change a tag's type, description, replacement text, language or title, move it earlier or later in the reading order, or remove an empty one. Each change can be undone. Saving keeps the file valid for the PDF/UA level it claims, or says why it cannot. |
-| Annotate | Highlights, underlines, strike-outs, squiggles, notes, text, callouts, ink, shapes, arrows, polygons, clouds and stamps, including your own words or a picture. Move, resize, recolour and restyle comments after placing them. Undo and redo every change. While you type text on a page, a small row above it has Bold, Italic, Underline, Smaller, Larger and Done, so you do not have to look away from the text. |
+| Annotate | Highlights, underlines, strike-outs, squiggles, notes, text, callouts, ink, shapes, arrows, polygons, clouds and stamps, including your own words or a picture. Move, resize, recolour and restyle comments after placing them. Link selected text to a web address or a page. Undo and redo every change. While you type text on a page, a small row above it has Bold, Italic, Underline, Smaller, Larger and Done, so you do not have to look away from the text. |
 | Review | Browse comments, filter them by text, type, colour or author, sort them, reply and set review status. Set the author name in Preferences. |
-| Fill forms | Text fields, check boxes, radio buttons, lists and one-letter-per-box fields. Tab and Shift+Tab move between fields; Space ticks. On printed forms, lines, boxes and letter boxes are outlined and text snaps to them. Save filled forms. Common calculations and formats are supported, and so are simple form scripts that read other fields, set values, show or hide fields and give messages. Spelling is checked with the desktop's dictionaries. |
+| Fill forms | Text fields, check boxes, radio buttons, lists and one-letter-per-box fields. Tab and Shift+Tab move between fields; Space ticks. On printed forms, lines, boxes and letter boxes are outlined and text snaps to them. Save filled forms. Add text fields, check boxes, drop-down lists, list boxes, radio buttons, buttons and boxes to sign from the **Forms** menu. Load answers from an FDF or XFDF file, or save them as either. Common calculations and formats are supported, and so are simple form scripts that read other fields, set values, show or hide fields and give messages. Spelling is checked with the desktop's dictionaries. |
 | Sign | Type or draw a visible signature. Sign with a protected `.p12` or `.pfx` certificate (RSA or elliptic curve), or with an external signer when your key stays on a hardware token or with a signing service. The private key never reaches the app. Check signatures and timestamps. |
 | Keep signatures valid | **Add Validation Data or Timestamp** stores the certificates and revocation answers a signature needs, so it can still be checked after the certificates expire. It can also add a trusted document timestamp. |
 | Protect | **Protect with Password** sets a reading password and an owner password, and lets you allow or stop printing, copying, editing, forms and screen readers. Choose AES-256, AES-128 or AES-256 with change detection (AES-GCM). **Remove Protection** saves a copy with no password and no limits. |
-| Manage pages | Delete, duplicate, rotate and reorder pages. Extract pages to a new file, insert another PDF before a page, merge PDFs at the end, or add picture files as new pages. Undo and redo each change. |
+| Manage pages | See [Organise pages](#organise-pages). |
 | Edit the page | Turn on **Edit** (Ctrl+E), then click text, a picture or a drawing. A box shows what is picked. Double-click text to retype it where it sits, use the arrow keys to move the picked item, or press Delete to remove it. Changes show on the page straight away and undo with Ctrl+Z. Retyped text is written in Helvetica, so it may not match the original font. **Save PDF 2.0 copy** is one click away in the Edit bar. |
 | Redact | Mark text or areas, then **Apply Redactions** to remove what is under them for good. Choose what happens to pictures and drawings, and whether to remove hidden text, links, comments and metadata. |
 | Save a copy | Optimised (smaller file), flattened (forms and markup become part of the page), PDF/A, and PDF 2.0. Each copy window says what changed, or why a copy could not be made. Your open file is not changed. |
+| Export | **File → Export the Text** saves the text as plain text, Markdown or HTML. Pages can also be saved as pictures or drawings. |
 | Recognise text | Add searchable text to scanned pages. Recognition runs inside the app and English comes with it; other languages download in one click when needed. |
 | Measure | Distance, perimeter and area. Use the drawing's scale or enter your own. Keep measurements on the page. |
 | Use the desktop | Recent documents, Show in Folder and opening files in the running window. Reload changed files automatically or when asked. |
+
+## Organise pages
+
+Choose **Organise** on the toolbar. The pages appear in the side panel with a tick box under each, and a bar of page tools opens. Tick the pages you want, or use **Select** for every page, the odd pages or the even pages. The buttons on the bar keep their places; one that cannot be used yet is faded, not removed.
+
+![Organise mode with two pages ticked and the page tools bar](docs/images/organise-pages.png)
+
+- **Add** a blank page, pages from PDFs, pictures as pages, files joined on at the end, or a file's pages shuffled in between yours (for scans of fronts and backs).
+- **Turn**, **duplicate**, **move earlier or later**, **reverse** the order, **swap** two pages, or **replace** pages with pages from files.
+- **Extract** pages to a new file, **save each** page as its own file, or save the parts between bookmarks as files.
+- **Delete** pages. **Undo** and **Redo** undo and redo each change.
+
+Right-click a page in the side panel for the same tools. The **Document → Pages** menu has them too.
 
 ## Focus and Read Aloud
 
@@ -99,6 +133,7 @@ No single theme suits everyone. Choose the appearance that works for you.
 
 | Action | Shortcut |
 |---|---|
+| Open a menu / the File menu | Alt and the menu's letter / F10 |
 | Open / save / save as | Ctrl+O / Ctrl+S / Ctrl+Shift+S |
 | Print / print with the system dialog | Ctrl+P / Ctrl+Shift+P |
 | Switch / close tab | Ctrl+Tab / Ctrl+W |
@@ -131,6 +166,8 @@ No single theme suits everyone. Choose the appearance that works for you.
 ## Limits
 
 Form JavaScript runs only in a small safe subset (field values, show and hide, text formatting and messages); a script that needs more is skipped and the app says so. XFA forms are not supported. Sound and video never play by themselves. The Media panel plays the chosen item when you press Play, with pause, stop, skip, a position bar you can drag, and captions; with reduced motion on, video shows one picture a second. The picture follows the sound, so the two stay together. The decoders for H.264, H.265, AAC, MP3, Opus, Vorbis, FLAC and PCM sound, and the MP4, Matroska and Ogg readers, are written in C# and ship inside the app, so nothing needs installing. For a file in another format the panel lets you save the media or open it with your own player after you agree. 3D models show the picture the document supplies, and their contents are described in words but not drawn. The app says when a document uses content it cannot show.
+
+Find and replace finds words within one piece of a page's text as the file stores it, so words split across two pieces are not found.
 
 When you save a copy, the viewer tells you if something could not be made to fit, for example a PDF/A level it could not apply. Programs that follow older PDF rules may not open AES-256 with change detection (AES-GCM) files yet.
 

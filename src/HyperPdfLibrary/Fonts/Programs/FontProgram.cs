@@ -25,8 +25,8 @@ public abstract class FontProgram
     /// <summary>The largest code point the four-digit <c>uni</c> form covers.</summary>
     private const int MaxBmp = 0xFFFF;
 
-    /// <summary>The glyph ids sorted by name, built on the first name lookup.</summary>
-    private int[]? _nameOrder;
+    /// <summary>The glyph ids hashed by name, built on the first name lookup.</summary>
+    private int[]? _nameIndex;
 
     /// <summary>Initializes a new instance of the <see cref="FontProgram"/> class.</summary>
     private protected FontProgram()
@@ -110,23 +110,9 @@ public abstract class FontProgram
             return NotFound;
         }
 
-        var order = Volatile.Read(ref _nameOrder) ?? BuildNameOrder();
-        var low = 0;
-        var high = order.Length;
-        while (low < high)
-        {
-            var middle = (int)((uint)(low + high) >> 1);
-            if (GetGlyphName(order[middle]).SequenceCompareTo(name) < 0)
-            {
-                low = middle + 1;
-            }
-            else
-            {
-                high = middle;
-            }
-        }
-
-        return low < order.Length && GetGlyphName(order[low]).SequenceEqual(name) ? order[low] : FindNumberedGlyph(name);
+        var index = Volatile.Read(ref _nameIndex) ?? BuildNameIndex();
+        var glyph = GlyphNameIndex.Find(this, index, name);
+        return glyph >= 0 ? glyph : FindNumberedGlyph(name);
     }
 
     /// <summary>Finds the glyph of a CID named <c>cidNNN</c>; fonts without a CID mapping use the number as the glyph id.</summary>
@@ -152,17 +138,11 @@ public abstract class FontProgram
     /// <returns>The glyph id, or -1 when the font has no such glyph.</returns>
     private int GlyphOfId(int glyph) => glyph < GlyphCount ? glyph : NotFound;
 
-    /// <summary>Sorts the glyph ids by name, once.</summary>
-    /// <returns>The sorted ids.</returns>
-    private int[] BuildNameOrder()
+    /// <summary>Indexes the glyph ids by name, once.</summary>
+    /// <returns>The index.</returns>
+    private int[] BuildNameIndex()
     {
-        var order = new int[GlyphCount];
-        for (var i = 0; i < order.Length; i++)
-        {
-            order[i] = i;
-        }
-
-        GlyphNameOrder.Sort(this, order);
-        return Interlocked.CompareExchange(ref _nameOrder, order, null) ?? order;
+        var index = GlyphNameIndex.Build(this);
+        return Interlocked.CompareExchange(ref _nameIndex, index, null) ?? index;
     }
 }

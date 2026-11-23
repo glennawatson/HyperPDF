@@ -152,6 +152,10 @@ internal sealed class PdfPageSet
         }
     }
 
+    /// <summary>Makes a set of the same pages that has made none of them yet, to keep or hand out without sharing made pages.</summary>
+    /// <returns>The new set; it keeps what is known of the page tree.</returns>
+    internal PdfPageSet Unmade() => new(_store, Entries, Inherits) { TreeState = TreeState };
+
     /// <summary>Makes a page from its entry.</summary>
     /// <param name="index">The page's index.</param>
     /// <returns>The page.</returns>

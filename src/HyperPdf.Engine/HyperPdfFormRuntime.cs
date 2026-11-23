@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using HyperPdf.Core.Forms;
-using HyperPdfLibrary.Editing;
 using HyperPdfLibrary.Navigation;
 using HyperPdfLibrary.Rendering;
 namespace HyperPdf.Engine;
@@ -57,7 +56,7 @@ internal static class HyperPdfFormRuntime
                 if (!self.IsDisposed)
                 {
                     // Actions reset, hide or fill fields and run imports of form data: no page content or structure changes.
-                    HyperPdfEditing.Edited(self, PdfCacheScopes.None);
+                    HyperPdfEditing.Edited(self);
                 }
             }
         }

@@ -18,7 +18,7 @@ public sealed class ContextMenusTests
     private const int PageEntries = 19;
 
     /// <summary>The entries in the selection menu.</summary>
-    private const int SelectionEntries = 7;
+    private const int SelectionEntries = 9;
 
     /// <summary>The review states a comment can be set to.</summary>
     private const int ReviewStates = 4;

@@ -149,7 +149,7 @@ public sealed class ContentCheckTests
     public async Task ExplainsThatPartsOfThePageAreLeftOut() =>
         await Assert.That(ContentWarnings.Describe(UnsupportedContent.UnreadableStreams)).IsEqualTo(
             "This document uses page parts packed with a compression it does not know, which HyperPDF cannot show or run. Those parts are left out of the page. "
-            + "To use everything, open it in Adobe Acrobat Reader.");
+            + "To use everything, open it in a PDF reader that supports them.");
 
     /// <summary>A form whose scripts are all ones that are run is not flagged for JavaScript.</summary>
     /// <returns>A task.</returns>

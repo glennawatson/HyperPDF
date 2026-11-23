@@ -26,7 +26,7 @@ public static class PdfDocumentEditing
     /// <exception cref="ArgumentNullException"><paramref name="label"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">A transaction is already open.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static PdfEditTransaction BeginEdit(PdfDocument document, string label) => StoreTransactions.BeginTransaction(document.Objects, label);
+    public static PdfEditTransaction BeginEdit(PdfDocument document, string label) => Started(document, StoreTransactions.BeginTransaction(document.Objects, label));
 
     /// <summary>Reverts the most recent committed edit; pages, links, labels and the outline are read again.</summary>
     /// <param name="document">The document.</param>
@@ -53,7 +53,8 @@ public static class PdfDocumentEditing
     /// <exception cref="ArgumentNullException"><paramref name="label"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">A transaction is already open.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static PdfEditTransaction BeginEdit(PdfDocument document, string label, PdfCacheScopes scopes) => StoreTransactions.BeginTransaction(document.Objects, label, scopes);
+    internal static PdfEditTransaction BeginEdit(PdfDocument document, string label, PdfCacheScopes scopes) =>
+        Started(document, StoreTransactions.BeginTransaction(document.Objects, label, scopes));
 
     /// <summary>Drops every cache read from the objects, so the next reads see the current edits.</summary>
     /// <param name="document">The document.</param>
@@ -71,8 +72,16 @@ public static class PdfDocumentEditing
         // Every edit path ends here, so generated appearances compare this count to know the objects they were drawn from changed.
         _ = Interlocked.Increment(ref document.State.ObjectsRevision);
 
-        // An edit that changed the page tree in place left the pages it produced; any other change reads the tree again.
-        Volatile.Write(ref document.State.PageSet, Interlocked.Exchange(ref document.State.NextPageSet, null));
+        // An edit that changed the page tree left the pages it produced. An edit that moved no page and changed no content,
+        // resources or boxes left every entry and inherited attribute as it was, so only its pages are made again. Any other
+        // change reads the tree again.
+        var next = Interlocked.Exchange(ref document.State.NextPageSet, null);
+        if (next is null && (scopes & (PdfCacheScopes.PageSet | PdfCacheScopes.PageContent)) == PdfCacheScopes.None)
+        {
+            next = Volatile.Read(ref document.State.PageSet)?.Unmade();
+        }
+
+        Volatile.Write(ref document.State.PageSet, next);
         Volatile.Write(ref document.State.Reads, null);
         Volatile.Write(ref document.State.LabelRanges, null);
         Volatile.Write(ref document.State.PageLabels, null);
@@ -222,8 +231,19 @@ public static class PdfDocumentEditing
             }
 
             owned = true;
-            return StoreTransactions.BeginTransaction(document.Objects, label, scopes);
+            return Started(document, StoreTransactions.BeginTransaction(document.Objects, label, scopes));
         }
+    }
+
+    /// <summary>Notes the pages as the transaction starts, so its commit can keep them for undo however its edits ran.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="transaction">The transaction just started.</param>
+    /// <returns><paramref name="transaction"/>.</returns>
+    private static PdfEditTransaction Started(PdfDocument document, PdfEditTransaction transaction)
+    {
+        PdfPagesAtStart start = new(Volatile.Read(ref document.State.PageSet));
+        Volatile.Write(ref document.State.TransactionStart, start);
+        return transaction;
     }
 
     /// <summary>The arguments of an edit that works on a <see cref="PdfObjectEdits"/>.</summary>

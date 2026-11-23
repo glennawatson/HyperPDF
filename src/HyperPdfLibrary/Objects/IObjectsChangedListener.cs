@@ -11,5 +11,7 @@ internal interface IObjectsChangedListener
 {
     /// <summary>Handles a change to the store's objects. Called without holding the store's lock.</summary>
     /// <param name="scopes">The parts of the document the change can affect.</param>
-    void OnObjectsChanged(PdfCacheScopes scopes);
+    /// <param name="record">The history record committed, undone or redone; <see langword="null"/> for a rollback or a change outside the history.</param>
+    /// <param name="undone">Whether <paramref name="record"/> was undone rather than committed or redone.</param>
+    void OnObjectsChanged(PdfCacheScopes scopes, PdfEditRecord? record, bool undone);
 }

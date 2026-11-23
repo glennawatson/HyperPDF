@@ -2,10 +2,6 @@
 // Glenn Watson licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
-using HyperPdfLibrary.Document;
-using HyperPdfLibrary.Editing;
-
 namespace HyperPdf.Engine;
 
 /// <summary>Implements Editing over the document's owned state.</summary>
@@ -20,7 +16,7 @@ internal static class HyperPdfEditing
         if (changed)
         {
             // A field value and its appearance are widget and field objects: no page content, structure tree or Link annotation changes.
-            EditedKeepingLinks(self, PdfCacheScopes.None);
+            EditedKeepingLinks(self);
         }
 
         return changed;
@@ -48,7 +44,7 @@ internal static class HyperPdfEditing
         {
             // An annotation is an object in the page's /Annots array: the page's content stream and the structure tree stay.
             // It can be a Link or file attachment annotation, so only this page's links are read again.
-            EditedKeepingLinks(self, PdfCacheScopes.None);
+            EditedKeepingLinks(self);
             DropPageLinks(self, pageIndex);
         }
 
@@ -60,28 +56,19 @@ internal static class HyperPdfEditing
     internal static void PartsEdited(HyperPdfDocument self)
     {
         // Bookmarks, attached files, metadata and layers are not page content and not part of the structure tree.
-        Edited(self, PdfCacheScopes.None);
+        Edited(self);
         Volatile.Write(ref self.Outline, null);
         Volatile.Write(ref self.Attachments, null);
     }
 
     /// <summary>
-    /// Drops everything read or drawn from the objects before an edit: the library's pages and links, this document's
-    /// links and page pictures. Moving the edit version on marks the document unsaved.
+    /// Drops this document's links and page pictures after an edit, and moves the edit version on, which marks the document
+    /// unsaved. The library dropped its own caches when the edit changed its objects.
     /// </summary>
     /// <param name="self">The owning document.</param>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal static void Edited(HyperPdfDocument self) =>Edited(self, PdfCacheScopes.All);
-
-    /// <summary>
-    /// Drops everything read or drawn from the objects before an edit. The library keeps the text pages, marked content and
-    /// structure tree that the edit's parts cannot have changed.
-    /// </summary>
-    /// <param name="self">The owning document.</param>
-    /// <param name="scopes">The parts of the document the edit can have changed.</param>
-    internal static void Edited(HyperPdfDocument self, PdfCacheScopes scopes)
+    internal static void Edited(HyperPdfDocument self)
     {
-        EditedKeepingLinks(self, scopes);
+        EditedKeepingLinks(self);
 
         // The version moved on first, so a link read that started before the edit sees it and removes what it published.
         Volatile.Write(ref self.Links, null);
@@ -92,10 +79,10 @@ internal static class HyperPdfEditing
     /// change a page's links or that name the page they change.
     /// </summary>
     /// <param name="self">The owning document.</param>
-    /// <param name="scopes">The parts of the document the edit can have changed.</param>
-    internal static void EditedKeepingLinks(HyperPdfDocument self, PdfCacheScopes scopes)
+    internal static void EditedKeepingLinks(HyperPdfDocument self)
     {
-        PdfDocumentEditing.InvalidateCaches(self.Document, scopes);
+        // The library dropped its own caches when the edit, undo or redo changed its objects, taking the pages a page edit left.
+        // Dropping them again here would throw those pages away and read the whole page tree on the next page read.
         HyperPdfRendering.ResetRenderer(self);
         _ = Interlocked.Increment(ref self.EditVersion);
     }

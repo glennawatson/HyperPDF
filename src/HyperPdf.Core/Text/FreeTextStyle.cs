@@ -262,7 +262,7 @@ public static class FreeTextStyle
         return value.Length == HexColorChars && value[0] == '#' && uint.TryParse(value[1..], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out color);
     }
 
-    /// <summary>Reads the CSS <c>font</c> shorthand that Acrobat writes, such as <c>bold italic 12.0pt Helvetica,sans-serif</c>.</summary>
+    /// <summary>Reads the CSS <c>font</c> shorthand that PDF writers use, such as <c>bold italic 12.0pt Helvetica,sans-serif</c>.</summary>
     /// <param name="fields">The settings to change.</param>
     /// <param name="value">The value.</param>
     private static void Shorthand(ref FormatFields fields, ReadOnlySpan<char> value)

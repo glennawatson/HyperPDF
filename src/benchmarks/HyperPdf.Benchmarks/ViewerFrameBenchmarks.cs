@@ -59,6 +59,9 @@ public class ViewerFrameBenchmarks
     /// <summary>The longest the warm up may take, in seconds.</summary>
     private const double WarmUpSeconds = 120;
 
+    /// <summary>The Document menu's name on the menu bar.</summary>
+    private const string DocumentMenuName = "Document";
+
     /// <summary>The folder for the settings and the document.</summary>
     private string _folder = string.Empty;
 
@@ -165,17 +168,17 @@ public class ViewerFrameBenchmarks
         _session.Chrome.Draw(pass);
     }
 
-    /// <summary>Repaints the Document menu over the toolbar.</summary>
+    /// <summary>Repaints the Document menu of the menu bar over the page.</summary>
     [Benchmark]
-    public void DrawDocumentMenu() => DrawMenu(ChromeIcon.Document);
+    public void DrawDocumentMenu() => DrawMenu(ChromeIcon.None, DocumentMenuName);
 
     /// <summary>Repaints the View menu over the toolbar.</summary>
     [Benchmark]
-    public void DrawViewMenu() => DrawMenu(ChromeIcon.Dual);
+    public void DrawViewMenu() => DrawMenu(ChromeIcon.Dual, null);
 
     /// <summary>Repaints the current zoom choices over the toolbar.</summary>
     [Benchmark]
-    public void DrawZoomMenu() => DrawMenu(ChromeIcon.PageDown);
+    public void DrawZoomMenu() => DrawMenu(ChromeIcon.PageDown, null);
 
     /// <summary>Turns one loop of the viewer with nothing waiting while a screen reader is attached, which checks whether the tree it reads is still right.</summary>
     /// <returns>Whether the window is still open.</returns>
@@ -200,10 +203,11 @@ public class ViewerFrameBenchmarks
     [Benchmark]
     public int ReadDocumentElement() => _session.Accessibility.Get(ViewerNodes.DocumentId)?.Text?.Value.Length ?? 0;
 
-    /// <summary>Opens the requested toolbar menu on the warm-up call and paints the open menu.</summary>
+    /// <summary>Opens the requested menu on the warm-up call and paints the open menu.</summary>
     /// <param name="icon">The menu button's icon.</param>
+    /// <param name="name">The menu's name on the menu bar, or <see langword="null"/> for a toolbar button found by its icon.</param>
     /// <exception cref="InvalidOperationException">The requested menu did not open.</exception>
-    private void DrawMenu(ChromeIcon icon)
+    private void DrawMenu(ChromeIcon icon, string? name)
     {
         var chrome = _session.Chrome;
         if (!chrome.HasOverlay)
@@ -211,7 +215,9 @@ public class ViewerFrameBenchmarks
             var buttons = chrome.Bars;
             for (var i = 0; i < buttons.Count; i++)
             {
-                if (buttons[i].Icon != icon || buttons[i].Trait != ChromeItemTrait.OpensMore)
+                var button = buttons[i];
+                var matches = name is null ? button.Icon == icon : string.Equals(button.Text, name, StringComparison.Ordinal);
+                if (!matches || button.Trait != ChromeItemTrait.OpensMore)
                 {
                     continue;
                 }
@@ -222,7 +228,7 @@ public class ViewerFrameBenchmarks
 
             if (!chrome.HasOverlay)
             {
-                throw new InvalidOperationException($"The {icon} menu did not open.");
+                throw new InvalidOperationException($"The {name ?? icon.ToString()} menu did not open.");
             }
         }
 

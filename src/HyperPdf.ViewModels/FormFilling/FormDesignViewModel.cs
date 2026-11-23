@@ -34,6 +34,24 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
     /// <summary>The height of a new button, in points.</summary>
     private const float ButtonHeight = 28F;
 
+    /// <summary>The first choice of a new list, and the value of the first button of a new radio pair.</summary>
+    private const string FirstChoice = "First";
+
+    /// <summary>The second choice of a new list, and the value of the second button of a new radio pair.</summary>
+    private const string SecondChoice = "Second";
+
+    /// <summary>The third choice of a new list box.</summary>
+    private const string ThirdChoice = "Third";
+
+    /// <summary>The choices a new list box shows at once.</summary>
+    private const float ListBoxRows = 3F;
+
+    /// <summary>The height of a new box to sign, in points.</summary>
+    private const float SignatureHeight = 48F;
+
+    /// <summary>Half the space between the two buttons of a new radio pair, in points.</summary>
+    private const float RadioGap = 6F;
+
     /// <summary>Half of a length.</summary>
     private const float Half = 0.5F;
 
@@ -109,7 +127,37 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
     /// <returns>A signal that ends once the field is added.</returns>
     [ReactiveCommand]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private IObservable<RxVoid> AddDropDown() => Add(FormFieldKind.ComboBox, FieldWidthShare, FieldHeight, [new("First", "First"), new("Second", "Second")]);
+    private IObservable<RxVoid> AddDropDown() => Add(FormFieldKind.ComboBox, FieldWidthShare, FieldHeight, [new(FirstChoice, FirstChoice), new(SecondChoice, SecondChoice)]);
+
+    /// <summary>Adds a list box showing three choices at once in the middle of the page being read.</summary>
+    /// <returns>A signal that ends once the field is added.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> AddListBox() =>
+        Add(FormFieldKind.ListBox, FieldWidthShare, FieldHeight * ListBoxRows, [new(FirstChoice, FirstChoice), new(SecondChoice, SecondChoice), new(ThirdChoice, ThirdChoice)]);
+
+    /// <summary>Adds a box to sign in the middle of the page being read.</summary>
+    /// <returns>A signal that ends once the field is added.</returns>
+    [ReactiveCommand]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private IObservable<RxVoid> AddSignatureField() => Add(FormFieldKind.Signature, FieldWidthShare, SignatureHeight, null);
+
+    /// <summary>Adds a pair of radio buttons side by side in the middle of the page being read. Only one of a pair can be on.</summary>
+    /// <returns>A signal that ends once the field is added.</returns>
+    [ReactiveCommand]
+    private IObservable<RxVoid> AddRadioButtons()
+    {
+        var page = PageBeingRead();
+        var size = _owner.Source.PageSizes[page];
+        var top = (size.Height - CheckBoxSide) * Half;
+        var left = (size.Width * Half) - CheckBoxSide - RadioGap;
+        FormWidgetDesign[] widgets =
+        [
+            new(page, new(left, top, CheckBoxSide, CheckBoxSide)) { ExportValue = FirstChoice },
+            new(page, new(left + CheckBoxSide + RadioGap + RadioGap, top, CheckBoxSide, CheckBoxSide)) { ExportValue = SecondChoice },
+        ];
+        return Place(new(FormFieldKind.RadioButton, string.Empty, widgets), page);
+    }
 
     /// <summary>Adds a button in the middle of the page being read.</summary>
     /// <returns>A signal that ends once the field is added.</returns>
@@ -156,12 +204,7 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
     /// <returns>A cold signal that ends once the field is added.</returns>
     private IObservable<RxVoid> Add(FormFieldKind kind, float widthShare, float height, FormChoiceOption[]? options)
     {
-        if (Designer is not { } designer)
-        {
-            return Signal.Return(RxVoid.Default);
-        }
-
-        var page = Math.Clamp(_owner.CurrentPageIndex, 0, Math.Max(0, _owner.Source.PageSizes.Length - 1));
+        var page = PageBeingRead();
         var size = _owner.Source.PageSizes[page];
         var width = widthShare > 0 ? size.Width * widthShare : height;
         if (kind == FormFieldKind.PushButton)
@@ -170,13 +213,26 @@ public sealed partial class FormDesignViewModel : ReactiveObject, IDisposable
         }
 
         var bounds = new PageRect((size.Width - width) * Half, (size.Height - height) * Half, width, height);
-
-        return designer.GetFields()
-            .SwitchMap(fields => Create(designer, NextName(fields), new(kind, string.Empty, [new(page, bounds)]) { Options = options ?? [] }, page))
-            .TakeUntil(_lifetime.Token)
-            .ObserveOn(RxSchedulers.MainThreadScheduler)
-            .Catch<RxVoid, OperationCanceledException>(Stopped);
+        return Place(new(kind, string.Empty, [new(page, bounds)]) { Options = options ?? [] }, page);
     }
+
+    /// <summary>Gets the page being read, kept inside the document.</summary>
+    /// <returns>The page's index.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int PageBeingRead() => Math.Clamp(_owner.CurrentPageIndex, 0, Math.Max(0, _owner.Source.PageSizes.Length - 1));
+
+    /// <summary>Adds a field with a name no other field has.</summary>
+    /// <param name="template">The field's design, which still needs its name.</param>
+    /// <param name="page">The page the field is on.</param>
+    /// <returns>A cold signal that ends once the field is added.</returns>
+    private IObservable<RxVoid> Place(FormFieldDesign template, int page) =>
+        Designer is not { } designer
+            ? Signal.Return(RxVoid.Default)
+            : designer.GetFields()
+                .SwitchMap(fields => Create(designer, NextName(fields), template, page))
+                .TakeUntil(_lifetime.Token)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Catch<RxVoid, OperationCanceledException>(Stopped);
 
     /// <summary>Creates a field with a name no other field has.</summary>
     /// <param name="designer">The designer.</param>

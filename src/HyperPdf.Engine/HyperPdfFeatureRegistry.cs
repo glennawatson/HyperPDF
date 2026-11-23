@@ -20,13 +20,14 @@ using HyperPdf.Core.Redaction;
 using HyperPdf.Core.Rendering;
 using HyperPdf.Core.Signatures;
 using HyperPdf.Core.Signatures.Signing;
+using HyperPdf.Core.Text;
 namespace HyperPdf.Engine;
 
 /// <summary>Resolves supported services without reflection, activation or stored tables.</summary>
 internal static class HyperPdfFeatureRegistry
 {
     /// <summary>The number of feature slots a document holds.</summary>
-    private const int SlotCount = (int)FeatureSlot.IdleRenderMemory + 1;
+    private const int SlotCount = (int)FeatureSlot.FormDataImporter + 1;
 
     /// <summary>Gets a stable service while leaving feature resources lazy.</summary>
     /// <param name="owner">The owning document.</param>
@@ -106,6 +107,8 @@ internal static class HyperPdfFeatureRegistry
         _ when featureType == typeof(IPageDecorator) => FeatureSlot.PageDecorator,
         _ when featureType == typeof(IPageLabeler) => FeatureSlot.PageLabeler,
         _ when featureType == typeof(IDocumentSanitizer) => FeatureSlot.DocumentSanitizer,
+        _ when featureType == typeof(IDocumentInfoEditor) => FeatureSlot.DocumentInfoEditor,
+        _ when featureType == typeof(IDocumentTextExporter) => FeatureSlot.DocumentTextExporter,
         _ => FeatureSlot.None,
     };
 
@@ -137,6 +140,8 @@ internal static class HyperPdfFeatureRegistry
         _ when featureType == typeof(IFormFiller) => FeatureSlot.FormFiller,
         _ when featureType == typeof(IFormScriptSource) => FeatureSlot.FormScripts,
         _ when featureType == typeof(IFormDesigner) => FeatureSlot.FormDesigner,
+        _ when featureType == typeof(IFormDataExporter) => FeatureSlot.FormDataExporter,
+        _ when featureType == typeof(IFormDataImporter) => FeatureSlot.FormDataImporter,
         _ => FeatureSlot.None,
     };
 
@@ -167,6 +172,10 @@ internal static class HyperPdfFeatureRegistry
         FeatureSlot.PageDecorator => new HyperPdfPageDecoratorService(owner),
         FeatureSlot.PageLabeler => new HyperPdfPageLabelerService(owner),
         FeatureSlot.DocumentSanitizer => new HyperPdfDocumentSanitizerService(owner),
+        FeatureSlot.DocumentInfoEditor => new HyperPdfDocumentInfoEditorService(owner),
+        FeatureSlot.FormDataExporter => new HyperPdfFormDataExporterService(owner),
+        FeatureSlot.DocumentTextExporter => new HyperPdfDocumentTextExporterService(owner),
+        FeatureSlot.FormDataImporter => new HyperPdfFormDataImporter(owner),
         <=FeatureSlot.TextLayout => HyperPdfFeatureRegistry.CreateDocumentService(owner, slot),
         <= FeatureSlot.PageExporter => HyperPdfFeatureRegistry.CreateEditingService(owner, slot),
         _ => HyperPdfFeatureRegistry.CreateFormService(owner, slot),

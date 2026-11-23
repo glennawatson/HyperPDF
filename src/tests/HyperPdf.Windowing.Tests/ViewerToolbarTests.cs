@@ -194,12 +194,12 @@ public sealed class ViewerToolbarTests
     /// <summary>A document action can show a status message, and dismissing it restores the full reading area.</summary>
     /// <returns>A task.</returns>
     [Test]
-    public async Task DocumentMenuStatusUsesSpaceOnlyWhileShown()
+    public async Task FileMenuStatusUsesSpaceOnlyWhileShown()
     {
         var restored = await WithTab(NarrowWidth, static (session, tab) =>
         {
             var chrome = session.Chrome;
-            if ((int)chrome.CanvasBounds.Bottom != Height || !chrome.PressControl(false, IndexOf(chrome.Bars, "Document")))
+            if ((int)chrome.CanvasBounds.Bottom != Height || !chrome.PressControl(false, IndexOf(chrome.Bars, "File")))
             {
                 return false;
             }
@@ -216,7 +216,7 @@ public sealed class ViewerToolbarTests
         await Assert.That(restored).IsTrue();
     }
 
-    /// <summary>The named Tools menu opens Measure in icons-only mode and its Area button selects the measuring mode.</summary>
+    /// <summary>The Tools menu of the menu bar keeps its name in icons-only mode, opens Measure, and the measuring bar's Area button selects the measuring mode.</summary>
     /// <returns>A task.</returns>
     [Test]
     public async Task NamedToolsMenuOpensMeasureAndSelectsArea()
@@ -361,15 +361,15 @@ public sealed class ViewerToolbarTests
         await Assert.That(outcome.NextRunsTheSearchCommand).IsTrue();
     }
 
-    /// <summary>Finds the buttons of the toolbar: those on the line under the tab strip.</summary>
+    /// <summary>Finds the buttons of the toolbar: those from the line of its Open button to the line of its Fit page button.</summary>
     /// <param name="session">The session.</param>
     /// <returns>The buttons.</returns>
     private static ChromeItem[] ToolbarButtons(ViewerSession session)
     {
         var bars = session.Chrome.Bars;
-        var menu = bars.First(static item => item.Icon == ChromeIcon.Menu);
+        var open = bars.First(static item => item is { Kind: ChromeItemKind.Button, Icon: ChromeIcon.Open });
         var fit = bars.First(static item => item.Icon == ChromeIcon.FitPage);
-        return [.. bars.Where(item => item.Kind == ChromeItemKind.Button && item.Bounds.Y >= menu.Bounds.Y && item.Bounds.Y <= fit.Bounds.Y)];
+        return [.. bars.Where(item => item.Kind == ChromeItemKind.Button && item.Bounds.Y >= open.Bounds.Y && item.Bounds.Y <= fit.Bounds.Y)];
     }
 
     /// <summary>Finds the buttons of the bars under the toolbar.</summary>

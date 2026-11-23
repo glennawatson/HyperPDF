@@ -63,7 +63,7 @@ internal static class PdfPermissionBits
         return (FromWord(word) & Required) == Required;
     }
 
-    /// <summary>High quality printing means nothing without printing, so it is cleared with it, as Acrobat does.</summary>
+    /// <summary>High quality printing means nothing without printing, so it is cleared with it.</summary>
     /// <param name="permissions">The flags.</param>
     /// <returns>The flags as bits.</returns>
     private static int Normalise(PdfAccessPermissions permissions)

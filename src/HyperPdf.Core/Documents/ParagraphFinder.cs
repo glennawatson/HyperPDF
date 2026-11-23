@@ -252,31 +252,31 @@ public static class ParagraphFinder
     /// <returns>The nearest such line, or <see langword="null"/> when there is none.</returns>
     private static PageObjectInfo? Nearest(ReadOnlySpan<PageObjectInfo> objects, in PageObjectInfo sizeLine, in PageObjectInfo current, in Reach reach)
     {
-        PageObjectInfo? best = null;
+        // Every line of the page is looked at for each step, so they are read in place and the best is kept by its place.
+        var best = -1;
         var bestGap = float.PositiveInfinity;
         var sizeFrame = FrameOf(sizeLine);
         var from = FrameOf(current);
         for (var i = 0; i < objects.Length; i++)
         {
-            var candidate = objects[i];
-            if (!IsTextLine(candidate) || candidate.Index == current.Index || !SameWay(candidate, sizeLine))
+            ref readonly var candidate = ref objects[i];
+            if (candidate.Index == current.Index || !IsTextLine(candidate) || !SameWay(candidate, sizeLine))
             {
                 continue;
             }
 
             var frame = FrameOf(candidate);
             var gap = reach.Down ? frame.Top - from.Bottom : from.Top - frame.Bottom;
-            var indent = FrameAnchor(frame, reach.Edge) - FrameAnchor(from, reach.Edge);
-            if (gap >= bestGap || !IsClose(sizeFrame, frame, gap) || indent < reach.Lowest || indent > reach.Highest)
+            if (gap >= bestGap || !IsClose(sizeFrame, frame, gap) || !IsWithin(reach, from, frame))
             {
                 continue;
             }
 
-            best = candidate;
+            best = i;
             bestGap = gap;
         }
 
-        return best;
+        return best < 0 ? null : objects[best];
     }
 
     /// <summary>Tells where the lines under a line are lined up: for lines lined up to the left under a list marker, further in than it, under the words.</summary>
@@ -361,7 +361,7 @@ public static class ParagraphFinder
     {
         for (var i = 0; i < objects.Length; i++)
         {
-            var item = objects[i];
+            ref readonly var item = ref objects[i];
             if (item.Kind == PageObjectKind.Text && IsLoneMarker(item.Text))
             {
                 return true;
@@ -381,7 +381,7 @@ public static class ParagraphFinder
         var height = frame.Height;
         for (var i = 0; i < objects.Length; i++)
         {
-            var candidate = objects[i];
+            ref readonly var candidate = ref objects[i];
             if (candidate.Kind != PageObjectKind.Text || !SameWay(candidate, line) || candidate.Text.Length > LongestMarkerText)
             {
                 continue;
@@ -411,6 +411,18 @@ public static class ParagraphFinder
         var height = head.Height;
         var sameSize = candidate.Height >= height * SmallestSize && candidate.Height <= height * LargestSize;
         return sameSize && gap >= -height * OverlapTolerance && gap <= height * GapTolerance;
+    }
+
+    /// <summary>Tells whether a line's place falls within a reach from the place of the line looked from.</summary>
+    /// <param name="reach">The place the lines are lined up by and how far from it the line may be.</param>
+    /// <param name="from">The line looked from.</param>
+    /// <param name="candidate">The line.</param>
+    /// <returns><see langword="true"/> when it falls within the reach.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsWithin(in Reach reach, in LineFrame from, in LineFrame candidate)
+    {
+        var indent = FrameAnchor(candidate, reach.Edge) - FrameAnchor(from, reach.Edge);
+        return indent >= reach.Lowest && indent <= reach.Highest;
     }
 
     /// <summary>Gets the place of a line that lines are lined up by.</summary>

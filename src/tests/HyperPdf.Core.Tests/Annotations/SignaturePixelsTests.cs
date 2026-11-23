@@ -9,6 +9,18 @@ namespace HyperPdf.Core.Tests.Annotations;
 /// <summary>Tests paper removal without destroying soft signature edges.</summary>
 public sealed class SignaturePixelsTests
 {
+    /// <summary>The values a channel takes.</summary>
+    private const int Values = 256;
+
+    /// <summary>The bytes of a pixel.</summary>
+    private const int Channels = 4;
+
+    /// <summary>The largest channel value.</summary>
+    private const int Opaque = 255;
+
+    /// <summary>The red channel's byte offset.</summary>
+    private const int Red = 2;
+
     /// <summary>The expected transparent paper and black ink pixels.</summary>
     private static readonly byte[] SoftBlackInk = [0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 127];
 
@@ -20,6 +32,70 @@ public sealed class SignaturePixelsTests
 
     /// <summary>The expected blue ink pixel after removing white paper.</summary>
     private static readonly byte[] SoftBlueInk = [255, 0, 0, 127];
+
+    /// <summary>Unpremultiplying gives the rounded division for every alpha and channel value, and leaves clear and solid pixels alone.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task UnpremultiplyGivesTheRoundedDivisionForEveryAlphaAndValue()
+    {
+        var pixels = new byte[Values * Values * Channels];
+        var expected = new byte[pixels.Length];
+        for (var alpha = 0; alpha < Values; alpha++)
+        {
+            for (var value = 0; value < Values; value++)
+            {
+                var offset = ((alpha * Values) + value) * Channels;
+                pixels.AsSpan(offset, Channels - 1).Fill((byte)value);
+                pixels[offset + Channels - 1] = (byte)alpha;
+                var straight = alpha is 0 or Opaque ? value : Math.Min(Opaque, ((value * Opaque) + (alpha >> 1)) / alpha);
+                expected.AsSpan(offset, Channels - 1).Fill((byte)straight);
+                expected[offset + Channels - 1] = (byte)alpha;
+            }
+        }
+
+        SignaturePixels.Unpremultiply(pixels);
+
+        await Assert.That(pixels.AsSpan().SequenceEqual(expected)).IsTrue();
+    }
+
+    /// <summary>Removing paper gives the scaled distance above the paper for every pair of paper and ink values.</summary>
+    /// <returns>A task.</returns>
+    [Test]
+    public async Task RemovingPaperGivesTheScaledDistanceForEveryPaperAndInk()
+    {
+        var pixels = new byte[Values * Values * Channels];
+        var expected = new byte[pixels.Length];
+        for (var paper = 0; paper < Values; paper++)
+        {
+            for (var ink = paper; ink < Values; ink++)
+            {
+                // Blue and green are the paper, red is darker ink above it.
+                var offset = ((paper * Values) + ink) * Channels;
+                pixels[offset] = (byte)paper;
+                pixels[offset + 1] = (byte)paper;
+                pixels[offset + Red] = (byte)ink;
+                pixels[offset + Channels - 1] = Opaque;
+                var alpha = Opaque - paper;
+                if (alpha == 0)
+                {
+                    continue;
+                }
+
+                expected[offset + Red] = (byte)((ink - paper) * Opaque / alpha);
+                expected[offset + Channels - 1] = (byte)alpha;
+            }
+
+            for (var ink = 0; ink < paper; ink++)
+            {
+                // Unused slots stay plain white, which becomes clear.
+                pixels.AsSpan(((paper * Values) + ink) * Channels, Channels).Fill(Opaque);
+            }
+        }
+
+        SignaturePixels.RemoveWhitePaper(pixels);
+
+        await Assert.That(pixels.AsSpan().SequenceEqual(expected)).IsTrue();
+    }
 
     /// <summary>Verifies premultiplied pixels from an image decoder become straight alpha, leaving clear and solid pixels alone.</summary>
     /// <returns>A task.</returns>

@@ -101,7 +101,9 @@ internal static class ChromeBars
         }
 
         AddTabs(items, main, look, size.Width, actions);
-        var top = metrics.TabHeight + AddToolbar(items, main, look, size.Width, actions);
+        var top = metrics.TabHeight;
+        top += MenuBar.Add(items, main, look, top, size.Width, actions.ShowBarMenu);
+        top += AddToolbar(items, main, look, top, size.Width, actions);
         if (main.SelectedTab is { IsLoaded: true, AnnotationsInUse.IsAnnotating: true } marking)
         {
             top += ChromeMarkBar.Add(items, marking.Annotations, look, top, size.Width, actions);
@@ -300,18 +302,19 @@ internal static class ChromeBars
     /// <param name="items">Receives the controls.</param>
     /// <param name="main">The main view model.</param>
     /// <param name="look">The text measurer and the sizes.</param>
+    /// <param name="top">The top of the toolbar.</param>
     /// <param name="width">The window width.</param>
     /// <param name="actions">The commands of the window's own controls.</param>
     /// <returns>The height the toolbar takes, which is more than one line when the window is too narrow for every button.</returns>
-    private static int AddToolbar(List<ChromeItem> items, MainViewModel main, ChromeLook look, int width, ChromeActions actions)
+    private static int AddToolbar(List<ChromeItem> items, MainViewModel main, ChromeLook look, int top, int width, ChromeActions actions)
     {
         var metrics = look.Metrics;
         var panel = items.Count;
         items.Add(new(ChromeItemKind.Panel, null, 0, string.Empty, default, true, false));
-        var lines = FillToolbar(items, main, look, width, actions);
+        var lines = FillToolbar(items, main, look, top, width, actions);
 
         var height = lines * metrics.ToolbarHeight;
-        items[panel] = items[panel] with { Bounds = new(0, metrics.TabHeight, width, height) };
+        items[panel] = items[panel] with { Bounds = new(0, top, width, height) };
         return height;
     }
 
@@ -319,13 +322,14 @@ internal static class ChromeBars
     /// <param name="items">Receives the controls.</param>
     /// <param name="main">The main view model.</param>
     /// <param name="look">The text measurer and the sizes.</param>
+    /// <param name="top">The top of the toolbar.</param>
     /// <param name="width">The window width.</param>
     /// <param name="actions">The commands of the window's own controls.</param>
     /// <returns>The lines the buttons took.</returns>
-    private static int FillToolbar(List<ChromeItem> items, MainViewModel main, ChromeLook look, int width, ChromeActions actions)
+    private static int FillToolbar(List<ChromeItem> items, MainViewModel main, ChromeLook look, int top, int width, ChromeActions actions)
     {
         var metrics = look.Metrics;
-        var row = new ChromeRow(items, look.Runs, metrics, metrics.Gap, metrics.TabHeight + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap)
+        var row = new ChromeRow(items, look.Runs, metrics, metrics.Gap, top + metrics.Gap, metrics.ToolbarHeight - metrics.Gap - metrics.Gap)
         {
             Limit = width - metrics.Gap,
             ShowLabels = look.ShowLabels,
@@ -334,11 +338,9 @@ internal static class ChromeBars
 
         // A button whose command belongs to a document has none until a document is open, and is drawn faded.
         var tab = LoadedTab(main);
-        row = row.MenuButton(ChromeIcon.Menu, UiText.Get("Menu"), actions.ShowMenu, true);
         row = row.Button(ChromeIcon.Open, UiText.Get("Open"), main.OpenCommand, true);
         row = row.Button(ChromeIcon.Save, UiText.Get("Save"), main.SelectedTab?.SaveCommand, main.SelectedTab is { HasUnsavedChanges: true });
         row = row.Button(ChromeIcon.Print, UiText.Get("Print"), tab?.PrintCommand, tab is not null);
-        row = row.MenuButton(ChromeIcon.Document, UiText.Get("Document"), actions.ShowDocument, tab is not null);
         row = row.Divider();
         row = AddTools(row, tab, actions);
         row = row.Divider();
@@ -381,7 +383,6 @@ internal static class ChromeBars
     private static ChromeRow AddTools(ChromeRow row, DocumentTabViewModel? tab, ChromeActions actions)
     {
         var open = tab is not null;
-        row = row.MenuButton(ChromeIcon.Ruler, UiText.Get("Tools"), actions.ShowTools, open);
         row = row.Toggle(ChromeIcon.Highlight, UiText.Get("Annotate"), tab is { CanAnnotate: true } ? actions.ToggleAnnotate : null, tab is { AnnotationsInUse.IsAnnotating: true });
         row = row.Toggle(ChromeIcon.FillSign, UiText.Get("Fill & Sign"), tab?.ToggleFillAndSignCommand, tab is { FillAndSignIfMade.IsActive: true });
         row = row.Toggle(ChromeIcon.Cursor, UiText.Get("Edit"), tab?.ToggleContentEditingCommand, tab is { ContentEditIfMade.IsEditing: true });

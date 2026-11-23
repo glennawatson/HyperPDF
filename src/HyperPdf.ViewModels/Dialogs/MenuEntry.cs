@@ -46,6 +46,17 @@ public sealed record MenuEntry(
     public static MenuEntry Item(string header, string? gesture, ICommand command, object? parameter, bool isEnabled) =>
         new(MenuEntryKind.Item, header, gesture, command, parameter, isEnabled, null, false, []);
 
+    /// <summary>Creates an item that runs a command and shows a named icon before its words.</summary>
+    /// <param name="header">The words, with an underscore before the access key.</param>
+    /// <param name="gesture">The shortcut shown, or <see langword="null"/>.</param>
+    /// <param name="command">The command.</param>
+    /// <param name="parameter">The command parameter, or <see langword="null"/>.</param>
+    /// <param name="isEnabled">Whether it can be chosen.</param>
+    /// <param name="icon">The icon name.</param>
+    /// <returns>The entry.</returns>
+    public static MenuEntry Item(string header, string? gesture, ICommand command, object? parameter, bool isEnabled, string icon) =>
+        new(MenuEntryKind.Item, header, gesture, command, parameter, isEnabled, null, false, []) { Icon = icon };
+
     /// <summary>Creates an item that names the thing the menu is about and cannot be chosen.</summary>
     /// <param name="header">The words.</param>
     /// <returns>The entry.</returns>

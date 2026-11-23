@@ -215,7 +215,7 @@ internal sealed class FormFont
         var widths = new float[CodeCount];
         for (var code = 0; code < widths.Length; code++)
         {
-            widths[code] = metrics.TryGetWidth(FontEncodings.GetGlyphName(FontEncoding.WinAnsi, code), out var width) ? width : DefaultWidth;
+            widths[code] = StandardFonts.TryGetWidth(metrics.Font, FontEncodings.GetNameId(FontEncoding.WinAnsi, code), out var width) ? width : DefaultWidth;
         }
 
         return widths;

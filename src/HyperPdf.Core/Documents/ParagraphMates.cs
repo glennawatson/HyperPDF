@@ -154,7 +154,7 @@ internal static class ParagraphMates
             grew = false;
             for (var i = 0; i < objects.Length; i++)
             {
-                var candidate = objects[i];
+                ref readonly var candidate = ref objects[i];
                 if (IsKnown(lines, room.Mates, found, candidate.Index) || !SameWay(candidate, picked) || !ParagraphFinder.IsTextLine(candidate))
                 {
                     continue;

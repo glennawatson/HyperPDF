@@ -20,18 +20,31 @@ namespace HyperPdf.Viewer.Chrome;
 /// </summary>
 internal sealed class ChromeActions : IDisposable
 {
+    /// <summary>The main view model, which knows the tab shown.</summary>
+    private readonly MainViewModel _main;
+
+    /// <summary>The window's controls, which open the menus.</summary>
+    private readonly ViewerChrome _chrome;
+
+    /// <summary>Opens the menu beside the open menu of the menu bar, made once for every menu the bar opens.</summary>
+    private readonly Action<int> _stepBarMenu;
+
+    /// <summary>The place on the bar of the menu open now.</summary>
+    private int _barIndex;
+
     /// <summary>Initializes a new instance of the <see cref="ChromeActions"/> class.</summary>
     /// <param name="chrome">The window's controls, which open the menus and dialogs.</param>
     /// <param name="main">The main view model, which knows the tab shown.</param>
     /// <param name="window">The window, which its own buttons put away, size and close.</param>
     internal ChromeActions(ViewerChrome chrome, MainViewModel main, IPlatformWindow window)
     {
+        _main = main;
+        _chrome = chrome;
+        _stepBarMenu = step => OpenBarMenu(MenuBar.Beside(_main, _barIndex, step));
         SelectTab = ReactiveCommand.Create<DocumentTabViewModel>(tab => main.SelectedTab = tab);
-        ShowMenu = ReactiveCommand.Create(() => chrome.ShowMenu([..MainMenu.Build(main)], Under(chrome, ShowMenu)));
-        ShowTools = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowTools, static (_, tab) => ToolMenus.Tools(tab)));
+        ShowBarMenu = ReactiveCommand.Create<int>(OpenBarMenu);
         ShowAddPages = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowAddPages, static (_, tab) => ToolMenus.AddPages(tab)));
         ShowChoosePages = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowChoosePages, static (_, tab) => ToolMenus.ChoosePages(tab)));
-        ShowDocument = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowDocument, MainMenu.Document));
         ShowView = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowView, MainMenu.ReadingView));
         ShowZoom = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowZoom, static (_, tab) => ToolMenus.Zoom(tab)));
         ShowVoices = ReactiveCommand.Create(() => OpenMenu(main, chrome, ShowVoices, static (_, tab) => ToolMenus.Voices(tab.ReadAloud)));
@@ -81,20 +94,14 @@ internal sealed class ChromeActions : IDisposable
     /// <summary>Gets the command that shows a tab, which is its parameter.</summary>
     internal ReactiveCommand<DocumentTabViewModel, RxVoid> SelectTab { get; }
 
-    /// <summary>Gets the command that opens the main menu under its button.</summary>
-    internal ReactiveCommand<RxVoid, RxVoid> ShowMenu { get; }
-
-    /// <summary>Gets the command that opens the page tools menu.</summary>
-    internal ReactiveCommand<RxVoid, RxVoid> ShowTools { get; }
+    /// <summary>Gets the command that opens a menu of the menu bar under its name. Its parameter is the menu's place on the bar.</summary>
+    internal ReactiveCommand<int, RxVoid> ShowBarMenu { get; }
 
     /// <summary>Gets the command that opens the list of what can be added to the pages: a blank page, pages of files and pictures.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowAddPages { get; }
 
     /// <summary>Gets the command that opens the list of ways to choose pages: every page, the odd ones, the even ones or the one being read.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowChoosePages { get; }
-
-    /// <summary>Gets the command that opens the current document's actions.</summary>
-    internal ReactiveCommand<RxVoid, RxVoid> ShowDocument { get; }
 
     /// <summary>Gets the command that opens the reading and page layout choices.</summary>
     internal ReactiveCommand<RxVoid, RxVoid> ShowView { get; }
@@ -169,11 +176,9 @@ internal sealed class ChromeActions : IDisposable
     public void Dispose()
     {
         SelectTab.Dispose();
-        ShowMenu.Dispose();
-        ShowTools.Dispose();
+        ShowBarMenu.Dispose();
         ShowAddPages.Dispose();
         ShowChoosePages.Dispose();
-        ShowDocument.Dispose();
         ShowView.Dispose();
         ShowZoom.Dispose();
         ShowVoices.Dispose();
@@ -209,6 +214,20 @@ internal sealed class ChromeActions : IDisposable
         {
             command.Execute(null);
         }
+    }
+
+    /// <summary>Opens a menu of the menu bar under its name. Left and Right in it open the menu beside it.</summary>
+    /// <param name="index">The menu's place on the bar.</param>
+    internal void OpenBarMenu(int index)
+    {
+        if (!MenuBar.CanOpen(_main, index))
+        {
+            return;
+        }
+
+        // The menu beside this one is found from the place kept here, so one step delegate serves every menu opened.
+        _barIndex = index;
+        _chrome.ShowMenu(MenuBar.Build(index, _main, this), MenuBar.Under(_chrome.Bars, ShowBarMenu, index), _stepBarMenu);
     }
 
     /// <summary>Runs one of the digital-signature commands of the open document, creating the signatures part only on use.</summary>
