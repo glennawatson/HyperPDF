@@ -13,8 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup Label="ReactiveUI">
-    <PackageVersion Include="HyperCodecs" Version="1.1.0" />
-    <PackageVersion Include="HyperCodecs.Platform.Linux" Version="1.1.0" />
+    <PackageVersion Include="HyperCodecs" Version="1.1.1" />
+    <PackageVersion Include="HyperCodecs.Platform.Linux" Version="1.1.1" />
     <PackageVersion Include="Localisation.Core" Version="3.0.1" />
     <PackageVersion Include="Localisation.Generators" Version="3.0.1" />
     <PackageVersion Include="ReactiveUI" Version="28.0.0" />
