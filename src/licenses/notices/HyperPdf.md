@@ -34,7 +34,7 @@ SOFTWARE.
 ````
 
 ### HyperCodecs
-- Version: 1.1.0
+- Version: 1.1.1
 - Origin: NuGet package
 - Copyright: Copyright (c) 2026 Glenn Watson
 - Link: https://github.com/glennawatson/HyperCodecs
@@ -64,7 +64,7 @@ SOFTWARE.
 ````
 
 ### HyperCodecs.Platform
-- Version: 1.1.0
+- Version: 1.1.1
 - Origin: NuGet package
 - Copyright: Copyright (c) 2026 Glenn Watson
 - Link: https://github.com/glennawatson/HyperCodecs
@@ -94,7 +94,7 @@ SOFTWARE.
 ````
 
 ### HyperCodecs.Platform.Linux
-- Version: 1.1.0
+- Version: 1.1.1
 - Origin: NuGet package
 - Copyright: Copyright (c) 2026 Glenn Watson
 - Link: https://github.com/glennawatson/HyperCodecs
