@@ -208,7 +208,7 @@ internal sealed unsafe class CocoaMenuBar : IDisposable
     /// <param name="action">The application's action.</param>
     private static void AddStandard(nint menu, string title, nint action)
     {
-        var item = NewItem(title, action, default);
+        var item = NewItem(title, action, CocoaShortcut.None);
         NativeMethods.SendVoid(item, Selectors.SetTarget, NativeMethods.Send(NativeMethods.GetClass("NSApplication"), Selectors.SharedApplication));
         NativeMethods.SendVoid(menu, Selectors.AddItem, item);
         NativeMethods.SendVoid(item, Selectors.Release);

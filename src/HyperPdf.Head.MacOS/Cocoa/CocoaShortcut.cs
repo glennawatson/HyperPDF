@@ -56,6 +56,9 @@ internal readonly record struct CocoaShortcut(string Key, ulong Modifiers)
         ["F12"] = "\uF70F",
     };
 
+    /// <summary>Gets the shortcut of an item that shows none; its key is empty rather than <see langword="null"/>, as AppKit needs a string.</summary>
+    internal static CocoaShortcut None { get; } = new(string.Empty, 0);
+
     /// <summary>Reads a shortcut as the viewer writes it, such as "Ctrl+Shift+Z", "Ctrl++" or "Delete".</summary>
     /// <param name="gesture">The shortcut, or <see langword="null"/>.</param>
     /// <returns>The shortcut; empty when there is none or its key has no character AppKit shows.</returns>
@@ -63,13 +66,13 @@ internal readonly record struct CocoaShortcut(string Key, ulong Modifiers)
     {
         if (string.IsNullOrEmpty(gesture))
         {
-            return default;
+            return None;
         }
 
         // A plus as the key itself is written as a second plus at the end.
         var keyStart = gesture.EndsWith("++", StringComparison.Ordinal) ? gesture.Length - 1 : gesture.LastIndexOf(Joiner) + 1;
         var key = KeyOf(gesture[keyStart..]);
-        return key.Length == 0 ? default : new(key, ModifiersOf(gesture.AsSpan(0, Math.Max(keyStart - 1, 0))));
+        return key.Length == 0 ? None : new(key, ModifiersOf(gesture.AsSpan(0, Math.Max(keyStart - 1, 0))));
     }
 
     /// <summary>Finds the character of a key.</summary>
