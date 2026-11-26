@@ -39,6 +39,41 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(ObjectiveC, EntryPoint = "sel_registerName", StringMarshalling = StringMarshalling.Utf8)]
     internal static partial nint Selector(string name);
 
+    /// <summary>Native <c>objc_allocateClassPair</c>.</summary>
+    /// <param name="superclass">The class the new one derives from.</param>
+    /// <param name="name">The new class's name.</param>
+    /// <param name="extraBytes">The bytes kept with the class itself, usually 0.</param>
+    /// <returns>The class, not usable until registered; 0 when the name is taken.</returns>
+    [LibraryImport(ObjectiveC, EntryPoint = "objc_allocateClassPair", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial nint AllocateClassPair(nint superclass, string name, nuint extraBytes);
+
+    /// <summary>Native <c>objc_registerClassPair</c>.</summary>
+    /// <param name="cls">The class made by <see cref="AllocateClassPair"/>.</param>
+    [LibraryImport(ObjectiveC, EntryPoint = "objc_registerClassPair")]
+    internal static partial void RegisterClassPair(nint cls);
+
+    /// <summary>Native <c>class_addMethod</c>.</summary>
+    /// <param name="cls">The class.</param>
+    /// <param name="selector">The method's selector.</param>
+    /// <param name="implementation">The function that runs it.</param>
+    /// <param name="types">The Objective-C type encoding of its result and arguments.</param>
+    /// <returns>Nonzero when the method was added.</returns>
+    [LibraryImport(ObjectiveC, EntryPoint = "class_addMethod", StringMarshalling = StringMarshalling.Utf8)]
+    internal static partial byte AddMethod(nint cls, nint selector, nint implementation, string types);
+
+    /// <summary>Native <c>class_createInstance</c>.</summary>
+    /// <param name="cls">The class.</param>
+    /// <param name="extraBytes">The bytes kept after the object's own variables, read with <see cref="IndexedIvars"/>.</param>
+    /// <returns>The object, which the caller releases.</returns>
+    [LibraryImport(ObjectiveC, EntryPoint = "class_createInstance")]
+    internal static partial nint CreateInstance(nint cls, nuint extraBytes);
+
+    /// <summary>Native <c>object_getIndexedIvars</c>.</summary>
+    /// <param name="instance">An object made by <see cref="CreateInstance"/>.</param>
+    /// <returns>Its extra bytes.</returns>
+    [LibraryImport(ObjectiveC, EntryPoint = "object_getIndexedIvars")]
+    internal static partial nint* IndexedIvars(nint instance);
+
     /// <summary>Native <c>objc_autoreleasePoolPush</c>.</summary>
     /// <returns>The pool token.</returns>
     [LibraryImport(ObjectiveC, EntryPoint = "objc_autoreleasePoolPush")]
@@ -275,6 +310,16 @@ internal static unsafe partial class NativeMethods
     /// <returns>The result.</returns>
     [LibraryImport(ObjectiveC, EntryPoint = "objc_msgSend")]
     internal static partial nint SendPair(nint receiver, nint selector, nint first, nint second);
+
+    /// <summary>Sends a message with three object arguments that returns an object, such as <c>initWithTitle:action:keyEquivalent:</c>.</summary>
+    /// <param name="receiver">The receiver.</param>
+    /// <param name="selector">The selector.</param>
+    /// <param name="first">The first argument.</param>
+    /// <param name="second">The second argument.</param>
+    /// <param name="third">The third argument.</param>
+    /// <returns>The result.</returns>
+    [LibraryImport(ObjectiveC, EntryPoint = "objc_msgSend")]
+    internal static partial nint SendTriple(nint receiver, nint selector, nint first, nint second, nint third);
 
     /// <summary>Native <c>NSAccessibilityPostNotificationWithUserInfo</c>.</summary>
     /// <param name="element">The element the notification is about.</param>

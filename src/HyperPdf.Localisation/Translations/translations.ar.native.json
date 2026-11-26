@@ -711,5 +711,9 @@
   "This document's text cannot be changed.": "لا يمكن تغيير نص هذا المستند.",
   "This document's text cannot be saved.": "لا يمكن حفظ نص هذا المستند.",
   "Those words are not in the pages' text, so nothing was replaced.": "هذه الكلمات غير موجودة في نص الصفحات، لذا لم يُستبدل شيء.",
-  "Took {0} out of the document.": "تمت إزالة {0} من المستند."
+  "Took {0} out of the document.": "تمت إزالة {0} من المستند.",
+  "Hide HyperPDF": "إخفاء HyperPDF",
+  "Hide Others": "إخفاء الآخرين",
+  "Show All": "إظهار الكل",
+  "Quit HyperPDF": "إنهاء HyperPDF"
 }

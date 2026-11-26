@@ -2655,6 +2655,12 @@
   <data name="Hidden" xml:space="preserve">
     <value>已隐藏</value>
   </data>
+  <data name="Hide HyperPDF" xml:space="preserve">
+    <value>隐藏 HyperPDF</value>
+  </data>
+  <data name="Hide Others" xml:space="preserve">
+    <value>隐藏其他</value>
+  </data>
   <data name="Hide details" xml:space="preserve">
     <value>隐藏详细信息</value>
   </data>
@@ -4458,6 +4464,9 @@
   <data name="Quick text format" xml:space="preserve">
     <value>快速文本格式</value>
   </data>
+  <data name="Quit HyperPDF" xml:space="preserve">
+    <value>退出 HyperPDF</value>
+  </data>
   <data name="Quote" xml:space="preserve">
     <value>引文</value>
   </data>
@@ -5546,6 +5555,9 @@
   </data>
   <data name="Short edge" xml:space="preserve">
     <value>短边</value>
+  </data>
+  <data name="Show All" xml:space="preserve">
+    <value>全部显示</value>
   </data>
   <data name="Show All Comments" xml:space="preserve">
     <value>显示所有批注</value>

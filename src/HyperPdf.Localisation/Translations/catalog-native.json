@@ -711,5 +711,9 @@
   "This document's text cannot be changed.": "This document's text cannot be changed.",
   "This document's text cannot be saved.": "This document's text cannot be saved.",
   "Those words are not in the pages' text, so nothing was replaced.": "Those words are not in the pages' text, so nothing was replaced.",
-  "Took {0} out of the document.": "Took {0} out of the document."
+  "Took {0} out of the document.": "Took {0} out of the document.",
+  "Hide HyperPDF": "Hide HyperPDF",
+  "Hide Others": "Hide Others",
+  "Show All": "Show All",
+  "Quit HyperPDF": "Quit HyperPDF"
 }

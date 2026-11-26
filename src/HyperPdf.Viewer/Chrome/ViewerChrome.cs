@@ -275,7 +275,7 @@ public sealed partial class ViewerChrome : IDisposable
     internal ChromePointer Pointer { get; }
 
     /// <summary>Gets the commands of the controls that act on the window itself, made when first asked for, once the controls exist to run them.</summary>
-    private ChromeActions Actions => _actions ??= new(this, _main, _window);
+    private ChromeActions Actions => _actions ??= CreateActions();
 
     /// <summary>Presses a control, as a screen reader or a switch device does through the accessibility tree.</summary>
     /// <param name="inOverlay">Whether the control is in the open menu, dialog or search bar rather than the bars.</param>
@@ -980,6 +980,19 @@ public sealed partial class ViewerChrome : IDisposable
 
         Actions.OpenBarMenu(index);
         return true;
+    }
+
+    /// <summary>Makes the commands of the window's own controls, and hands the menus to a window whose operating system draws the menu bar.</summary>
+    /// <returns>The commands.</returns>
+    private ChromeActions CreateActions()
+    {
+        var actions = new ChromeActions(this, _main, _window);
+        if (_window is INativeMenuBar native)
+        {
+            NativeMenus.Show(native, _main, actions);
+        }
+
+        return actions;
     }
 
     /// <summary>Tells whether the menu bar is among the controls shown; a presentation and reading mode hide it.</summary>

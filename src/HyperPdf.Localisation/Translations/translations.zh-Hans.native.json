@@ -711,5 +711,9 @@
   "This document's text cannot be changed.": "无法更改此文档的文本。",
   "This document's text cannot be saved.": "无法保存此文档的文本。",
   "Those words are not in the pages' text, so nothing was replaced.": "页面文本中没有这些字词，因此未替换任何内容。",
-  "Took {0} out of the document.": "已从文档中移除 {0}。"
+  "Took {0} out of the document.": "已从文档中移除 {0}。",
+  "Hide HyperPDF": "隐藏 HyperPDF",
+  "Hide Others": "隐藏其他",
+  "Show All": "全部显示",
+  "Quit HyperPDF": "退出 HyperPDF"
 }

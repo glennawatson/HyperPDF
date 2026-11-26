@@ -103,6 +103,19 @@ internal static class MenuBar
         return height;
     }
 
+    /// <summary>Gets the menus' names in the language shown, without access marks, for a menu bar the operating system draws.</summary>
+    /// <returns>The names, in their order on the bar.</returns>
+    internal static string[] Names()
+    {
+        var names = new string[Titles.Length];
+        for (var i = 0; i < names.Length; i++)
+        {
+            names[i] = ChromeText.WithoutAccessMark(UiText.Get(Titles[i]));
+        }
+
+        return names;
+    }
+
     /// <summary>Tells whether a menu can open now. File, Edit, Window and Help always can; the others need an open document.</summary>
     /// <param name="main">The main view model.</param>
     /// <param name="index">The menu's place on the bar.</param>

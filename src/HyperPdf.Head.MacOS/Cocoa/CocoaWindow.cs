@@ -21,7 +21,7 @@ namespace HyperPdf.Head.MacOS.Cocoa;
 /// runtime. Apart from <see cref="Wake"/> and <see cref="RequestFrame"/>, every member runs on the thread that made the window.
 /// </summary>
 [DebuggerDisplay("CocoaWindow: {ClientSize}")]
-public sealed unsafe class CocoaWindow : IPlatformWindow
+public sealed unsafe class CocoaWindow : IPlatformWindow, INativeMenuBar
 {
     /// <summary>The first window width in points.</summary>
     private const double InitialWidth = 1024;
@@ -140,8 +140,11 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
     /// <summary>Whether the window has been shown, after which becoming hidden means the user closed it.</summary>
     private bool _shown;
 
-    /// <summary>Whether the close was reported.</summary>
-    private bool _closeReported;
+    /// <summary>1 once the close was reported; changed with <see cref="Interlocked.Exchange(ref int, int)"/>.</summary>
+    private int _closeReported;
+
+    /// <summary>The menu bar macOS draws at the top of the screen, made when the viewer hands over its menus.</summary>
+    private CocoaMenuBar? _menuBar;
 
     /// <summary>Whether the window was asked to fill the screen.</summary>
     private bool _fullScreen;
@@ -411,6 +414,16 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
     public void Close() => Dispose();
 
     /// <inheritdoc/>
+    public void SetMenus(IReadOnlyList<string> titles, Func<int, NativeMenuItem[]> build, NativeAppMenu application)
+    {
+        ArgumentNullException.ThrowIfNull(titles);
+        ArgumentNullException.ThrowIfNull(build);
+        ArgumentNullException.ThrowIfNull(application);
+        _menuBar ??= new(RequestClose);
+        _menuBar.Show((nint)_application, titles, build, application);
+    }
+
+    /// <inheritdoc/>
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
@@ -420,6 +433,7 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
 
         Backend.Dispose();
         Accessibility.Dispose();
+        _menuBar?.Dispose();
         _events.Dispose();
         NativeMethods.SendVoid((nint)_window, Selectors.Close);
         NativeMethods.SendVoid((nint)_mode, Selectors.Release);
@@ -530,13 +544,12 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
             _events.OnNext(new(WindowEventKind.Resized, _size.Width, _size.Height, 0, 0));
         }
 
-        if (!_shown || _closeReported || NativeMethods.SendFlag((nint)_window, Selectors.IsVisible) != 0)
+        if (!_shown || NativeMethods.SendFlag((nint)_window, Selectors.IsVisible) != 0)
         {
             return;
         }
 
-        _closeReported = true;
-        _events.OnNext(new(WindowEventKind.CloseRequested, 0, 0, 0, 0));
+        RequestClose();
     }
 
     /// <summary>Reports an event to the viewer and passes it on to Cocoa, which moves, resizes and closes the window.</summary>
@@ -559,6 +572,17 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
         NativeMethods.SendVoid((nint)_application, Selectors.SendEvent, next);
     }
 
+    /// <summary>Asks the viewer to close the window, once, as Command and Q and Quit in the application menu do; it asks about unsaved work first.</summary>
+    private void RequestClose()
+    {
+        if (Interlocked.Exchange(ref _closeReported, 1) != 0)
+        {
+            return;
+        }
+
+        _events.OnNext(new(WindowEventKind.CloseRequested, 0, 0, 0, 0));
+    }
+
     /// <summary>Reports a key event. Command and Q asks to close the window, as it does in every Mac application.</summary>
     /// <param name="next">The NSEvent.</param>
     /// <param name="down">Whether the key went down.</param>
@@ -568,12 +592,7 @@ public sealed unsafe class CocoaWindow : IPlatformWindow
         var modifiers = CocoaInput.ToModifiers(NativeMethods.SendCount(next, Selectors.ModifierFlags));
         if (down && keyCode == QuitKey && (modifiers & ViewerModifiers.Control) != 0)
         {
-            if (!_closeReported)
-            {
-                _closeReported = true;
-                _events.OnNext(new(WindowEventKind.CloseRequested, 0, 0, 0, 0));
-            }
-
+            RequestClose();
             return;
         }
 
