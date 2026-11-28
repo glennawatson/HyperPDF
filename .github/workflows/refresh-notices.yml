@@ -27,7 +27,7 @@ jobs:
           ref: ${{ github.ref_name }}
           token: ${{ steps.notices-token.outputs.token }}
       - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@d1a1652f1d0e4ad7d2f77bda30b58f4b42ab0748 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@e793ab9257b1b034ed5cb9695609338317ea1221 # main
         with:
           src-folder: '.'
           stamp-version: 'false'
