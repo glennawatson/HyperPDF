@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         runner: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, windows-11-arm, macos-latest, macos-15-intel]
-    uses: glennawatson/actions-common/.github/workflows/workflow-common-build-and-test.yml@d1a1652f1d0e4ad7d2f77bda30b58f4b42ab0748 # main
+    uses: glennawatson/actions-common/.github/workflows/workflow-common-build-and-test.yml@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
     with:
       runner: ${{ matrix.runner }}
       srcFolder: 'src'
@@ -30,9 +30,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@d1a1652f1d0e4ad7d2f77bda30b58f4b42ab0748 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
         with:
           src-folder: 'src'
           stamp-version: 'false'
@@ -75,9 +75,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup .NET
-        uses: glennawatson/actions-common/.github/actions/dotnet-environment@d1a1652f1d0e4ad7d2f77bda30b58f4b42ab0748 # main
+        uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
         with:
           src-folder: 'src'
           stamp-version: 'false'
