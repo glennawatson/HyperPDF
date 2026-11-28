@@ -632,7 +632,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Disposables
-- Version: 10.2.3
+- Version: 10.2.4
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
@@ -662,7 +662,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Primitives
-- Version: 10.2.3
+- Version: 10.2.4
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
@@ -692,7 +692,7 @@ SOFTWARE.
 ````
 
 ### ReactiveUI.Primitives.Core
-- Version: 10.2.3
+- Version: 10.2.4
 - Origin: NuGet package
 - Copyright: Copyright (c) ReactiveUI Association Inc 2026
 - Link: https://github.com/reactiveui/Primitives
